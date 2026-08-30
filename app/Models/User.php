@@ -24,6 +24,7 @@ class User extends Authenticatable
         'email',
         'password',
         'passphrase_salt',
+        'key_ring_ciphertext',
         'timezone',
         'dnd_event_name',
         'nap_event_name',
@@ -56,6 +57,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'two_factor_secret' => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
             'two_factor_confirmed_at' => 'datetime',
             'availability_settings' => 'array',
         ];
