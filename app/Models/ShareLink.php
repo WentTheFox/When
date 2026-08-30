@@ -19,9 +19,16 @@ class ShareLink extends Model
         'key_protection',
         'wrapped_key',
         'wrap_salt',
+        'content_key_ciphertext',
         'archived',
         'bypass_dnd',
         'legacy_token',
+    ];
+
+    protected $hidden = [
+        // Never serialized — decryption only ever happens transiently,
+        // inside the recompute job. See PLAN.md §0.2/§5.3.
+        'content_key_ciphertext',
     ];
 
     protected function casts(): array
@@ -45,5 +52,10 @@ class ShareLink extends Model
     public function cache(): HasOne
     {
         return $this->hasOne(ShareLinkCache::class);
+    }
+
+    public function manualTags(): HasMany
+    {
+        return $this->hasMany(ShareLinkManualTag::class);
     }
 }

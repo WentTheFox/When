@@ -30,6 +30,7 @@ class User extends Authenticatable
         'nap_event_name',
         'availability_settings',
         'calendar_parsing_mode',
+        'highlight_clause_pattern',
     ];
 
     /**
@@ -97,5 +98,10 @@ class User extends Authenticatable
     public function invitesIssued(): HasMany
     {
         return $this->hasMany(Invite::class, 'inviter_user_id');
+    }
+
+    public function calendarDetections(): HasMany
+    {
+        return $this->hasMany(CalendarDetection::class);
     }
 }

@@ -1,0 +1,13 @@
+packages:
+  - "."
+
+allowBuilds:
+  # esbuild's postinstall just downloads the platform-matched binary — a
+  # standard, well-known pattern, safe to allow.
+  esbuild: true
+
+# Supply-chain hardening: refuse to install a package version published
+# less than 14 days ago. Most malicious/compromised publishes get caught
+# and unpublished/flagged within that window — this buys time for that to
+# happen before it ever lands in this app's dependency tree.
+minimumReleaseAge: 20160
