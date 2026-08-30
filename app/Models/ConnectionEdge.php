@@ -1,0 +1,34 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class ConnectionEdge extends Model
+{
+    use HasUuids;
+
+    protected $fillable = [
+        'user_id',
+        'from_connection_id',
+        'to_connection_id',
+        'label_ciphertext',
+    ];
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function from(): BelongsTo
+    {
+        return $this->belongsTo(Connection::class, 'from_connection_id');
+    }
+
+    public function to(): BelongsTo
+    {
+        return $this->belongsTo(Connection::class, 'to_connection_id');
+    }
+}
