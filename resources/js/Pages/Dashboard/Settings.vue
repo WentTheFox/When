@@ -56,7 +56,7 @@ const props = defineProps<{
     tentativePattern: string;
   };
   timezones: string[];
-  hasCalendarUrl: boolean;
+  calendarUrl: string | null;
   sleepExceptions: { id: string; start_date: string; end_date: string; label_ciphertext: string | null }[];
 }>();
 
@@ -179,10 +179,18 @@ const exampleAvailability: AvailabilityResponse = (() => {
 // SettingsController::updateCalendarUrl's doc comment for why: a pending,
 // not-yet-previewed URL should only ever be able to block itself, never
 // unrelated settings changes.
+//
+// Pre-filled with the actual saved URL (not left blank) — this is §0.2
+// server-runtime tier, not §0.1 client-vault E2EE, so the server can
+// already decrypt it on every recompute regardless; hiding it from the
+// owner's own settings page only added confusion, no real confidentiality.
+// Saving still requires a fresh Preview click either way (server-enforced),
+// so re-showing the existing value doesn't skip that safety check.
 const calendarUrlForm = useForm({
-  calendar_url: '',
+  calendar_url: props.calendarUrl ?? '',
   calendar_url_preview_confirmed: false as boolean,
 });
+const hadSavedCalendarUrl = ref(!!props.calendarUrl);
 
 const form = useForm({
   timezone: props.settings.timezone,
@@ -314,7 +322,13 @@ function saveCalendarUrl(): void {
   calendarUrlForm.patch('/settings/calendar-url', {
     preserveScroll: true,
     onSuccess: () => {
-      calendarUrlForm.reset();
+      // Shown back verbatim (see the form's own doc comment above), so a
+      // successful save keeps the just-saved value visible rather than
+      // clearing the field — update the form's own "reset to" baseline to
+      // match, and require a fresh Preview for anything typed after this.
+      calendarUrlForm.calendar_url_preview_confirmed = false;
+      calendarUrlForm.defaults();
+      hadSavedCalendarUrl.value = true;
       previewResult.value = null;
       previewStatus.value = '';
       // The page-level flash alert lands at the very top of a long page and
@@ -355,19 +369,19 @@ function submit(): void {
       <BFormGroup label-for="calendar_url" class="mb-3">
         <template #label>
           Calendar URL (ICS feed)
-          <BBadge v-if="hasCalendarUrl" variant="success" class="ms-1">Configured</BBadge>
+          <BBadge v-if="hadSavedCalendarUrl" variant="success" class="ms-1">Configured</BBadge>
           <BBadge v-else variant="secondary" class="ms-1">Not set</BBadge>
         </template>
         <BFormInput
           id="calendar_url"
           v-model="calendarUrlForm.calendar_url"
           type="url"
-          :placeholder="hasCalendarUrl ? '(hidden — paste a new URL here to replace it)' : 'https://...'"
+          placeholder="https://..."
           @input="onUrlInput"
         />
         <template #description>
-          {{ hasCalendarUrl
-            ? "Already saved, but never shown here again once you leave this page — that's intentional, so it's never sent back to your browser after the fact. Paste a new one, preview it, then save to replace it."
+          {{ hadSavedCalendarUrl
+            ? "Edit it and preview before saving to replace it."
             : "Paste your calendar's ICS URL, then preview it before saving." }}
         </template>
         <div v-if="calendarUrlForm.errors.calendar_url" class="text-danger small">{{ calendarUrlForm.errors.calendar_url }}</div>

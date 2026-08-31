@@ -68,7 +68,16 @@ class SettingsController extends Controller
                 'tentativePattern' => IcsParser::DEFAULT_TENTATIVE_TITLE_PATTERN,
             ],
             'timezones' => \DateTimeZone::listIdentifiers(),
-            'hasCalendarUrl' => $user->calendar_url_ciphertext !== null,
+            // Shown back to the owner verbatim, not masked — this is §0.2
+            // server-runtime tier (Crypt/APP_KEY), not §0.1 client-vault
+            // E2EE, so the server already has to be able to decrypt it on
+            // every recompute regardless. Hiding it from the owner's own
+            // settings page added confusion (an empty-looking input despite
+            // a "Configured" badge) without any actual confidentiality
+            // benefit — the server can decrypt this either way.
+            'calendarUrl' => $user->calendar_url_ciphertext !== null
+                ? Crypt::decryptString($user->calendar_url_ciphertext)
+                : null,
             'sleepExceptions' => $user->sleepExceptions()->orderBy('start_date')->get()->map(fn ($e) => [
                 'id' => $e->id,
                 'start_date' => $e->start_date->toDateString(),

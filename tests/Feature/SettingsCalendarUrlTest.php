@@ -5,11 +5,40 @@ namespace Tests\Feature;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class SettingsCalendarUrlTest extends TestCase
 {
     use RefreshDatabase;
+
+    /**
+     * Shown back to the owner verbatim now — this is §0.2 server-runtime
+     * tier (Crypt/APP_KEY), not §0.1 client-vault E2EE, so the server can
+     * already decrypt it on every recompute regardless; there's no
+     * confidentiality benefit to hiding it from the owner's own settings
+     * page, only confusion (an empty-looking input despite a "Configured"
+     * badge).
+     */
+    public function test_the_settings_page_returns_the_owners_own_calendar_url_in_plaintext(): void
+    {
+        $user = User::factory()->create([
+            'calendar_url_ciphertext' => Crypt::encryptString('https://calendar.example.com/secret-9182734.ics'),
+        ]);
+
+        $this->actingAs($user)
+            ->get('/settings')
+            ->assertInertia(fn (Assert $page) => $page->where('calendarUrl', 'https://calendar.example.com/secret-9182734.ics'));
+    }
+
+    public function test_the_settings_page_returns_null_when_no_calendar_url_is_set(): void
+    {
+        $user = User::factory()->create(['calendar_url_ciphertext' => null]);
+
+        $this->actingAs($user)
+            ->get('/settings')
+            ->assertInertia(fn (Assert $page) => $page->where('calendarUrl', null));
+    }
 
     /**
      * Regression test: calendar_url used to be validated/saved inside the
