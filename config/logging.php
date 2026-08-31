@@ -75,7 +75,11 @@ return [
         'availability' => [
             'driver' => 'single',
             'path' => storage_path('logs/availability.log'),
-            'level' => env('LOG_LEVEL', 'debug'),
+            // Its own level, independent of LOG_LEVEL: StageTimer::lap()
+            // logs at 'info', so turning the app's general log noise down
+            // to 'warning' in production must not also silence the timing
+            // data this channel exists to capture.
+            'level' => env('LOG_AVAILABILITY_LEVEL', 'info'),
             'replace_placeholders' => true,
         ],
 
