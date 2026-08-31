@@ -171,9 +171,11 @@ a single command's own lifetime.
 
 ## Deferred, not forgotten
 
-Change-master-password flow: flagged as needed, deliberately not built yet. Full design
-sketch (re-derive old vault key from re-entered current password to verify it, generate
-a new `passphrase_salt`, re-encrypt the same key-ring contents under the new vault key,
-compute a new login verifier, submit to a new endpoint) exists in this repo's git
-history (the now-deleted `PLAN.md`, under its "Post-Stage-7 revisions" section) if this
-gets picked up — check there or ask the user before re-deriving it from scratch.
+Change-master-password flow: flagged as needed, deliberately not built yet. The design
+sketch that existed for it lived only in `PLAN.md`, which was never committed (gitignored,
+local-only) and has since been deleted — nothing to check in git history. The gist of it,
+so it doesn't need re-deriving from scratch: re-derive the old vault key from the
+re-entered current password to verify it, generate a new `passphrase_salt`, re-encrypt
+the same key-ring contents under a freshly-derived vault key, compute a new login
+verifier, submit all of it to a new endpoint. Confirm the details with the user before
+building it — this is a compressed summary, not the full sketch.
