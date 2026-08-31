@@ -216,7 +216,6 @@ async function remove(): Promise<void> {
       <div>
         <span>{{ displayLabel }}</span>
         <BBadge v-if="link.archived" variant="secondary" class="ms-2">Archived</BBadge>
-        <BBadge v-if="link.legacy_token" variant="light" class="ms-2" title="Imported from the old app — its key is derived from the original token itself.">legacy token</BBadge>
       </div>
       <div>
         <BButton variant="outline-secondary" size="sm" title="Copy link" @click="copyUrl">
@@ -253,7 +252,7 @@ async function remove(): Promise<void> {
         Show the activity name (e.g. "Dinner") on highlighted events, not just who it's with
       </BFormCheckbox>
       <BFormGroup label="Highlight words (one per line)" class="mb-3">
-        <BFormTextarea v-model="editWords" size="sm" rows="2" />
+        <BFormTextarea v-model="editWords" size="sm" :rows="Math.max(2, props.link.highlight_words?.length ?? 0)" />
       </BFormGroup>
       <BButton size="sm" variant="primary" @click="save">Save</BButton>
     </div>
