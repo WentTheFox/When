@@ -15,29 +15,39 @@ class ActivityExtractorTest extends TestCase
         $this->extractor = new ActivityExtractor();
     }
 
+    public function test_a_null_pattern_extracts_nothing_even_when_the_default_pattern_would_match(): void
+    {
+        $this->assertNull($this->extractor->extract('Dinner with Alice'));
+    }
+
+    public function test_a_blank_pattern_extracts_nothing_even_when_the_default_pattern_would_match(): void
+    {
+        $this->assertNull($this->extractor->extract('Dinner with Alice', ''));
+    }
+
     public function test_extracts_the_freetext_before_with(): void
     {
-        $this->assertSame('Dinner', $this->extractor->extract('Dinner with Alice'));
+        $this->assertSame('Dinner', $this->extractor->extract('Dinner with Alice', ActivityExtractor::DEFAULT_PATTERN));
     }
 
     public function test_extracts_the_freetext_before_w_slash(): void
     {
-        $this->assertSame('Coffee', $this->extractor->extract('Coffee w/ Bob'));
+        $this->assertSame('Coffee', $this->extractor->extract('Coffee w/ Bob', ActivityExtractor::DEFAULT_PATTERN));
     }
 
     public function test_returns_null_when_there_is_no_with_clause(): void
     {
-        $this->assertNull($this->extractor->extract('Team sync'));
+        $this->assertNull($this->extractor->extract('Team sync', ActivityExtractor::DEFAULT_PATTERN));
     }
 
     public function test_returns_null_when_the_activity_prefix_is_empty(): void
     {
-        $this->assertNull($this->extractor->extract('with Alice'));
+        $this->assertNull($this->extractor->extract('with Alice', ActivityExtractor::DEFAULT_PATTERN));
     }
 
     public function test_trims_trailing_whitespace(): void
     {
-        $this->assertSame('Dinner', $this->extractor->extract('Dinner   with Alice'));
+        $this->assertSame('Dinner', $this->extractor->extract('Dinner   with Alice', ActivityExtractor::DEFAULT_PATTERN));
     }
 
     public function test_a_custom_pattern_overrides_the_default(): void

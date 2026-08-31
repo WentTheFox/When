@@ -14,19 +14,27 @@ use App\Support\Regex;
  * bounds the exposure to titles the owner already opted into surfacing
  * *something* from, rather than leaking freetext off of every busy block.
  *
- * On by default (§5.2's pre-commit preview is the owner's chance to catch
- * a titling convention that leaks more than intended, before any link is
- * live — see PLAN.md §5.2), not a conservative opt-in.
+ * A conservative opt-in: a null/blank pattern means "extract nothing,"
+ * same convention as ParsedEvent::matchesEventNamePattern for dnd/nap,
+ * rather than silently falling back to DEFAULT_PATTERN. This is
+ * deliberately the opposite of HighlightMatcher's own clause pattern,
+ * which does fall back to a default when unset — the activity clause
+ * hands viewers freetext straight out of the owner's own event titles,
+ * so it shouldn't turn itself on just because the owner never visited
+ * this one settings field.
  */
 class ActivityExtractor
 {
+    /** Not a functional fallback — see the class doc comment. Only ever used as the settings form's placeholder/suggested-starting-point text. */
     public const DEFAULT_PATTERN = '^(.*?)\b(?:with|w\/)';
 
     public function extract(string $text, ?string $pattern = null): ?string
     {
-        $regex = $pattern ?: self::DEFAULT_PATTERN;
+        if ($pattern === null || $pattern === '') {
+            return null;
+        }
 
-        $matches = Regex::tryMatch("\x01".$regex."\x01iu", $text);
+        $matches = Regex::tryMatch("\x01".$pattern."\x01iu", $text);
 
         if ($matches === null || ! isset($matches[1])) {
             return null;

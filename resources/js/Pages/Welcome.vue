@@ -29,9 +29,9 @@ const page = usePage();
         <h2 class="h5">What this is</h2>
         <p class="mb-3">
           {{ page.props.appName }} turns your calendar into a free/busy link you can hand to
-          anyone. Friends, coworkers, whoever. It doesn't expose what's actually
-          on your calendar. Your calendar URL is encrypted at rest and only
-          decrypted transiently to compute availability. The computed result is
+          anyone. Friends, coworkers, whoever. It doesn't expose what's actually in your calendar
+          (unless you explicitly enable it). Your calendar URL is encrypted at rest
+          and only decrypted transiently to compute availability. The computed result is
           encrypted again before it's ever served to a viewer, and decrypted in
           their browser, not on the server.
         </p>

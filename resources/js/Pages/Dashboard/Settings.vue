@@ -323,7 +323,12 @@ const form = useForm({
   nap_event_name: props.settings.nap_event_name ?? props.defaults.napEventName,
   calendar_parsing_mode: props.settings.calendar_parsing_mode,
   highlight_clause_pattern: props.settings.highlight_clause_pattern ?? props.defaults.highlightClausePattern,
-  activity_clause_pattern: props.settings.activity_clause_pattern ?? props.defaults.activityClausePattern,
+  // Deliberately not pre-filled with the suggested default the way
+  // dnd/nap/highlight/tentative are — activity extraction hands viewers
+  // freetext straight out of the owner's own event titles, so it starts
+  // off (blank) rather than opting a new owner in before they've
+  // consciously decided to. See ActivityExtractor's own doc comment.
+  activity_clause_pattern: props.settings.activity_clause_pattern ?? '',
   tentative_pattern: props.settings.tentative_pattern ?? props.defaults.tentativePattern,
   public_page_title_en: props.settings.public_page_title_en ?? '',
   public_page_title_hu: props.settings.public_page_title_hu ?? '',
@@ -677,13 +682,19 @@ function submit(): void {
             </BFormGroup>
 
             <BFormGroup label="Activity clause pattern (advanced)" label-for="activity_clause_pattern" class="mb-3">
+              <BAlert variant="warning" :model-value="true" class="small mb-2">
+                <strong>If you set this, the activity itself — not just who an event is with —
+                will be shown to anyone viewing your calendar link.</strong> E.g. "Dinner" from
+                "Dinner with Alice." Leave it blank (the default) and nothing is ever extracted or
+                shown, no matter how a matched event's title reads.
+              </BAlert>
               <BFormTextarea id="activity_clause_pattern" v-model="form.activity_clause_pattern" rows="2" :placeholder="defaults.activityClausePattern" />
               <template #description>
-                A separate pattern from the one above — its capture group is the freetext
-                <em>before</em> "with"/"w/" (e.g. "Dinner" in "Dinner with Alice"), shown to
-                viewers alongside the highlight word by default. Turn this off for an individual
-                share link from that link's own settings (not here) if you'd rather it only ever
-                show who an event is with, never what it is.
+                A separate pattern from the highlight clause above — its capture group is the
+                freetext <em>before</em> "with"/"w/" (e.g. "Dinner" in "Dinner with Alice"). Only
+                ever applied to an event that already matched a highlight word, and only shown if
+                the individual share link viewing it also has its own "show activity" option on
+                (a link-level toggle, not here). Same regex-body rules as the fields above.
               </template>
             </BFormGroup>
 
@@ -729,10 +740,10 @@ function submit(): void {
               />
 
               <p class="small text-muted mb-1 mt-3">
-                Activity clause — <code>{{ form.activity_clause_pattern || defaults.activityClausePattern }}</code>
+                Activity clause — <code>{{ form.activity_clause_pattern || '(blank, off)' }}</code>
               </p>
               <PatternPreview
-                :pattern="form.activity_clause_pattern || defaults.activityClausePattern"
+                :pattern="form.activity_clause_pattern"
                 :examples="['Dinner with Alice', 'Call w/ Bob', 'Team sync', 'Coffee with Charlie, then gym']"
                 mode="extract"
               />

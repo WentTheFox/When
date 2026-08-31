@@ -65,6 +65,7 @@ class AvailabilityServiceTest extends TestCase
         array $manualTags = [],
         bool $bypassDnd = false,
         bool $showActivity = true,
+        ?string $activityClausePattern = null,
     ): AvailabilityResult {
         return $this->service->compute(
             $events,
@@ -77,6 +78,7 @@ class AvailabilityServiceTest extends TestCase
             $bypassDnd,
             $this->rangeStart,
             $this->rangeEnd,
+            activityClausePattern: $activityClausePattern,
             showActivity: $showActivity,
         );
     }
@@ -265,11 +267,25 @@ class AvailabilityServiceTest extends TestCase
         $this->assertCount(1, $result->unavailable);
     }
 
-    public function test_a_highlighted_event_carries_the_extracted_activity_by_default(): void
+    public function test_a_highlighted_event_carries_no_activity_when_no_pattern_is_configured(): void
+    {
+        // Activity extraction is a conservative opt-in (ActivityExtractor's
+        // own doc comment) — an owner who's never touched this setting
+        // shouldn't have event-title freetext shown to viewers.
+        $result = $this->compute(
+            events: [$this->event('c1', '2026-06-03 12:00', '2026-06-03 13:00', 'Coffee with Alice')],
+            highlightWords: ['Alice'],
+        );
+
+        $this->assertNull($result->highlighted[0]->activity);
+    }
+
+    public function test_a_highlighted_event_carries_the_extracted_activity_once_a_pattern_is_configured(): void
     {
         $result = $this->compute(
             events: [$this->event('c1', '2026-06-03 12:00', '2026-06-03 13:00', 'Coffee with Alice')],
             highlightWords: ['Alice'],
+            activityClausePattern: ActivityExtractor::DEFAULT_PATTERN,
         );
 
         $this->assertSame('Coffee', $result->highlighted[0]->activity);
@@ -281,6 +297,7 @@ class AvailabilityServiceTest extends TestCase
             events: [$this->event('c1', '2026-06-03 12:00', '2026-06-03 13:00', 'Coffee with Alice')],
             highlightWords: ['Alice'],
             showActivity: false,
+            activityClausePattern: ActivityExtractor::DEFAULT_PATTERN,
         );
 
         $this->assertSame(['Alice'], $result->highlighted[0]->highlightWords);
