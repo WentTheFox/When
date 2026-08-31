@@ -130,6 +130,28 @@ function parseViewParam(): 'week' | 'month' {
   return new URLSearchParams(location.search).get('view') === 'month' ? 'month' : 'week';
 }
 
+/**
+ * anchorDate is always kept snapped to the start of its own mode's period
+ * (the configured first-day-of-week for week mode, the 1st for month mode)
+ * — never an arbitrary day within it. Two things that needs: the `at` URL
+ * param staying meaningful (it's always "the period's first day," matching
+ * what's actually shown, instead of whatever day happened to be clicked or
+ * "today" landed on), and addMonths() never clamping across the month-mode
+ * boundary — addMonths(Jan 31, 1) silently becomes Feb 28 (Feb 31 doesn't
+ * exist), and from there addMonths(Feb 28, 1) is Mar 28, not Mar 31,
+ * permanently losing the original day and — combined with switching back
+ * to week mode mid-drift — was the "switching view has a chance to land
+ * in the past" bug: an unsnapped anchor could end up on a day whose own
+ * startOfWeek/startOfMonth no longer agreed with what isAtStart last
+ * guarded against. Snapping before every mode's own date math keeps
+ * anchorDate always canonical, so there's nothing left to drift.
+ */
+function snapToPeriodStart(date: Date, mode: 'week' | 'month', weekStart: number): Date {
+  return mode === 'month'
+    ? startOfMonth(date)
+    : startOfWeekFns(date, { weekStartsOn: weekStart as 0 | 1 | 2 | 3 | 4 | 5 | 6 });
+}
+
 // A bookmarked/shared URL with a stale `at` from before today is clamped
 // back to today rather than honored — same reasoning as goPrev's isAtStart
 // guard below: this viewer should never land on a week/month that's
@@ -138,18 +160,14 @@ function parseAtParam(viewMode: 'week' | 'month', weekStart: number): Date | nul
   const at = new URLSearchParams(location.search).get('at');
   if (!at || !/^\d{4}-\d{2}-\d{2}$/.test(at)) return null;
   const [y, m, d] = at.split('-').map(Number);
-  const parsed = new Date(y, m - 1, d);
-  const today = new Date();
+  const parsed = snapToPeriodStart(new Date(y, m - 1, d), viewMode, weekStart);
+  const today = snapToPeriodStart(new Date(), viewMode, weekStart);
 
-  const isPast = viewMode === 'month'
-    ? startOfMonth(parsed) < startOfMonth(today)
-    : startOfWeekFns(parsed, { weekStartsOn: weekStart as 0 | 1 | 2 | 3 | 4 | 5 | 6 }) < startOfWeekFns(today, { weekStartsOn: weekStart as 0 | 1 | 2 | 3 | 4 | 5 | 6 });
-
-  return isPast ? null : parsed;
+  return parsed < today ? null : parsed;
 }
 
 const viewMode = ref<'week' | 'month'>(parseViewParam());
-const anchorDate = ref(parseAtParam(viewMode.value, props.weekStart) ?? new Date());
+const anchorDate = ref(parseAtParam(viewMode.value, props.weekStart) ?? snapToPeriodStart(new Date(), viewMode.value, props.weekStart));
 
 function formatDateParam(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -214,22 +232,30 @@ function goNext(): void {
 }
 
 function goToday(): void {
-  anchorDate.value = new Date();
+  anchorDate.value = snapToPeriodStart(new Date(), viewMode.value, props.weekStart);
   updateUrl();
 }
 
+// Re-snapping to the *new* mode's own period start (not just toggling
+// viewMode) is what keeps this from ever landing on the past: anchorDate
+// was already canonical for the mode being left, but "canonical for week
+// mode" and "canonical for month mode" aren't the same day, and leaving it
+// as-is here is exactly the drift snapToPeriodStart's own doc comment
+// above describes.
 function setViewWeek(): void {
+  anchorDate.value = snapToPeriodStart(anchorDate.value, 'week', props.weekStart);
   viewMode.value = 'week';
   updateUrl();
 }
 
 function setViewMonth(): void {
+  anchorDate.value = snapToPeriodStart(anchorDate.value, 'month', props.weekStart);
   viewMode.value = 'month';
   updateUrl();
 }
 
 function onWeekClick(day: Date): void {
-  anchorDate.value = day;
+  anchorDate.value = snapToPeriodStart(day, 'week', props.weekStart);
   viewMode.value = 'week';
   updateUrl();
 }
