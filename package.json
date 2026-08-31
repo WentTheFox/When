@@ -4,7 +4,9 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite",
+        "dev:server": "vite",
+        "dev:queue": "php artisan horizon",
+        "dev": "concurrently -p name pnpm:dev:*",
         "test": "vitest run",
         "test:watch": "vitest",
         "typecheck": "vue-tsc --noEmit"

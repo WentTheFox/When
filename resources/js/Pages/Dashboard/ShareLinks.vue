@@ -2,10 +2,11 @@
 import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
 import { BAlert, BButton, BCard, BFormCheckbox, BFormGroup, BFormInput } from 'bootstrap-vue-next';
-import { ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
   bytesToBase64,
   buildFragment,
+  decryptString,
   encryptString,
   exportAesKey,
   generateFragmentKey,
@@ -22,7 +23,7 @@ const props = defineProps<{
   shareLinks: ShareLinkRow[];
   connections: { id: string; name_ciphertext: string }[];
 }>();
-const { createRecordKey } = useVault();
+const { createRecordKey, getRecordKey, vaultUnlocked } = useVault();
 
 const links = ref<ShareLinkRow[]>(props.shareLinks);
 const showNewForm = ref(false);
@@ -32,6 +33,52 @@ const newPassphrase = ref('');
 const newLinkError = ref('');
 const createdUrl = ref('');
 const creating = ref(false);
+const selectedLinkId = ref<string | null>(null);
+const selectedLink = computed(() => links.value.find((l) => l.id === selectedLinkId.value) ?? null);
+
+// Master-list display labels only — ShareLinkCard.vue does its own,
+// independent decryption for the detail pane; this is a lighter-weight
+// copy just so the left-hand list has something readable to show without
+// waiting on whichever card happens to be selected.
+const decryptedLabels = ref<Record<string, string>>({});
+const decryptedConnectionNames = ref<Record<string, string>>({});
+
+async function decryptListLabels(): Promise<void> {
+  for (const connection of props.connections) {
+    if (decryptedConnectionNames.value[connection.id]) continue;
+    try {
+      const key = await getRecordKey(connection.id);
+      decryptedConnectionNames.value[connection.id] = await decryptString(key, connection.name_ciphertext);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  for (const link of links.value) {
+    if (decryptedLabels.value[link.id]) continue;
+    if (!link.label_ciphertext) {
+      decryptedLabels.value[link.id] = link.connection_id
+        ? (decryptedConnectionNames.value[link.connection_id] ?? '…')
+        : '(no label)';
+      continue;
+    }
+    try {
+      const key = await getRecordKey(link.id);
+      decryptedLabels.value[link.id] = await decryptString(key, link.label_ciphertext);
+    } catch (error) {
+      console.error(error);
+      decryptedLabels.value[link.id] = '(could not decrypt)';
+    }
+  }
+}
+
+watch([vaultUnlocked, links], ([unlocked]) => {
+  if (unlocked) decryptListLabels();
+}, { immediate: true, deep: true });
+
+function select(id: string): void {
+  selectedLinkId.value = id;
+}
 
 async function createLink(): Promise<void> {
   newLinkError.value = '';
@@ -69,6 +116,7 @@ async function createLink(): Promise<void> {
 
     const { data } = await axios.post('/dashboard/share-links', payload);
     links.value.unshift(data);
+    selectedLinkId.value = data.id;
 
     createdUrl.value = usePassphrase.value
       ? `${window.location.origin}/free/${id}`
@@ -89,6 +137,7 @@ async function createLink(): Promise<void> {
 function onUpdated(updated: ShareLinkRow): void {
   const index = links.value.findIndex((l) => l.id === updated.id);
   if (index !== -1) links.value[index] = updated;
+  delete decryptedLabels.value[updated.id];
 }
 
 function onRegenerated(updated: ShareLinkRow, url: string): void {
@@ -159,14 +208,37 @@ async function importLinks(event: Event): Promise<void> {
       <div class="text-danger small mt-2">{{ newLinkError }}</div>
     </BCard>
 
-    <p v-if="links.length === 0" class="text-muted">No share links yet.</p>
-    <ShareLinkCard
-      v-for="link in links"
-      :key="link.id"
-      :link="link"
-      :connections="connections"
-      @updated="onUpdated"
-      @regenerated="onRegenerated"
-    />
+    <BCard>
+      <div class="row">
+        <div class="col-md-4">
+          <p v-if="links.length === 0" class="text-muted small">No share links yet.</p>
+          <div v-else class="list-group wtf-master-list">
+            <button
+              v-for="link in links"
+              :key="link.id"
+              type="button"
+              class="list-group-item list-group-item-action"
+              :class="{ active: selectedLinkId === link.id }"
+              @click="select(link.id)"
+            >
+              {{ decryptedLabels[link.id] ?? '…' }}
+              <span v-if="link.archived" class="text-muted small"> (archived)</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="col-md-8">
+          <ShareLinkCard
+            v-if="selectedLink"
+            :key="selectedLink.id"
+            :link="selectedLink"
+            :connections="connections"
+            @updated="onUpdated"
+            @regenerated="onRegenerated"
+          />
+          <p v-else class="text-muted">Select a share link on the left to view or edit it.</p>
+        </div>
+      </div>
+    </BCard>
   </VaultGate>
 </template>

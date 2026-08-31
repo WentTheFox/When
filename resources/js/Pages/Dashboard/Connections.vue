@@ -43,6 +43,18 @@ const connectionOptions = computed(() =>
   connections.value.map((c) => ({ id: c.id, label: decryptedNames.value[c.id] ?? '' })),
 );
 
+/**
+ * Master-detail instead of every connection rendering full-size, one after
+ * another, down the page — a list that stayed readable at 5 connections
+ * became an endless scroll at 200 (a real number, not hypothetical: see
+ * the source-app import). The left list only ever needs a name to pick
+ * from; ConnectionCard itself is unchanged and does the actual showing/
+ * editing, just for one connection at a time now instead of all of them
+ * simultaneously.
+ */
+const selectedConnectionId = ref<string | null>(null);
+const selectedConnection = computed(() => connections.value.find((c) => c.id === selectedConnectionId.value) ?? null);
+
 watch(vaultUnlocked, async (unlocked) => {
   if (!unlocked) return;
 
@@ -106,20 +118,25 @@ watch(vaultUnlocked, async (unlocked) => {
 
 /**
  * QuickSearch.vue (the dashboard-wide search box) links here as
- * /dashboard/connections#connection-<id> rather than trying to scroll from
+ * /dashboard/connections#connection-<id> rather than trying to select from
  * the header component itself — that raced Inertia's page swap, since
  * nextTick() there only waits for a Vue update already scheduled at the
  * moment it's called, not one queued moments later. Reacting to
- * vaultUnlocked from inside this page instead means the scroll only ever
- * runs once this component's own cards are actually in the DOM: either
- * immediately (vault was already unlocked when this page loaded) or once
- * VaultGate's own unlock prompt resolves (it wasn't).
+ * vaultUnlocked from inside this page instead means the select+scroll only
+ * ever runs once this component's own detail pane can actually render:
+ * either immediately (vault was already unlocked when this page loaded) or
+ * once VaultGate's own unlock prompt resolves (it wasn't). Selecting the
+ * connection in the master-detail layout below replaces what used to be
+ * "scroll to this one's card in a long list" — the detail pane itself is
+ * what gets scrolled into view now.
  */
 watch(vaultUnlocked, (unlocked) => {
-  if (!unlocked || !window.location.hash) return;
+  if (!unlocked || !window.location.hash.startsWith('#connection-')) return;
+
+  selectedConnectionId.value = window.location.hash.slice('#connection-'.length);
 
   nextTick(() => {
-    document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    document.getElementById('connection-detail-pane')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 }, { immediate: true });
 
@@ -157,6 +174,7 @@ async function createConnection(): Promise<void> {
 
     connections.value.unshift(data);
     decryptedNames.value[id] = newName.value;
+    selectedConnectionId.value = id;
 
     newName.value = '';
     newSourceIds.value = [];
@@ -175,6 +193,7 @@ function onConnectionUpdated(updated: ConnectionRow): void {
 
 function onConnectionDeleted(id: string): void {
   connections.value = connections.value.filter((c) => c.id !== id);
+  if (selectedConnectionId.value === id) selectedConnectionId.value = null;
 }
 
 async function addSource(name: string): Promise<void> {
@@ -186,6 +205,19 @@ async function addSource(name: string): Promise<void> {
       name_ciphertext: await encryptString(key, name),
     });
     sources.value.push({ id, category_id: null, label: name });
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+async function updateSource(id: string, name: string): Promise<void> {
+  try {
+    const key = await getRecordKey(id);
+    await axios.patch(`/dashboard/connection-sources/${id}`, {
+      name_ciphertext: await encryptString(key, name),
+    });
+    const source = sources.value.find((s) => s.id === id);
+    if (source) source.label = name;
   } catch (error) {
     console.error(error);
   }
@@ -295,23 +327,47 @@ async function removeEdge(id: string): Promise<void> {
       <div class="text-danger small mt-2">{{ newConnectionError }}</div>
     </BCard>
 
-    <div class="row">
-      <div class="col-md-8">
-        <p v-if="connections.length === 0" class="text-muted">No connections yet.</p>
-        <ConnectionCard
-          v-for="connection in connections"
-          :key="connection.id"
-          :connection="connection"
-          :sources="sources"
-          :attribute-definitions="definitions"
-          @updated="onConnectionUpdated"
-          @deleted="onConnectionDeleted"
-        />
-      </div>
+    <BCard class="mb-4">
+      <div class="row">
+        <div class="col-md-4">
+          <p v-if="connections.length === 0" class="text-muted">No connections yet.</p>
+          <div v-else class="list-group wtf-master-list">
+            <button
+              v-for="connection in connections"
+              :key="connection.id"
+              type="button"
+              class="list-group-item list-group-item-action"
+              :class="{ active: selectedConnectionId === connection.id }"
+              @click="selectedConnectionId = connection.id"
+            >
+              {{ decryptedNames[connection.id] ?? '…' }}
+              <span v-if="connection.archived" class="small text-muted">(archived)</span>
+            </button>
+          </div>
+        </div>
 
-      <div class="col-md-4">
-        <SourcesPanel :sources="sources" @add="addSource" @remove="removeSource" />
+        <div id="connection-detail-pane" class="col-md-8">
+          <ConnectionCard
+            v-if="selectedConnection"
+            :key="selectedConnection.id"
+            :connection="selectedConnection"
+            :sources="sources"
+            :attribute-definitions="definitions"
+            @updated="onConnectionUpdated"
+            @deleted="onConnectionDeleted"
+          />
+          <p v-else class="text-muted">Select a connection on the left to view or edit it.</p>
+        </div>
+      </div>
+    </BCard>
+
+    <SourcesPanel :sources="sources" @add="addSource" @update="updateSource" @remove="removeSource" />
+
+    <div class="row">
+      <div class="col-md-6">
         <AttributesPanel :definitions="definitions" @add="addDefinition" @remove="removeDefinition" />
+      </div>
+      <div class="col-md-6">
         <EdgesPanel :edges="edgesForPanel" :connections="connectionOptions" @add="addEdge" @remove="removeEdge" />
       </div>
     </div>

@@ -331,6 +331,14 @@ body {
     padding-top: 1.5rem !important;
 }
 
+/* Master list pane for the master-detail layouts (Connections, sources,
+   share links) — a fixed portion of the viewport height, scrolling
+   internally once its items overflow it. */
+.wtf-master-list {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
 /*
  * Bootstrap 4 utility classes like .d-flex use !important, which otherwise
  * beats the native [hidden] attribute's display:none (lower specificity, no
