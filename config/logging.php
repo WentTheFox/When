@@ -65,6 +65,20 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Diagnostic stage timings for the availability-computation pipeline
+        // (RecomputeShareLinkAvailability, CalendarPreviewController) — its
+        // own file/channel so it can be tailed or disabled independently of
+        // the app's regular error log. Context is restricted to trace IDs,
+        // stage names, durations, and counts — never calendar_url, event
+        // titles, or highlight words (see CalendarUrlNeverLoggedTest /
+        // PlaintextLeakRegressionTest).
+        'availability' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/availability.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'replace_placeholders' => true,
+        ],
+
         'daily' => [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),

@@ -14,6 +14,7 @@ use App\Services\Calendar\FeedClassifier;
 use App\Services\Calendar\IcsParser;
 use App\Services\Crypto\AesGcm;
 use App\Services\Crypto\LegacyShareLinkKey;
+use App\Support\StageTimer;
 use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -61,15 +62,36 @@ class RecomputeShareLinkAvailability implements ShouldQueue
         $rangeStart = CarbonImmutable::now($user->timezone ?? 'UTC')->startOfDay();
         $rangeEnd = $rangeStart->addDays(self::LOOKAHEAD_DAYS);
 
+        // Diagnostic timing only — see StageTimer's own doc comment for why
+        // trace_id is a fresh UUID (never an owner/share-link id) and why
+        // context here is restricted to ids/counts/mode labels, never any
+        // of the plaintext this method handles.
+        $timer = new StageTimer('availability_recompute', [
+            'share_link_id' => $shareLink->id,
+            'user_id' => $user->id,
+        ]);
+
         // Everything from here to the encrypt-and-discard block deals in
         // plaintext (calendar_url, the raw ICS body, event titles/locations,
         // highlight words, the share link's raw content key). None of it may
         // be logged, persisted, or leave this method.
         $calendarUrl = Crypt::decryptString($user->calendar_url_ciphertext);
-        $icsBody = $fetcher->fetch($calendarUrl);
+
+        try {
+            $icsBody = $fetcher->fetch($calendarUrl);
+        } catch (\Throwable $e) {
+            $timer->fail('fetch');
+
+            throw $e;
+        }
+
+        $timer->lap('fetch', ['ics_bytes' => strlen($icsBody)]);
 
         $rawItems = $icsParser->parse($icsBody, $rangeStart, $rangeEnd, $user->tentative_pattern);
+        $timer->lap('parse', ['raw_item_count' => count($rawItems)]);
+
         $detectedMode = $classifier->classify($rawItems);
+        $timer->lap('classify', ['detected_mode' => $detectedMode->value]);
 
         CalendarDetection::create([
             'user_id' => $user->id,
@@ -78,6 +100,7 @@ class RecomputeShareLinkAvailability implements ShouldQueue
         ]);
 
         $events = $normalizer->normalize($rawItems, $user->calendar_parsing_mode);
+        $timer->lap('normalize', ['event_count' => count($events)]);
 
         $highlightWords = $shareLink->words()
             ->pluck('word_ciphertext')
@@ -117,6 +140,13 @@ class RecomputeShareLinkAvailability implements ShouldQueue
             showActivity: $shareLink->show_activity,
         );
 
+        $timer->lap('compute_availability', [
+            'free_count' => count($result->free),
+            'highlighted_count' => count($result->highlighted),
+            'unavailable_count' => count($result->unavailable),
+            'sleep_count' => count($result->sleep),
+        ]);
+
         $resultJson = json_encode($result->toArray());
         $contentKey = $this->resolveContentKey($shareLink);
 
@@ -131,6 +161,8 @@ class RecomputeShareLinkAvailability implements ShouldQueue
                 'encrypted_at' => now(),
             ],
         );
+
+        $timer->lap('encrypt_and_store');
 
         unset($calendarUrl, $icsBody, $resultJson, $contentKey, $highlightWords, $manualTags);
     }

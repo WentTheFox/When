@@ -8,6 +8,7 @@ use App\Services\Calendar\CalendarFetcher;
 use App\Services\Calendar\EventNormalizer;
 use App\Services\Calendar\FeedClassifier;
 use App\Services\Calendar\IcsParser;
+use App\Support\StageTimer;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -55,15 +56,31 @@ class CalendarPreviewController extends Controller
         $rangeStart = CarbonImmutable::now($timezone)->startOfDay();
         $rangeEnd = $rangeStart->addDays(14); // Shorter horizon than production — this is a quick sanity check, not the real cache.
 
+        // Diagnostic timing only — trace_id/user_id/counts, never the URL,
+        // ICS body, or computed result itself. See StageTimer's doc comment.
+        $timer = new StageTimer('availability_preview', [
+            'user_id' => $request->user()?->id,
+        ]);
+
         // Nothing from here down may be persisted, logged, or leave this
         // response — see the class doc comment.
-        $icsBody = $fetcher->fetch($data['calendar_url']);
+        try {
+            $icsBody = $fetcher->fetch($data['calendar_url']);
+        } catch (\Throwable $e) {
+            $timer->fail('fetch');
+
+            throw $e;
+        }
+
+        $timer->lap('fetch', ['ics_bytes' => strlen($icsBody)]);
 
         $rawItems = $icsParser->parse($icsBody, $rangeStart, $rangeEnd, $data['tentative_pattern'] ?? null);
         $detectedMode = $classifier->classify($rawItems);
+        $timer->lap('parse_and_classify', ['raw_item_count' => count($rawItems), 'detected_mode' => $detectedMode->value]);
 
         $parsingMode = $data['calendar_parsing_mode'] ?? 'auto';
         $events = $normalizer->normalize($rawItems, $parsingMode);
+        $timer->lap('normalize', ['event_count' => count($events)]);
 
         $manualTags = array_map(
             fn (array $tag) => new ManualTag(
@@ -90,6 +107,13 @@ class CalendarPreviewController extends Controller
             activityClausePattern: $data['activity_clause_pattern'] ?? null,
             showActivity: $data['show_activity'] ?? true,
         );
+
+        $timer->lap('compute_availability', [
+            'free_count' => count($result->free),
+            'highlighted_count' => count($result->highlighted),
+            'unavailable_count' => count($result->unavailable),
+            'sleep_count' => count($result->sleep),
+        ]);
 
         return response()->json([
             'detected_mode' => $detectedMode->value,
