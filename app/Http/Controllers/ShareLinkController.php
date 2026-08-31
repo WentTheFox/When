@@ -43,19 +43,28 @@ class ShareLinkController extends Controller
     public function show(Request $request, string $token): InertiaResponse|RedirectResponse
     {
         $locale = $request->route('locale', 'en');
-        $preferredLocale = $this->resolvePreferredLocale($request, $locale);
 
-        if ($preferredLocale !== $locale) {
-            Cookie::queue(self::LOCALE_COOKIE, $preferredLocale, self::LOCALE_COOKIE_MINUTES);
+        // Detection (cookie or Accept-Language) only ever promotes the
+        // no-prefix English path up to /hu — it never demotes an explicit
+        // /hu visit back down to /free. Landing on /hu/free/... is itself a
+        // clear, deliberate signal (a shared link, a bookmark, a manual
+        // LanguageSwitcher.vue click) that must never get silently
+        // overridden by a visitor's browser language settings; only the
+        // ambiguous no-prefix path is worth guessing at.
+        if ($locale === 'en') {
+            $preferredLocale = $this->resolvePreferredLocale($request, $locale);
 
-            $prefix = $preferredLocale === 'hu' ? '/hu' : '';
-            $query = $request->getQueryString();
+            if ($preferredLocale !== $locale) {
+                Cookie::queue(self::LOCALE_COOKIE, $preferredLocale, self::LOCALE_COOKIE_MINUTES);
 
-            // Same token, same query string, just the other locale's path
-            // prefix — the browser carries over the current URL's own
-            // #k=... fragment on its own (never sent to the server to begin
-            // with), same as any other same-origin redirect.
-            return redirect("{$prefix}/free/{$token}".($query !== null && $query !== '' ? "?{$query}" : ''));
+                $query = $request->getQueryString();
+
+                // Same token, same query string, just the other locale's
+                // path prefix — the browser carries over the current URL's
+                // own #k=... fragment on its own (never sent to the server
+                // to begin with), same as any other same-origin redirect.
+                return redirect("/hu/free/{$token}".($query !== null && $query !== '' ? "?{$query}" : ''));
+            }
         }
 
         Cookie::queue(self::LOCALE_COOKIE, $locale, self::LOCALE_COOKIE_MINUTES);
@@ -137,6 +146,10 @@ class ShareLinkController extends Controller
     }
 
     /**
+     * Only ever called for the no-prefix (English) route — see show()'s
+     * guard above; visiting /hu/free/... never reaches this method at all,
+     * so its result can only ever promote /free up to /hu, never demote.
+     *
      * A stored cookie preference always wins once it exists — set on every
      * visit here (see show() above), whether that visit arrived via this
      * very redirect, a manual LanguageSwitcher.vue click, or a share link

@@ -21,14 +21,18 @@ class ShareLinkLocaleDetectionTest extends TestCase
             ->assertCookie('wtf-locale', 'hu');
     }
 
-    public function test_an_english_accept_language_redirects_the_hungarian_path_to_english(): void
+    public function test_an_english_accept_language_never_redirects_the_hungarian_path_to_english(): void
     {
         $shareLink = ShareLink::factory()->for(User::factory())->create();
 
+        // Detection only ever promotes /free up to /hu — an explicit /hu
+        // visit is a deliberate signal (a shared link, a bookmark, a
+        // manual language switch) that a mismatched browser language must
+        // never silently override.
         $this->withHeaders(['Accept-Language' => 'en-US,en;q=0.5'])
             ->get("/hu/free/{$shareLink->id}")
-            ->assertRedirect("/free/{$shareLink->id}")
-            ->assertCookie('wtf-locale', 'en');
+            ->assertOk()
+            ->assertCookie('wtf-locale', 'hu');
     }
 
     public function test_a_stored_cookie_overrides_accept_language(): void
@@ -41,6 +45,19 @@ class ShareLinkLocaleDetectionTest extends TestCase
             ->withHeaders(['Accept-Language' => 'hu,en;q=0.5'])
             ->get("/free/{$shareLink->id}")
             ->assertOk();
+    }
+
+    public function test_an_english_cookie_never_redirects_the_hungarian_path_to_english(): void
+    {
+        $shareLink = ShareLink::factory()->for(User::factory())->create();
+
+        // Same guard as the Accept-Language case above, but for a stored
+        // cookie preference from an earlier visit — still must not demote
+        // an explicit /hu visit.
+        $this->withCookie('wtf-locale', 'en')
+            ->get("/hu/free/{$shareLink->id}")
+            ->assertOk()
+            ->assertCookie('wtf-locale', 'hu');
     }
 
     public function test_visiting_the_correct_locale_directly_sets_the_cookie_without_redirecting(): void
