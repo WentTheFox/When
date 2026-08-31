@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\TwoFactorController;
+use App\Http\Controllers\CalendarPreviewController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InviteController;
 use App\Http\Controllers\ShareLinkController;
@@ -41,4 +42,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/invites', [InviteController::class, 'index'])->name('invites.index');
     Route::post('/invites', [InviteController::class, 'store'])->name('invites.store');
     Route::delete('/invites/{invite}', [InviteController::class, 'destroy'])->name('invites.destroy');
+
+    // §5.2 — owner-only, never persists anything. See CalendarPreviewController's doc comment.
+    Route::post('/settings/calendar/preview', CalendarPreviewController::class)
+        ->name('settings.calendar.preview');
 });
