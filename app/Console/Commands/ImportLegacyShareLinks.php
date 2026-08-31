@@ -84,6 +84,9 @@ use Illuminate\Support\Facades\Crypt;
  * Connections CLI commands, even though the rest of this command's own
  * data (words, bypass_dnd) is only ever §0.2 server-runtime tier and needs
  * no such prompt.
+ *
+ * Hidden from `artisan list` — wtf:connections:reimport (which delegates to
+ * this command) is the one meant for direct use.
  */
 class ImportLegacyShareLinks extends Command
 {
@@ -92,6 +95,8 @@ class ImportLegacyShareLinks extends Command
     protected $signature = 'wtf:import-legacy-share-links {email : Owner email — the source app export has no per-row owner} {input : Path to the source export JSON file}';
 
     protected $description = 'One-time Stage 5 import of calendar_highlight_tokens rows into share_links';
+
+    protected $hidden = true;
 
     public function handle(): int
     {

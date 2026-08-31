@@ -12,6 +12,7 @@ import {
   generateSalt,
 } from '../../crypto';
 import { useVault } from '../../dashboard/useVault';
+import { autoUnlockPending } from '../../dashboard/vaultModal';
 import PublicLayout from '../../Layouts/PublicLayout.vue';
 
 defineOptions({ layout: PublicLayout });
@@ -74,6 +75,13 @@ async function submit(): Promise<void> {
 
     const passwordForVault = masterPassword.value;
 
+    // Set synchronously, before post() — see vaultModal.ts's
+    // autoUnlockPending doc comment: Inertia only fires onSuccess below
+    // *after* the new page (and its VaultGate's own requestUnlock() call)
+    // has already mounted, so setting this from onSuccess instead would be
+    // too late to stop the passphrase modal from flashing up.
+    autoUnlockPending.value = true;
+
     form.post('/register', {
       onFinish: () => { submitting.value = false; },
       // Same reasoning as Login.vue: registration already derived a vault
@@ -84,8 +92,9 @@ async function submit(): Promise<void> {
       // brand new owner "unlock" something they just set the passphrase
       // for seconds ago.
       onSuccess: () => {
-        unlock(passwordForVault).catch(() => {});
+        unlock(passwordForVault).catch(() => {}).finally(() => { autoUnlockPending.value = false; });
       },
+      onError: () => { autoUnlockPending.value = false; },
     });
   } catch (e) {
     console.error(e);
@@ -107,7 +116,7 @@ async function submit(): Promise<void> {
       Registration is invite-only. You need a valid invite link to sign up.
     </BAlert>
 
-    <BCard v-else>
+    <BCard v-if="hasValidInvite">
       <h1 class="h3 mb-3 text-center">Create your <em>{{ page.props.appName }}</em> account</h1>
 
       <BAlert :model-value="Object.keys(form.errors).length > 0" variant="danger">

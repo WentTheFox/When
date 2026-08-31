@@ -8,7 +8,7 @@ use App\Services\Crypto\AesGcm;
 use Illuminate\Console\Command;
 
 /**
- * Operator CLI (Stage 7's Connections CLI extension — see ImportShareLinkLabels's
+ * Operator CLI (Stage 7's Connections CLI extension — see UnlocksVault's
  * doc comment for why this exists and how it respects the E2EE boundary):
  * single-record interactive edit. Get the id from `wtf:connections:list`,
  * since names are client-vault E2EE and can't otherwise be searched from

@@ -112,6 +112,23 @@ and encrypts/decrypts every record from this process's own memory before it ever
 touches the database — the server process never holds a passphrase or vault key beyond
 a single command's own lifetime.
 
+- **`wtf:connections:reimport {email} {connections} {highlights}`** — **the** way to load
+  a source-app export: one-shot wipe-and-rebuild. Deletes *all* of the owner's
+  connections/sources/categories/attribute definitions/share links (DB cascades handle
+  every join/child table), then imports `{connections}` (the source app's
+  `ConnectionsController::exportConnections()` download) followed by `{highlights}` (its
+  `DashboardController::exportHighlights()` download) onto that now-empty slate. A "just
+  start over" command by design, not an incremental one — re-running it with a
+  corrected or freshly re-exported pair of files is always safe, since there's nothing
+  left over to duplicate against. Confirms before deleting anything (`--force` to skip).
+  Prompts for the vault passphrase twice (it delegates to the two hidden commands below,
+  each unlocking the vault independently).
+- **`wtf:connections:import`** / **`wtf:import-legacy-share-links`** — the two commands
+  `wtf:connections:reimport` delegates to; hidden from `artisan list` since running
+  either alone against already-imported data duplicates it (see their own doc comments
+  for exact file shapes) — use `wtf:connections:reimport` instead. Still directly
+  callable by name, `wtf:connections:import` in particular for its other JSON/CSV shape
+  (a flat contact list, unrelated to the source-app export pair).
 - **`wtf:connections:list {email}`** — lists an owner's connections as `id` + decrypted
   name. Mainly useful to get an id for `wtf:connections:edit`, since names are
   encrypted and can't otherwise be searched from the CLI.
@@ -121,47 +138,6 @@ a single command's own lifetime.
 - **`wtf:connections:edit {email} {id}`** — interactively edits one connection (get its
   `id` from `wtf:connections:list`). A blank prompt keeps that field's current value; a
   blank attribute prompt removes that attribute's value if it had one.
-- **`wtf:connections:import {email} {input}`** — bulk-imports from a `.json` or `.csv`
-  file. Sources and custom attribute definitions are matched by name/label against what
-  the owner already has, created automatically if missing (new definitions default to
-  type `text`). JSON is an array of `{name, notes, source, attributes: {Label: value}}`
-  objects (only `name` required); CSV is `name,notes,source,attr:<Label>,...` (any
-  `attr:`-prefixed column becomes a custom attribute keyed by the rest of its header). A
-  JSON file with a top-level `connections` key is auto-detected as a **source-app
-  export** instead and handled differently — `sources[].category` and
-  `attribute_definitions[]` (types `text`/`textarea`/`date`/`number`/`url`/`email`/
-  `phone`/`radio`, anything else falls back to `text`; `radio`'s `options.choices`
-  round-trips through its own `options_ciphertext`) are created up front; a connection
-  can have any number of `source`-kind edges (no one-source-per-connection limit); a
-  `connection`-kind edge creates one `ConnectionEdge` row (`one_way`) or two
-  (`bi_directional`) and may reference a connection defined later in the same file;
-  `highlight_token_label` guarantees a connection exists under that name (creating a bare
-  one if it isn't otherwise in this file) and ties a freshly created share link to it,
-  labeled with that same name — a link imported this way carries no calendar/highlight
-  config of its own, it just gives the owner somewhere to start instead of nothing;
-  `archived` maps directly onto `connections.archived`.
-- **`wtf:connections:backfill-share-links {email} {input}`** — one-time fix-up: given
-  the *same* source-app export file already run through `wtf:connections:import`, ties/
-  creates share links for connections whose `highlight_token_label` wasn't wired up yet
-  (imports run before that wiring existed). Unlike re-running `wtf:connections:import`
-  itself — which is **not** safe here, since its source-app-export connection-creation
-  loop has no dedupe-by-name check and would duplicate every connection in the file —
-  this command only ever resolves an existing connection by name and never creates one;
-  idempotent, safe to re-run.
-- **`wtf:vault:import-labels {email} {input}`** — one-time/backfill helper: sets
-  share-link labels via the owner's vault, from a JSON array of `{"token":
-  "<share_links.id or legacy_token>", "label": "..."}`.
-- **`wtf:import-legacy-share-links {email} {input}`** — one-time migration: imports the
-  source app's own `/dashboard/highlights/export` download (verified against its
-  `DashboardController::exportHighlights()` — one owner per file, hence `{email}` as an
-  argument rather than a per-row field, which that export doesn't have) into
-  `share_links`, keeping each row's original token as `legacy_token` (see
-  `App\Services\Crypto\LegacyShareLinkKey` for how that token alone, with no separately
-  stored key, derives the link's content key). Each row's `label` is imported verbatim
-  as the link's own `label_ciphertext`; `words` (or `highlight_words`) verbatim as
-  `share_link_words`; `archived`/`bypass_dnd` map directly. Nothing is synthesized from
-  anything else. Also ties a connection whose name exactly matches the row's `label` or
-  any of its `words` to the link, when exactly one connection matches.
 
 ## Gotchas already paid for — don't rediscover these
 

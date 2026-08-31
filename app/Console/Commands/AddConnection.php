@@ -13,7 +13,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
 /**
- * Operator CLI (Stage 7's Connections CLI extension — see ImportShareLinkLabels's
+ * Operator CLI (Stage 7's Connections CLI extension — see UnlocksVault's
  * doc comment for why this exists and how it respects the E2EE boundary):
  * single-record interactive add. Every _ciphertext field is encrypted here,
  * client-side from this process's point of view, with a fresh per-record

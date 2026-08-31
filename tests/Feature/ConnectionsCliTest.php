@@ -19,10 +19,10 @@ use Tests\TestCase;
 
 /**
  * Stage 7's Connections CLI extension (wtf:connections:*) — same operator-CLI
- * pattern and E2EE boundary as ImportShareLinkLabelsTest: the passphrase is
- * prompted interactively, the vault key is derived locally, and every write
- * is real ciphertext this test can only read back by deriving the same key
- * a browser would.
+ * pattern and E2EE boundary as every other command using UnlocksVault: the
+ * passphrase is prompted interactively, the vault key is derived locally,
+ * and every write is real ciphertext this test can only read back by
+ * deriving the same key a browser would.
  */
 class ConnectionsCliTest extends TestCase
 {
@@ -218,76 +218,12 @@ class ConnectionsCliTest extends TestCase
         $this->assertTrue(ConnectionEdge::where('from_connection_id', $one->id)->where('to_connection_id', $two->id)->exists());
         $this->assertTrue(ConnectionEdge::where('from_connection_id', $two->id)->where('to_connection_id', $one->id)->exists());
 
-        // TestPersonOne has a highlight_token_label -> gets a share link,
-        // labeled with that name; TestPersonTwo (null label) does not.
-        $this->assertSame(1, ShareLink::count());
-        $one->refresh();
-        $this->assertNotNull($one->share_link_id);
-        $shareLink = ShareLink::findOrFail($one->share_link_id);
-        $this->assertSame(
-            'TestPersonOne',
-            AesGcm::decrypt(base64_decode($ring[$shareLink->id], true), $shareLink->label_ciphertext),
-        );
+        // highlight_token_label only guarantees the connection exists —
+        // it never creates or ties a share link (that's wtf:import-legacy-
+        // share-links' job, given the real highlights export).
+        $this->assertSame(0, ShareLink::count());
+        $this->assertNull($one->refresh()->share_link_id);
         $this->assertNull($two->refresh()->share_link_id);
-    }
-
-    /**
-     * Simulates the fix-up scenario: a source-app export was imported back
-     * when highlight_token_label only guaranteed a bare connection existed,
-     * never a share link. wtf:connections:backfill-share-links, given the
-     * same file, should tie/create the missing links without duplicating
-     * any connection — and running it twice should be a no-op the second
-     * time.
-     */
-    public function test_backfill_share_links_ties_a_link_to_an_already_imported_connection(): void
-    {
-        $user = $this->userWithVault();
-        $vaultKey = $this->vaultKey($user);
-        $ring = KeyRing::decrypt($vaultKey, $user->key_ring_ciphertext);
-
-        [$rawKey, $ring] = KeyRing::getOrCreateKey($ring, $connectionId = Str::uuid()->toString());
-        $user->update(['key_ring_ciphertext' => KeyRing::encrypt($vaultKey, $ring)]);
-
-        $connection = Connection::create([
-            'id' => $connectionId,
-            'user_id' => $user->id,
-            'name_ciphertext' => AesGcm::encrypt($rawKey, 'TestPersonOne'),
-        ]);
-
-        $path = tempnam(sys_get_temp_dir(), 'wtf-backfill').'.json';
-        file_put_contents($path, json_encode([
-            'connections' => [
-                ['name' => 'TestPersonOne', 'highlight_token_label' => 'TestPersonOne'],
-                ['name' => 'TestPersonTwo', 'highlight_token_label' => null],
-            ],
-        ]));
-
-        $this->artisan('wtf:connections:backfill-share-links', ['email' => $user->email, 'input' => $path])
-            ->expectsQuestion('Enter the vault passphrase for '.$user->email, self::PASSPHRASE)
-            ->expectsOutputToContain('Linked 1 connection(s) to a new share link, skipped 0 already linked, 0 unresolved.')
-            ->assertExitCode(0);
-
-        $this->assertSame(1, Connection::count()); // no duplicate created
-        $this->assertSame(1, ShareLink::count());
-
-        $connection->refresh();
-        $this->assertNotNull($connection->share_link_id);
-
-        $ring = KeyRing::decrypt($vaultKey, $user->refresh()->key_ring_ciphertext);
-        $shareLink = ShareLink::findOrFail($connection->share_link_id);
-        $this->assertSame(
-            'TestPersonOne',
-            AesGcm::decrypt(base64_decode($ring[$shareLink->id], true), $shareLink->label_ciphertext),
-        );
-
-        // Running it again is a no-op — no second link, no duplicate connection.
-        $this->artisan('wtf:connections:backfill-share-links', ['email' => $user->email, 'input' => $path])
-            ->expectsQuestion('Enter the vault passphrase for '.$user->email, self::PASSPHRASE)
-            ->expectsOutputToContain('Linked 0 connection(s) to a new share link, skipped 1 already linked, 0 unresolved.')
-            ->assertExitCode(0);
-
-        $this->assertSame(1, Connection::count());
-        $this->assertSame(1, ShareLink::count());
     }
 
     private function userWithVault(): User

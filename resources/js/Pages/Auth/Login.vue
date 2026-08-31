@@ -7,6 +7,7 @@ import CenteredColumn from '../../Components/CenteredColumn.vue';
 import PasswordField from '../../Components/PasswordField.vue';
 import { deriveLoginVerifier } from '../../crypto';
 import { useVault } from '../../dashboard/useVault';
+import { autoUnlockPending } from '../../dashboard/vaultModal';
 import PublicLayout from '../../Layouts/PublicLayout.vue';
 
 const { unlock } = useVault();
@@ -67,6 +68,13 @@ async function submit(): Promise<void> {
     form.password = await deriveLoginVerifier(masterPassword.value, saltBasis);
     const passwordForVault = masterPassword.value;
 
+    // Set synchronously, before post() — guaranteed true before Inertia can
+    // possibly swap to a vault-gated dashboard page, unlike setting it from
+    // onSuccess below, which Inertia only fires *after* that page (and its
+    // VaultGate's own requestUnlock() call) has already mounted. See
+    // vaultModal.ts's autoUnlockPending doc comment for the full reasoning.
+    autoUnlockPending.value = true;
+
     form.post('/login', {
       onFinish: () => { submitting.value = false; },
       // Best-effort: lands here even when 2FA is pending (a "successful"
@@ -77,7 +85,7 @@ async function submit(): Promise<void> {
       // reusing the master password already in memory from the form
       // submission instead of asking for it a second time right after.
       onSuccess: () => {
-        unlock(passwordForVault).catch(() => {});
+        unlock(passwordForVault).catch(() => {}).finally(() => { autoUnlockPending.value = false; });
 
         // Transparent one-time migration off the legacy email-salted
         // verifier (see the verifier_salt_version migration and
@@ -90,6 +98,7 @@ async function submit(): Promise<void> {
             .catch(() => {});
         }
       },
+      onError: () => { autoUnlockPending.value = false; },
     });
   } catch (e) {
     console.error(e);

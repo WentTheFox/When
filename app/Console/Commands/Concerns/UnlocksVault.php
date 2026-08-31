@@ -8,11 +8,22 @@ use App\Services\Crypto\DecryptionFailedException;
 use App\Services\Crypto\KeyRing;
 
 /**
- * Shared operator-CLI vault-unlock boilerplate (see ImportShareLinkLabels's
- * doc comment for the full reasoning — this trait just factors that same
- * pattern out for the Connections CLI commands). The passphrase is prompted
- * interactively, never accepted as an argument, and never held past
- * deriving the vault key.
+ * Shared operator-CLI vault-unlock boilerplate, used by every command that
+ * needs to read or write client-vault E2EE data (§0.1/§0.3) from the
+ * command line — Connections CRM records, share-link labels. Meant to be
+ * run by whoever operates the deployment, on the machine hosting it, never
+ * owner-facing.
+ *
+ * Respects the same E2EE boundary the browser does: the passphrase is
+ * prompted interactively here (never accepted as a CLI argument, never
+ * logged), the vault key is derived locally via Argon2id.php (libsodium,
+ * proven to match resources/js/crypto/argon2.ts byte-for-byte), and every
+ * record a command using this trait touches is encrypted/decrypted from
+ * that process's own memory (this process is the "client" here, the same
+ * as a browser would be) before it ever touches the database. The server
+ * process itself never holds a passphrase or a vault key beyond a single
+ * command's own lifetime, and the passphrase itself is dropped the moment
+ * the key is derived from it (see the `finally` block below).
  */
 trait UnlocksVault
 {

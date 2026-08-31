@@ -9,7 +9,6 @@ use App\Models\ConnectionAttributeValue;
 use App\Models\ConnectionEdge;
 use App\Models\ConnectionSource;
 use App\Models\ConnectionSourceCategory;
-use App\Models\ShareLink;
 use App\Models\User;
 use App\Services\Crypto\AesGcm;
 use App\Services\Crypto\KeyRing;
@@ -19,7 +18,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
- * Operator CLI (see ImportShareLinkLabels's doc comment for why this exists
+ * Operator CLI (see UnlocksVault's doc comment for why this exists
  * and how it respects the E2EE boundary): bulk import from a JSON or CSV
  * file. Every _ciphertext field is encrypted here, client-side from this
  * process's point of view, before it ever touches the database — see
@@ -30,12 +29,20 @@ use Illuminate\Support\Str;
  *   - The source-app export shape: {sources, attribute_definitions,
  *     connections} — see importSourceAppExport() below. Detected by the
  *     presence of a top-level "connections" key.
+ *
+ * Hidden from `artisan list` — wtf:connections:reimport (which delegates
+ * to this command for the source-app-export shape) is the one meant for
+ * direct use; running this alone against already-imported source-app data
+ * duplicates every connection (no dedupe-by-name check). Still directly
+ * callable by name for the simple shape, which reimport has no use for.
  */
 class ImportConnections extends Command
 {
     use UnlocksVault;
 
     protected $signature = 'wtf:connections:import {email : Owner email} {input : Path to a .json or .csv file}';
+
+    protected $hidden = true;
 
     protected $description = 'Operator CLI: bulk-import connections via the owner\'s vault (see CLAUDE.md for file shapes)';
 
@@ -337,51 +344,31 @@ class ImportConnections extends Command
 
         // A highlight token names someone worth tracking even if this
         // export's own connection list never separately defines them —
-        // ensure a bare connection exists for every such name, then tie a
-        // fresh share link to it (whichever connection the name resolves
-        // to — the row's own, if the token label just repeats its name, or
-        // the bare one just created otherwise), labeled with that same
-        // name. Old source-app share links carry no calendar/highlight
-        // config of their own worth carrying over — this only recreates
-        // the *link*, not its settings — but "wire it up so an owner isn't
-        // starting from zero" is the whole point of importing it at all.
+        // ensure a bare connection exists for every such name. Deliberately
+        // does NOT create or tie a share link here: wtf:import-legacy-
+        // share-links, given the source app's real highlights export, does
+        // that with the real label/words instead of a fabricated one, and
+        // ties it to whichever connection this loop guaranteed exists —
+        // running both against the same person, in either order, would
+        // otherwise produce two share links for them.
         foreach ($data['connections'] ?? [] as $row) {
             $tokenName = $row['highlight_token_label'] ?? null;
 
-            if ($tokenName === null) {
+            if ($tokenName === null || isset($this->connectionIdsByName[$tokenName])) {
                 continue;
             }
 
-            if (! isset($this->connectionIdsByName[$tokenName])) {
-                $connectionId = (string) Str::uuid();
-                [$rawKey, $ring] = KeyRing::getOrCreateKey($ring, $connectionId);
+            $connectionId = (string) Str::uuid();
+            [$rawKey, $ring] = KeyRing::getOrCreateKey($ring, $connectionId);
 
-                Connection::create([
-                    'id' => $connectionId,
-                    'user_id' => $user->id,
-                    'name_ciphertext' => AesGcm::encrypt($rawKey, $tokenName),
-                ]);
-
-                $this->connectionIdsByName[$tokenName] = $connectionId;
-                $imported++;
-            }
-
-            $connection = Connection::find($this->connectionIdsByName[$tokenName]);
-
-            if ($connection->share_link_id !== null) {
-                continue;
-            }
-
-            $shareLinkId = (string) Str::uuid();
-            [$labelKey, $ring] = KeyRing::getOrCreateKey($ring, $shareLinkId);
-
-            ShareLink::create([
-                'id' => $shareLinkId,
+            Connection::create([
+                'id' => $connectionId,
                 'user_id' => $user->id,
-                'label_ciphertext' => AesGcm::encrypt($labelKey, $tokenName),
+                'name_ciphertext' => AesGcm::encrypt($rawKey, $tokenName),
             ]);
 
-            $connection->update(['share_link_id' => $shareLinkId]);
+            $this->connectionIdsByName[$tokenName] = $connectionId;
+            $imported++;
         }
 
         return $imported;
