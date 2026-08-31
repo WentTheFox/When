@@ -432,38 +432,46 @@ function submit(): void {
         />
       </div>
     </form>
+
+    <hr class="my-4">
+
+    <!--
+      Parsing mode/timezone/week start all directly affect how the URL
+      above gets parsed and previewed, so they live in this card too now,
+      not a separate "Parsing & timezone" section — still part of the main
+      settings `form`/submit() below, not the calendar_url mini-form above;
+      physical placement here doesn't change which endpoint saves them.
+    -->
+    <BFormGroup label="Parsing mode" label-for="calendar_parsing_mode" class="mb-3">
+      <BFormSelect id="calendar_parsing_mode" v-model="form.calendar_parsing_mode">
+        <option value="auto">Auto-detect</option>
+        <option value="full_detail">Full detail (event titles are used for highlighting)</option>
+        <option value="free_busy_only">Free/busy only (titles aren't meaningful; use manual tags instead)</option>
+      </BFormSelect>
+      <template #description>
+        Auto-detect looks at your feed once and picks the closest match. Pin it here if it guesses wrong.
+      </template>
+    </BFormGroup>
+
+    <BFormGroup label="Timezone" label-for="timezone" class="mb-3">
+      <BFormSelect id="timezone" v-model="form.timezone">
+        <option v-for="tz in timezones" :key="tz" :value="tz">{{ tz }}</option>
+      </BFormSelect>
+    </BFormGroup>
+
+    <BFormGroup label="Week starts on" label-for="week_start" class="mb-3">
+      <BFormSelect id="week_start" v-model.number="form.week_start">
+        <option v-for="opt in weekStartOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+      </BFormSelect>
+      <template #description>
+        Applies to your public calendar's week/month view, both preview calendars below, and
+        the row order of the Wake &amp; sleep times table.
+      </template>
+    </BFormGroup>
   </BCard>
 
   <form @submit.prevent="submit">
     <BCard class="mb-4">
-        <h2 class="h5 mb-3">Parsing &amp; timezone</h2>
-        <BFormGroup label="Parsing mode" label-for="calendar_parsing_mode" class="mb-3">
-          <BFormSelect id="calendar_parsing_mode" v-model="form.calendar_parsing_mode">
-            <option value="auto">Auto-detect</option>
-            <option value="full_detail">Full detail (event titles are used for highlighting)</option>
-            <option value="free_busy_only">Free/busy only (titles aren't meaningful; use manual tags instead)</option>
-          </BFormSelect>
-          <template #description>
-            Auto-detect looks at your feed once and picks the closest match. Pin it here if it guesses wrong.
-          </template>
-        </BFormGroup>
-
-        <BFormGroup label="Timezone" label-for="timezone" class="mb-3">
-          <BFormSelect id="timezone" v-model="form.timezone">
-            <option v-for="tz in timezones" :key="tz" :value="tz">{{ tz }}</option>
-          </BFormSelect>
-        </BFormGroup>
-
-        <BFormGroup label="Week starts on" label-for="week_start" class="mb-3">
-          <BFormSelect id="week_start" v-model.number="form.week_start">
-            <option v-for="opt in weekStartOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-          </BFormSelect>
-          <template #description>
-            Applies to your public calendar's week/month view, both preview calendars below, and
-            the row order of the Wake &amp; sleep times table.
-          </template>
-        </BFormGroup>
-
         <h2 class="h5 mb-3">Do-not-disturb &amp; naps</h2>
 
         <BAlert :model-value="true" variant="secondary" class="small">
