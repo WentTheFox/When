@@ -31,6 +31,12 @@ class User extends Authenticatable
         'availability_settings',
         'calendar_parsing_mode',
         'highlight_clause_pattern',
+        'accent_color',
+        'secondary_color',
+        'sleep_color',
+        'busy_color',
+        'free_color',
+        'highlight_color',
     ];
 
     /**
