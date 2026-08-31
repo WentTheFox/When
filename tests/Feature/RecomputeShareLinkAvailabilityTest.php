@@ -132,4 +132,53 @@ class RecomputeShareLinkAvailabilityTest extends TestCase
         $this->assertCount(1, $decrypted['unavailable']);
         $this->assertCount(0, $decrypted['highlighted']);
     }
+
+    public function test_recompute_no_ops_when_the_share_link_no_longer_exists(): void
+    {
+        $this->mockCalendarResponse($this->icsFixture());
+
+        $user = User::factory()->create([
+            'calendar_url_ciphertext' => Crypt::encryptString('https://example.com/secret.ics'),
+        ]);
+        $shareLink = ShareLink::factory()->for($user)->create();
+        $shareLinkId = $shareLink->id;
+        $shareLink->delete();
+
+        // Would throw (ModelNotFoundException) and land the job in
+        // failed_jobs if this still used findOrFail() — the owner deleting
+        // a share link while a recompute for it is queued is a real race,
+        // not a failure.
+        RecomputeShareLinkAvailability::dispatchSync($shareLinkId);
+
+        $this->assertDatabaseCount('share_link_cache', 0);
+    }
+
+    /**
+     * The race that actually happened in production: the fetch+compute
+     * takes long enough for the owner to delete the share link out from
+     * under an in-flight job. Without a re-check right before the final
+     * write, that insert violates share_link_cache's foreign key instead
+     * of just skipping cleanly.
+     */
+    public function test_recompute_skips_caching_when_the_share_link_is_deleted_mid_flight(): void
+    {
+        $user = User::factory()->create([
+            'calendar_url_ciphertext' => Crypt::encryptString('https://example.com/secret.ics'),
+        ]);
+        $shareLink = ShareLink::factory()->for($user)->create();
+        $icsBody = $this->icsFixture();
+
+        $mock = new MockHandler([
+            function () use ($shareLink, $icsBody) {
+                $shareLink->delete();
+
+                return new Response(200, [], $icsBody);
+            },
+        ]);
+        $this->app->bind(Client::class, fn () => new Client(['handler' => HandlerStack::create($mock)]));
+
+        RecomputeShareLinkAvailability::dispatchSync($shareLink->id);
+
+        $this->assertDatabaseCount('share_link_cache', 0);
+    }
 }

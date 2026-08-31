@@ -26,6 +26,28 @@ class ShareLinkAvailabilityApiTest extends TestCase
         Bus::assertDispatched(RecomputeShareLinkAvailability::class);
     }
 
+    /**
+     * The frontend polls this endpoint every ~2 seconds while a result is
+     * pending — without a debounce, every one of those hits would attempt
+     * another dispatch for as long as the first fetch+compute is in
+     * flight. The job itself is ShouldBeUnique, so those never actually
+     * ran twice, but each attempt still cost a lock-acquisition query;
+     * this asserts only the first poll in the debounce window dispatches
+     * at all.
+     */
+    public function test_repeated_polling_while_pending_only_dispatches_once(): void
+    {
+        Bus::fake();
+
+        $shareLink = ShareLink::factory()->for(User::factory())->create();
+
+        $this->getJson(route('api.share-links.show', $shareLink))->assertStatus(202);
+        $this->getJson(route('api.share-links.show', $shareLink))->assertStatus(202);
+        $this->getJson(route('api.share-links.show', $shareLink))->assertStatus(202);
+
+        Bus::assertDispatchedTimes(RecomputeShareLinkAvailability::class, 1);
+    }
+
     public function test_serves_a_fresh_cached_result_without_triggering_a_recompute(): void
     {
         Bus::fake();

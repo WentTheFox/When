@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\RecomputeShareLinkAvailability;
 use App\Models\ShareLink;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -19,6 +20,22 @@ class ShareLinkAvailabilityController extends Controller
 {
     /** How long a cached result is served before a request triggers a refresh. */
     private const CACHE_TTL_MINUTES = 15;
+
+    /**
+     * While a result is still pending (no cache row at all yet), the
+     * frontend polls this endpoint roughly every 2 seconds — without a
+     * guard, every single one of those hits would attempt another dispatch
+     * for the whole time the first fetch+compute is in flight. The job
+     * itself is ShouldBeUnique, so those extra dispatches were always
+     * getting collapsed rather than actually running twice, but "collapsed"
+     * still costs a lock-acquisition query each time, and piling that up
+     * every 2 seconds for as long as an initial fetch takes is needless
+     * pressure on whatever backs the lock (here, the `database` cache
+     * store — no Redis-speed atomic lock to fall back on). Cache::add is
+     * itself atomic, so only the poll that actually wins gets to dispatch;
+     * every other poll in this window just serves the still-pending status.
+     */
+    private const DISPATCH_DEBOUNCE_SECONDS = 30;
 
     /**
      * Plain string token, not Eloquent route-model-binding — same reasoning
@@ -45,7 +62,7 @@ class ShareLinkAvailabilityController extends Controller
         $cache = $shareLink->cache;
         $isStale = $cache === null || $cache->encrypted_at->lt(now()->subMinutes(self::CACHE_TTL_MINUTES));
 
-        if ($isStale) {
+        if ($isStale && Cache::add("recompute-dispatched:{$shareLink->id}", true, self::DISPATCH_DEBOUNCE_SECONDS)) {
             RecomputeShareLinkAvailability::dispatch($shareLink->id);
         }
 

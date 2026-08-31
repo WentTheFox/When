@@ -72,7 +72,16 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
         EventNormalizer $normalizer,
         AvailabilityService $availabilityService,
     ): void {
-        $shareLink = ShareLink::with('user')->findOrFail($this->shareLinkId);
+        // Not findOrFail(): the owner deleting the share link while this job
+        // is still queued or in flight (§the new delete feature) is a real,
+        // expected race, not a failure — nothing left to compute for, so
+        // just no-op rather than landing in failed_jobs.
+        $shareLink = ShareLink::with('user')->find($this->shareLinkId);
+
+        if ($shareLink === null) {
+            return;
+        }
+
         $user = $shareLink->user;
 
         if ($user->calendar_url_ciphertext === null) {
@@ -164,15 +173,21 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
 
         $ciphertext = AesGcm::encrypt($contentKey, $resultJson);
 
-        ShareLinkCache::updateOrCreate(
-            ['share_link_id' => $shareLink->id],
-            [
-                'ciphertext' => $ciphertext,
-                'computed_range_start' => $rangeStart,
-                'computed_range_end' => $rangeEnd,
-                'encrypted_at' => now(),
-            ],
-        );
+        // Re-check rather than letting this hit share_link_cache's foreign
+        // key: the fetch above can take long enough for the owner to have
+        // deleted the link in the meantime, and there's nothing left to
+        // cache a result for at that point.
+        if (ShareLink::whereKey($shareLink->id)->exists()) {
+            ShareLinkCache::updateOrCreate(
+                ['share_link_id' => $shareLink->id],
+                [
+                    'ciphertext' => $ciphertext,
+                    'computed_range_start' => $rangeStart,
+                    'computed_range_end' => $rangeEnd,
+                    'encrypted_at' => now(),
+                ],
+            );
+        }
 
         $timer->lap('encrypt_and_store');
 

@@ -13,6 +13,7 @@ if [[ "$refname" == "$RUN_FOR_REF" ]]; then
     CMD_COMPOSER="composer install --optimize-autoloader --no-dev"
     CMD_LARAVEL_DOWN="php artisan down"
     CMD_MIGRATE="php artisan migrate --force"
+    CMD_FETCH_FONTS="php artisan google-fonts:fetch"
     CMD_NPM="pnpm install --frozen-lockfile"
     CMD_BUILD="pnpm build"
     CMD_OPTIMIZE="php artisan optimize"
@@ -42,6 +43,17 @@ if [[ "$refname" == "$RUN_FOR_REF" ]]; then
     # Maintenance mode only around the parts that touch running state.
     echo "$ $CMD_LARAVEL_DOWN"; eval ${CMD_LARAVEL_DOWN}
     echo "$ $CMD_MIGRATE"; eval ${CMD_MIGRATE}
+
+    # spatie/laravel-google-fonts (config/google-fonts.php) — re-fetch
+    # whenever the package could plausibly have just been added/updated or
+    # its config changed; already-fetched fonts are otherwise left alone.
+    # Never fatal to the deploy: the @googlefonts Blade directive falls
+    # back to a live Google Fonts <link> on its own if nothing was fetched.
+    if [[ -n "$FIRST_PUSH" ]] || grep -qE "^composer.lock|^config/google-fonts.php" <<< "$DIFFED_FILES"; then
+        echo "$ $CMD_FETCH_FONTS"; eval ${CMD_FETCH_FONTS}
+    else
+        echo "# Skipping Google Fonts fetch, nothing relevant changed"
+    fi
 
     if [[ -n "$FIRST_PUSH" ]] || grep -q "^pnpm-lock.yaml" <<< "$DIFFED_FILES"; then
         echo "$ $CMD_NPM"; eval ${CMD_NPM}
