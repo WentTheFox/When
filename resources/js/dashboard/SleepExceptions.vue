@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { faUserLock } from '@fortawesome/free-solid-svg-icons';
+
 /** label_ciphertext is client-vault E2EE (§0.1/§0.3) — see ConnectionController's doc comment. */
 import axios from 'axios';
 import { BButton, BFormGroup, BFormInput } from 'bootstrap-vue-next';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { onMounted, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../crypto';
 import { requestUnlock } from './vaultModal';
@@ -133,7 +136,10 @@ function onNoteFocus(event: FocusEvent): void {
         <td>{{ exception.start_date }}</td>
         <td>{{ exception.end_date }}</td>
         <td>
-          <span v-if="exception.label_ciphertext && !vaultUnlocked" class="text-muted small">🔒 locked</span>
+          <span v-if="exception.label_ciphertext && !vaultUnlocked" class="text-muted small">
+            <FontAwesomeIcon :icon="faUserLock" />
+            Vault is locked
+          </span>
           <template v-else>{{ exception.label }}</template>
         </td>
         <td>
