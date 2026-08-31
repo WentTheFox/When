@@ -319,16 +319,16 @@ body {
     color: var(--wtf-text);
 }
 
-/* Offsets the fixed header partial's height (resources/views/partials/header.blade.php)
-   so page content doesn't render underneath it, plus a visible gap below
-   it (the card was otherwise butted right up against the header with zero
-   breathing room). Every page that uses this also has Bootstrap's `.py-5`
-   on the same element, which sets padding-top with !important — ours has
-   to match that specificity or it's silently ignored (computed padding-top
-   was 3rem from .py-5, not this rule's value). 3.5rem clears the 56px
-   fixed navbar; the rest is deliberate spacing. */
+/* A visible gap below the header (the card was otherwise butted right up
+   against it with zero breathing room). Every page that uses this also
+   has Bootstrap's `.py-5` on the same element, which sets padding-top
+   with !important — ours has to match that specificity or it's silently
+   ignored (computed padding-top was 3rem from .py-5, not this rule's
+   value). No extra offset to clear the header itself is needed here —
+   SiteHeader.vue is `sticky-top`, not `fixed-top`, so it stays in normal
+   flow and already pushes this element down on its own. */
 .wtf-page-content {
-    padding-top: calc(3.5rem + 1.5rem) !important;
+    padding-top: 1.5rem !important;
 }
 
 /*

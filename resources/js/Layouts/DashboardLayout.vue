@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { Link, router, usePage } from '@inertiajs/vue3';
-import { BButton } from 'bootstrap-vue-next';
+import { usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import SiteFooter from '../Components/SiteFooter.vue';
-import ThemeToggle from '../Components/ThemeToggle.vue';
+import SiteHeader from '../Components/SiteHeader.vue';
 import VaultUnlockModal from '../dashboard/VaultUnlockModal.vue';
 import { provideLiveThemePreview } from '../dashboard/liveThemePreview';
 import { hexToRgbTriplet } from '../free/color-utils';
@@ -11,10 +10,6 @@ import { resolveSwatchHex } from '../free/color-palette';
 import { useResolvedTheme } from '../composables/useTheme';
 
 const page = usePage();
-
-function logout(): void {
-  router.post('/logout');
-}
 
 const liveThemeOverride = provideLiveThemePreview();
 const resolvedTheme = useResolvedTheme();
@@ -42,49 +37,7 @@ const accentStyle = computed(() => ({
 
 <template>
   <div class="wtf-backdrop" :style="accentStyle">
-    <nav
-      class="navbar navbar-expand navbar-dark sticky-top"
-      style="background: var(--wtf-bg-elevated); border-bottom: 1px solid var(--wtf-border);"
-    >
-      <div class="container">
-        <Link class="navbar-brand" href="/dashboard">{{ page.props.appName }}</Link>
-        <div class="navbar-nav me-auto">
-          <Link class="nav-item nav-link" :class="{ active: page.url === '/dashboard' }" href="/dashboard">Overview</Link>
-          <Link class="nav-item nav-link" :class="{ active: page.url.startsWith('/settings') }" href="/settings">Settings</Link>
-          <Link
-            class="nav-item nav-link"
-            :class="{ active: page.url.startsWith('/dashboard/share-links') }"
-            href="/dashboard/share-links"
-          >
-            Share links
-          </Link>
-          <Link
-            class="nav-item nav-link"
-            :class="{ active: page.url.startsWith('/dashboard/connections') }"
-            href="/dashboard/connections"
-          >
-            Connections
-          </Link>
-          <Link class="nav-item nav-link" :class="{ active: page.url.startsWith('/invites') }" href="/invites">Invites</Link>
-        </div>
-
-        <ThemeToggle class="me-3" />
-
-        <Link href="/dashboard/account" class="d-flex align-items-center text-decoration-none me-3" style="color: inherit;">
-          <img
-            v-if="page.props.auth?.user?.avatarUrl"
-            :src="page.props.auth.user.avatarUrl"
-            alt=""
-            class="rounded-circle me-2"
-            width="28"
-            height="28"
-          >
-          <span class="small">{{ page.props.auth?.user?.name }}</span>
-        </Link>
-
-        <BButton variant="outline-secondary" size="sm" @click="logout">Log out</BButton>
-      </div>
-    </nav>
+    <SiteHeader />
 
     <div class="container py-4">
       <slot />
