@@ -127,6 +127,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/dashboard/connections', [ConnectionController::class, 'index'])
         ->name('dashboard.connections');
+    Route::get('/dashboard/connections/search-index', [ConnectionController::class, 'searchIndex'])
+        ->name('dashboard.connections.search-index');
     Route::post('/dashboard/connections', [ConnectionController::class, 'store'])
         ->name('dashboard.connections.store');
     Route::patch('/dashboard/connections/{connection}', [ConnectionController::class, 'update'])

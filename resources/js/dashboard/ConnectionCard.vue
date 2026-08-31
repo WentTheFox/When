@@ -137,7 +137,7 @@ async function remove(): Promise<void> {
 </script>
 
 <template>
-  <BCard class="mb-3">
+  <BCard :id="`connection-${connection.id}`" class="mb-3">
     <div class="d-flex justify-content-between align-items-start">
       <div>
         <h3 class="h6 mb-1">

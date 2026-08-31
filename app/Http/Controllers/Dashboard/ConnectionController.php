@@ -36,6 +36,20 @@ class ConnectionController extends Controller
         ]);
     }
 
+    /**
+     * Feeds the dashboard-wide quick-search box (QuickSearch.vue) — just
+     * id + name_ciphertext, nothing else a card carries, since search only
+     * ever needs a name to match against and something to link to. The
+     * client decrypts every name locally after the vault unlocks; this
+     * never sees or handles plaintext.
+     */
+    public function searchIndex(Request $request): JsonResponse
+    {
+        return response()->json(
+            $request->user()->connections()->get(['id', 'name_ciphertext'])
+        );
+    }
+
     public function store(Request $request): JsonResponse
     {
         $data = $this->validateConnection($request, requireId: true);

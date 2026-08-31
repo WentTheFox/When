@@ -42,6 +42,29 @@ class ConnectionsIsolationTest extends TestCase
         $response->assertInertia(fn ($page) => $page->where('connections', []));
     }
 
+    /** Feeds QuickSearch.vue — same isolation requirement as the main index. */
+    public function test_the_search_index_never_includes_another_users_rows(): void
+    {
+        $owner = User::factory()->create();
+        $stranger = User::factory()->create();
+
+        Connection::create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $stranger->id,
+            'name_ciphertext' => 'opaque',
+        ]);
+        $mine = Connection::create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $owner->id,
+            'name_ciphertext' => 'mine-opaque',
+        ]);
+
+        $response = $this->actingAs($owner)->getJson('/dashboard/connections/search-index');
+
+        $response->assertOk();
+        $response->assertJson([['id' => $mine->id, 'name_ciphertext' => 'mine-opaque']]);
+    }
+
     public function test_cannot_update_another_users_connection(): void
     {
         $owner = User::factory()->create();

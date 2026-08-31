@@ -13,6 +13,7 @@
  */
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { BButton } from 'bootstrap-vue-next';
+import QuickSearch from '../dashboard/QuickSearch.vue';
 import ThemeToggle from './ThemeToggle.vue';
 
 const page = usePage();
@@ -73,6 +74,8 @@ function logout(): void {
         right.
       -->
       <div class="d-flex align-items-center ms-auto">
+        <QuickSearch v-if="page.props.auth?.user" class="me-3" />
+
         <ThemeToggle />
 
         <template v-if="page.props.auth?.user">
