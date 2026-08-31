@@ -14,5 +14,17 @@
     "free.prevMonth": "Előző hónap",
     "free.nextMonth": "Következő hónap",
     "free.prevWeek": "Előző hét",
-    "free.nextWeek": "Következő hét"
+    "free.nextWeek": "Következő hét",
+    "free.timezoneLocalNote": "Az időpontok a te időzónádban vannak megadva",
+    "free.timezoneMatch": "Az időzónáink megegyeznek!",
+    "free.timezoneAhead": "Te :offset-val előrébb vagy hozzá képest",
+    "free.timezoneBehind": "Te :offset-val hátrébb vagy hozzá képest",
+    "free.personalizedWarning": "Ez a link neked személyre szabott. Kérlek, ne oszd meg másokkal.",
+    "free.loading": "Betöltés…",
+    "free.fetchingFirstTime": "A barátod naptára most kerül lekérésre először — ez eltarthat egy pillanatig…",
+    "free.unconfigured": "Ez a naptár még nincs beállítva. Kérd meg őt, hogy adjon meg egy naptár URL-t a beállításokban.",
+    "free.decryptFailed": "Nem sikerült visszafejteni ezt a naptárt. A link lehet, hogy sérült.",
+    "free.loadFailed": "Jelenleg nem sikerült betölteni ezt a naptárt. Kérjük, próbáld újra később.",
+    "free.linkExpiredTitle": "Lejárt Link",
+    "free.linkExpiredBody": "Ez a naptárlink lejárt vagy már nem érvényes."
 }

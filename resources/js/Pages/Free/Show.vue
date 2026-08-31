@@ -25,7 +25,7 @@ import {
   startOfMonth,
   startOfWeek as startOfWeekFns,
 } from 'date-fns';
-import { loadLanguageAsync } from 'laravel-vue-i18n';
+import { currentLocale, loadLanguageAsync, trans } from 'laravel-vue-i18n';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { decryptString, DecryptionFailedError, deriveLegacyShareLinkKey } from '../../crypto';
 import SiteFooter from '../../Components/SiteFooter.vue';
@@ -114,7 +114,7 @@ const showError = ref(false);
 // ── Reactive UI state ───────────────────────────────────────────────
 const showExpired = ref(false);
 const showStatus = ref(true);
-const statusText = ref('Loading…');
+const statusText = ref(trans('free.loading'));
 const showCalendar = ref(false);
 const timezoneOffsetNote = ref('');
 const timezone = ref('UTC');
@@ -194,16 +194,24 @@ const monthDays = computed(() => eachDayOfInterval({
 // CalendarView/MonthView (desktop) switch between the two based on viewMode.
 const visibleDays = computed(() => (viewMode.value === 'week' ? weekDays.value : monthDays.value));
 
+// toLocaleDateString(undefined, ...) uses the *browser's* own language
+// setting, not this page's locale — on the hu path that silently kept
+// rendering this label in whatever language the viewer's browser/OS
+// happened to be in, same class of bug as app.ts's boot-locale fix.
+// Intl's BCP-47 tags don't take laravel-vue-i18n's bare 'hu'/'en' as-is.
+const intlLocaleTag = computed(() => (currentLocale.value === 'hu' ? 'hu-HU' : 'en-US'));
+
 const navLabel = computed(() => {
+  const tag = intlLocaleTag.value;
   if (viewMode.value === 'month') {
-    return anchorDate.value.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    return anchorDate.value.toLocaleDateString(tag, { month: 'long', year: 'numeric' });
   }
   const start = weekDays.value[0]!;
   const end = weekDays.value[6]!;
-  return `${start.toLocaleDateString(undefined, {
+  return `${start.toLocaleDateString(tag, {
     month: 'short',
     day: 'numeric',
-  })} – ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  })} – ${end.toLocaleDateString(tag, { month: 'short', day: 'numeric', year: 'numeric' })}`;
 });
 
 const hasAnyFreeTime = computed(() => availability.value.free.length > 0);
@@ -271,7 +279,7 @@ function renderTimezoneOffsetNote(ownerTimezone: string): void {
   const diffMinutes = viewerOffset - ownerOffset;
 
   if (diffMinutes === 0) {
-    timezoneOffsetNote.value = 'Our timezones match!';
+    timezoneOffsetNote.value = trans('free.timezoneMatch');
     return;
   }
 
@@ -279,9 +287,7 @@ function renderTimezoneOffsetNote(ownerTimezone: string): void {
   const hours = Math.floor(abs / 60);
   const minutes = abs % 60;
   const offsetText = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-  timezoneOffsetNote.value = diffMinutes > 0
-    ? `You are ${offsetText} ahead compared to them`
-    : `You are ${offsetText} behind compared to them`;
+  timezoneOffsetNote.value = trans(diffMinutes > 0 ? 'free.timezoneAhead' : 'free.timezoneBehind', { offset: offsetText });
 }
 
 function getTimezoneOffsetMinutes(date: Date, timeZone: string): number {
@@ -330,7 +336,7 @@ async function fetchWithPolling(): Promise<ApiResponse> {
       throw new CalendarUnconfiguredError();
     }
 
-    statusText.value = "Your friend's calendar is being fetched for the first time — this can take a moment…";
+    statusText.value = trans('free.fetchingFirstTime');
     await new Promise((r) => setTimeout(r, 2000));
   }
 }
@@ -340,7 +346,7 @@ async function fetchWithPolling(): Promise<ApiResponse> {
 async function boot(): Promise<void> {
   showCalendar.value = true;
   showStatus.value = true;
-  statusText.value = 'Loading…';
+  statusText.value = trans('free.loading');
 
   try {
     const response = await fetchWithPolling();
@@ -362,10 +368,10 @@ async function boot(): Promise<void> {
     showStatus.value = true;
     showError.value = true;
     statusText.value = error instanceof CalendarUnconfiguredError
-      ? "This calendar hasn't been set up yet. Ask them to add a calendar URL in their settings."
+      ? trans('free.unconfigured')
       : error instanceof DecryptionFailedError
-        ? 'Could not decrypt this calendar. The link may be broken.'
-        : 'Could not load this calendar right now. Please try again later.';
+        ? trans('free.decryptFailed')
+        : trans('free.loadFailed');
   }
 }
 
@@ -373,9 +379,10 @@ onMounted(() => {
   // /free vs /hu/free decides the whole page's language, not just pageTitle
   // — block labels, durations, date-fns weekday/month names all react to
   // this too (CalendarView.vue/AgendaView.vue/MonthView.vue already key off
-  // laravel-vue-i18n's currentLocale). Fire-and-forget: app.ts's i18nVue
-  // setup already loaded 'en' at boot, so there's nothing to wait on unless
-  // this visitor is on the hu path.
+  // laravel-vue-i18n's currentLocale). app.ts already installs i18nVue with
+  // this exact page's own locale at boot, so loadLanguageAsync here is
+  // normally a same-language no-op — kept as a defensive fire-and-forget in
+  // case this component is ever reached without a full page load.
   if (props.locale !== 'en') {
     loadLanguageAsync(props.locale).catch((e) => console.error(e));
   }
@@ -399,16 +406,16 @@ onMounted(() => {
         <div class="card-body p-4">
           <h1 class="mb-1 text-center">{{ pageTitle }}</h1>
           <p class="small text-center text-muted mt-n2 mb-3">
-            Times shown in your local time
+            {{ $t('free.timezoneLocalNote') }}
             <span v-if="timezoneOffsetNote">&bull; {{ timezoneOffsetNote }}</span>
           </p>
           <p  class="small text-center text-warning mb-3">
-        <FontAwesomeIcon :icon="faLock" class="me-2" />This link is personalized to you. Please don't share it with others.
+        <FontAwesomeIcon :icon="faLock" class="me-2" />{{ $t('free.personalizedWarning') }}
           </p>
 
           <div v-if="showExpired" class="text-center py-5">
-            <h2 class="h4 mb-3">Link Expired</h2>
-            <p class="mb-0 text-muted">This calendar link has expired or is no longer valid.</p>
+            <h2 class="h4 mb-3">{{ $t('free.linkExpiredTitle') }}</h2>
+            <p class="mb-0 text-muted">{{ $t('free.linkExpiredBody') }}</p>
           </div>
 
           <div v-else>
@@ -417,10 +424,21 @@ onMounted(() => {
               style="gap: 0.5rem;"
             >
               <div class="d-flex flex-wrap align-items-center justify-content-center">
-                <BButton variant="outline-secondary" size="sm" aria-label="Previous" :disabled="isAtStart" @click="goPrev"><FontAwesomeIcon :icon="faChevronLeft" /></BButton>
+                <BButton
+                  variant="outline-secondary"
+                  size="sm"
+                  :aria-label="viewMode === 'month' ? $t('free.prevMonth') : $t('free.prevWeek')"
+                  :disabled="isAtStart"
+                  @click="goPrev"
+                ><FontAwesomeIcon :icon="faChevronLeft" /></BButton>
                 <span class="fw-bold text-center" style="min-width: 12rem;">{{ navLabel }}</span>
-                <BButton variant="outline-secondary" size="sm" aria-label="Next" @click="goNext"><FontAwesomeIcon :icon="faChevronRight" /></BButton>
-                <BButton variant="secondary" size="sm" class="ms-2" :disabled="isAtStart" @click="goToday">Today</BButton>
+                <BButton
+                  variant="outline-secondary"
+                  size="sm"
+                  :aria-label="viewMode === 'month' ? $t('free.nextMonth') : $t('free.nextWeek')"
+                  @click="goNext"
+                ><FontAwesomeIcon :icon="faChevronRight" /></BButton>
+                <BButton variant="secondary" size="sm" class="ms-2" :disabled="isAtStart" @click="goToday">{{ $t('free.today') }}</BButton>
               </div>
               <div class="btn-group ms-2" role="group">
                 <BButton
@@ -428,14 +446,14 @@ onMounted(() => {
                   :variant="viewMode === 'month' ? 'secondary' : 'outline-secondary'"
                   @click="setViewMonth"
                 >
-                  Month
+                  {{ $t('free.monthView') }}
                 </BButton>
                 <BButton
                   size="sm"
                   :variant="viewMode === 'week' ? 'secondary' : 'outline-secondary'"
                   @click="setViewWeek"
                 >
-                  Week
+                  {{ $t('free.weekView') }}
                 </BButton>
               </div>
             </div>

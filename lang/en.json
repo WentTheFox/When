@@ -14,5 +14,17 @@
     "free.prevMonth": "Previous month",
     "free.nextMonth": "Next month",
     "free.prevWeek": "Previous week",
-    "free.nextWeek": "Next week"
+    "free.nextWeek": "Next week",
+    "free.timezoneLocalNote": "Times shown in your local time",
+    "free.timezoneMatch": "Our timezones match!",
+    "free.timezoneAhead": "You are :offset ahead compared to them",
+    "free.timezoneBehind": "You are :offset behind compared to them",
+    "free.personalizedWarning": "This link is personalized to you. Please don't share it with others.",
+    "free.loading": "Loading…",
+    "free.fetchingFirstTime": "Your friend's calendar is being fetched for the first time — this can take a moment…",
+    "free.unconfigured": "This calendar hasn't been set up yet. Ask them to add a calendar URL in their settings.",
+    "free.decryptFailed": "Could not decrypt this calendar. The link may be broken.",
+    "free.loadFailed": "Could not load this calendar right now. Please try again later.",
+    "free.linkExpiredTitle": "Link Expired",
+    "free.linkExpiredBody": "This calendar link has expired or is no longer valid."
 }
