@@ -12,6 +12,7 @@ import {
   BFormInput,
   BFormSelect,
   BFormTextarea,
+  vBTooltip,
 } from 'bootstrap-vue-next';
 import { addDays as addDaysFns, startOfWeek as startOfWeekFns } from 'date-fns';
 import { computed, onUnmounted, ref, watch } from 'vue';
@@ -800,10 +801,10 @@ function submit(): void {
                 <button
                   v-for="swatch in colorPalette"
                   :key="swatch.key"
+                  v-b-tooltip="swatch.label"
                   type="button"
                   class="wtf-swatch-btn"
                   :class="{ 'wtf-swatch-btn-active': (form as unknown as Record<string, string>)[colorField.field] === swatch.key }"
-                  :title="swatch.label"
                   :aria-pressed="(form as unknown as Record<string, string>)[colorField.field] === swatch.key"
                   :style="{ '--wtf-swatch-light': swatch.light, '--wtf-swatch-dark': swatch.dark }"
                   @click="(form as unknown as Record<string, string>)[colorField.field] = swatch.key"
