@@ -8,6 +8,7 @@ use App\Models\ConnectionAttributeValue;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -110,18 +111,29 @@ class ConnectionController extends Controller
         return response()->json(['status' => 'ok']);
     }
 
+    /**
+     * source_ids/share_link_id/attribute_definition_id all scope their
+     * `exists` check to the requesting user's own rows — an unscoped
+     * `exists:table,id` only proves the id exists *somewhere*, not that it
+     * belongs to this owner, which would otherwise let one user attach
+     * their own connection to another user's source, share link, or
+     * attribute definition (a real cross-user IDOR, not just a missing
+     * test — see ConnectionsIsolationTest).
+     */
     private function validateConnection(Request $request, bool $requireId): array
     {
+        $userId = $request->user()->id;
+
         return $request->validate([
             'id' => $requireId ? ['required', 'uuid', 'unique:connections,id'] : ['sometimes'],
             'source_ids' => ['nullable', 'array'],
-            'source_ids.*' => ['uuid', 'exists:connection_sources,id'],
+            'source_ids.*' => ['uuid', Rule::exists('connection_sources', 'id')->where('user_id', $userId)],
             'name_ciphertext' => $requireId ? ['required', 'string'] : ['sometimes', 'string'],
             'notes_ciphertext' => ['nullable', 'string'],
-            'share_link_id' => ['nullable', 'uuid', 'exists:share_links,id'],
+            'share_link_id' => ['nullable', 'uuid', Rule::exists('share_links', 'id')->where('user_id', $userId)],
             'archived' => ['nullable', 'boolean'],
             'attribute_values' => ['nullable', 'array'],
-            'attribute_values.*.attribute_definition_id' => ['required', 'uuid', 'exists:connection_attribute_definitions,id'],
+            'attribute_values.*.attribute_definition_id' => ['required', 'uuid', Rule::exists('connection_attribute_definitions', 'id')->where('user_id', $userId)],
             'attribute_values.*.value_ciphertext' => ['required', 'string'],
         ]);
     }

@@ -15,11 +15,16 @@ use App\Http\Controllers\Dashboard\SleepExceptionController;
 use App\Http\Controllers\Dashboard\VaultController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InviteController;
+use App\Http\Controllers\SecurityPageController;
 use App\Http\Controllers\ShareLinkController;
 use App\Http\Controllers\WelcomeController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [WelcomeController::class, 'show']);
+
+// Public threat-model/security page (§0.2's honesty commitment, Stage 8) —
+// no auth required, linked from the footer on every page.
+Route::get('/security', [SecurityPageController::class, 'show'])->name('security.show');
 
 // Public share-link view (§4, §0.4, §0.5/Stage 5). Full build in Stage 6 —
 // for now this hosts the "create your own" invite CTA described in Stage 3,
@@ -30,16 +35,24 @@ Route::get('/', [WelcomeController::class, 'show']);
 // Locale is part of the path, not a query param or Accept-Language guess —
 // /free/{token} is always English, /hu/free/{token} is always Hungarian.
 // Both hit the same action; the locale default tells the controller which.
-Route::get('/free/{token}', [ShareLinkController::class, 'show'])
-    ->name('share-links.show')
-    ->defaults('locale', 'en');
-Route::get('/hu/free/{token}', [ShareLinkController::class, 'show'])
-    ->name('share-links.show.hu')
-    ->defaults('locale', 'hu');
+Route::middleware('throttle:share-link-view')->group(function () {
+    Route::get('/free/{token}', [ShareLinkController::class, 'show'])
+        ->name('share-links.show')
+        ->defaults('locale', 'en');
+    Route::get('/hu/free/{token}', [ShareLinkController::class, 'show'])
+        ->name('share-links.show.hu')
+        ->defaults('locale', 'hu');
+});
 
 Route::middleware('guest')->group(function () {
-    Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');
-    Route::post('/register', [RegisteredUserController::class, 'store']);
+    // Both the GET (which previews *who* invited you, findValid) and the
+    // POST (which actually redeems the code) can be used to brute-force
+    // guess invite codes, so both are throttled — not just the redeeming
+    // action.
+    Route::middleware('throttle:invite-redemption')->group(function () {
+        Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');
+        Route::post('/register', [RegisteredUserController::class, 'store']);
+    });
 
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('/login', [AuthenticatedSessionController::class, 'store']);
