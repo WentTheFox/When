@@ -19,15 +19,15 @@
                 <h2 class="h5">What this is</h2>
                 <p class="mb-3">
                     WhenTheFox turns your calendar into a free/busy link you can hand to
-                    anyone &mdash; friends, coworkers, whoever &mdash; without exposing what's
-                    actually on it. Your calendar URL is encrypted at rest and only
-                    decrypted transiently to compute availability; the computed result is
+                    anyone. Friends, coworkers, whoever. It doesn't expose what's actually
+                    on your calendar. Your calendar URL is encrypted at rest and only
+                    decrypted transiently to compute availability. The computed result is
                     encrypted again before it's ever served to a viewer, and decrypted in
                     their browser, not on the server.
                 </p>
                 <p class="mb-0">
                     It also includes a small end-to-end-encrypted Connections CRM for
-                    keeping track of people &mdash; that data never leaves your device
+                    keeping track of people. That data never leaves your device
                     unencrypted, not even to us.
                 </p>
             </div>
