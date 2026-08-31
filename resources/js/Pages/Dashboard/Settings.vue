@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import axios from 'axios';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
 import {
   BAlert,
   BBadge,
@@ -19,7 +21,7 @@ import PatternPreview from '../../dashboard/PatternPreview.vue';
 import SleepExceptions from '../../dashboard/SleepExceptions.vue';
 import CalendarView from '../../free/CalendarView.vue';
 import { BLOCK_ALPHA, hexToRgba, hexToRgbTriplet } from '../../free/color-utils';
-import { COLOR_PALETTE, DEFAULT_SWATCH_KEY, resolveSwatchHex } from '../../free/color-palette';
+import { getColorPalette, getDefaultSwatchKey, resolveSwatchHex } from '../../free/color-palette';
 import type { ColorSlot } from '../../free/color-palette';
 import { useResolvedTheme } from '../../composables/useTheme';
 import type { AvailabilityResponse } from '../../free/nuxt-blocks';
@@ -79,10 +81,12 @@ const colorFields: { field: keyof Settings; slot: ColorSlot; label: string }[] =
   { field: 'accent_color_key', slot: 'accent', label: 'Accent' },
   { field: 'secondary_color_key', slot: 'secondary', label: 'Secondary' },
   { field: 'free_color_key', slot: 'free', label: 'Free' },
-  { field: 'busy_color_key', slot: 'busy', label: 'Busy' },
+  { field: 'busy_color_key', slot: 'busy', label: 'Unavailable' },
   { field: 'sleep_color_key', slot: 'sleep', label: 'Sleep' },
   { field: 'highlight_color_key', slot: 'highlighted', label: 'Highlighted' },
 ];
+
+const colorPalette = getColorPalette();
 
 /**
  * A representative week of made-up events, fed into the exact same
@@ -158,21 +162,51 @@ const exampleAvailability = computed<AvailabilityResponse>(() => {
   // day" mock breaks that invariant getBlocksForDay/CalendarView's
   // tentative-fade lookup relies on (blocks tiling with no gaps), so the
   // mock has to carve the same gaps a real backend response would.
-  const busyPeriodsByDay: Record<number, [number, number][]> = {
-    0: [[12 * 60, 14 * 60]], // Mon: Lunch with Alice
-    1: [[9 * 60, 11 * 60 + 30]], // Tue: Team meeting
-    2: [[14 * 60, 16 * 60]], // Wed: Maybe call
-    3: [[10 * 60, 12 * 60]], // Thu: Coffee with Bob
-    4: [[13 * 60, 17 * 60]], // Fri: Workshop
-  };
+  //
+  // Single source of truth for every made-up event — free/unavailable/
+  // highlighted below are ALL derived from this, each clipped to that
+  // day's own wake/sleep window. Previously unavailable/highlighted were
+  // hand-duplicated as separate fixed clock-time literals instead of being
+  // derived from the same busy periods `free` carves around — those two
+  // copies could silently drift apart from the window whenever an owner's
+  // configured sleep time fell in the middle of one of these fixed hours
+  // (e.g. sleep at 11:00 with the Tuesday event still fixed at 9:00–11:30):
+  // `free`/`sleep` correctly clipped to the window, but `unavailable` kept
+  // extending past it uncapped, so the sleep block's start visibly cut
+  // into the tail of the unavailable block instead of the two meeting
+  // cleanly — the reported "gap in the second day after the unavailable
+  // block".
+  const events: { day: number; start: number; end: number; tentative?: boolean; activity?: string; highlightWords?: string[] }[] = [
+    { day: 0, start: 12 * 60, end: 14 * 60, activity: 'Lunch', highlightWords: ['Alice'] }, // Mon: Lunch with Alice
+    { day: 1, start: 9 * 60, end: 11 * 60 + 30 }, // Tue: Team meeting
+    { day: 2, start: 14 * 60, end: 16 * 60, tentative: true }, // Wed: Maybe call
+    { day: 3, start: 10 * 60, end: 12 * 60, tentative: true, activity: 'Coffee', highlightWords: ['Bob'] }, // Thu: Coffee with Bob
+    { day: 4, start: 13 * 60, end: 17 * 60 }, // Fri: Workshop
+  ];
+
+  /** This event's [start, end], clamped to its own day's wake/sleep window — null if the window clips it away entirely (e.g. it falls fully inside a since-configured sleep period). */
+  function clippedEventMinutes(event: (typeof events)[number]): [number, number] | null {
+    const win = dayWindowMinutes(event.day);
+    const windowStart = win ? win.wakeMin : 0;
+    const windowEnd = win ? win.sleepMin : 1440;
+    const start = Math.max(event.start, windowStart);
+    const end = Math.min(event.end, windowEnd);
+    return end > start ? [start, end] : null;
+  }
+
   const free = Array.from({ length: 7 }, (_, day) => {
     const win = dayWindowMinutes(day);
     const windowStart = win ? win.wakeMin : 0;
     const windowEnd = win ? win.sleepMin : 1440;
 
+    const busyPeriods = events
+      .filter((event) => event.day === day)
+      .map(clippedEventMinutes)
+      .filter((period): period is [number, number] => period !== null);
+
     const segments: { start: string; end: string }[] = [];
     let cursor = windowStart;
-    for (const [busyStart, busyEnd] of busyPeriodsByDay[day] ?? []) {
+    for (const [busyStart, busyEnd] of busyPeriods) {
       if (busyStart > cursor) segments.push({ start: atAbsMinutes(day * 1440 + cursor), end: atAbsMinutes(day * 1440 + busyStart) });
       cursor = Math.max(cursor, busyEnd);
     }
@@ -212,22 +246,32 @@ const exampleAvailability = computed<AvailabilityResponse>(() => {
   return {
     free,
     sleep,
-    unavailable: [
-      // A highlighted event is still busy time — the real backend always
-      // double-lists its range in `unavailable` too, since `highlighted` is
-      // an overlay split out of an existing unavailable/free base block
-      // (getBlocksForDay's splitByOverlay), not a standalone block of its
-      // own. Omitting the base here is exactly what caused the gap/squash.
-      { start: at(0, 12), end: at(0, 14) }, // Mon: Lunch with Alice
-      { start: at(1, 9), end: at(1, 11, 30) }, // Tue: Team meeting
-      { start: at(2, 14), end: at(2, 16), tentative: true }, // Wed: Maybe call
-      { start: at(3, 10), end: at(3, 12), tentative: true }, // Thu: Coffee with Bob
-      { start: at(4, 13), end: at(4, 17) }, // Fri: Workshop
-    ],
-    highlighted: [
-      { start: at(0, 12), end: at(0, 14), activity: 'Lunch', highlight_words: ['Alice'] }, // Mon
-      { start: at(3, 10), end: at(3, 12), activity: 'Coffee', highlight_words: ['Bob'], tentative: true }, // Thu
-    ],
+    // A highlighted event is still busy time — the real backend always
+    // double-lists its range in `unavailable` too, since `highlighted` is
+    // an overlay split out of an existing unavailable/free base block
+    // (getBlocksForDay's splitByOverlay), not a standalone block of its
+    // own. Omitting the base here is exactly what caused the gap/squash.
+    unavailable: events
+      .map((event) => {
+        const clipped = clippedEventMinutes(event);
+        if (!clipped) return null;
+        return { start: atAbsMinutes(event.day * 1440 + clipped[0]), end: atAbsMinutes(event.day * 1440 + clipped[1]), tentative: event.tentative };
+      })
+      .filter((slot) => slot !== null),
+    highlighted: events
+      .filter((event) => event.activity)
+      .map((event) => {
+        const clipped = clippedEventMinutes(event);
+        if (!clipped) return null;
+        return {
+          start: atAbsMinutes(event.day * 1440 + clipped[0]),
+          end: atAbsMinutes(event.day * 1440 + clipped[1]),
+          activity: event.activity,
+          highlight_words: event.highlightWords,
+          tentative: event.tentative,
+        };
+      })
+      .filter((slot) => slot !== null),
   };
 });
 
@@ -259,12 +303,12 @@ const form = useForm({
   tentative_pattern: props.settings.tentative_pattern ?? props.defaults.tentativePattern,
   public_page_title_en: props.settings.public_page_title_en ?? '',
   public_page_title_hu: props.settings.public_page_title_hu ?? '',
-  accent_color_key: props.settings.accent_color_key ?? DEFAULT_SWATCH_KEY.accent,
-  secondary_color_key: props.settings.secondary_color_key ?? DEFAULT_SWATCH_KEY.secondary,
-  free_color_key: props.settings.free_color_key ?? DEFAULT_SWATCH_KEY.free,
-  busy_color_key: props.settings.busy_color_key ?? DEFAULT_SWATCH_KEY.busy,
-  sleep_color_key: props.settings.sleep_color_key ?? DEFAULT_SWATCH_KEY.sleep,
-  highlight_color_key: props.settings.highlight_color_key ?? DEFAULT_SWATCH_KEY.highlighted,
+  accent_color_key: props.settings.accent_color_key ?? getDefaultSwatchKey('accent'),
+  secondary_color_key: props.settings.secondary_color_key ?? getDefaultSwatchKey('secondary'),
+  free_color_key: props.settings.free_color_key ?? getDefaultSwatchKey('free'),
+  busy_color_key: props.settings.busy_color_key ?? getDefaultSwatchKey('busy'),
+  sleep_color_key: props.settings.sleep_color_key ?? getDefaultSwatchKey('sleep'),
+  highlight_color_key: props.settings.highlight_color_key ?? getDefaultSwatchKey('highlighted'),
   now_color: props.settings.now_color ?? '#e5566a',
   availability: days.map((_, i) => ({
     wake: props.settings.availability[i]?.wake ?? '',
@@ -305,6 +349,8 @@ const previewDays = computed(() => {
   const weekStart = startOfWeekFns(new Date(), { weekStartsOn: form.week_start as 0 | 1 | 2 | 3 | 4 | 5 | 6 });
   return Array.from({ length: 7 }, (_, i) => addDaysFns(weekStart, i));
 });
+/** The light/dark dual color-slot preview only shows the first 3 days — plenty to judge how the colors read, and two side-by-side 7-day calendars would be cramped at half page width each. */
+const colorPreviewVisibleDays = computed(() => (previewAvailability.value ? previewDays.value : exampleVisibleDays.value).slice(0, 3));
 /** Wake & sleep times table row order — same weekday indices (0=Sun..6=Sat) as form.availability, just walked starting from week_start instead of always Sunday. */
 const orderedDayIndices = computed(() => Array.from({ length: 7 }, (_, i) => (form.week_start + i) % 7));
 const currentTimePct = (() => {
@@ -319,13 +365,13 @@ const currentTimePct = (() => {
  * page (see color-utils.ts). Re-applies the same alpha so what's previewed
  * here actually matches what a viewer would see.
  */
-const previewColorStyle = computed(() => {
-  const accent = resolveSwatchHex(form.accent_color_key, 'accent', resolvedTheme.value);
-  const free = resolveSwatchHex(form.free_color_key, 'free', resolvedTheme.value);
-  const busy = resolveSwatchHex(form.busy_color_key, 'busy', resolvedTheme.value);
-  const sleep = resolveSwatchHex(form.sleep_color_key, 'sleep', resolvedTheme.value);
-  const highlighted = resolveSwatchHex(form.highlight_color_key, 'highlighted', resolvedTheme.value);
-  const alpha = BLOCK_ALPHA[resolvedTheme.value];
+function previewStyleFor(theme: 'light' | 'dark') {
+  const accent = resolveSwatchHex(form.accent_color_key, 'accent', theme);
+  const free = resolveSwatchHex(form.free_color_key, 'free', theme);
+  const busy = resolveSwatchHex(form.busy_color_key, 'busy', theme);
+  const sleep = resolveSwatchHex(form.sleep_color_key, 'sleep', theme);
+  const highlighted = resolveSwatchHex(form.highlight_color_key, 'highlighted', theme);
+  const alpha = BLOCK_ALPHA[theme];
 
   return {
     '--wtf-accent': accent,
@@ -339,9 +385,19 @@ const previewColorStyle = computed(() => {
     '--wtf-hue-highlighted': highlighted,
     '--wtf-color-now': form.now_color,
   };
-});
+}
 
-const previewSecondaryColor = computed(() => resolveSwatchHex(form.secondary_color_key, 'secondary', resolvedTheme.value));
+// Both themes are always previewed side by side (see wtf-theme-preview in
+// dark-theme.css — a self-contained, scoped copy of the :root[data-bs-
+// theme] variable blocks) rather than only the one the settings page
+// itself is currently rendered in, so an owner can see how a color choice
+// reads on the theme they're NOT currently looking at without switching.
+const previewStyleLight = computed(() => previewStyleFor('light'));
+const previewStyleDark = computed(() => previewStyleFor('dark'));
+/** For the calendar-URL preview panel further up the page, which isn't wrapped in its own .wtf-theme-preview scope — it just follows the page's own live theme like everything else on it. */
+const previewStyleLive = computed(() => previewStyleFor(resolvedTheme.value));
+const previewSecondaryColorLight = computed(() => resolveSwatchHex(form.secondary_color_key, 'secondary', 'light'));
+const previewSecondaryColorDark = computed(() => resolveSwatchHex(form.secondary_color_key, 'secondary', 'dark'));
 
 function onUrlInput(): void {
   calendarUrlForm.calendar_url_preview_confirmed = false;
@@ -496,7 +552,7 @@ function submit(): void {
       <div
         v-if="previewAvailability && !calendarUrlJustSaved"
         class="mt-3"
-        :style="previewColorStyle"
+        :style="previewStyleLive"
       >
         <CalendarView
           :visible-days="previewDays"
@@ -740,7 +796,7 @@ function submit(): void {
             <BFormGroup :label="colorField.label">
               <div class="wtf-swatch-grid">
                 <button
-                  v-for="swatch in COLOR_PALETTE"
+                  v-for="swatch in colorPalette"
                   :key="swatch.key"
                   type="button"
                   class="wtf-swatch-btn"
@@ -770,32 +826,43 @@ function submit(): void {
           </div>
         </div>
 
-        <div class="wtf-pattern-preview-panel" :style="previewColorStyle">
-          <p class="small fw-bold mb-1">
-            {{ form.public_page_title_en || `${settings.name}'s Free Time` }}
-          </p>
-          <p class="small mb-2" :style="{ color: previewSecondaryColor }">
-            <template v-if="previewAvailability">
-              A smaller reference for how these colors read together — see the full preview under "Calendar" above for your actual events.
-            </template>
-            <template v-else>
-              Example calendar — made-up events, just to show how these colors read together. Use "Preview" under "Calendar" above to see your actual calendar there instead.
-            </template>
-          </p>
-          <CalendarView
-            :visible-days="previewAvailability ? previewDays : exampleVisibleDays"
-            :free-slots="(previewAvailability ?? exampleAvailability).free"
-            :highlighted-slots="(previewAvailability ?? exampleAvailability).highlighted"
-            :unavailable-slots="(previewAvailability ?? exampleAvailability).unavailable"
-            :sleep-slots="(previewAvailability ?? exampleAvailability).sleep"
-            :pending="false"
-            :has-error="false"
-            :has-any-free-time="true"
-            :timezone="previewAvailability ? form.timezone : 'UTC'"
-            :show-blocks="true"
-            :show-current-time="true"
-            :current-time-pct="currentTimePct"
-          />
+        <div class="row">
+          <div v-for="theme in (['light', 'dark'] as const)" :key="theme" class="col-md-6 mb-3">
+            <div
+              class="wtf-pattern-preview-panel wtf-theme-preview"
+              :data-bs-theme="theme"
+              :style="theme === 'dark' ? previewStyleDark : previewStyleLight"
+            >
+              <p class="small fw-bold text-uppercase mb-1" :style="{ color: theme === 'dark' ? previewSecondaryColorDark : previewSecondaryColorLight }">
+                <FontAwesomeIcon :icon="theme === 'dark' ? faMoon : faSun" class="me-1" />{{ theme === 'dark' ? 'Dark theme' : 'Light theme' }}
+              </p>
+              <p class="small fw-bold mb-1">
+                {{ form.public_page_title_en || `${settings.name}'s Free Time` }}
+              </p>
+              <p class="small mb-2" :style="{ color: theme === 'dark' ? previewSecondaryColorDark : previewSecondaryColorLight }">
+                <template v-if="previewAvailability">
+                  A smaller reference for how these colors read together — see the full preview under "Calendar" above for your actual events.
+                </template>
+                <template v-else>
+                  Example calendar — made-up events, just to show how these colors read together. Use "Preview" under "Calendar" above to see your actual calendar there instead.
+                </template>
+              </p>
+              <CalendarView
+                :visible-days="colorPreviewVisibleDays"
+                :free-slots="(previewAvailability ?? exampleAvailability).free"
+                :highlighted-slots="(previewAvailability ?? exampleAvailability).highlighted"
+                :unavailable-slots="(previewAvailability ?? exampleAvailability).unavailable"
+                :sleep-slots="(previewAvailability ?? exampleAvailability).sleep"
+                :pending="false"
+                :has-error="false"
+                :has-any-free-time="true"
+                :timezone="previewAvailability ? form.timezone : 'UTC'"
+                :show-blocks="true"
+                :show-current-time="true"
+                :current-time-pct="currentTimePct"
+              />
+            </div>
+          </div>
         </div>
 
       <template #footer>

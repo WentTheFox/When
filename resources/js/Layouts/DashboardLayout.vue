@@ -6,7 +6,7 @@ import SiteFooter from '../Components/SiteFooter.vue';
 import ThemeToggle from '../Components/ThemeToggle.vue';
 import VaultUnlockModal from '../dashboard/VaultUnlockModal.vue';
 import { provideLiveThemePreview } from '../dashboard/liveThemePreview';
-import { hexToRgbTriplet } from '../free/color-utils.ts';
+import { hexToRgbTriplet } from '../free/color-utils';
 import { resolveSwatchHex } from '../free/color-palette';
 import { useResolvedTheme } from '../composables/useTheme';
 

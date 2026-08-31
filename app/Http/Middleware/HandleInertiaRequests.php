@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\User;
+use App\Support\ColorPalette;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -44,6 +45,17 @@ class HandleInertiaRequests extends Middleware
             // renders it, and computing it once here beats every
             // controller having to remember to pass it.
             'isFirstUser' => User::isFirstUser(),
+            // The client only ever sends a KEY back (SettingsController
+            // validates every *_color_key against ColorPalette::KEYS) —
+            // never a hex. This is the one and only place the actual
+            // light/dark hex values are defined; the frontend resolves
+            // keys to hex purely from this shared prop (seeded once at
+            // boot into color-palette.ts — see resources/js/app.ts), never
+            // from a hardcoded copy.
+            'colorPalette' => [
+                'swatches' => ColorPalette::forFrontend(),
+                'defaults' => ColorPalette::DEFAULT_KEYS,
+            ],
             'auth' => [
                 'user' => $request->user() ? [
                     'name' => $request->user()->name,

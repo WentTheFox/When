@@ -102,6 +102,41 @@
 }
 
 /*
+ * Settings.vue's color-slot preview renders BOTH themes side by side at
+ * once, regardless of which theme the settings page itself is actually
+ * in — an owner picking colors needs to see how they read on the theme
+ * they aren't currently looking at, without switching the whole page's
+ * theme back and forth. The variable blocks above are all `:root`-scoped
+ * (Bootstrap's own convention, [data-bs-theme] is meant to live on <html>),
+ * so a plain nested `[data-bs-theme]` on some inner div wouldn't pick them
+ * up at all. This is a deliberate, self-contained duplicate of both blocks
+ * under a scoping class instead, kept in sync by hand — the two dual-
+ * preview panels are the only thing that ever needs an independent, non-
+ * inherited theme context nested inside the page's own.
+ */
+.wtf-theme-preview[data-bs-theme="dark"] {
+    --wtf-bg: #212529;
+    --wtf-bg-elevated: #2b3035;
+    --wtf-text: #dee2e6;
+    --wtf-text-muted: rgba(222, 226, 230, 0.75);
+    --wtf-border: #495057;
+    --wtf-fcal-today-alpha: 0.12;
+    --wtf-fcal-text-unavailable: #717e8c;
+    color: var(--wtf-text);
+}
+
+.wtf-theme-preview[data-bs-theme="light"] {
+    --wtf-bg: #ffffff;
+    --wtf-bg-elevated: #f8f9fa;
+    --wtf-text: #212529;
+    --wtf-text-muted: #6c757d;
+    --wtf-border: #dee2e6;
+    --wtf-fcal-today-alpha: 0.06;
+    --wtf-fcal-text-unavailable: #0f1112;
+    color: var(--wtf-text);
+}
+
+/*
  * Block label TEXT color for the free/highlighted/sleep views — tinted to
  * match each block's own hue rather than plain body text, same idea as the
  * source app's darken($x, N%) in light mode / lighten($x, N%) in dark mode.

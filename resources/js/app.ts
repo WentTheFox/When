@@ -4,6 +4,7 @@ import { i18nVue } from 'laravel-vue-i18n';
 import { createApp, h, type DefineComponent } from 'vue';
 import './bootstrap';
 import './icons';
+import { setColorPalette } from './free/color-palette';
 
 // bootstrap-vue-next ships components, not CSS — resources/css/app.css's own
 // bootstrap/dist/css/bootstrap.min.css import still supplies all the actual
@@ -23,6 +24,20 @@ createInertiaApp({
     return page.default;
   },
   setup({ el, App, props, plugin }) {
+    // Seeded once here, synchronously, before anything mounts — every page
+    // that resolves a color-palette key to a hex (Settings.vue's swatch
+    // picker, DashboardLayout.vue, Free/Show.vue) reads it back out of
+    // color-palette.ts's own module state rather than each threading the
+    // shared prop through themselves. The palette itself never changes
+    // per-navigation (it's not per-user data), so a single seed at boot is
+    // enough — no need to re-sync on every subsequent Inertia visit.
+    const colorPalette = props.initialPage.props.colorPalette as
+      { swatches: Parameters<typeof setColorPalette>[0]; defaults: Parameters<typeof setColorPalette>[1] }
+      | undefined;
+    if (colorPalette) {
+      setColorPalette(colorPalette.swatches, colorPalette.defaults);
+    }
+
     // BApp is bootstrap-vue-next's recommended root wrapper — it hosts the
     // teleport targets BModal/BToast etc. render into, so it needs to wrap
     // the whole tree even for pages that don't use them yet.
