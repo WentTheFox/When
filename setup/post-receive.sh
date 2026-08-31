@@ -21,7 +21,19 @@ if [[ "$refname" == "$RUN_FOR_REF" ]]; then
 
     echo "$ $CMD_FETCH"; eval ${CMD_FETCH}
 
-    if $GIT diff --name-only $oldrev $newrev | grep -q "^composer.lock"; then
+    # On a brand new branch (first-ever push into this repo), $oldrev is the
+    # all-zero SHA — `git diff` against it fails ("fatal: bad object"), which
+    # would make every diff-based check below silently skip, leaving vendor/
+    # and built assets missing entirely. Treat that case as "everything
+    # changed" instead of trying to diff against a SHA that doesn't exist.
+    if [[ "$oldrev" =~ ^0+$ ]]; then
+        DIFFED_FILES=""
+        FIRST_PUSH=1
+    else
+        DIFFED_FILES="$($GIT diff --name-only $oldrev $newrev)"
+    fi
+
+    if [[ -n "$FIRST_PUSH" ]] || grep -q "^composer.lock" <<< "$DIFFED_FILES"; then
         echo "$ $CMD_COMPOSER"; eval ${CMD_COMPOSER}
     else
         echo "# Skipping composer install, lockfile not modified"
@@ -31,13 +43,13 @@ if [[ "$refname" == "$RUN_FOR_REF" ]]; then
     echo "$ $CMD_LARAVEL_DOWN"; eval ${CMD_LARAVEL_DOWN}
     echo "$ $CMD_MIGRATE"; eval ${CMD_MIGRATE}
 
-    if $GIT diff --name-only $oldrev $newrev | grep -q "^pnpm-lock.yaml"; then
+    if [[ -n "$FIRST_PUSH" ]] || grep -q "^pnpm-lock.yaml" <<< "$DIFFED_FILES"; then
         echo "$ $CMD_NPM"; eval ${CMD_NPM}
     else
         echo "# Skipping pnpm install, lockfile not modified"
     fi
 
-    if $GIT diff --name-only $oldrev $newrev | grep -qE "^resources/|^pnpm-lock.yaml"; then
+    if [[ -n "$FIRST_PUSH" ]] || grep -qE "^resources/|^pnpm-lock.yaml" <<< "$DIFFED_FILES"; then
         echo "$ $CMD_BUILD"
         if eval ${CMD_BUILD}; then
             echo "Build successful"
