@@ -2,6 +2,7 @@
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { BAlert, BButton, BCard, BFormGroup, BFormInput } from 'bootstrap-vue-next';
 import { ref } from 'vue';
+import CenteredColumn from '../../Components/CenteredColumn.vue';
 import PasswordField from '../../Components/PasswordField.vue';
 import {
   deriveKeyFromPassphrase,
@@ -97,22 +98,17 @@ async function submit(): Promise<void> {
 <template>
   <Head :title="`Create your ${page.props.appName} account`" />
 
-  <div style="max-width: 28rem; margin: 0 auto;">
-    <p v-if="page.props.isFirstUser" class="text-center text-muted mb-4">
+  <CenteredColumn size="medium">
+    <BAlert v-if="page.props.isFirstUser" :model-value="true" variant="info">
       You're the first person signing up so there's no invite needed. Every account after
       yours will need one.
-    </p>
-    <p v-else class="text-center text-muted mb-4">
+    </BAlert>
+    <BAlert v-else-if="!hasValidInvite" :model-value="true" variant="warning">
       Registration is invite-only. You need a valid invite link to sign up.
-    </p>
-
-    <BAlert v-if="!hasValidInvite" :model-value="true" variant="warning">
-      This link doesn't carry a valid invite. Ask whoever invited you for their
-      link, rather than typing a code in by hand.
     </BAlert>
 
     <BCard v-else>
-      <h1 class="h3 mb-3 text-center">Create your {{ page.props.appName }} account</h1>
+      <h1 class="h3 mb-3 text-center">Create your <em>{{ page.props.appName }}</em> account</h1>
 
       <BAlert :model-value="Object.keys(form.errors).length > 0" variant="danger">
         <ul class="mb-0">
@@ -138,7 +134,7 @@ async function submit(): Promise<void> {
             Only used to fetch your <a href="https://gravatar.com" target="_blank" rel="noopener">Gravatar</a>
             avatar and, if you set one, as an alternate way to log in. Stored
             encrypted, never shown to anyone. See the
-            <a href="/security">security page</a> for details.
+            <a href="/about">security page</a> for details.
           </template>
         </BFormGroup>
 
@@ -164,5 +160,5 @@ async function submit(): Promise<void> {
         <a href="/login">Already have an account? Log in</a>
       </p>
     </BCard>
-  </div>
+  </CenteredColumn>
 </template>

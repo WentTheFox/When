@@ -223,11 +223,11 @@ class AvailabilityService
         $config = $weeklyAvailability[(int) $day->format('w')] ?? null;
 
         $windowStart = ! empty($config['wake'])
-            ? CarbonImmutable::parse($day->toDateString().' '.$config['wake'])
+            ? CarbonImmutable::parse($day->toDateString().' '.$config['wake'], $day->getTimezone())
             : $day->startOfDay();
 
         if (! empty($config['sleep'])) {
-            $windowEnd = CarbonImmutable::parse($day->toDateString().' '.$config['sleep']);
+            $windowEnd = CarbonImmutable::parse($day->toDateString().' '.$config['sleep'], $day->getTimezone());
             if ($windowEnd->lte($windowStart)) {
                 $windowEnd = $windowEnd->addDay();
             }

@@ -13,7 +13,9 @@ class LandingPageTest extends TestCase
 
     public function test_shows_a_register_cta_in_the_header_when_there_are_no_users_yet(): void
     {
-        $response = $this->get('/');
+        // / is a pure dispatcher now (AboutController::redirectHome) — the
+        // actual content, and this CTA, only ever renders at /about.
+        $response = $this->get('/about');
 
         $response->assertOk();
         $response->assertInertia(fn (Assert $page) => $page->where('isFirstUser', true));
@@ -23,10 +25,15 @@ class LandingPageTest extends TestCase
     {
         User::factory()->create();
 
-        $response = $this->get('/');
+        $response = $this->get('/about');
 
         $response->assertOk();
         $response->assertInertia(fn (Assert $page) => $page->where('isFirstUser', false));
+    }
+
+    public function test_a_logged_out_visitor_is_redirected_from_the_landing_page_to_about(): void
+    {
+        $this->get('/')->assertRedirect('/about');
     }
 
     public function test_a_logged_in_visitor_is_redirected_from_the_landing_page_to_the_dashboard(): void

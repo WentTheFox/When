@@ -74,7 +74,14 @@ class ColorPalette
         'accent' => 'blue',
         'secondary' => 'silver',
         'free' => 'blue',
-        'busy' => 'slate',
+        // 'charcoal', not another ramp step: its light hex (#212529) matches
+        // dark-theme.css's own fixed --wtf-color-busy default exactly, and
+        // its dark hex (#6c757d) is the darkest option the ramp has — every
+        // other step (slate/steel/silver/fog) trends lighter in dark theme,
+        // which made an un-customized Unavailable block render far lighter
+        // than the reference app's fixed near-black, unreadable-looking
+        // wash the CSS default was actually tuned against.
+        'busy' => 'charcoal',
         'sleep' => 'purple',
         'highlighted' => 'amber',
     ];

@@ -17,6 +17,7 @@ use App\Services\Crypto\LegacyShareLinkKey;
 use App\Support\StageTimer;
 use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -36,14 +37,34 @@ use Illuminate\Support\Facades\Crypt;
  * a property that holds decrypted material — job payloads land in the
  * `jobs`/`failed_jobs` tables verbatim.
  */
-class RecomputeShareLinkAvailability implements ShouldQueue
+class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     /** How far forward to compute — there's no reason to hold years of calendar history in memory. */
     private const LOOKAHEAD_DAYS = 60;
 
+    /**
+     * Safety cap on the uniqueness lock, in case a worker dies mid-job
+     * without releasing it (the lock otherwise releases as soon as this
+     * job finishes handling, success or failure). Prevents a single
+     * crashed run from permanently blocking recomputes for this link.
+     */
+    public int $uniqueFor = 600;
+
     public function __construct(private readonly string $shareLinkId) {}
+
+    /**
+     * One outstanding recompute per share link at a time — the polling
+     * frontend re-dispatches on every stale request, and while the queue
+     * worker is down that can pile up dozens of redundant jobs for the
+     * same link. ShouldBeUnique collapses those to one queued/processing
+     * job; duplicates dispatched in between are silently dropped.
+     */
+    public function uniqueId(): string
+    {
+        return $this->shareLinkId;
+    }
 
     public function handle(
         CalendarFetcher $fetcher,

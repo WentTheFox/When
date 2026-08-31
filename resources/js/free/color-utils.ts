@@ -43,3 +43,25 @@ export const BLOCK_ALPHA = {
   dark: { free: 0.35, busy: 0.3, highlighted: 0.35, sleep: 0.35 },
   light: { free: 0.25, busy: 0.2, highlighted: 0.3, sleep: 0.3 },
 } as const;
+
+/**
+ * Bootstrap's own pre-5.3 `color-yiq()` Sass function, ported to run at
+ * runtime — dark-theme.css can't use the Sass version since --wtf-accent is
+ * a CSS custom property set from an owner's palette choice, not a Sass
+ * variable resolved at build time. Buttons painted with an owner's accent
+ * color (.btn-primary, .btn-secondary, the active Month/Week toggle, etc.)
+ * need their label color picked per-swatch instead of assuming the accent
+ * is always dark enough for light text — ColorPalette.php's swatches span
+ * both (charcoal to fog, red to amber), and "Today"/active-view buttons in
+ * dark theme were rendering near-black text (--wtf-bg's dark-theme value)
+ * on a medium-lightness accent, unreadable.
+ */
+export function yiqTextColor(hex: string): '#000' | '#fff' {
+  const match = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+  if (!match) return '#fff';
+
+  const [, r, g, b] = match;
+  const yiq = (parseInt(r!, 16) * 299 + parseInt(g!, 16) * 587 + parseInt(b!, 16) * 114) / 1000;
+
+  return yiq >= 150 ? '#000' : '#fff';
+}

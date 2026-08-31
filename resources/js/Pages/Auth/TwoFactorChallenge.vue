@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
 import { BAlert, BButton, BCard, BFormGroup, BFormInput } from 'bootstrap-vue-next';
+import CenteredColumn from '../../Components/CenteredColumn.vue';
 import PublicLayout from '../../Layouts/PublicLayout.vue';
 
 defineOptions({ layout: PublicLayout });
@@ -18,7 +19,7 @@ function submit(): void {
 <template>
   <Head title="Two-factor verification" />
 
-  <div style="max-width: 24rem; margin: 0 auto;">
+  <CenteredColumn size="narrow">
     <BCard>
       <h1 class="h3 mb-4 text-center">Two-factor verification</h1>
 
@@ -49,5 +50,5 @@ function submit(): void {
         <BButton type="submit" variant="primary" class="w-100" :disabled="form.processing">Verify</BButton>
       </form>
     </BCard>
-  </div>
+  </CenteredColumn>
 </template>

@@ -53,7 +53,7 @@ function disableTwoFactor(): void {
     <p class="small text-muted mb-3">
       Optional — only used to fetch your <a href="https://gravatar.com" target="_blank" rel="noopener">Gravatar</a>
       avatar and, if set, as an alternate way to log in. Stored encrypted, never shown to
-      anyone. See the <a href="/security">security page</a> for details.
+      anyone. See the <a href="/about">security page</a> for details.
     </p>
     <BAlert :model-value="!!emailForm.recentlySuccessful" variant="success" dismissible>Email updated.</BAlert>
     <form class="mb-4" @submit.prevent="saveEmail">

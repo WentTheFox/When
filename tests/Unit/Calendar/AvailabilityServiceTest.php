@@ -15,13 +15,15 @@ use PHPUnit\Framework\TestCase;
 class AvailabilityServiceTest extends TestCase
 {
     private AvailabilityService $service;
+
     private CarbonImmutable $rangeStart;
+
     private CarbonImmutable $rangeEnd;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new AvailabilityService(new HighlightMatcher(), new ActivityExtractor());
+        $this->service = new AvailabilityService(new HighlightMatcher, new ActivityExtractor);
         // A Monday through the following Monday, UTC — kept fixed so weekday
         // math in the tests is predictable.
         $this->rangeStart = CarbonImmutable::parse('2026-06-01 00:00:00', 'UTC'); // Monday
@@ -420,5 +422,24 @@ class AvailabilityServiceTest extends TestCase
         // configured". Exact midnight-to-midnight windows close that gap.
         $this->assertEmpty($result->sleep);
         $this->assertNotEmpty($result->free);
+    }
+
+    public function test_sleep_window_is_anchored_to_the_calendar_timezone_not_utc(): void
+    {
+        // The job builds rangeStart/rangeEnd from the owner's own timezone
+        // (RecomputeShareLinkAvailability::handle), not UTC — dayWindow()
+        // used to drop that timezone when parsing the configured wake/sleep
+        // clock times, silently reinterpreting them as UTC.
+        $this->rangeStart = CarbonImmutable::parse('2026-06-01 00:00:00', 'America/New_York');
+        $this->rangeEnd = CarbonImmutable::parse('2026-06-08 00:00:00', 'America/New_York');
+
+        $result = $this->compute(weeklyAvailability: $this->everyWeekday('07:00', '23:00'));
+
+        $mondayNight = array_values(array_filter(
+            $result->sleep,
+            fn (AvailabilitySlot $s) => $s->start->tz('America/New_York')->format('Y-m-d H:i:s') === '2026-06-01 23:00:00',
+        ));
+        $this->assertCount(1, $mondayNight);
+        $this->assertSame('2026-06-02 07:00:00', $mondayNight[0]->end->tz('America/New_York')->format('Y-m-d H:i:s'));
     }
 }

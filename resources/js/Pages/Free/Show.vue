@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { faChevronLeft, faChevronRight, faLock } from '@fortawesome/free-solid-svg-icons';
+
 /**
  * Vue/Inertia port of the public /free viewer. The crypto and fetch-polling
  * logic is carried over essentially unchanged from the earlier vanilla-TS
@@ -15,7 +17,14 @@
  */
 import { Head } from '@inertiajs/vue3';
 import { BButton, BFormInput } from 'bootstrap-vue-next';
-import { addDays as addDaysFns, addMonths, eachDayOfInterval, endOfMonth, startOfMonth, startOfWeek as startOfWeekFns } from 'date-fns';
+import {
+  addDays as addDaysFns,
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  startOfMonth,
+  startOfWeek as startOfWeekFns,
+} from 'date-fns';
 import { loadLanguageAsync } from 'laravel-vue-i18n';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import {
@@ -25,14 +34,17 @@ import {
   importKeyFromFragment,
   unwrapKeyWithPassphrase,
 } from '../../crypto';
-import ThemeToggle from '../../Components/ThemeToggle.vue';
+import SiteFooter from '../../Components/SiteFooter.vue';
+import SiteHeader from '../../Components/SiteHeader.vue';
 import CalendarView from '../../free/CalendarView.vue';
 import AgendaView from '../../free/AgendaView.vue';
 import MonthView from '../../free/MonthView.vue';
-import { BLOCK_ALPHA, hexToRgba, hexToRgbTriplet } from '../../free/color-utils';
+import { BLOCK_ALPHA, hexToRgba, hexToRgbTriplet, yiqTextColor } from '../../free/color-utils';
 import { resolveSwatchHex } from '../../free/color-palette';
 import { useResolvedTheme } from '../../composables/useTheme';
+import { rememberInviteCode } from '../../composables/useInviteCode';
 import type { AvailabilityResponse } from '../../free/nuxt-blocks';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 
 const props = defineProps<{
   token: string;
@@ -55,6 +67,11 @@ const props = defineProps<{
   };
 }>();
 
+// Runs before SiteFooter's own setup (child components mount after this
+// component's setup body finishes), so its "Create your own calendar" link
+// already sees this on this very page, not just after navigating away.
+rememberInviteCode(props.inviteCode);
+
 const resolvedTheme = useResolvedTheme();
 
 const rootStyle = computed(() => {
@@ -70,6 +87,7 @@ const rootStyle = computed(() => {
   return {
     '--wtf-accent': accent,
     '--wtf-accent-rgb': hexToRgbTriplet(accent),
+    '--wtf-accent-text': yiqTextColor(accent),
     '--wtf-text-muted': secondary,
     '--wtf-color-free': hexToRgba(free, alpha.free),
     '--wtf-hue-free': free,
@@ -82,7 +100,8 @@ const rootStyle = computed(() => {
   };
 });
 
-class LinkExpiredError extends Error {}
+class LinkExpiredError extends Error {
+}
 
 interface ApiResponse {
   status: 'pending' | 'ready';
@@ -104,7 +123,7 @@ const passphraseInput = ref<HTMLInputElement | null>(null);
 // ── Reactive UI state ───────────────────────────────────────────────
 const showExpired = ref(false);
 const showStatus = ref(true);
-const statusText = ref('Decrypting…');
+const statusText = ref('Loading…');
 const showCalendar = ref(false);
 const timezoneOffsetNote = ref('');
 const timezone = ref('UTC');
@@ -113,21 +132,37 @@ const passphraseValue = ref('');
 const passphraseErrorText = ref('');
 const showPassphraseError = ref(false);
 
-const availability = ref<AvailabilityResponse>({ free: [], highlighted: [], unavailable: [], sleep: [] });
-
-function parseAtParam(): Date | null {
-  const at = new URLSearchParams(location.search).get('at');
-  if (!at || !/^\d{4}-\d{2}-\d{2}$/.test(at)) return null;
-  const [y, m, d] = at.split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
+const availability = ref<AvailabilityResponse>({
+  free: [],
+  highlighted: [],
+  unavailable: [],
+  sleep: [],
+});
 
 function parseViewParam(): 'week' | 'month' {
   return new URLSearchParams(location.search).get('view') === 'month' ? 'month' : 'week';
 }
 
-const anchorDate = ref(parseAtParam() ?? new Date());
+// A bookmarked/shared URL with a stale `at` from before today is clamped
+// back to today rather than honored — same reasoning as goPrev's isAtStart
+// guard below: this viewer should never land on a week/month that's
+// entirely in the past.
+function parseAtParam(viewMode: 'week' | 'month', weekStart: number): Date | null {
+  const at = new URLSearchParams(location.search).get('at');
+  if (!at || !/^\d{4}-\d{2}-\d{2}$/.test(at)) return null;
+  const [y, m, d] = at.split('-').map(Number);
+  const parsed = new Date(y, m - 1, d);
+  const today = new Date();
+
+  const isPast = viewMode === 'month'
+    ? startOfMonth(parsed) < startOfMonth(today)
+    : startOfWeekFns(parsed, { weekStartsOn: weekStart as 0 | 1 | 2 | 3 | 4 | 5 | 6 }) < startOfWeekFns(today, { weekStartsOn: weekStart as 0 | 1 | 2 | 3 | 4 | 5 | 6 });
+
+  return isPast ? null : parsed;
+}
+
 const viewMode = ref<'week' | 'month'>(parseViewParam());
+const anchorDate = ref(parseAtParam(viewMode.value, props.weekStart) ?? new Date());
 
 function formatDateParam(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -160,7 +195,10 @@ const navLabel = computed(() => {
   }
   const start = weekDays.value[0]!;
   const end = weekDays.value[6]!;
-  return `${start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  return `${start.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  })} – ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
 });
 
 const hasAnyFreeTime = computed(() => availability.value.free.length > 0);
@@ -168,26 +206,41 @@ const hasAnyFreeTime = computed(() => availability.value.free.length > 0);
 const now = ref(new Date());
 const currentTimePct = computed(() => ((now.value.getHours() * 60 + now.value.getMinutes()) / 1440) * 100);
 
+// Never navigable earlier than the week/month containing "now" — a viewer
+// has no reason to browse a friend's already-elapsed availability, and this
+// is what actually prevents the Prev button (and a hand-edited `at` URL,
+// via parseAtParam above) from going back into the past.
+const isAtStart = computed(() => (viewMode.value === 'month'
+  ? startOfMonth(anchorDate.value).getTime() <= startOfMonth(now.value).getTime()
+  : startOfWeekFns(anchorDate.value, { weekStartsOn: props.weekStart as 0 | 1 | 2 | 3 | 4 | 5 | 6 }).getTime()
+    <= startOfWeekFns(now.value, { weekStartsOn: props.weekStart as 0 | 1 | 2 | 3 | 4 | 5 | 6 }).getTime()));
+
 function goPrev(): void {
+  if (isAtStart.value) return;
   anchorDate.value = viewMode.value === 'week' ? addDaysFns(anchorDate.value, -7) : addMonths(anchorDate.value, -1);
   updateUrl();
 }
+
 function goNext(): void {
   anchorDate.value = viewMode.value === 'week' ? addDaysFns(anchorDate.value, 7) : addMonths(anchorDate.value, 1);
   updateUrl();
 }
+
 function goToday(): void {
   anchorDate.value = new Date();
   updateUrl();
 }
+
 function setViewWeek(): void {
   viewMode.value = 'week';
   updateUrl();
 }
+
 function setViewMonth(): void {
   viewMode.value = 'month';
   updateUrl();
 }
+
 function onWeekClick(day: Date): void {
   anchorDate.value = day;
   viewMode.value = 'week';
@@ -231,28 +284,6 @@ function getTimezoneOffsetMinutes(date: Date, timeZone: string): number {
     Number(parts.hour), Number(parts.minute), Number(parts.second),
   );
   return (asUtc - date.getTime()) / 60000;
-}
-
-// ── Scrambled placeholder (Stage 6's core visible trust signal) ────────
-
-const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-
-function randomScrambledText(length: number): string {
-  let out = '';
-  for (let i = 0; i < length; i++) {
-    out += SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
-  }
-  return out;
-}
-
-const scrambledLines = ref<string[]>([]);
-const showScrambled = ref(false);
-
-function renderScrambledPlaceholder(): void {
-  showCalendar.value = true;
-  showStatus.value = false;
-  showScrambled.value = true;
-  scrambledLines.value = Array.from({ length: 7 }, () => randomScrambledText(40 + Math.floor(Math.random() * 30)));
 }
 
 // ── Decryption ───────────────────────────────────────────────────────
@@ -305,7 +336,7 @@ function onPassphraseSubmit(): void {
 }
 
 async function fetchWithPolling(): Promise<ApiResponse> {
-  for (;;) {
+  for (; ;) {
     const res = await fetch(`/api/share/${encodeURIComponent(props.token)}`, {
       headers: { Accept: 'application/json' },
     });
@@ -331,11 +362,10 @@ async function fetchWithPolling(): Promise<ApiResponse> {
 
 // ── Bootstrap ────────────────────────────────────────────────────────
 
-const MINIMUM_SCRAMBLE_DISPLAY_MS = 500;
-
 async function boot(): Promise<void> {
-  renderScrambledPlaceholder();
-  const scrambleShownAt = Date.now();
+  showCalendar.value = true;
+  showStatus.value = true;
+  statusText.value = 'Loading…';
 
   try {
     const response = await fetchWithPolling();
@@ -346,12 +376,6 @@ async function boot(): Promise<void> {
     const plaintext = await decryptString(key, response.ciphertext!);
     availability.value = JSON.parse(plaintext) as AvailabilityResponse;
 
-    const elapsed = Date.now() - scrambleShownAt;
-    if (elapsed < MINIMUM_SCRAMBLE_DISPLAY_MS) {
-      await new Promise((r) => setTimeout(r, MINIMUM_SCRAMBLE_DISPLAY_MS - elapsed));
-    }
-
-    showScrambled.value = false;
     showStatus.value = false;
   } catch (error) {
     if (error instanceof LinkExpiredError) {
@@ -359,7 +383,6 @@ async function boot(): Promise<void> {
       return;
     }
 
-    showScrambled.value = false;
     showCalendar.value = false;
     showStatus.value = true;
     showError.value = true;
@@ -381,7 +404,9 @@ onMounted(() => {
   }
 
   boot();
-  const timer = setInterval(() => { now.value = new Date(); }, 30_000);
+  const timer = setInterval(() => {
+    now.value = new Date();
+  }, 30_000);
   onUnmounted(() => clearInterval(timer));
 });
 </script>
@@ -389,105 +414,122 @@ onMounted(() => {
 <template>
   <Head :title="pageTitle" />
 
-  <div class="container-fluid py-4" :style="rootStyle">
-    <ThemeToggle style="position: absolute; top: 1rem; right: 1rem;" />
+  <div class="wtf-backdrop" :style="rootStyle">
+    <SiteHeader />
 
-    <h1 class="mb-1 text-center">{{ pageTitle }}</h1>
-    <p class="small text-center text-muted mt-n2 mb-1">Times shown in your local time</p>
-    <p v-if="timezoneOffsetNote" class="small text-center text-muted mt-n1 mb-3">{{ timezoneOffsetNote }}</p>
-    <p class="small text-center text-warning mb-3">
-      This link is personalized to you. Please don't share it with others.
-    </p>
+    <div class="wtf-page-content container py-4">
+      <div class="card mx-auto" style="max-width: 60rem;">
+        <div class="card-body p-4">
+          <h1 class="mb-1 text-center">{{ pageTitle }}</h1>
+          <p class="small text-center text-muted mt-n2 mb-3">
+            Times shown in your local time
+            <span v-if="timezoneOffsetNote">&bull; {{ timezoneOffsetNote }}</span>
+          </p>
+          <p  class="small text-center text-warning mb-3">
+        <FontAwesomeIcon :icon="faLock" class="me-2" />This link is personalized to you. Please don't share it with others.
+          </p>
 
-    <div v-if="showExpired" class="text-center py-5">
-      <h2 class="h4 mb-3">Link Expired</h2>
-      <p class="mb-0 text-muted">This calendar link has expired or is no longer valid.</p>
+          <div v-if="showExpired" class="text-center py-5">
+            <h2 class="h4 mb-3">Link Expired</h2>
+            <p class="mb-0 text-muted">This calendar link has expired or is no longer valid.</p>
+          </div>
+
+          <div v-else>
+            <div
+              class="d-flex flex-wrap align-items-center justify-content-between mb-3"
+              style="gap: 0.5rem;"
+            >
+              <div class="d-flex flex-wrap align-items-center justify-content-center">
+                <BButton variant="outline-secondary" size="sm" aria-label="Previous" :disabled="isAtStart" @click="goPrev"><FontAwesomeIcon :icon="faChevronLeft" /></BButton>
+                <span class="fw-bold text-center" style="min-width: 12rem;">{{ navLabel }}</span>
+                <BButton variant="outline-secondary" size="sm" aria-label="Next" @click="goNext"><FontAwesomeIcon :icon="faChevronRight" /></BButton>
+                <BButton variant="secondary" size="sm" class="ms-2" :disabled="isAtStart" @click="goToday">Today</BButton>
+              </div>
+              <div class="btn-group ms-2" role="group">
+                <BButton
+                  size="sm"
+                  :variant="viewMode === 'month' ? 'secondary' : 'outline-secondary'"
+                  @click="setViewMonth"
+                >
+                  Month
+                </BButton>
+                <BButton
+                  size="sm"
+                  :variant="viewMode === 'week' ? 'secondary' : 'outline-secondary'"
+                  @click="setViewWeek"
+                >
+                  Week
+                </BButton>
+              </div>
+            </div>
+
+            <div v-if="!showCalendar" class="text-center text-muted py-5">
+              <span>{{ statusText }}</span>
+            </div>
+
+            <template v-else>
+              <p v-if="showStatus" class="small text-center text-muted mb-2">
+                <span
+                  class="spinner-border spinner-border-sm me-2"
+                  role="status"
+                  aria-hidden="true"
+                ></span>{{ statusText }}
+              </p>
+
+              <div class="wtf-desktop-only">
+                <CalendarView
+                  v-if="viewMode === 'week'"
+                  :visible-days="visibleDays"
+                  :free-slots="availability.free"
+                  :highlighted-slots="availability.highlighted"
+                  :unavailable-slots="availability.unavailable"
+                  :sleep-slots="availability.sleep"
+                  :pending="showStatus"
+                  :has-error="showError"
+                  :has-any-free-time="hasAnyFreeTime"
+                  :timezone="timezone"
+                  :show-blocks="true"
+                  :show-current-time="true"
+                  :current-time-pct="currentTimePct"
+                />
+                <MonthView
+                  v-else
+                  :days="visibleDays"
+                  :free-slots="availability.free"
+                  :highlighted-slots="availability.highlighted"
+                  :unavailable-slots="availability.unavailable"
+                  :sleep-slots="availability.sleep"
+                  :pending="showStatus"
+                  :has-error="showError"
+                  :has-any-free-time="hasAnyFreeTime"
+                  :timezone="timezone"
+                  :show-blocks="true"
+                  :show-current-time="true"
+                  :current-time-pct="currentTimePct"
+                  :week-start="props.weekStart"
+                  @week-click="onWeekClick"
+                />
+              </div>
+              <AgendaView
+                :days="weekDays"
+                :free-slots="availability.free"
+                :highlighted-slots="availability.highlighted"
+                :unavailable-slots="availability.unavailable"
+                :sleep-slots="availability.sleep"
+                :pending="showStatus"
+                :has-error="showError"
+                :timezone="timezone"
+                :show-blocks="true"
+                :show-current-time="true"
+                :current-time-pct="currentTimePct"
+              />
+            </template>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div v-else>
-      <div class="d-flex flex-wrap align-items-center justify-content-center mb-3" style="gap: 0.5rem;">
-        <BButton variant="outline-secondary" size="sm" aria-label="Previous" @click="goPrev">&laquo;</BButton>
-        <span class="fw-bold text-center" style="min-width: 12rem;">{{ navLabel }}</span>
-        <BButton variant="outline-secondary" size="sm" aria-label="Next" @click="goNext">&raquo;</BButton>
-        <BButton variant="secondary" size="sm" class="ms-2" @click="goToday">Today</BButton>
-        <div class="btn-group ms-2" role="group">
-          <BButton
-            size="sm"
-            :variant="viewMode === 'month' ? 'secondary' : 'outline-secondary'"
-            @click="setViewMonth"
-          >
-            Month
-          </BButton>
-          <BButton
-            size="sm"
-            :variant="viewMode === 'week' ? 'secondary' : 'outline-secondary'"
-            @click="setViewWeek"
-          >
-            Week
-          </BButton>
-        </div>
-      </div>
-
-      <div v-if="showScrambled" class="border rounded p-3" style="filter: blur(0.5px);" aria-hidden="true">
-        <div v-for="(line, i) in scrambledLines" :key="i" class="mb-2 font-monospace small text-muted" style="opacity: 0.5;">
-          {{ line }}
-        </div>
-      </div>
-
-      <div v-else-if="showStatus" class="text-center text-muted py-5">
-        <span>{{ statusText }}</span>
-      </div>
-
-      <template v-else-if="showCalendar">
-        <div class="wtf-desktop-only">
-          <CalendarView
-            v-if="viewMode === 'week'"
-            :visible-days="visibleDays"
-            :free-slots="availability.free"
-            :highlighted-slots="availability.highlighted"
-            :unavailable-slots="availability.unavailable"
-            :sleep-slots="availability.sleep"
-            :pending="false"
-            :has-error="showError"
-            :has-any-free-time="hasAnyFreeTime"
-            :timezone="timezone"
-            :show-blocks="true"
-            :show-current-time="true"
-            :current-time-pct="currentTimePct"
-          />
-          <MonthView
-            v-else
-            :days="visibleDays"
-            :free-slots="availability.free"
-            :highlighted-slots="availability.highlighted"
-            :unavailable-slots="availability.unavailable"
-            :sleep-slots="availability.sleep"
-            :pending="false"
-            :has-error="showError"
-            :has-any-free-time="hasAnyFreeTime"
-            :timezone="timezone"
-            :show-blocks="true"
-            :show-current-time="true"
-            :current-time-pct="currentTimePct"
-            :week-start="props.weekStart"
-            @week-click="onWeekClick"
-          />
-        </div>
-        <AgendaView
-          :days="weekDays"
-          :free-slots="availability.free"
-          :highlighted-slots="availability.highlighted"
-          :unavailable-slots="availability.unavailable"
-          :sleep-slots="availability.sleep"
-          :pending="false"
-          :has-error="showError"
-          :timezone="timezone"
-          :show-blocks="true"
-          :show-current-time="true"
-          :current-time-pct="currentTimePct"
-        />
-      </template>
-    </div>
+    <SiteFooter/>
   </div>
 
   <div
@@ -512,10 +554,4 @@ onMounted(() => {
       </form>
     </div>
   </div>
-
-  <p class="text-center small text-muted mt-4">
-    <a :href="`/register?code=${inviteCode}`">
-      Want your own <em>{{ $page.props.appName }}</em> calendar? You're invited by {{ ownerName }} to create one.
-    </a>
-  </p>
 </template>

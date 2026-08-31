@@ -5,7 +5,7 @@ import SiteFooter from '../Components/SiteFooter.vue';
 import SiteHeader from '../Components/SiteHeader.vue';
 import VaultUnlockModal from '../dashboard/VaultUnlockModal.vue';
 import { provideLiveThemePreview } from '../dashboard/liveThemePreview';
-import { hexToRgbTriplet } from '../free/color-utils';
+import { hexToRgbTriplet, yiqTextColor } from '../free/color-utils';
 import { resolveSwatchHex } from '../free/color-palette';
 import { useResolvedTheme } from '../composables/useTheme';
 
@@ -31,6 +31,7 @@ const secondaryColor = computed(() => liveThemeOverride.value?.secondary
 const accentStyle = computed(() => ({
   '--wtf-accent': accentColor.value,
   '--wtf-accent-rgb': hexToRgbTriplet(accentColor.value),
+  '--wtf-accent-text': yiqTextColor(accentColor.value),
   '--wtf-text-muted': secondaryColor.value,
 }));
 </script>

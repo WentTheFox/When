@@ -3,6 +3,7 @@ import { Head, useForm } from '@inertiajs/vue3';
 import axios from 'axios';
 import { BAlert, BButton, BCard, BFormCheckbox, BFormGroup, BFormInput } from 'bootstrap-vue-next';
 import { ref } from 'vue';
+import CenteredColumn from '../../Components/CenteredColumn.vue';
 import PasswordField from '../../Components/PasswordField.vue';
 import { deriveLoginVerifier } from '../../crypto';
 import { useVault } from '../../dashboard/useVault';
@@ -101,7 +102,7 @@ async function submit(): Promise<void> {
 <template>
   <Head title="Log in" />
 
-  <div style="max-width: 24rem; margin: 0 auto;">
+  <CenteredColumn size="narrow">
     <BCard>
       <h1 class="h3 mb-4 text-center">Log in</h1>
 
@@ -125,5 +126,5 @@ async function submit(): Promise<void> {
         </BButton>
       </form>
     </BCard>
-  </div>
+  </CenteredColumn>
 </template>

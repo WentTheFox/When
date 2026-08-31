@@ -35,7 +35,13 @@ class ShareLinkLocaleTest extends TestCase
         ]);
         $shareLink = ShareLink::factory()->for($owner)->create();
 
-        $this->get("/hu/free/{$shareLink->id}")
+        // A stored locale cookie, not a bare request — ShareLinkController
+        // now redirects /hu/free away from itself for a browser whose
+        // Accept-Language doesn't actually prefer Hungarian (see
+        // ShareLinkLocaleDetectionTest), which the test client's own
+        // default Accept-Language would otherwise trigger here too.
+        $this->withCookie('wtf-locale', 'hu')
+            ->get("/hu/free/{$shareLink->id}")
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('pageTitle', 'Magyar Cím')
@@ -50,7 +56,8 @@ class ShareLinkLocaleTest extends TestCase
         ]);
         $shareLink = ShareLink::factory()->for($owner)->create();
 
-        $this->get("/hu/free/{$shareLink->id}")
+        $this->withCookie('wtf-locale', 'hu')
+            ->get("/hu/free/{$shareLink->id}")
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page->where('pageTitle', 'English Title'));
     }
@@ -61,6 +68,8 @@ class ShareLinkLocaleTest extends TestCase
             'legacy_token' => 'old-legacy-token-xyz789',
         ]);
 
-        $this->get('/hu/free/old-legacy-token-xyz789')->assertOk();
+        $this->withCookie('wtf-locale', 'hu')
+            ->get('/hu/free/old-legacy-token-xyz789')
+            ->assertOk();
     }
 }

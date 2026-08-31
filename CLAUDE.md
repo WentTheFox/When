@@ -27,9 +27,11 @@ everything with one server-held key."
   fetch them. The **computed result** is re-encrypted with the relevant share link's own
   key immediately after computing, before caching/serving.
 
-The live, user-facing statement of this model is `/security`
-(`resources/js/Pages/Security.vue`, via `SecurityPageController`) — keep it in sync with
-reality as the code changes, it's not fixed copy.
+The live, user-facing statement of this model is `/about`
+(`resources/js/Components/SecurityCardBody.vue`, rendered as part of
+`resources/js/Pages/About.vue` via `AboutController` — the old standalone `/security` page
+was folded into `/about` alongside the welcome copy, `/security` now just redirects there)
+— keep it in sync with reality as the code changes, it's not fixed copy.
 
 Owner login uses **one master password**, split client-side via two independent
 Argon2id derivations (Bitwarden-style): a `vaultKey` (never leaves the browser) and a

@@ -126,10 +126,39 @@ class AuthenticatedSessionController extends Controller
     public function destroy(Request $request): RedirectResponse
     {
         Auth::logout();
+
+        $redirectTo = $this->redirectPathAfterLogout($request);
+
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return redirect($redirectTo);
+    }
+
+    /**
+     * Land back on whatever page the user was just looking at (SiteHeader's
+     * "Log out" button is global, reachable from any page) rather than
+     * always bouncing to the homepage. Only trusts the Referer header when
+     * it points at this same origin — anything else (a missing/foreign
+     * referrer, or the logout route itself) falls back to '/'.
+     */
+    private function redirectPathAfterLogout(Request $request): string
+    {
+        $referer = $request->headers->get('referer');
+
+        if ($referer === null || parse_url($referer, PHP_URL_HOST) !== $request->getHost()) {
+            return '/';
+        }
+
+        $path = parse_url($referer, PHP_URL_PATH) ?? '/';
+
+        if ($path === $request->getPathInfo()) {
+            return '/';
+        }
+
+        $query = parse_url($referer, PHP_URL_QUERY);
+
+        return $query ? "{$path}?{$query}" : $path;
     }
 
     /**
@@ -145,8 +174,8 @@ class AuthenticatedSessionController extends Controller
         $bytes = hash_hmac('sha256', mb_strtolower(trim($identifier)), config('app.key'), true);
         $bytes = substr($bytes, 0, 16);
 
-        $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
-        $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
+        $bytes[6] = chr((ord($bytes[6]) & 0x0F) | 0x40);
+        $bytes[8] = chr((ord($bytes[8]) & 0x3F) | 0x80);
 
         $hex = bin2hex($bytes);
 

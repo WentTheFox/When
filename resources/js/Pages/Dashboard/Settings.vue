@@ -21,7 +21,7 @@ import { useLiveThemePreview } from '../../dashboard/liveThemePreview';
 import PatternPreview from '../../dashboard/PatternPreview.vue';
 import SleepExceptions from '../../dashboard/SleepExceptions.vue';
 import CalendarView from '../../free/CalendarView.vue';
-import { BLOCK_ALPHA, hexToRgba, hexToRgbTriplet } from '../../free/color-utils';
+import { BLOCK_ALPHA, hexToRgba, hexToRgbTriplet, yiqTextColor } from '../../free/color-utils';
 import { getColorPalette, getDefaultSwatchKey, resolveSwatchHex } from '../../free/color-palette';
 import type { ColorSlot } from '../../free/color-palette';
 import { useResolvedTheme } from '../../composables/useTheme';
@@ -405,6 +405,7 @@ function previewStyleFor(theme: 'light' | 'dark') {
   return {
     '--wtf-accent': accent,
     '--wtf-accent-rgb': hexToRgbTriplet(accent),
+    '--wtf-accent-text': yiqTextColor(accent),
     '--wtf-color-free': hexToRgba(free, alpha.free),
     '--wtf-hue-free': free,
     '--wtf-color-busy': hexToRgba(busy, alpha.busy),

@@ -6,7 +6,9 @@ use App\Models\Invite;
 use App\Models\ShareLink;
 use App\Models\User;
 use App\Services\InviteService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
@@ -14,25 +16,49 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ShareLinkController extends Controller
 {
+    /**
+     * Shared with resources/js/Components/LanguageSwitcher.vue's own choice
+     * of name only by convention, not by any code path in common — the
+     * switcher is a plain full-navigation link (see its own header
+     * comment), so it never reads or writes this cookie itself; landing on
+     * whichever locale route it points at is what sets it, same as any
+     * other visit here.
+     */
+    private const LOCALE_COOKIE = 'wtf-locale';
+
+    private const LOCALE_COOKIE_MINUTES = 60 * 24 * 365;
+
     public function __construct(private readonly InviteService $invites) {}
 
     /**
      * Handles both the current share-link id shape (UUID) and legacy
      * pre-migration tokens (§0.5/Stage 5) under one route and one path
-     * shape — no redirect involved for either. A migrated link's content
-     * key is derived deterministically from the token itself (§0.5,
-     * App\Services\Crypto\LegacyShareLinkKey) rather than delivered via a
-     * fragment, so there's nothing to add to the URL and nowhere to
-     * redirect to: the token the visitor already has is everything both
-     * the client and this server-side view need. WentTheNuxt's (the
-     * sibling repo's) entire role in this migration is a blanket
-     * same-path domain redirect; it needs no per-token data from this app
-     * at all, since the token in the URL never changes between the two
-     * apps.
+     * shape — no redirect involved for either (a migrated link's content
+     * key is derived deterministically from the token itself, §0.5,
+     * App\Services\Crypto\LegacyShareLinkKey, so there's nothing to add to
+     * the URL and nowhere to redirect to for that concern specifically).
+     * The locale redirect below is a separate concern — /free vs /hu/free —
+     * and can fire before either token shape is even looked at.
      */
-    public function show(Request $request, string $token): InertiaResponse
+    public function show(Request $request, string $token): InertiaResponse|RedirectResponse
     {
         $locale = $request->route('locale', 'en');
+        $preferredLocale = $this->resolvePreferredLocale($request, $locale);
+
+        if ($preferredLocale !== $locale) {
+            Cookie::queue(self::LOCALE_COOKIE, $preferredLocale, self::LOCALE_COOKIE_MINUTES);
+
+            $prefix = $preferredLocale === 'hu' ? '/hu' : '';
+            $query = $request->getQueryString();
+
+            // Same token, same query string, just the other locale's path
+            // prefix — the browser carries over the current URL's own
+            // #k=... fragment on its own (never sent to the server to begin
+            // with), same as any other same-origin redirect.
+            return redirect("{$prefix}/free/{$token}".($query !== null && $query !== '' ? "?{$query}" : ''));
+        }
+
+        Cookie::queue(self::LOCALE_COOKIE, $locale, self::LOCALE_COOKIE_MINUTES);
 
         if (Str::isUuid($token)) {
             $shareLink = ShareLink::find($token);
@@ -52,9 +78,10 @@ class ShareLinkController extends Controller
     }
 
     /**
-     * The path (/free vs /hu/free) is the only thing that decides locale —
-     * no query param, no Accept-Language guessing. Falling back to the
-     * other locale's title (if set) beats falling straight to the generic
+     * By this point $locale is already fully resolved (show()'s cookie/
+     * Accept-Language redirect above has already run) — this only picks
+     * between the owner's two title overrides. Falling back to the other
+     * locale's title (if set) beats falling straight to the generic
      * default.
      */
     private function resolveTitle(User $owner, string $locale): string
@@ -108,5 +135,37 @@ class ShareLinkController extends Controller
                 'now' => $owner->now_color,
             ],
         ]);
+    }
+
+    /**
+     * A stored cookie preference always wins once it exists — set on every
+     * visit here (see show() above), whether that visit arrived via this
+     * very redirect, a manual LanguageSwitcher.vue click, or a share link
+     * the owner copied in whichever locale they happened to be viewing —
+     * so detection only ever runs once per visitor and a manual switch back
+     * sticks instead of being re-guessed on the next visit. Absent that,
+     * Accept-Language gets one guess; anything else (no clear preference,
+     * a browser sending neither en nor hu) falls back to whatever locale
+     * the URL itself already asked for, i.e. no redirect at all.
+     */
+    private function resolvePreferredLocale(Request $request, string $routeLocale): string
+    {
+        $cookie = $request->cookie(self::LOCALE_COOKIE);
+
+        if (in_array($cookie, ['en', 'hu'], true)) {
+            return $cookie;
+        }
+
+        // getPreferredLanguage() falls back to $locales[0] ('en') when
+        // there's no Accept-Language header at all, rather than returning
+        // null — that's indistinguishable from "actually prefers English"
+        // unless checked for separately, and would otherwise force every
+        // header-less request (most test clients, curl, some bots) onto
+        // /free regardless of which locale route they actually asked for.
+        if ($request->getLanguages() === []) {
+            return $routeLocale;
+        }
+
+        return $request->getPreferredLanguage(['en', 'hu']) ?? $routeLocale;
     }
 }

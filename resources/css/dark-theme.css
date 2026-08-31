@@ -40,6 +40,12 @@
     /* Same RGB as --wtf-accent, comma-separated so rgba(var(--wtf-accent-rgb), a)
        works below — CSS can't pull channels back out of a hex custom property. */
     --wtf-accent-rgb: 97, 129, 182;
+    /* YIQ-contrast text color for anything painted with --wtf-accent as a
+       background (.btn-primary/.btn-secondary/the active Month-Week toggle,
+       below) — computed per-swatch by resources/js/free/color-utils.ts's
+       yiqTextColor() wherever an owner's accent choice sets this alongside
+       --wtf-accent; this default matches the default accent hex above. */
+    --wtf-accent-text: #fff;
     /* Matches the reference /free page's own dark-theme block colors
        exactly (FreeCalendarView.module.scss's @include dark-theme block:
        $block-color=$favourite-color at 0.35, $dark=#212529 at 0.3,
@@ -91,6 +97,7 @@
 
     --wtf-accent: #6181b6;
     --wtf-accent-rgb: 97, 129, 182;
+    --wtf-accent-text: #fff;
     /* Same source as the dark-theme block above, but the base (non-dark-
        theme) values: $block-color at 0.25, $dark at 0.2, $warning at 0.3,
        $purple at 0.3. */
@@ -396,21 +403,21 @@ a {
 .btn-secondary {
     background-color: var(--wtf-accent);
     border-color: var(--wtf-accent);
-    color: var(--wtf-bg);
+    color: var(--wtf-accent-text);
 }
 
 .btn-secondary:hover:not(:disabled) {
     filter: brightness(1.1);
     background-color: var(--wtf-accent);
     border-color: var(--wtf-accent);
-    color: var(--wtf-bg);
+    color: var(--wtf-accent-text);
 }
 
 .btn-group .btn-outline-secondary.active,
 .btn-check:checked + .btn-outline-secondary {
     background-color: var(--wtf-accent);
     border-color: var(--wtf-accent);
-    color: var(--wtf-bg);
+    color: var(--wtf-accent-text);
 }
 
 .form-control {
@@ -431,17 +438,24 @@ a {
  * CSS (we import bootstrap.min.css as-is, not the Sass source, so there's
  * no $primary variable to override at build time) — repaint the classes
  * that reference it directly instead, so "primary" and "accent" are the
- * same color everywhere rather than two different blues.
+ * same color everywhere rather than two different blues. Text color also
+ * needs an explicit override, not just background/border: Bootstrap bakes
+ * --bs-btn-color: #fff for .btn-primary based on ITS OWN default primary's
+ * luminance, which has nothing to do with whichever accent swatch an owner
+ * actually picked (ColorPalette.php spans light swatches like amber/fog
+ * that need dark text, not just darker ones that read fine with white).
  */
 .btn-primary {
     background-color: var(--wtf-accent);
     border-color: var(--wtf-accent);
+    color: var(--wtf-accent-text);
 }
 
 .btn-primary:hover:not(:disabled) {
     filter: brightness(1.1);
     background-color: var(--wtf-accent);
     border-color: var(--wtf-accent);
+    color: var(--wtf-accent-text);
 }
 
 .btn-primary:focus,
@@ -449,6 +463,7 @@ a {
 .btn-primary:not(:disabled):not(.disabled):active {
     background-color: var(--wtf-accent);
     border-color: var(--wtf-accent);
+    color: var(--wtf-accent-text);
     box-shadow: 0 0 0 0.2rem rgba(var(--wtf-accent-rgb), 0.5);
 }
 

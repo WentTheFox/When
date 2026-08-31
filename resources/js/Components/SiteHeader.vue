@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { faDoorOpen } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+
 /**
  * The one header used everywhere — PublicLayout.vue (guest and public
  * pages) and DashboardLayout.vue alike — instead of each layout
@@ -13,7 +16,7 @@
  */
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { BButton } from 'bootstrap-vue-next';
-import QuickSearch from '../dashboard/QuickSearch.vue';
+import LanguageSwitcher from './LanguageSwitcher.vue';
 import ThemeToggle from './ThemeToggle.vue';
 // Imported (not a plain /public path) so Vite fingerprints it — unlike
 // public/favicon.svg (referenced directly from app.blade.php's <head>,
@@ -84,7 +87,7 @@ function logout(): void {
         right.
       -->
       <div class="d-flex align-items-center ms-auto">
-        <QuickSearch v-if="page.props.auth?.user" class="me-3" />
+        <LanguageSwitcher class="me-2" />
 
         <ThemeToggle />
 
@@ -100,7 +103,7 @@ function logout(): void {
             >
             <span>{{ page.props.auth.user.name }}</span>
           </Link>
-          <BButton variant="outline-secondary" size="sm" @click="logout">Log out</BButton>
+          <BButton variant="outline-secondary" size="sm" @click="logout"><FontAwesomeIcon :icon="faDoorOpen"/></BButton>
         </template>
       </div>
     </div>

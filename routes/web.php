@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AboutController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\TwoFactorController;
@@ -16,16 +17,19 @@ use App\Http\Controllers\Dashboard\SleepExceptionController;
 use App\Http\Controllers\Dashboard\VaultController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InviteController;
-use App\Http\Controllers\SecurityPageController;
 use App\Http\Controllers\ShareLinkController;
-use App\Http\Controllers\WelcomeController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', [WelcomeController::class, 'show']);
+// `/` is a pure dispatcher (see AboutController's own doc comment) — the
+// content itself is only ever served from /about.
+Route::get('/', [AboutController::class, 'redirectHome']);
+Route::get('/about', [AboutController::class, 'show']);
 
-// Public threat-model/security page (§0.2's honesty commitment, Stage 8) —
-// no auth required, linked from the footer on every page.
-Route::get('/security', [SecurityPageController::class, 'show'])->name('security.show');
+// The security/data-handling explanation used to be its own page at this
+// URL (§0.2's honesty commitment, Stage 8) — now folded into /about (see
+// AboutController) alongside the welcome copy, so old links/bookmarks still
+// land somewhere rather than 404ing.
+Route::redirect('/security', '/about');
 
 // Public share-link view (§4, §0.4, §0.5/Stage 5). Full build in Stage 6 —
 // for now this hosts the "create your own" invite CTA described in Stage 3,
