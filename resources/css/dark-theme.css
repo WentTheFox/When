@@ -1168,12 +1168,18 @@ hr {
     width: 2rem;
     height: 2rem;
     border-radius: 50%;
-    border: 2px solid transparent;
+    border: none;
     padding: 0;
     cursor: pointer;
     background: linear-gradient(135deg, var(--wtf-swatch-light) 0 50%, var(--wtf-swatch-dark) 50% 100%);
+    /* A transparent border used to stand in for the "unselected" state here
+       — border-box background painting under a fully transparent border
+       edge produces a faint anti-aliasing seam right at the circle's rim,
+       which read as a stray ring around every unpicked swatch. box-shadow
+       alone (same 1px/2px weight either way, only the color changes)
+       avoids that seam entirely. */
     box-shadow: 0 0 0 1px var(--wtf-border);
-    transition: transform 0.1s ease;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
 .wtf-swatch-btn:hover {
@@ -1181,5 +1187,5 @@ hr {
 }
 
 .wtf-swatch-btn-active {
-    border-color: var(--wtf-text);
+    box-shadow: 0 0 0 2px var(--wtf-text);
 }
