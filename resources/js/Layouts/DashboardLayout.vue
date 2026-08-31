@@ -53,13 +53,6 @@ const accentStyle = computed(() => ({
           <Link class="nav-item nav-link" :class="{ active: page.url.startsWith('/settings') }" href="/settings">Settings</Link>
           <Link
             class="nav-item nav-link"
-            :class="{ active: page.url.startsWith('/dashboard/security') }"
-            href="/dashboard/security"
-          >
-            Security
-          </Link>
-          <Link
-            class="nav-item nav-link"
             :class="{ active: page.url.startsWith('/dashboard/share-links') }"
             href="/dashboard/share-links"
           >
@@ -77,15 +70,17 @@ const accentStyle = computed(() => ({
 
         <ThemeToggle class="me-3" />
 
-        <img
-          v-if="page.props.auth?.user?.avatarUrl"
-          :src="page.props.auth.user.avatarUrl"
-          alt=""
-          class="rounded-circle me-2"
-          width="28"
-          height="28"
-        >
-        <span class="small me-3">{{ page.props.auth?.user?.name }}</span>
+        <Link href="/dashboard/account" class="d-flex align-items-center text-decoration-none me-3" style="color: inherit;">
+          <img
+            v-if="page.props.auth?.user?.avatarUrl"
+            :src="page.props.auth.user.avatarUrl"
+            alt=""
+            class="rounded-circle me-2"
+            width="28"
+            height="28"
+          >
+          <span class="small">{{ page.props.auth?.user?.name }}</span>
+        </Link>
 
         <BButton variant="outline-secondary" size="sm" @click="logout">Log out</BButton>
       </div>

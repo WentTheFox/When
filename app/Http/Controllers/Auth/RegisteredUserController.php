@@ -54,13 +54,35 @@ class RegisteredUserController extends Controller
         $isFirstUser = User::isFirstUser();
 
         $data = $request->validate([
+            // Client-generated (crypto.randomUUID()), not server-assigned —
+            // the login-verifier salt (resources/js/crypto/argon2.ts) is
+            // derived from this id, so the browser has to know it before it
+            // can compute the verifier it submits as 'password' below.
+            // HasUuids respects a pre-set id rather than generating its own
+            // (see Illuminate\Database\Eloquent\Concerns\HasUniqueIds::setUniqueIds()).
+            'id' => ['required', 'uuid', 'unique:users,id'],
             'invite_code' => [$isFirstUser ? 'nullable' : 'required', 'string'],
-            'name' => ['required', 'string', 'max:255'],
-            // email is encrypted at rest (§0.2) — a plain 'unique:users,email'
-            // rule compares against ciphertext and would never catch a
-            // duplicate, so uniqueness is checked via the email_hash-backed
-            // whereEmail() scope instead. See User::hashEmail()'s doc comment.
-            'email' => ['required', 'string', 'email', 'max:255', function (string $attribute, string $value, \Closure $fail) {
+            // name doubles as the login identifier (alongside optional
+            // email) — no '@' is what gates login-identifier detection
+            // (AuthenticatedSessionController), and it has to be unique for
+            // the same reason a username would. Uniqueness is checked via
+            // the name_hash-backed whereName() scope, not a plain
+            // 'unique:users,name' rule, since name is encrypted at rest
+            // (ciphertext comparison would never catch a duplicate) — see
+            // User::hashName()'s doc comment.
+            'name' => ['required', 'string', 'max:255', 'regex:/^[^@]+$/', function (string $attribute, string $value, \Closure $fail) {
+                if (User::whereName($value)->exists()) {
+                    $fail('That name is already taken.');
+                }
+            }],
+            // Optional — only ever used to fetch a Gravatar avatar (see
+            // User::gravatarUrl()) and identify the account for login.
+            // Encrypted at rest (§0.2) like name is — a plain
+            // 'unique:users,email' rule compares against ciphertext and
+            // would never catch a duplicate, so uniqueness is checked via
+            // the email_hash-backed whereEmail() scope instead. See
+            // User::hashEmail()'s doc comment.
+            'email' => ['nullable', 'string', 'email', 'max:255', function (string $attribute, string $value, \Closure $fail) {
                 if (User::whereEmail($value)->exists()) {
                     $fail('The email has already been taken.');
                 }
@@ -82,13 +104,20 @@ class RegisteredUserController extends Controller
             }
         }
 
-        $user = User::create([
+        // 'id' is deliberately not mass-assigned via fillable (a primary
+        // key generally shouldn't be) — set directly instead, before save()
+        // so HasUuids' setUniqueIds() sees it already populated and leaves
+        // it alone (Illuminate\Database\Eloquent\Concerns\HasUniqueIds).
+        $user = new User([
             'name' => $data['name'],
-            'email' => $data['email'],
+            'email' => $data['email'] ?? null,
             'password' => Hash::make($data['password']),
+            'verifier_salt_version' => 'id',
             'passphrase_salt' => $data['passphrase_salt'],
             'key_ring_ciphertext' => $data['key_ring_ciphertext'],
         ]);
+        $user->id = $data['id'];
+        $user->save();
 
         if ($invite !== null) {
             $this->invites->redeem($invite, $user);

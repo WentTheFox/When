@@ -25,10 +25,13 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
+            // unique() — name doubles as a login identifier now (see
+            // User::hashName()), so it has to be unique like an email does.
+            'name' => fake()->unique()->name(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
+            'verifier_salt_version' => 'id',
             'passphrase_salt' => base64_encode(random_bytes(16)),
             'remember_token' => Str::random(10),
         ];

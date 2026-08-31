@@ -38,15 +38,17 @@ function logout(): void {
         <ThemeToggle />
 
         <template v-if="page.props.auth?.user">
-          <img
-            v-if="page.props.auth.user.avatarUrl"
-            :src="page.props.auth.user.avatarUrl"
-            alt=""
-            class="rounded-circle ms-3 me-2"
-            width="28"
-            height="28"
-          >
-          <span class="me-3" style="color: var(--wtf-header-text);">{{ page.props.auth.user.name }}</span>
+          <Link href="/dashboard/account" class="d-flex align-items-center text-decoration-none ms-3 me-3" style="color: var(--wtf-header-text);">
+            <img
+              v-if="page.props.auth.user.avatarUrl"
+              :src="page.props.auth.user.avatarUrl"
+              alt=""
+              class="rounded-circle me-2"
+              width="28"
+              height="28"
+            >
+            <span>{{ page.props.auth.user.name }}</span>
+          </Link>
           <BButton variant="outline-secondary" size="sm" @click="logout">Log out</BButton>
         </template>
       </div>

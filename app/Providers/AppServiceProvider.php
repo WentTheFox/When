@@ -32,5 +32,13 @@ class AppServiceProvider extends ServiceProvider
         // is purely an anti-enumeration ceiling, not a load-protection
         // limit — set high enough that no real viewer ever notices it.
         RateLimiter::for('share-link-view', fn (Request $request) => Limit::perMinute(120)->by($request->ip()));
+        // /login/lookup resolves an identifier to a salt basis before the
+        // real login POST — its pseudo-id fallback (see
+        // AuthenticatedSessionController::pseudoId()) already keeps a
+        // single response from revealing whether an account exists, but
+        // unthrottled it would still let an attacker time/pattern-mine
+        // requests, so it's IP-limited the same as the other two
+        // unauthenticated surfaces above.
+        RateLimiter::for('login-lookup', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
     }
 }

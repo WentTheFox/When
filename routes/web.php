@@ -4,12 +4,12 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\TwoFactorController;
 use App\Http\Controllers\CalendarPreviewController;
+use App\Http\Controllers\Dashboard\AccountController;
 use App\Http\Controllers\Dashboard\ConnectionAttributeDefinitionController;
 use App\Http\Controllers\Dashboard\ConnectionController;
 use App\Http\Controllers\Dashboard\ConnectionEdgeController;
 use App\Http\Controllers\Dashboard\ConnectionSourceCategoryController;
 use App\Http\Controllers\Dashboard\ConnectionSourceController;
-use App\Http\Controllers\Dashboard\SecurityController;
 use App\Http\Controllers\Dashboard\SettingsController;
 use App\Http\Controllers\Dashboard\ShareLinkManagementController;
 use App\Http\Controllers\Dashboard\SleepExceptionController;
@@ -57,6 +57,9 @@ Route::middleware('guest')->group(function () {
 
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('/login', [AuthenticatedSessionController::class, 'store']);
+    Route::middleware('throttle:login-lookup')->group(function () {
+        Route::post('/login/lookup', [AuthenticatedSessionController::class, 'lookup'])->name('login.lookup');
+    });
 
     Route::get('/two-factor-challenge', [TwoFactorController::class, 'challenge'])
         ->name('two-factor.challenge');
@@ -65,10 +68,16 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
+    Route::post('/account/migrate-verifier', [AuthenticatedSessionController::class, 'migrateVerifier'])
+        ->name('account.migrate-verifier');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    Route::get('/dashboard/security', [SecurityController::class, 'edit'])->name('dashboard.security');
+    Route::get('/dashboard/account', [AccountController::class, 'edit'])->name('dashboard.account');
+    Route::patch('/dashboard/account/name', [AccountController::class, 'updateName'])
+        ->name('dashboard.account.name.update');
+    Route::patch('/dashboard/account/email', [AccountController::class, 'updateEmail'])
+        ->name('dashboard.account.email.update');
 
     Route::get('/two-factor', [TwoFactorController::class, 'setup'])->name('two-factor.setup');
     Route::post('/two-factor/confirm', [TwoFactorController::class, 'confirm'])

@@ -86,7 +86,7 @@ const page = usePage();
           An email address is optional. If you set one, it's only ever used
           to fetch your Gravatar avatar (only an MD5 hash of it is sent to
           Gravatar, never the address itself) and, if you like, as an
-          alternate way to log in alongside your username. It's stored
+          alternate way to log in alongside your name. It's stored
           encrypted at rest, the same as your calendar URL above.
         </p>
 

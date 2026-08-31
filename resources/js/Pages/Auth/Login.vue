@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
+import axios from 'axios';
 import { BAlert, BButton, BCard, BFormCheckbox, BFormGroup, BFormInput } from 'bootstrap-vue-next';
 import { ref } from 'vue';
 import PasswordField from '../../Components/PasswordField.vue';
@@ -16,23 +17,53 @@ const submitting = ref(false);
 const error = ref('');
 
 const form = useForm({
-  email: '',
+  identifier: '',
   password: '',
   remember: false,
 });
 
+interface LookupResponse {
+  id: string;
+  saltVersion: 'id' | 'email';
+}
+
 async function submit(): Promise<void> {
   error.value = '';
 
-  if (!form.email || !masterPassword.value) {
-    error.value = 'Please enter your email and master password.';
+  if (!form.identifier || !masterPassword.value) {
+    error.value = 'Please enter your name or email, and your master password.';
     return;
   }
 
   submitting.value = true;
 
   try {
-    form.password = await deriveLoginVerifier(masterPassword.value, form.email);
+    // The login-verifier salt (resources/js/crypto/argon2.ts) is derived
+    // from the account's immutable id, not from whatever was typed here —
+    // name/email can be changed later, the id never does. This tiny
+    // round-trip resolves the typed identifier to that id (and to which
+    // salt scheme this particular account still uses — see
+    // AuthenticatedSessionController::lookup()) before the verifier can be
+    // computed at all.
+    const { data: lookup } = await axios.post<LookupResponse>('/login/lookup', {
+      identifier: form.identifier,
+    });
+
+    // A not-yet-migrated account's stored verifier is salted from its
+    // *email*, not from whatever was typed here — so unlike the 'id'
+    // scheme, this one only works if the identifier typed is actually the
+    // email. Logging in that way is exactly what triggers the one-time
+    // migration below, after which name login works for this account too.
+    if (lookup.saltVersion === 'email' && !form.identifier.includes('@')) {
+      error.value = 'This account needs one login with its email to enable name login. Please use your email this time.';
+      submitting.value = false;
+      return;
+    }
+
+    const legacySaltBasis = lookup.saltVersion === 'email' ? form.identifier : null;
+    const saltBasis = legacySaltBasis ?? lookup.id;
+
+    form.password = await deriveLoginVerifier(masterPassword.value, saltBasis);
     const passwordForVault = masterPassword.value;
 
     form.post('/login', {
@@ -46,6 +77,17 @@ async function submit(): Promise<void> {
       // submission instead of asking for it a second time right after.
       onSuccess: () => {
         unlock(passwordForVault).catch(() => {});
+
+        // Transparent one-time migration off the legacy email-salted
+        // verifier (see the verifier_salt_version migration and
+        // AuthenticatedSessionController::migrateVerifier()) — this is the
+        // only moment the master password is available after a successful
+        // login, so it's now or never for this account.
+        if (legacySaltBasis !== null) {
+          deriveLoginVerifier(masterPassword.value, lookup.id)
+            .then((verifier) => axios.post('/account/migrate-verifier', { verifier }))
+            .catch(() => {});
+        }
       },
     });
   } catch (e) {
@@ -63,11 +105,11 @@ async function submit(): Promise<void> {
     <BCard>
       <h1 class="h3 mb-4 text-center">Log in</h1>
 
-      <BAlert :model-value="!!form.errors.email" variant="danger">{{ form.errors.email }}</BAlert>
+      <BAlert :model-value="!!form.errors.identifier" variant="danger">{{ form.errors.identifier }}</BAlert>
 
       <form @submit.prevent="submit">
-        <BFormGroup label="Email" label-for="email" class="mb-3">
-          <BFormInput id="email" v-model="form.email" type="email" required autofocus />
+        <BFormGroup label="Name or email" label-for="identifier" class="mb-3">
+          <BFormInput id="identifier" v-model="form.identifier" type="text" required autofocus />
         </BFormGroup>
 
         <BFormGroup label="Master password" label-for="master_password" class="mb-3">

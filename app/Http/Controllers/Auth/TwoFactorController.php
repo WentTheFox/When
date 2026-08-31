@@ -27,9 +27,9 @@ class TwoFactorController extends Controller
         // silently regenerate the secret (that would invalidate the
         // authenticator entry the user already has confirmed, without
         // disabling 2FA first). Management (including disabling) lives on
-        // the Security page now.
+        // the Account page now.
         if ($user->two_factor_confirmed_at) {
-            return redirect()->route('dashboard.security');
+            return redirect()->route('dashboard.account');
         }
 
         if (! $user->two_factor_secret) {
@@ -53,11 +53,11 @@ class TwoFactorController extends Controller
             throw ValidationException::withMessages(['code' => 'That code did not match.']);
         }
 
-        // Back to the Security page's own two-factor section, not the
+        // Back to the Account page's own two-factor section, not the
         // setup wizard — that's where the "Enabled" status and recovery
-        // codes now belong (see Dashboard/Security.vue).
+        // codes now belong (see Dashboard/Account.vue).
         return redirect()
-            ->route('dashboard.security')
+            ->route('dashboard.account')
             ->with('recoveryCodes', $recoveryCodes);
     }
 
@@ -65,7 +65,7 @@ class TwoFactorController extends Controller
     {
         $this->twoFactor->disable($request->user());
 
-        return redirect()->route('dashboard.security');
+        return redirect()->route('dashboard.account');
     }
 
     public function challenge(Request $request): Response|RedirectResponse

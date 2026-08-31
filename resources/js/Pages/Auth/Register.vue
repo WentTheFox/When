@@ -30,6 +30,7 @@ const submitting = ref(false);
 const error = ref('');
 
 const form = useForm({
+  id: '',
   invite_code: props.code,
   name: '',
   email: '',
@@ -47,8 +48,8 @@ async function submit(): Promise<void> {
     return;
   }
 
-  if (!form.email) {
-    error.value = 'Please enter your email first.';
+  if (!form.name) {
+    error.value = 'Please enter your name first.';
     return;
   }
 
@@ -62,7 +63,11 @@ async function submit(): Promise<void> {
     form.passphrase_salt = salt;
     form.key_ring_ciphertext = await encryptKeyRing(vaultKey, emptyKeyRing());
 
-    const verifier = await deriveLoginVerifier(masterPassword.value, form.email);
+    // The login-verifier salt (see resources/js/crypto/argon2.ts) is
+    // derived from this id, not from the name or email — both of those
+    // can be changed later, but the id never does.
+    form.id = crypto.randomUUID();
+    const verifier = await deriveLoginVerifier(masterPassword.value, form.id);
     form.password = verifier;
     form.password_confirmation = verifier;
 
@@ -121,11 +126,20 @@ async function submit(): Promise<void> {
         </BFormGroup>
 
         <BFormGroup label="Name" label-for="name" class="mb-3">
-          <BFormInput id="name" v-model="form.name" type="text" required />
+          <BFormInput id="name" v-model="form.name" type="text" pattern="[^@]+" required />
+          <template #description>
+            No <code>@</code> — you'll use this (or your email, if you add one) to log in.
+          </template>
         </BFormGroup>
 
-        <BFormGroup label="Email" label-for="email" class="mb-3">
-          <BFormInput id="email" v-model="form.email" type="email" required />
+        <BFormGroup label="Email (optional)" label-for="email" class="mb-3">
+          <BFormInput id="email" v-model="form.email" type="email" />
+          <template #description>
+            Only used to fetch your <a href="https://gravatar.com" target="_blank" rel="noopener">Gravatar</a>
+            avatar and, if you set one, as an alternate way to log in. Stored
+            encrypted, never shown to anyone. See the
+            <a href="/security">security page</a> for details.
+          </template>
         </BFormGroup>
 
         <BFormGroup label="Master password" label-for="master_password" class="mb-3">

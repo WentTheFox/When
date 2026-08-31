@@ -17,7 +17,7 @@ class TwoFactorAuthenticationTest extends TestCase
         $user = User::factory()->create(['password' => bcrypt('password')]);
 
         $response = $this->post('/login', [
-            'email' => $user->email,
+            'identifier' => $user->email,
             'password' => 'password',
         ]);
 
@@ -34,7 +34,7 @@ class TwoFactorAuthenticationTest extends TestCase
         $this->app['auth']->guard()->logout();
 
         $response = $this->post('/login', [
-            'email' => $user->email,
+            'identifier' => $user->email,
             'password' => 'password',
         ]);
 
@@ -49,9 +49,9 @@ class TwoFactorAuthenticationTest extends TestCase
         $user->refresh();
         $this->confirmTwoFactor($user);
 
-        $this->post('/login', ['email' => $user->email, 'password' => 'password']);
+        $this->post('/login', ['identifier' => $user->email, 'password' => 'password']);
 
-        $code = (new Google2FA())->getCurrentOtp($user->two_factor_secret);
+        $code = (new Google2FA)->getCurrentOtp($user->two_factor_secret);
         $response = $this->post('/two-factor-challenge', ['code' => $code]);
 
         $response->assertRedirect(route('dashboard'));
@@ -65,7 +65,7 @@ class TwoFactorAuthenticationTest extends TestCase
         $user->refresh();
         $this->confirmTwoFactor($user);
 
-        $this->post('/login', ['email' => $user->email, 'password' => 'password']);
+        $this->post('/login', ['identifier' => $user->email, 'password' => 'password']);
 
         $response = $this->post('/two-factor-challenge', ['code' => '000000']);
 
@@ -81,14 +81,14 @@ class TwoFactorAuthenticationTest extends TestCase
         $recoveryCodes = $this->confirmTwoFactor($user);
         $user->refresh();
 
-        $this->post('/login', ['email' => $user->email, 'password' => 'password']);
+        $this->post('/login', ['identifier' => $user->email, 'password' => 'password']);
         $response = $this->post('/two-factor-challenge', ['recovery_code' => $recoveryCodes[0]]);
         $response->assertRedirect(route('dashboard'));
         $this->assertAuthenticatedAs($user);
         $this->app['auth']->guard()->logout();
 
         // Same recovery code cannot be reused.
-        $this->post('/login', ['email' => $user->email, 'password' => 'password']);
+        $this->post('/login', ['identifier' => $user->email, 'password' => 'password']);
         $response = $this->post('/two-factor-challenge', ['recovery_code' => $recoveryCodes[0]]);
         $response->assertSessionHasErrors('code');
         $this->assertGuest();
@@ -110,7 +110,7 @@ class TwoFactorAuthenticationTest extends TestCase
         $user->refresh();
         $secretBefore = $user->two_factor_secret;
 
-        $this->actingAs($user)->get('/two-factor')->assertRedirect(route('dashboard.security'));
+        $this->actingAs($user)->get('/two-factor')->assertRedirect(route('dashboard.account'));
 
         $this->assertSame($secretBefore, $user->fresh()->two_factor_secret);
     }
@@ -120,11 +120,11 @@ class TwoFactorAuthenticationTest extends TestCase
         $user = User::factory()->create();
         app(TwoFactorAuthenticationService::class)->generateSecret($user);
         $user->refresh();
-        $code = (new Google2FA())->getCurrentOtp($user->two_factor_secret);
+        $code = (new Google2FA)->getCurrentOtp($user->two_factor_secret);
 
         $response = $this->actingAs($user)->post('/two-factor/confirm', ['code' => $code]);
 
-        $response->assertRedirect(route('dashboard.security'));
+        $response->assertRedirect(route('dashboard.account'));
         $response->assertSessionHas('recoveryCodes');
     }
 
@@ -137,13 +137,13 @@ class TwoFactorAuthenticationTest extends TestCase
 
         $response = $this->actingAs($user)->delete('/two-factor');
 
-        $response->assertRedirect(route('dashboard.security'));
+        $response->assertRedirect(route('dashboard.account'));
     }
 
     private function confirmTwoFactor(User $user): array
     {
         $service = app(TwoFactorAuthenticationService::class);
-        $code = (new Google2FA())->getCurrentOtp($user->two_factor_secret);
+        $code = (new Google2FA)->getCurrentOtp($user->two_factor_secret);
 
         return $service->confirm($user, $code);
     }

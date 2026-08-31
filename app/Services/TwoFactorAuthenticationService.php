@@ -37,7 +37,9 @@ class TwoFactorAuthenticationService
     {
         return $this->google2fa->getQRCodeUrl(
             config('app.name'),
-            $user->email,
+            // Just a label shown in the authenticator app — email is
+            // optional now, so fall back to name, which always exists.
+            $user->email ?? $user->name,
             $user->two_factor_secret,
         );
     }

@@ -3,11 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\Invite;
-use App\Models\InviteRedemption;
+use App\Models\ShareLink;
 use App\Models\User;
 use App\Services\InviteService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class InviteGatedRegistrationTest extends TestCase
@@ -79,6 +80,7 @@ class InviteGatedRegistrationTest extends TestCase
 
         $this->post('/register', $this->registrationPayload([
             'invite_code' => $invite->code,
+            'name' => 'First Fox',
             'email' => 'first@example.com',
         ]));
         $this->assertAuthenticated();
@@ -87,8 +89,12 @@ class InviteGatedRegistrationTest extends TestCase
         $this->app['auth']->guard()->logout();
         $this->flushSession();
 
+        // A distinct name from the first attempt above — name is unique
+        // now (it doubles as a login identifier), and this test wants to
+        // isolate invite-reuse rejection from an unrelated name collision.
         $response = $this->post('/register', $this->registrationPayload([
             'invite_code' => $invite->code,
+            'name' => 'Second Fox',
             'email' => 'second@example.com',
         ]));
 
@@ -132,7 +138,7 @@ class InviteGatedRegistrationTest extends TestCase
     public function test_viewing_a_share_link_surfaces_a_create_your_own_invite_attributed_to_the_owner(): void
     {
         $owner = User::factory()->create();
-        $shareLink = \App\Models\ShareLink::factory()->for($owner)->create();
+        $shareLink = ShareLink::factory()->for($owner)->create();
 
         $response = $this->get(route('share-links.show', $shareLink));
 
@@ -147,6 +153,7 @@ class InviteGatedRegistrationTest extends TestCase
     private function registrationPayload(array $overrides = []): array
     {
         return array_merge([
+            'id' => (string) Str::uuid(),
             'invite_code' => '',
             'name' => 'New Fox',
             'email' => 'newfox@example.com',

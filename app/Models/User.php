@@ -25,6 +25,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'verifier_salt_version',
         'passphrase_salt',
         'key_ring_ciphertext',
         'timezone',
@@ -55,6 +56,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'name_hash',
         'email_hash',
         'two_factor_secret',
         'two_factor_recovery_codes',
@@ -73,7 +75,6 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'name' => 'encrypted',
             'two_factor_secret' => 'encrypted',
             'two_factor_recovery_codes' => 'encrypted:array',
             'two_factor_confirmed_at' => 'datetime',
@@ -87,17 +88,42 @@ class User extends Authenticatable
      * same Crypt/APP_KEY as calendar_url_ciphertext). Not client-vault E2EE:
      * login has to work before a passphrase is ever entered.
      *
-     * email can't just use the 'encrypted' cast like name does, because
-     * Crypt's ciphertext is randomized per call — a plain `where('email',
-     * ...)` can never match it. email_hash is a deterministic HMAC (keyed
-     * on APP_KEY) that stands in for the plaintext everywhere a lookup or
-     * uniqueness check is needed; see whereEmail() below. Every
-     * `where('email', ...)` in the app must use that scope instead.
+     * Neither can use Eloquent's plain 'encrypted' cast, because Crypt's
+     * ciphertext is randomized per call — a plain `where('name', ...)` (or
+     * `where('email', ...)`) can never match it. *_hash is a deterministic
+     * HMAC (keyed on APP_KEY) that stands in for the plaintext everywhere a
+     * lookup or uniqueness check is needed — name doubles as the login
+     * identifier alongside optional email (see RegisteredUserController and
+     * AuthenticatedSessionController), so it needs the same treatment email
+     * already had. See whereName()/whereEmail() below; every
+     * `where('name', ...)`/`where('email', ...)` in the app must use those
+     * scopes instead.
      */
-    public function setEmailAttribute(string $value): void
+    public function setNameAttribute(string $value): void
     {
-        $this->attributes['email_hash'] = self::hashEmail($value);
-        $this->attributes['email'] = Crypt::encryptString($value);
+        $this->attributes['name_hash'] = self::hashName($value);
+        $this->attributes['name'] = Crypt::encryptString($value);
+    }
+
+    public function getNameAttribute(?string $value): ?string
+    {
+        return $value === null ? null : Crypt::decryptString($value);
+    }
+
+    public static function hashName(string $name): string
+    {
+        return hash_hmac('sha256', mb_strtolower(trim($name)), config('app.key'));
+    }
+
+    public function scopeWhereName(Builder $query, string $name): Builder
+    {
+        return $query->where('name_hash', self::hashName($name));
+    }
+
+    public function setEmailAttribute(?string $value): void
+    {
+        $this->attributes['email_hash'] = $value === null ? null : self::hashEmail($value);
+        $this->attributes['email'] = $value === null ? null : Crypt::encryptString($value);
     }
 
     public function getEmailAttribute(?string $value): ?string
@@ -133,8 +159,12 @@ class User extends Authenticatable
      * email and handed to the client as an opaque image URL. `d=mp` falls
      * back to a generic silhouette instead of Gravatar's own placeholder ad.
      */
-    public function gravatarUrl(int $size = 64): string
+    public function gravatarUrl(int $size = 64): ?string
     {
+        if ($this->email === null) {
+            return null;
+        }
+
         $hash = md5(mb_strtolower(trim($this->email)));
 
         return "https://www.gravatar.com/avatar/{$hash}?s={$size}&d=mp";
