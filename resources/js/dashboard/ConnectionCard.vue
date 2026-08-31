@@ -33,12 +33,26 @@ export interface ConnectionRow {
   attribute_values: AttributeValue[];
 }
 
+export interface EdgeRow {
+  id: string;
+  from_connection_id: string;
+  to_connection_id: string;
+  label: string;
+}
+
 const props = defineProps<{
   connection: ConnectionRow;
   sources: { id: string; label: string }[];
   attributeDefinitions: { id: string; label: string; type: string; options: string[] }[];
+  edges: EdgeRow[];
+  connectionOptions: { id: string; label: string }[];
 }>();
-const emit = defineEmits<{ updated: [ConnectionRow]; deleted: [string] }>();
+const emit = defineEmits<{
+  updated: [ConnectionRow];
+  deleted: [string];
+  addEdge: [string, string, string];
+  removeEdge: [string];
+}>();
 
 const { getRecordKey } = useVault();
 
@@ -54,6 +68,37 @@ const editArchived = ref(props.connection.archived);
 const editAttributeValues = ref<Record<string, string>>({});
 
 const sortedSources = computed(() => [...props.sources].sort((a, b) => a.label.localeCompare(b.label)));
+
+function otherConnectionName(id: string): string {
+  return props.connectionOptions.find((c) => c.id === id)?.label ?? '?';
+}
+
+/** This connection's own relationships — every edge touching its id, either direction. */
+const myEdges = computed(() =>
+  props.edges
+    .filter((e) => e.from_connection_id === props.connection.id || e.to_connection_id === props.connection.id)
+    .map((e) => ({
+      ...e,
+      otherId: e.from_connection_id === props.connection.id ? e.to_connection_id : e.from_connection_id,
+    }))
+    .map((e) => ({ ...e, otherName: otherConnectionName(e.otherId) }))
+    .sort((a, b) => a.otherName.localeCompare(b.otherName)),
+);
+
+/** Picker options for "add a relationship" — every other connection, sorted, self excluded. */
+const relatableConnections = computed(() =>
+  props.connectionOptions.filter((c) => c.id !== props.connection.id),
+);
+
+const newRelationTargetId = ref('');
+const newRelationLabel = ref('');
+
+function addRelationship(): void {
+  if (!newRelationTargetId.value) return;
+  emit('addEdge', props.connection.id, newRelationTargetId.value, newRelationLabel.value);
+  newRelationTargetId.value = '';
+  newRelationLabel.value = '';
+}
 
 async function decryptAll(): Promise<void> {
   try {
@@ -151,6 +196,9 @@ async function remove(): Promise<void> {
           <BBadge v-if="connection.archived" variant="secondary" class="ms-1">Archived</BBadge>
         </h3>
         <p v-if="connection.source_ids.length" class="small text-muted mb-1">{{ sourceLabels(connection.source_ids) }}</p>
+        <p v-if="myEdges.length" class="small text-muted mb-1">
+          Knows: {{ myEdges.map((e) => e.otherName + (e.label ? ` (${e.label})` : '')).join(', ') }}
+        </p>
         <p v-if="notes" class="small mb-0">{{ notes }}</p>
         <dl class="row small mb-0 mt-2">
           <template v-for="(value, definitionId) in attributeValues" :key="definitionId">
@@ -215,6 +263,24 @@ async function remove(): Promise<void> {
           size="sm"
         />
       </BFormGroup>
+
+      <BFormGroup label="Relationships" class="mb-3">
+        <ul v-if="myEdges.length" class="list-unstyled mb-2">
+          <li v-for="edge in myEdges" :key="edge.id" class="d-flex justify-content-between align-items-center">
+            <span>{{ edge.otherName }}<template v-if="edge.label"> ({{ edge.label }})</template></span>
+            <button type="button" class="btn btn-link btn-sm p-0" @click="emit('removeEdge', edge.id)">&times;</button>
+          </li>
+        </ul>
+        <div class="input-group input-group-sm">
+          <BFormSelect v-model="newRelationTargetId" size="sm">
+            <option value="" disabled>Knows…</option>
+            <option v-for="c in relatableConnections" :key="c.id" :value="c.id">{{ c.label }}</option>
+          </BFormSelect>
+          <BFormInput v-model="newRelationLabel" type="text" size="sm" placeholder="Label (e.g. sibling of)" />
+          <BButton variant="outline-secondary" size="sm" @click="addRelationship">Add</BButton>
+        </div>
+      </BFormGroup>
+
       <BButton size="sm" variant="primary" @click="save">Save</BButton>
     </div>
   </BCard>

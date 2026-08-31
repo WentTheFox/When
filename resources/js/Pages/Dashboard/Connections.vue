@@ -6,7 +6,6 @@ import { computed, nextTick, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../../crypto';
 import AttributesPanel from '../../dashboard/AttributesPanel.vue';
 import ConnectionCard, { type ConnectionRow } from '../../dashboard/ConnectionCard.vue';
-import EdgesPanel from '../../dashboard/EdgesPanel.vue';
 import SourcesPanel from '../../dashboard/SourcesPanel.vue';
 import VaultGate from '../../dashboard/VaultGate.vue';
 import { useVault } from '../../dashboard/useVault';
@@ -154,19 +153,6 @@ watch(vaultUnlocked, (unlocked) => {
     document.getElementById('connection-detail-pane')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 }, { immediate: true });
-
-function nameOf(connectionId: string): string {
-  return decryptedNames.value[connectionId] ?? '?';
-}
-
-const edgesForPanel = computed(() =>
-  edges.value.map((edge) => ({
-    id: edge.id,
-    label: edge.label,
-    fromLabel: nameOf(edge.from_connection_id),
-    toLabel: nameOf(edge.to_connection_id),
-  })),
-);
 
 function toggleNewForm(): void {
   showNewForm.value = !showNewForm.value;
@@ -371,8 +357,12 @@ async function removeEdge(id: string): Promise<void> {
             :connection="selectedConnection"
             :sources="sources"
             :attribute-definitions="definitions"
+            :edges="edges"
+            :connection-options="connectionOptions"
             @updated="onConnectionUpdated"
             @deleted="onConnectionDeleted"
+            @add-edge="addEdge"
+            @remove-edge="removeEdge"
           />
           <p v-else class="text-muted">Select a connection on the left to view or edit it.</p>
         </div>
@@ -381,13 +371,6 @@ async function removeEdge(id: string): Promise<void> {
 
     <SourcesPanel :sources="sources" @add="addSource" @update="updateSource" @remove="removeSource" />
 
-    <div class="row">
-      <div class="col-md-6">
-        <AttributesPanel :definitions="definitions" @add="addDefinition" @remove="removeDefinition" />
-      </div>
-      <div class="col-md-6">
-        <EdgesPanel :edges="edgesForPanel" :connections="connectionOptions" @add="addEdge" @remove="removeEdge" />
-      </div>
-    </div>
+    <AttributesPanel :definitions="definitions" @add="addDefinition" @remove="removeDefinition" />
   </VaultGate>
 </template>
