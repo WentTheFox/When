@@ -4,6 +4,7 @@ import { BButton } from 'bootstrap-vue-next';
 import { computed } from 'vue';
 import ThemeToggle from '../Components/ThemeToggle.vue';
 import VaultUnlockModal from '../dashboard/VaultUnlockModal.vue';
+import { provideLiveThemePreview } from '../dashboard/liveThemePreview';
 import { hexToRgbTriplet } from '../free/color-utils.ts';
 
 const page = usePage();
@@ -12,15 +13,22 @@ function logout(): void {
   router.post('/logout');
 }
 
+const liveThemeOverride = provideLiveThemePreview();
+
 /**
- * Reflects the owner's own public-page accent color (Settings) across
- * their dashboard too, not just their public share page's preview —
- * falls back to the same default Settings.vue itself pre-fills.
+ * Reflects the owner's own public-page accent/secondary colors (Settings)
+ * across their dashboard too, not just their public share page's own
+ * preview — same --wtf-accent/--wtf-accent-rgb/--wtf-text-muted mapping
+ * Free/Show.vue's rootStyle already applies there. A live override (see
+ * liveThemePreview.ts) takes priority while Settings.vue's color pickers
+ * are being dragged, before anything is saved.
  */
-const accentColor = computed(() => page.props.auth?.user?.accentColor ?? '#6181b6');
+const accentColor = computed(() => liveThemeOverride.value?.accent ?? page.props.auth?.user?.accentColor ?? '#6181b6');
+const secondaryColor = computed(() => liveThemeOverride.value?.secondary ?? page.props.auth?.user?.secondaryColor ?? '#6c757d');
 const accentStyle = computed(() => ({
   '--wtf-accent': accentColor.value,
   '--wtf-accent-rgb': hexToRgbTriplet(accentColor.value),
+  '--wtf-text-muted': secondaryColor.value,
 }));
 </script>
 

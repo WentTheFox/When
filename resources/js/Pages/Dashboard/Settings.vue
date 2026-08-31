@@ -12,8 +12,9 @@ import {
   BFormTextarea,
 } from 'bootstrap-vue-next';
 import { addDays as addDaysFns, startOfWeek as startOfWeekFns } from 'date-fns';
-import { computed, ref } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import DashboardLayout from '../../Layouts/DashboardLayout.vue';
+import { useLiveThemePreview } from '../../dashboard/liveThemePreview';
 import PatternPreview from '../../dashboard/PatternPreview.vue';
 import SleepExceptions from '../../dashboard/SleepExceptions.vue';
 import CalendarView from '../../free/CalendarView.vue';
@@ -205,6 +206,22 @@ const form = useForm({
     wake: props.settings.availability[i]?.wake ?? '',
     sleep: props.settings.availability[i]?.sleep ?? '',
   })),
+});
+
+// Live-preview accent/secondary across the whole dashboard chrome (nav,
+// links, muted text) as these two pickers are dragged, not just in this
+// page's own preview panels below — see liveThemePreview.ts. Cleared on
+// unmount so navigating away restores the owner's actually-saved colors.
+const liveTheme = useLiveThemePreview();
+watch(
+  () => [form.accent_color, form.secondary_color] as const,
+  ([accent, secondary]) => {
+    liveTheme.value = { accent, secondary };
+  },
+  { immediate: true },
+);
+onUnmounted(() => {
+  liveTheme.value = null;
 });
 
 const previewStatus = ref('');
