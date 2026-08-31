@@ -99,7 +99,16 @@ const exampleVisibleDays = computed(() => {
   const startIdx = exampleWeekDatesMonFirst.findIndex((d) => d.getUTCDay() === form.week_start);
   return Array.from({ length: 7 }, (_, i) => exampleWeekDatesMonFirst[(startIdx + i) % 7]!);
 });
-const exampleAvailability: AvailabilityResponse = (() => {
+/**
+ * Live-updates as the Wake & sleep times table is edited (see
+ * form.availability below), mirroring AvailabilityService's own
+ * dayWindow()/computeSleepBlocks() logic client-side: a day contributes a
+ * wake→sleep window only when *both* times are filled in for that day —
+ * otherwise it's treated as fully awake all day, same as the real backend,
+ * and no sleep entry appears for it at all (never a partial one from just
+ * one side being set).
+ */
+const exampleAvailability = computed<AvailabilityResponse>(() => {
   // This mock is rendered with :timezone="'UTC'" below, so its timestamps
   // must be built as UTC directly (Date.UTC), not via the environment's own
   // local wall-clock setters + toISOString() — that combination silently
@@ -109,8 +118,26 @@ const exampleAvailability: AvailabilityResponse = (() => {
   const base = exampleWeekDatesMonFirst[0]!;
   const at = (dayOffset: number, hours: number, minutes = 0) =>
     new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + dayOffset, hours, minutes, 0, 0)).toISOString();
-  const atMinutes = (dayOffset: number, minutesSinceMidnight: number) =>
-    at(dayOffset, Math.floor(minutesSinceMidnight / 60), minutesSinceMidnight % 60);
+  const atAbsMinutes = (absoluteMinutes: number) => {
+    const dayOffset = Math.floor(absoluteMinutes / 1440);
+    const minutesInDay = absoluteMinutes - dayOffset * 1440;
+    return at(dayOffset, Math.floor(minutesInDay / 60), minutesInDay % 60);
+  };
+
+  /** Mirrors AvailabilityService::dayWindow — null means "fully awake all day". */
+  function dayWindowMinutes(dayOffset: number): { wakeMin: number; sleepMin: number } | null {
+    const dow = exampleWeekDatesMonFirst[dayOffset % 7]!.getUTCDay();
+    const config = form.availability[dow];
+    if (!config?.wake || !config?.sleep) return null;
+
+    const [wakeHour, wakeMinute] = config.wake.split(':').map(Number);
+    const [sleepHour, sleepMinute] = config.sleep.split(':').map(Number);
+    const wakeMin = wakeHour! * 60 + wakeMinute!;
+    let sleepMin = sleepHour! * 60 + sleepMinute!;
+    if (sleepMin <= wakeMin) sleepMin += 1440; // crosses midnight
+
+    return { wakeMin, sleepMin };
+  }
 
   // Real data (AvailabilityService::computeFreeRanges) never has a `free`
   // range overlapping an `unavailable`/`highlighted` one — free is always
@@ -119,8 +146,6 @@ const exampleAvailability: AvailabilityResponse = (() => {
   // day" mock breaks that invariant getBlocksForDay/CalendarView's
   // tentative-fade lookup relies on (blocks tiling with no gaps), so the
   // mock has to carve the same gaps a real backend response would.
-  const WAKE_MIN = 7 * 60;
-  const SLEEP_MIN = 23 * 60;
   const busyPeriodsByDay: Record<number, [number, number][]> = {
     0: [[12 * 60, 14 * 60]], // Mon: Lunch with Alice
     1: [[9 * 60, 11 * 60 + 30]], // Tue: Team meeting
@@ -129,33 +154,52 @@ const exampleAvailability: AvailabilityResponse = (() => {
     4: [[13 * 60, 17 * 60]], // Fri: Workshop
   };
   const free = Array.from({ length: 7 }, (_, day) => {
+    const win = dayWindowMinutes(day);
+    const windowStart = win ? win.wakeMin : 0;
+    const windowEnd = win ? win.sleepMin : 1440;
+
     const segments: { start: string; end: string }[] = [];
-    let cursor = WAKE_MIN;
+    let cursor = windowStart;
     for (const [busyStart, busyEnd] of busyPeriodsByDay[day] ?? []) {
-      if (busyStart > cursor) segments.push({ start: atMinutes(day, cursor), end: atMinutes(day, busyStart) });
+      if (busyStart > cursor) segments.push({ start: atAbsMinutes(day * 1440 + cursor), end: atAbsMinutes(day * 1440 + busyStart) });
       cursor = Math.max(cursor, busyEnd);
     }
-    if (cursor < SLEEP_MIN) segments.push({ start: atMinutes(day, cursor), end: atMinutes(day, SLEEP_MIN) });
+    if (cursor < windowEnd) segments.push({ start: atAbsMinutes(day * 1440 + cursor), end: atAbsMinutes(day * 1440 + windowEnd) });
     return segments;
   }).flat();
 
+  // Sleep: awake windows per day-offset (0-7, matching the existing
+  // wraparound-into-"day 7" need so day 6's late hours still get a block),
+  // merged, then inverted across the whole span — same shape as
+  // AvailabilityService::computeSleepBlocks.
+  const awakeWindows = Array.from({ length: 8 }, (_, day) => {
+    const win = dayWindowMinutes(day);
+    return win
+      ? { start: day * 1440 + win.wakeMin, end: day * 1440 + win.sleepMin }
+      : { start: day * 1440, end: day * 1440 + 1440 };
+  }).sort((a, b) => a.start - b.start);
+
+  const mergedAwake: { start: number; end: number }[] = [];
+  for (const window of awakeWindows) {
+    const last = mergedAwake[mergedAwake.length - 1];
+    if (last && window.start <= last.end) {
+      last.end = Math.max(last.end, window.end);
+    } else {
+      mergedAwake.push({ ...window });
+    }
+  }
+
+  const sleep: { start: string; end: string }[] = [];
+  let cursor = 0;
+  for (const window of mergedAwake) {
+    if (window.start > cursor) sleep.push({ start: atAbsMinutes(cursor), end: atAbsMinutes(window.start) });
+    cursor = Math.max(cursor, window.end);
+  }
+  if (cursor < 8 * 1440) sleep.push({ start: atAbsMinutes(cursor), end: atAbsMinutes(8 * 1440) });
+
   return {
     free,
-    sleep: [
-      { start: at(0, 0), end: at(0, 7) },
-      { start: at(0, 23), end: at(1, 7) },
-      { start: at(1, 23), end: at(2, 7) },
-      { start: at(2, 23), end: at(3, 7) },
-      { start: at(3, 23), end: at(4, 7) },
-      { start: at(4, 23), end: at(5, 7) },
-      { start: at(5, 23), end: at(6, 7) },
-      // Wraps into "day 7" (the Monday after this fixed week) — without
-      // this, day 6's own 23:00-midnight hour has no block at all (neither
-      // free nor sleep), since every other day's evening sleep block is
-      // the *next* day's entry above, and there is no day 7 column to
-      // supply that for day 6.
-      { start: at(6, 23), end: at(7, 7) },
-    ],
+    sleep,
     unavailable: [
       // A highlighted event is still busy time — the real backend always
       // double-lists its range in `unavailable` too, since `highlighted` is
@@ -173,7 +217,7 @@ const exampleAvailability: AvailabilityResponse = (() => {
       { start: at(3, 10), end: at(3, 12), activity: 'Coffee', highlight_words: ['Bob'], tentative: true }, // Thu
     ],
   };
-})();
+});
 
 // Its own form/endpoint (not part of the main settings save below) — see
 // SettingsController::updateCalendarUrl's doc comment for why: a pending,
@@ -341,6 +385,10 @@ function saveCalendarUrl(): void {
 
 function resetColor(field: keyof Settings, value: string): void {
   (form as unknown as Record<string, string>)[field] = value;
+}
+
+function resetAvailability(): void {
+  form.availability = days.map(() => ({ wake: '', sleep: '' }));
 }
 
 function submit(): void {
@@ -585,25 +633,34 @@ function submit(): void {
           </div>
         </div>
 
-        <h2 class="h5 mb-3">Wake &amp; sleep times</h2>
-        <p class="small text-muted">Set a wake/sleep time per day. Leave both blank for no default sleep block that day.</p>
-        <table class="table table-sm">
-          <thead>
-            <tr><th>Day</th><th>Wake up</th><th>Go to sleep</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="i in orderedDayIndices" :key="i">
-              <td class="align-middle">{{ days[i] }}</td>
-              <td><BFormInput v-model="form.availability[i].wake" type="time" size="sm" /></td>
-              <td><BFormInput v-model="form.availability[i].sleep" type="time" size="sm" /></td>
-            </tr>
-          </tbody>
-        </table>
+      <template #footer>
+        <BButton type="submit" variant="primary" :disabled="form.processing">Save settings</BButton>
+      </template>
+    </BCard>
+  </form>
 
-        <SleepExceptions :initial="sleepExceptions" />
+  <form @submit.prevent="submit">
+    <BCard class="mb-4">
+      <h2 class="h5 mb-3">Wake &amp; sleep times</h2>
+      <p class="small text-muted">Set a wake/sleep time per day. Leave both blank for no default sleep block that day.</p>
+      <table class="table table-sm">
+        <thead>
+          <tr><th>Day</th><th>Wake up</th><th>Go to sleep</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="i in orderedDayIndices" :key="i">
+            <td class="align-middle">{{ days[i] }}</td>
+            <td><BFormInput v-model="form.availability[i].wake" type="time" size="sm" /></td>
+            <td><BFormInput v-model="form.availability[i].sleep" type="time" size="sm" /></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <SleepExceptions :initial="sleepExceptions" />
 
       <template #footer>
         <BButton type="submit" variant="primary" :disabled="form.processing">Save settings</BButton>
+        <BButton variant="outline-secondary" class="ms-2" @click="resetAvailability">Reset</BButton>
       </template>
     </BCard>
   </form>
