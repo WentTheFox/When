@@ -45,7 +45,7 @@
         </div>
 
         <div class="d-flex justify-content-center flex-wrap" style="gap: 0.75rem;">
-            <a href="{{ route('login') }}" class="btn btn-secondary">Log in</a>
+            <a href="{{ route('login') }}" class="btn btn-outline-secondary">Log in</a>
             <a href="https://github.com/WentTheFox/WhenTheFox" class="btn btn-outline-secondary" target="_blank" rel="noopener">
                 Source code
             </a>
