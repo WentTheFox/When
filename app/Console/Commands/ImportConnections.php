@@ -10,14 +10,12 @@ use App\Models\ConnectionEdge;
 use App\Models\ConnectionSource;
 use App\Models\ConnectionSourceCategory;
 use App\Models\ShareLink;
-use App\Models\ShareLinkWord;
 use App\Models\User;
 use App\Services\Crypto\AesGcm;
 use App\Services\Crypto\KeyRing;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
 
 /**
@@ -343,10 +341,10 @@ class ImportConnections extends Command
         // fresh share link to it (whichever connection the name resolves
         // to — the row's own, if the token label just repeats its name, or
         // the bare one just created otherwise), labeled with that same
-        // name AND configured with that name as its one highlight word —
-        // without it, HighlightMatcher has nothing to match against and
-        // the link would never highlight a single event, silently useless
-        // until the owner noticed and added a word by hand.
+        // name. Old source-app share links carry no calendar/highlight
+        // config of their own worth carrying over — this only recreates
+        // the *link*, not its settings — but "wire it up so an owner isn't
+        // starting from zero" is the whole point of importing it at all.
         foreach ($data['connections'] ?? [] as $row) {
             $tokenName = $row['highlight_token_label'] ?? null;
 
@@ -381,11 +379,6 @@ class ImportConnections extends Command
                 'id' => $shareLinkId,
                 'user_id' => $user->id,
                 'label_ciphertext' => AesGcm::encrypt($labelKey, $tokenName),
-            ]);
-
-            ShareLinkWord::create([
-                'share_link_id' => $shareLinkId,
-                'word_ciphertext' => Crypt::encryptString($tokenName),
             ]);
 
             $connection->update(['share_link_id' => $shareLinkId]);
