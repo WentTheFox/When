@@ -688,9 +688,11 @@ function submit(): void {
             <BFormGroup label="Activity clause pattern (advanced)" label-for="activity_clause_pattern" class="mb-3">
               <BAlert variant="warning" :model-value="true" class="small mb-2">
                 <strong>If you set this, the activity itself — not just who an event is with —
-                will be shown to anyone viewing your calendar link.</strong> E.g. "Dinner" from
-                "Dinner with Alice." Leave it blank (the default) and nothing is ever extracted or
-                shown, no matter how a matched event's title reads.
+                will be shown, but only to a viewer whose share link is already highlighting that
+                event</strong> (i.e. someone actually mentioned in it, per the highlight clause
+                above — not anyone else with a link to your calendar). E.g. "Dinner" from "Dinner
+                with Alice" is shown only to Alice's own link. Leave it blank (the default) and
+                nothing is ever extracted or shown, no matter how a matched event's title reads.
               </BAlert>
               <BFormTextarea id="activity_clause_pattern" v-model="form.activity_clause_pattern" rows="2" :placeholder="defaults.activityClausePattern" />
               <template #description>
