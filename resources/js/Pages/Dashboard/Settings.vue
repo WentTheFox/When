@@ -321,11 +321,11 @@ function submit(): void {
 </script>
 
 <template>
-  <h1 class="h3 mb-4">Settings</h1>
-
   <BAlert :model-value="!!$page.props.flash?.status" variant="success">{{ $page.props.flash?.status }}</BAlert>
 
   <BCard class="mb-4">
+    <h1 class="h3 mb-4">Settings</h1>
+
     <h2 class="h5 mb-3">Calendar</h2>
 
     <!--

@@ -31,9 +31,9 @@ function revoke(invite: InviteRow): void {
 </script>
 
 <template>
-  <h1 class="h3 mb-4">Invites</h1>
-
   <BCard class="mb-4">
+    <h1 class="h3 mb-4">Invites</h1>
+
     <h2 class="h5 mb-3">Create an invite</h2>
     <form class="row align-items-end" @submit.prevent="create">
       <div class="col-md-4">

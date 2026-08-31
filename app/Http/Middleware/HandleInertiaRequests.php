@@ -48,6 +48,12 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user() ? [
                     'name' => $request->user()->name,
                     'avatarUrl' => $request->user()->gravatarUrl(),
+                    // Reflects the owner's own public-page accent color
+                    // (Settings) across their dashboard too, applied by
+                    // DashboardLayout.vue as a --wtf-accent override — not
+                    // sensitive, same tier as the other public-page display
+                    // settings (§0.2, not §0.1).
+                    'accentColor' => $request->user()->accent_color,
                 ] : null,
             ],
             'flash' => [

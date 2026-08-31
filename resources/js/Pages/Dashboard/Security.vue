@@ -18,9 +18,9 @@ function disableTwoFactor(): void {
 </script>
 
 <template>
-  <h1 class="h3 mb-4">Security</h1>
-
   <BCard class="mb-4">
+    <h1 class="h3 mb-4">Security</h1>
+
     <h2 class="h5 mb-3">
       Two-factor authentication
       <BBadge v-if="twoFactorEnabled" variant="success" class="ms-1">Enabled</BBadge>

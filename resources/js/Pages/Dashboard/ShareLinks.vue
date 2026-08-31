@@ -116,11 +116,12 @@ async function importLinks(event: Event): Promise<void> {
 </script>
 
 <template>
-  <h1 class="h3 mb-4">Share links</h1>
-
   <BCard class="mb-4">
     <div class="d-flex justify-content-between align-items-center">
-      <span class="text-muted small">Create, export, or import your share links.</span>
+      <div>
+        <h1 class="h3 mb-1">Share links</h1>
+        <span class="text-muted small">Create, export, or import your share links.</span>
+      </div>
       <div>
         <BButton variant="outline-secondary" size="sm" @click="exportLinks">Export</BButton>
         <label class="btn btn-outline-secondary btn-sm mb-0">

@@ -239,11 +239,12 @@ async function removeEdge(id: string): Promise<void> {
 </script>
 
 <template>
-  <h1 class="h3 mb-4">Connections</h1>
-
   <BCard class="mb-4">
     <div class="d-flex justify-content-between align-items-center">
-      <span class="text-muted small">Your private CRM, end-to-end encrypted.</span>
+      <div>
+        <h1 class="h3 mb-1">Connections</h1>
+        <span class="text-muted small">Your private CRM, end-to-end encrypted.</span>
+      </div>
       <BButton variant="primary" size="sm" @click="showNewForm = !showNewForm">New connection</BButton>
     </div>
   </BCard>

@@ -37,10 +37,10 @@ onMounted(async () => {
 <template>
   <Head title="Two-factor authentication" />
 
-  <h1 class="h3 mb-4">Two-factor authentication</h1>
+  <BCard>
+    <h1 class="h3 mb-4 text-center">Two-factor authentication</h1>
 
-  <div style="max-width: 28rem;">
-    <BCard>
+    <div style="max-width: 28rem; margin: 0 auto;">
       <BAlert :model-value="!!page.props.flash?.recoveryCodes" variant="warning">
         <strong>Save these recovery codes somewhere safe</strong> — each one works once,
         and this is the only time they're shown:
@@ -57,11 +57,11 @@ onMounted(async () => {
         </ul>
       </BAlert>
 
-      <p>Scan this into your authenticator app, or enter the secret manually:</p>
+      <p class="text-center">Scan this into your authenticator app, or enter the secret manually:</p>
       <div class="text-center mb-3">
         <img v-if="qrDataUrl" :src="qrDataUrl" width="220" height="220" alt="Two-factor setup QR code">
       </div>
-      <p><code>{{ secret }}</code></p>
+      <p class="text-center"><code>{{ secret }}</code></p>
 
       <form @submit.prevent="confirm">
         <BFormGroup label="Enter the 6-digit code from your app to confirm" label-for="code" class="mb-3">
@@ -69,6 +69,6 @@ onMounted(async () => {
         </BFormGroup>
         <BButton type="submit" variant="primary" class="w-100" :disabled="form.processing">Confirm</BButton>
       </form>
-    </BCard>
-  </div>
+    </div>
+  </BCard>
 </template>

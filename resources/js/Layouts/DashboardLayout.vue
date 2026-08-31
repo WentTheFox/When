@@ -1,69 +1,84 @@
 <script setup lang="ts">
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { BButton } from 'bootstrap-vue-next';
+import { computed } from 'vue';
 import ThemeToggle from '../Components/ThemeToggle.vue';
 import VaultUnlockModal from '../dashboard/VaultUnlockModal.vue';
+import { hexToRgbTriplet } from '../free/color-utils.ts';
 
 const page = usePage();
 
 function logout(): void {
   router.post('/logout');
 }
+
+/**
+ * Reflects the owner's own public-page accent color (Settings) across
+ * their dashboard too, not just their public share page's preview —
+ * falls back to the same default Settings.vue itself pre-fills.
+ */
+const accentColor = computed(() => page.props.auth?.user?.accentColor ?? '#6181b6');
+const accentStyle = computed(() => ({
+  '--wtf-accent': accentColor.value,
+  '--wtf-accent-rgb': hexToRgbTriplet(accentColor.value),
+}));
 </script>
 
 <template>
-  <nav
-    class="navbar navbar-expand navbar-dark"
-    style="background: var(--wtf-bg-elevated); border-bottom: 1px solid var(--wtf-border);"
-  >
-    <div class="container">
-      <Link class="navbar-brand" href="/dashboard">{{ page.props.appName }}</Link>
-      <div class="navbar-nav me-auto">
-        <Link class="nav-item nav-link" :class="{ active: page.url === '/dashboard' }" href="/dashboard">Overview</Link>
-        <Link class="nav-item nav-link" :class="{ active: page.url.startsWith('/settings') }" href="/settings">Settings</Link>
-        <Link
-          class="nav-item nav-link"
-          :class="{ active: page.url.startsWith('/dashboard/security') }"
-          href="/dashboard/security"
+  <div class="wtf-backdrop" :style="accentStyle">
+    <nav
+      class="navbar navbar-expand navbar-dark"
+      style="background: var(--wtf-bg-elevated); border-bottom: 1px solid var(--wtf-border);"
+    >
+      <div class="container">
+        <Link class="navbar-brand" href="/dashboard">{{ page.props.appName }}</Link>
+        <div class="navbar-nav me-auto">
+          <Link class="nav-item nav-link" :class="{ active: page.url === '/dashboard' }" href="/dashboard">Overview</Link>
+          <Link class="nav-item nav-link" :class="{ active: page.url.startsWith('/settings') }" href="/settings">Settings</Link>
+          <Link
+            class="nav-item nav-link"
+            :class="{ active: page.url.startsWith('/dashboard/security') }"
+            href="/dashboard/security"
+          >
+            Security
+          </Link>
+          <Link
+            class="nav-item nav-link"
+            :class="{ active: page.url.startsWith('/dashboard/share-links') }"
+            href="/dashboard/share-links"
+          >
+            Share links
+          </Link>
+          <Link
+            class="nav-item nav-link"
+            :class="{ active: page.url.startsWith('/dashboard/connections') }"
+            href="/dashboard/connections"
+          >
+            Connections
+          </Link>
+          <Link class="nav-item nav-link" :class="{ active: page.url.startsWith('/invites') }" href="/invites">Invites</Link>
+        </div>
+
+        <ThemeToggle class="me-3" />
+
+        <img
+          v-if="page.props.auth?.user?.avatarUrl"
+          :src="page.props.auth.user.avatarUrl"
+          alt=""
+          class="rounded-circle me-2"
+          width="28"
+          height="28"
         >
-          Security
-        </Link>
-        <Link
-          class="nav-item nav-link"
-          :class="{ active: page.url.startsWith('/dashboard/share-links') }"
-          href="/dashboard/share-links"
-        >
-          Share links
-        </Link>
-        <Link
-          class="nav-item nav-link"
-          :class="{ active: page.url.startsWith('/dashboard/connections') }"
-          href="/dashboard/connections"
-        >
-          Connections
-        </Link>
-        <Link class="nav-item nav-link" :class="{ active: page.url.startsWith('/invites') }" href="/invites">Invites</Link>
+        <span class="small me-3">{{ page.props.auth?.user?.name }}</span>
+
+        <BButton variant="outline-secondary" size="sm" @click="logout">Log out</BButton>
       </div>
+    </nav>
 
-      <ThemeToggle class="me-3" />
-
-      <img
-        v-if="page.props.auth?.user?.avatarUrl"
-        :src="page.props.auth.user.avatarUrl"
-        alt=""
-        class="rounded-circle me-2"
-        width="28"
-        height="28"
-      >
-      <span class="small me-3">{{ page.props.auth?.user?.name }}</span>
-
-      <BButton variant="outline-secondary" size="sm" @click="logout">Log out</BButton>
+    <div class="container py-4">
+      <slot />
     </div>
-  </nav>
 
-  <div class="container py-4">
-    <slot />
+    <VaultUnlockModal />
   </div>
-
-  <VaultUnlockModal />
 </template>
