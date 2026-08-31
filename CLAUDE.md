@@ -151,11 +151,17 @@ a single command's own lifetime.
 - **`wtf:vault:import-labels {email} {input}`** — one-time/backfill helper: sets
   share-link labels via the owner's vault, from a JSON array of `{"token":
   "<share_links.id or legacy_token>", "label": "..."}`.
-- **`wtf:import-legacy-share-links {input}`** — one-time migration: imports rows from
-  the source app's old `calendar_highlight_tokens` export into `share_links`, keeping
-  each row's original token as `legacy_token` (see `App\Services\Crypto\
-  LegacyShareLinkKey` for how that token alone, with no separately stored key, derives
-  the link's content key).
+- **`wtf:import-legacy-share-links {email} {input}`** — one-time migration: imports the
+  source app's own `/dashboard/highlights/export` download (verified against its
+  `DashboardController::exportHighlights()` — one owner per file, hence `{email}` as an
+  argument rather than a per-row field, which that export doesn't have) into
+  `share_links`, keeping each row's original token as `legacy_token` (see
+  `App\Services\Crypto\LegacyShareLinkKey` for how that token alone, with no separately
+  stored key, derives the link's content key). Each row's `label` is imported verbatim
+  as the link's own `label_ciphertext`; `words` (or `highlight_words`) verbatim as
+  `share_link_words`; `archived`/`bypass_dnd` map directly. Nothing is synthesized from
+  anything else. Also ties a connection whose name exactly matches the row's `label` or
+  any of its `words` to the link, when exactly one connection matches.
 
 ## Gotchas already paid for — don't rediscover these
 

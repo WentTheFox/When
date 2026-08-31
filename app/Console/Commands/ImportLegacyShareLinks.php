@@ -8,6 +8,7 @@ use App\Models\ShareLink;
 use App\Models\ShareLinkWord;
 use App\Models\User;
 use App\Services\Crypto\AesGcm;
+use App\Services\Crypto\KeyRing;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Crypt;
 
@@ -35,51 +36,71 @@ use Illuminate\Support\Facades\Crypt;
  * this against a real production export — this is the one step in the
  * whole plan that touches data from the other app.
  *
- * Input JSON shape (one file, array of rows):
+ * Input JSON shape: the source app's own `/dashboard/highlights/export`
+ * download (see its DashboardController::exportHighlights()) — a plain
+ * array, one owner per file (whoever was logged in when it was exported,
+ * hence {email} being a command argument here rather than a per-row
+ * field — the source app's export has no such field to read):
  *   [
  *     {
- *       "token": "the old calendar_highlight_tokens.token value",
- *       "owner_email": "matches an existing users.email in this app",
+ *       "label": "Alice",
+ *       "token": "the old calendar_highlight_tokens.token_base64 value",
+ *       "created_at": "...",
+ *       "archived": false,
  *       "bypass_dnd": false,
- *       "highlight_words": ["Alice", "Bob"]
+ *       "words": ["Alice"]
  *     },
  *     ...
  *   ]
+ * `highlight_words` is also accepted as an alias for `words`, for any
+ * hand-written input that predates seeing a real export.
  *
  * Idempotent: re-running with the same input skips tokens already
  * imported (legacy_token is unique), so a partial/interrupted run is safe
  * to retry.
  *
- * Also establishes the connection ↔ share-link hierarchy the export data
- * already implies but never wired up: a share link's own highlight_words
- * name the specific person(s) it was created for, so a word that matches
- * an existing connection's name exactly (case-sensitive, same convention
- * as HighlightMatcher's own clause matching) ties that connection to this
- * link (Connection::share_link_id) — same outcome as picking it manually
- * from the Share links page, just derived instead of asked for. Only ever
- * sets share_link_id on a connection that doesn't already have one, and
- * only for an exact single match — an ambiguous (0 or 2+ matching
- * connections) word is left alone rather than guessed at. This runs for
- * every row on every invocation, including already-imported ones, so
- * re-running after adding more connections (or after this command
- * shipped, against links imported before it did) still backfills them.
+ * A row's `label` is imported as the share link's own label_ciphertext
+ * (client-vault E2EE, §0.1/§0.3 — encrypted here from this process's own
+ * memory, the vault having already been unlocked to match connections
+ * below) — verbatim, not synthesized from anything else.
  *
- * Connection names are client-vault E2EE (§0.1) — matching against them
- * needs the owner's vault unlocked (see UnlocksVault), same interactive-
- * passphrase-prompt boundary as the Connections CLI commands, even though
- * the rest of this command's own data (words, bypass_dnd) is only ever
- * §0.2 server-runtime tier and needs no such prompt.
+ * Also establishes the connection ↔ share-link tie the export data already
+ * implies but never wired up: a candidate name — the row's own `label`, or
+ * any of its `words` — that matches an existing connection's name exactly
+ * (case-sensitive, same convention as HighlightMatcher's own clause
+ * matching) ties that connection to this link (Connection::share_link_id)
+ * — same outcome as picking it manually from the Share links page, just
+ * derived instead of asked for. Only ever sets share_link_id on a
+ * connection that doesn't already have one, and only for a candidate name
+ * with exactly one matching connection — an ambiguous (0 or 2+ matching
+ * connections) candidate is left alone rather than guessed at. This runs
+ * for every row on every invocation, including already-imported ones, so
+ * re-running after adding more connections (or after this command shipped,
+ * against links imported before it did) still backfills them.
+ *
+ * Connection names are client-vault E2EE (§0.1) — matching against them,
+ * and encrypting a row's label, needs the owner's vault unlocked (see
+ * UnlocksVault), same interactive-passphrase-prompt boundary as the
+ * Connections CLI commands, even though the rest of this command's own
+ * data (words, bypass_dnd) is only ever §0.2 server-runtime tier and needs
+ * no such prompt.
  */
 class ImportLegacyShareLinks extends Command
 {
     use UnlocksVault;
 
-    protected $signature = 'wtf:import-legacy-share-links {input : Path to the source export JSON file}';
+    protected $signature = 'wtf:import-legacy-share-links {email : Owner email — the source app export has no per-row owner} {input : Path to the source export JSON file}';
 
     protected $description = 'One-time Stage 5 import of calendar_highlight_tokens rows into share_links';
 
     public function handle(): int
     {
+        $user = $this->findUserOrFail($this->argument('email'));
+
+        if ($user === null) {
+            return self::FAILURE;
+        }
+
         $inputPath = $this->argument('input');
 
         if (! file_exists($inputPath)) {
@@ -93,17 +114,11 @@ class ImportLegacyShareLinks extends Command
         $skipped = 0;
         $linked = 0;
 
-        /** @var array<string, array{0: string, 1: array<string, string>}|false> Keyed by user id — one vault prompt per distinct owner in the file, not per row; false after a wrong passphrase so matching is just skipped for the rest of that owner's rows rather than re-prompting endlessly. */
-        $unlockedByUser = [];
+        [$vaultKey, $ring] = $this->unlockVault($user) ?? [null, null];
+        $vaultUnlocked = $vaultKey !== null;
 
         foreach ($rows as $row) {
-            $user = User::whereEmail($row['owner_email'])->first();
-
-            if ($user === null) {
-                $this->warn("Skipping token {$row['token']}: no user found for {$row['owner_email']}.");
-
-                continue;
-            }
+            $words = $row['words'] ?? $row['highlight_words'] ?? [];
 
             $shareLink = ShareLink::where('legacy_token', $row['token'])->first();
 
@@ -112,33 +127,39 @@ class ImportLegacyShareLinks extends Command
             } else {
                 $shareLink = ShareLink::create([
                     'user_id' => $user->id,
+                    'archived' => $row['archived'] ?? false,
                     'bypass_dnd' => $row['bypass_dnd'] ?? false,
                     'legacy_token' => $row['token'],
                 ]);
 
-                foreach ($row['highlight_words'] ?? [] as $word) {
+                foreach ($words as $word) {
                     ShareLinkWord::create([
                         'share_link_id' => $shareLink->id,
                         'word_ciphertext' => Crypt::encryptString($word),
                     ]);
                 }
 
+                if ($vaultUnlocked && ! empty($row['label'])) {
+                    [$rawKey, $ring] = KeyRing::getOrCreateKey($ring, $shareLink->id);
+                    $shareLink->update(['label_ciphertext' => AesGcm::encrypt($rawKey, $row['label'])]);
+                }
+
                 $imported++;
             }
 
-            if (! array_key_exists($user->id, $unlockedByUser)) {
-                $unlockedByUser[$user->id] = $this->unlockVault($user) ?? false;
-            }
-
-            if ($unlockedByUser[$user->id] === false) {
+            if (! $vaultUnlocked) {
                 continue;
             }
 
-            [, $ring] = $unlockedByUser[$user->id];
+            $candidates = array_values(array_unique(array_filter([$row['label'] ?? null, ...$words])));
 
-            if ($this->linkMatchingConnection($user, $ring, $shareLink, $row['highlight_words'] ?? [])) {
+            if ($this->linkMatchingConnection($user, $ring, $shareLink, $candidates)) {
                 $linked++;
             }
+        }
+
+        if ($vaultUnlocked) {
+            $this->persistRing($user, $vaultKey, $ring);
         }
 
         $this->info("Imported {$imported} share link(s), skipped {$skipped} already-imported token(s), linked {$linked} connection(s).");
@@ -148,9 +169,9 @@ class ImportLegacyShareLinks extends Command
 
     /**
      * @param  array<string, string>  $ring
-     * @param  string[]  $highlightWords
+     * @param  string[]  $candidates  Names to try matching a connection against — the row's label plus its highlight words.
      */
-    private function linkMatchingConnection(User $user, array $ring, ShareLink $shareLink, array $highlightWords): bool
+    private function linkMatchingConnection(User $user, array $ring, ShareLink $shareLink, array $candidates): bool
     {
         if ($shareLink->connection()->exists()) {
             return false;
@@ -166,14 +187,14 @@ class ImportLegacyShareLinks extends Command
             ->filter(fn (Connection $c) => isset($ring[$c->id]))
             ->groupBy(fn (Connection $c) => AesGcm::decrypt(base64_decode($ring[$c->id], true), $c->name_ciphertext));
 
-        $matchingWords = collect($highlightWords)
-            ->filter(fn (string $word) => ($connectionsByName->get($word)?->count() ?? 0) === 1);
+        $matchingCandidates = collect($candidates)
+            ->filter(fn (string $name) => ($connectionsByName->get($name)?->count() ?? 0) === 1);
 
-        if ($matchingWords->count() !== 1) {
+        if ($matchingCandidates->count() !== 1) {
             return false;
         }
 
-        $connectionsByName->get($matchingWords->first())->first()
+        $connectionsByName->get($matchingCandidates->first())->first()
             ->update(['share_link_id' => $shareLink->id]);
 
         return true;

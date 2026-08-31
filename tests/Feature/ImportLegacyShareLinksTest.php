@@ -15,10 +15,13 @@ use Tests\TestCase;
 
 /**
  * wtf:import-legacy-share-links — Stage 5's one-time migration command,
- * plus the connection ↔ share-link auto-linking it derives from
- * highlight_words. Same vault-unlock boundary as the Connections CLI:
- * connection names are client-vault E2EE (§0.1), so matching against them
- * needs the interactive passphrase prompt tested here via expectsQuestion.
+ * given the source app's own `/dashboard/highlights/export` shape (one
+ * owner per file, {label, token, archived, bypass_dnd, words}), plus the
+ * connection ↔ share-link auto-linking it derives from each row's label/
+ * words. Same vault-unlock boundary as the Connections CLI: connection
+ * names (and a row's label) are client-vault E2EE (§0.1), so matching
+ * against them needs the interactive passphrase prompt tested here via
+ * expectsQuestion.
  */
 class ImportLegacyShareLinksTest extends TestCase
 {
@@ -26,14 +29,14 @@ class ImportLegacyShareLinksTest extends TestCase
 
     private const PASSPHRASE = 'correct horse battery staple';
 
-    public function test_imports_a_share_link_and_its_highlight_words(): void
+    public function test_imports_a_share_link_with_its_label_and_highlight_words(): void
     {
         $user = $this->userWithVault();
         $path = $this->writeInput([
-            ['token' => 'legacy-token-1', 'owner_email' => $user->email, 'bypass_dnd' => true, 'highlight_words' => ['Alice']],
+            ['token' => 'legacy-token-1', 'label' => 'Alice', 'bypass_dnd' => true, 'words' => ['Alice']],
         ]);
 
-        $this->artisan('wtf:import-legacy-share-links', ['input' => $path])
+        $this->artisan('wtf:import-legacy-share-links', ['email' => $user->email, 'input' => $path])
             ->expectsQuestion('Enter the vault passphrase for '.$user->email, self::PASSPHRASE)
             ->assertExitCode(0);
 
@@ -43,22 +46,40 @@ class ImportLegacyShareLinksTest extends TestCase
         $this->assertSame(['Alice'], $shareLink->words->map(
             fn ($w) => Crypt::decryptString($w->word_ciphertext),
         )->all());
+
+        $vaultKey = $this->vaultKey($user);
+        $ring = KeyRing::decrypt($vaultKey, $user->refresh()->key_ring_ciphertext);
+        $this->assertSame('Alice', AesGcm::decrypt(base64_decode($ring[$shareLink->id], true), $shareLink->label_ciphertext));
+    }
+
+    public function test_imports_the_archived_flag(): void
+    {
+        $user = $this->userWithVault();
+        $path = $this->writeInput([
+            ['token' => 'legacy-token-1', 'label' => 'Alice', 'archived' => true, 'words' => []],
+        ]);
+
+        $this->artisan('wtf:import-legacy-share-links', ['email' => $user->email, 'input' => $path])
+            ->expectsQuestion('Enter the vault passphrase for '.$user->email, self::PASSPHRASE)
+            ->assertExitCode(0);
+
+        $this->assertTrue(ShareLink::where('legacy_token', 'legacy-token-1')->firstOrFail()->archived);
     }
 
     public function test_re_running_with_the_same_input_skips_the_already_imported_token(): void
     {
         $user = $this->userWithVault();
         $path = $this->writeInput([
-            ['token' => 'legacy-token-1', 'owner_email' => $user->email, 'highlight_words' => []],
+            ['token' => 'legacy-token-1', 'label' => 'Alice', 'words' => []],
         ]);
 
-        $this->artisan('wtf:import-legacy-share-links', ['input' => $path])
+        $this->artisan('wtf:import-legacy-share-links', ['email' => $user->email, 'input' => $path])
             ->expectsQuestion('Enter the vault passphrase for '.$user->email, self::PASSPHRASE)
             ->assertExitCode(0);
 
         $this->assertSame(1, ShareLink::count());
 
-        $this->artisan('wtf:import-legacy-share-links', ['input' => $path])
+        $this->artisan('wtf:import-legacy-share-links', ['email' => $user->email, 'input' => $path])
             ->expectsQuestion('Enter the vault passphrase for '.$user->email, self::PASSPHRASE)
             ->expectsOutputToContain('Imported 0 share link(s), skipped 1 already-imported token(s)')
             ->assertExitCode(0);
@@ -71,10 +92,28 @@ class ImportLegacyShareLinksTest extends TestCase
         $user = $this->userWithVault();
         $connection = $this->connectionNamed($user, 'Alice');
         $path = $this->writeInput([
-            ['token' => 'legacy-token-1', 'owner_email' => $user->email, 'highlight_words' => ['Alice']],
+            ['token' => 'legacy-token-1', 'label' => 'Alice Nickname', 'words' => ['Alice']],
         ]);
 
-        $this->artisan('wtf:import-legacy-share-links', ['input' => $path])
+        $this->artisan('wtf:import-legacy-share-links', ['email' => $user->email, 'input' => $path])
+            ->expectsQuestion('Enter the vault passphrase for '.$user->email, self::PASSPHRASE)
+            ->expectsOutputToContain('linked 1 connection(s)')
+            ->assertExitCode(0);
+
+        $shareLink = ShareLink::where('legacy_token', 'legacy-token-1')->first();
+        $this->assertSame($shareLink->id, $connection->refresh()->share_link_id);
+    }
+
+    public function test_the_label_itself_matching_exactly_one_connection_links_it(): void
+    {
+        $user = $this->userWithVault();
+        $connection = $this->connectionNamed($user, 'Alice');
+        $path = $this->writeInput([
+            // No word matches, but the label itself does.
+            ['token' => 'legacy-token-1', 'label' => 'Alice', 'words' => ['Al']],
+        ]);
+
+        $this->artisan('wtf:import-legacy-share-links', ['email' => $user->email, 'input' => $path])
             ->expectsQuestion('Enter the vault passphrase for '.$user->email, self::PASSPHRASE)
             ->expectsOutputToContain('linked 1 connection(s)')
             ->assertExitCode(0);
@@ -89,10 +128,10 @@ class ImportLegacyShareLinksTest extends TestCase
         $this->connectionNamed($user, 'Alice');
         $this->connectionNamed($user, 'Alice');
         $path = $this->writeInput([
-            ['token' => 'legacy-token-1', 'owner_email' => $user->email, 'highlight_words' => ['Alice']],
+            ['token' => 'legacy-token-1', 'label' => 'Alice', 'words' => ['Alice']],
         ]);
 
-        $this->artisan('wtf:import-legacy-share-links', ['input' => $path])
+        $this->artisan('wtf:import-legacy-share-links', ['email' => $user->email, 'input' => $path])
             ->expectsQuestion('Enter the vault passphrase for '.$user->email, self::PASSPHRASE)
             ->expectsOutputToContain('linked 0 connection(s)')
             ->assertExitCode(0);
@@ -106,10 +145,10 @@ class ImportLegacyShareLinksTest extends TestCase
         $existingLink = ShareLink::factory()->for($user)->create();
         $connection = $this->connectionNamed($user, 'Alice', shareLinkId: $existingLink->id);
         $path = $this->writeInput([
-            ['token' => 'legacy-token-1', 'owner_email' => $user->email, 'highlight_words' => ['Alice']],
+            ['token' => 'legacy-token-1', 'label' => 'Alice', 'words' => ['Alice']],
         ]);
 
-        $this->artisan('wtf:import-legacy-share-links', ['input' => $path])
+        $this->artisan('wtf:import-legacy-share-links', ['email' => $user->email, 'input' => $path])
             ->expectsQuestion('Enter the vault passphrase for '.$user->email, self::PASSPHRASE)
             ->expectsOutputToContain('linked 0 connection(s)')
             ->assertExitCode(0);
@@ -117,19 +156,21 @@ class ImportLegacyShareLinksTest extends TestCase
         $this->assertSame($existingLink->id, $connection->refresh()->share_link_id);
     }
 
-    public function test_a_wrong_passphrase_still_imports_the_link_but_skips_linking(): void
+    public function test_a_wrong_passphrase_still_imports_the_link_but_skips_labeling_and_linking(): void
     {
         $user = $this->userWithVault();
         $this->connectionNamed($user, 'Alice');
         $path = $this->writeInput([
-            ['token' => 'legacy-token-1', 'owner_email' => $user->email, 'highlight_words' => ['Alice']],
+            ['token' => 'legacy-token-1', 'label' => 'Alice', 'words' => ['Alice']],
         ]);
 
-        $this->artisan('wtf:import-legacy-share-links', ['input' => $path])
+        $this->artisan('wtf:import-legacy-share-links', ['email' => $user->email, 'input' => $path])
             ->expectsQuestion('Enter the vault passphrase for '.$user->email, 'the wrong passphrase')
             ->assertExitCode(0);
 
+        $shareLink = ShareLink::where('legacy_token', 'legacy-token-1')->firstOrFail();
         $this->assertSame(1, ShareLink::count());
+        $this->assertNull($shareLink->label_ciphertext);
         $this->assertSame(0, Connection::whereNotNull('share_link_id')->count());
     }
 
