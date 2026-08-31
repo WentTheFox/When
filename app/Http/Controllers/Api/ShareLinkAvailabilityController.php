@@ -36,7 +36,10 @@ class ShareLinkAvailabilityController extends Controller
         }
 
         if ($shareLink->archived) {
-            return response()->json(['error' => 'This share link has been archived.'], 404);
+            // 401, not 404: the link *was* valid — this is the "link
+            // expired" signal the frontend renders a distinct state for,
+            // matching the source app's convention, not "never existed."
+            return response()->json(['error' => 'This share link has expired.'], 401);
         }
 
         $cache = $shareLink->cache;
@@ -50,6 +53,7 @@ class ShareLinkAvailabilityController extends Controller
             return response()->json([
                 'status' => 'pending',
                 'key_protection' => $shareLink->key_protection,
+                'timezone' => $shareLink->user->timezone,
             ], 202);
         }
 
@@ -62,6 +66,10 @@ class ShareLinkAvailabilityController extends Controller
             'computed_range_start' => $cache->computed_range_start->toIso8601String(),
             'computed_range_end' => $cache->computed_range_end->toIso8601String(),
             'stale' => $isStale,
+            // Plaintext, not sensitive — same tier as availability_settings
+            // (schedule shape, not content). Lets the viewer compare their
+            // own timezone against the owner's, same as the source app.
+            'timezone' => $shareLink->user->timezone,
         ]);
     }
 }

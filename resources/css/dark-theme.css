@@ -9,7 +9,13 @@
  * (Stage 6/7 schema) — see share-links/show.blade.php.
  */
 
-:root {
+/*
+ * Dark is the default (no toggle needed to get it) — matches the plan's
+ * "Bootstrap 4, dark mode" framing. #btn-theme-toggle in index.ts flips
+ * [data-theme="light"] on <html> and persists the choice in localStorage.
+ */
+:root,
+:root[data-theme="dark"] {
     --wtf-bg: #14161a;
     --wtf-bg-elevated: #1c1f26;
     --wtf-text: #e7e9ee;
@@ -22,6 +28,25 @@
     --wtf-color-highlighted: rgba(255, 193, 7, 0.3);
     --wtf-color-sleep: rgba(111, 66, 193, 0.3);
     --wtf-color-tentative: rgba(154, 161, 173, 0.25);
+}
+
+:root[data-theme="light"] {
+    --wtf-bg: #f7f7f9;
+    --wtf-bg-elevated: #ffffff;
+    --wtf-text: #22252b;
+    --wtf-text-muted: #6c7280;
+    --wtf-border: rgba(0, 0, 0, 0.12);
+
+    --wtf-accent: #d9701f;
+    --wtf-color-free: rgba(217, 112, 31, 0.18);
+    --wtf-color-busy: rgba(34, 37, 43, 0.12);
+    --wtf-color-highlighted: rgba(255, 193, 7, 0.35);
+    --wtf-color-sleep: rgba(111, 66, 193, 0.2);
+    --wtf-color-tentative: rgba(108, 114, 128, 0.18);
+}
+
+:root[data-theme="light"] .btn-secondary {
+    color: #ffffff;
 }
 
 body {
@@ -103,4 +128,47 @@ a {
 
 hr {
     border-top-color: var(--wtf-border);
+}
+
+/*
+ * The 24-hour grid doesn't work on narrow screens — below md, show the
+ * agenda list instead (same underlying data, different layout), matching
+ * the source app's mobile/desktop split.
+ */
+.wtf-mobile-only {
+    display: none;
+}
+
+@media (max-width: 767.98px) {
+    .wtf-desktop-only {
+        display: none !important;
+    }
+
+    .wtf-mobile-only {
+        display: block;
+    }
+}
+
+.wtf-agenda-day {
+    margin-bottom: 1.5rem;
+}
+
+.wtf-agenda-day-header {
+    font-weight: 700;
+    padding-bottom: 0.4rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 2px solid var(--wtf-border);
+}
+
+.wtf-agenda-day-header.is-today {
+    color: var(--wtf-accent);
+    border-bottom-color: var(--wtf-accent);
+}
+
+.wtf-agenda-slot {
+    position: relative;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 4px;
+    border-radius: 0.25rem;
+    min-height: 2.5rem;
 }

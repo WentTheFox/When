@@ -16,15 +16,21 @@ interface ApiResponse {
   computed_range_start?: string;
   computed_range_end?: string;
   stale?: boolean;
+  timezone: string;
 }
+
+class LinkExpiredError extends Error {}
 
 const root = document.getElementById('free-page')!;
 const token = root.dataset.token!;
 const keyProtection = root.dataset.keyProtection as 'fragment' | 'passphrase';
 
+const mainEl = document.getElementById('free-main')!;
+const expiredEl = document.getElementById('free-expired')!;
 const statusEl = document.getElementById('free-status')!;
 const statusTextEl = document.getElementById('free-status-text')!;
 const calendarRoot = document.getElementById('free-calendar-root')!;
+const agendaRoot = document.getElementById('free-agenda-root')!;
 const navLabelEl = document.getElementById('nav-label')!;
 const btnPrev = document.getElementById('btn-prev') as HTMLButtonElement;
 const btnNext = document.getElementById('btn-next') as HTMLButtonElement;
@@ -35,6 +41,9 @@ const passphraseModal = document.getElementById('passphrase-modal')!;
 const passphraseForm = document.getElementById('passphrase-form') as HTMLFormElement;
 const passphraseInput = document.getElementById('passphrase-input') as HTMLInputElement;
 const passphraseError = document.getElementById('passphrase-error')!;
+const timezoneOffsetNoteEl = document.getElementById('timezone-offset-note')!;
+const btnThemeToggle = document.getElementById('btn-theme-toggle') as HTMLButtonElement;
+const themeToggleIcon = document.getElementById('theme-toggle-icon')!;
 
 let slots: AvailabilitySlot[] = [];
 // Default is week — see PLAN.md Stage 6.
@@ -81,6 +90,82 @@ function isSameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
+// ── Theme toggle ─────────────────────────────────────────────────────────
+
+const THEME_STORAGE_KEY = 'wtf-theme';
+
+function applyTheme(theme: 'dark' | 'light'): void {
+  document.documentElement.setAttribute('data-theme', theme);
+  themeToggleIcon.textContent = theme === 'dark' ? '☉' : '☽'; // sun / crescent moon
+}
+
+function initTheme(): void {
+  let stored: string | null = null;
+  try {
+    stored = localStorage.getItem(THEME_STORAGE_KEY);
+  } catch {
+    // Private browsing / storage blocked — fall back to the default silently.
+  }
+  applyTheme(stored === 'light' ? 'light' : 'dark');
+}
+
+btnThemeToggle.addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  const next = current === 'light' ? 'dark' : 'light';
+  applyTheme(next);
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, next);
+  } catch {
+    // Ignore — the toggle still works for this page load either way.
+  }
+});
+
+initTheme();
+
+// ── Timezone comparison ─────────────────────────────────────────────────
+
+function renderTimezoneOffsetNote(ownerTimezone: string): void {
+  const viewerTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  const now = new Date();
+  const viewerOffset = -getTimezoneOffsetMinutes(now, viewerTimezone);
+  const ownerOffset = -getTimezoneOffsetMinutes(now, ownerTimezone);
+  const diffMinutes = viewerOffset - ownerOffset;
+
+  timezoneOffsetNoteEl.hidden = false;
+
+  if (diffMinutes === 0) {
+    timezoneOffsetNoteEl.textContent = 'Our timezones match!';
+    return;
+  }
+
+  const abs = Math.abs(diffMinutes);
+  const hours = Math.floor(abs / 60);
+  const minutes = abs % 60;
+  const offsetText = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  timezoneOffsetNoteEl.textContent = diffMinutes > 0
+    ? `You are ${offsetText} ahead compared to them`
+    : `You are ${offsetText} behind compared to them`;
+}
+
+function getTimezoneOffsetMinutes(date: Date, timeZone: string): number {
+  // The difference between UTC and the wall-clock time Intl reports for
+  // this timezone, in minutes — same trick as Intl.DateTimeFormat has no
+  // direct "give me the offset" API.
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  });
+  const parts = Object.fromEntries(dtf.formatToParts(date).map((p) => [p.type, p.value]));
+  const asUtc = Date.UTC(
+    Number(parts.year), Number(parts.month) - 1, Number(parts.day),
+    Number(parts.hour), Number(parts.minute), Number(parts.second),
+  );
+  return (asUtc - date.getTime()) / 60000;
+}
+
 // ── Scrambled placeholder (Stage 6's core visible trust signal) ────────────
 
 const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
@@ -93,11 +178,7 @@ function randomScrambledText(length: number): string {
   return out;
 }
 
-function renderScrambledPlaceholder(): void {
-  calendarRoot.innerHTML = '';
-  calendarRoot.hidden = false;
-  statusEl.hidden = true;
-
+function buildScrambledBlock(): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'border rounded p-3';
   wrap.style.filter = 'blur(0.5px)';
@@ -111,7 +192,22 @@ function renderScrambledPlaceholder(): void {
     wrap.appendChild(row);
   }
 
-  calendarRoot.appendChild(wrap);
+  return wrap;
+}
+
+// Populates both roots — whichever CSS shows for the current viewport
+// width (.wtf-desktop-only / .wtf-mobile-only, dark-theme.css) is the one
+// the viewer actually sees.
+function renderScrambledPlaceholder(): void {
+  calendarRoot.innerHTML = '';
+  calendarRoot.hidden = false;
+  calendarRoot.appendChild(buildScrambledBlock());
+
+  agendaRoot.innerHTML = '';
+  agendaRoot.hidden = false;
+  agendaRoot.appendChild(buildScrambledBlock());
+
+  statusEl.hidden = true;
 }
 
 // ── Decryption ───────────────────────────────────────────────────────────
@@ -166,6 +262,10 @@ async function fetchWithPolling(): Promise<ApiResponse> {
     const res = await fetch(`/api/share/${encodeURIComponent(token)}`, {
       headers: { Accept: 'application/json' },
     });
+
+    if (res.status === 401) {
+      throw new LinkExpiredError();
+    }
 
     if (!res.ok) {
       throw new Error(`Request failed: ${res.status}`);
@@ -348,6 +448,56 @@ function renderMonth(monthStart: Date): void {
   calendarRoot.appendChild(grid);
 }
 
+// The 24-hour grid doesn't work on narrow screens — .wtf-mobile-only /
+// .wtf-desktop-only (dark-theme.css) show exactly one of these at a time
+// per viewport width, but both render the same underlying day set so
+// there's no layout jump when the breakpoint is crossed mid-session.
+function renderAgenda(days: Date[]): void {
+  agendaRoot.innerHTML = '';
+
+  for (const day of days) {
+    const dayEl = document.createElement('div');
+    dayEl.className = 'wtf-agenda-day';
+
+    const header = document.createElement('div');
+    header.className = 'wtf-agenda-day-header';
+    if (isSameDay(day, new Date())) header.classList.add('is-today');
+    header.textContent = `${day.toLocaleDateString(undefined, { weekday: 'short' })} ${day.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+    dayEl.appendChild(header);
+
+    const blocks = getBlocksForDay(day, slots).filter((b) => b.type !== 'free');
+
+    if (blocks.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'small text-muted';
+      empty.textContent = 'Free all day';
+      dayEl.appendChild(empty);
+    }
+
+    for (const block of blocks) {
+      const slotEl = document.createElement('div');
+      slotEl.className = 'wtf-agenda-slot';
+      slotEl.style.backgroundColor = `var(--wtf-color-${block.type})`;
+
+      const label = document.createElement('div');
+      label.className = 'font-weight-bold small';
+      label.textContent = blockLabel(block);
+      slotEl.appendChild(label);
+
+      if (block.type !== 'sleep') {
+        const time = document.createElement('div');
+        time.className = 'small';
+        time.textContent = `${block.startTime} – ${block.endTime}`;
+        slotEl.appendChild(time);
+      }
+
+      dayEl.appendChild(slotEl);
+    }
+
+    agendaRoot.appendChild(dayEl);
+  }
+}
+
 function render(): void {
   updateUrl();
 
@@ -356,16 +506,22 @@ function render(): void {
   btnViewMonth.classList.toggle('btn-secondary', viewMode === 'month');
   btnViewMonth.classList.toggle('btn-outline-secondary', viewMode !== 'month');
 
+  let days: Date[];
+
   if (viewMode === 'week') {
     const weekStart = startOfWeek(anchorDate);
-    const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+    days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
     navLabelEl.textContent = `${weekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} – ${addDays(weekStart, 6).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
     renderWeek(days);
   } else {
     const monthStart = startOfMonth(anchorDate);
+    const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+    days = Array.from({ length: monthEnd.getDate() }, (_, i) => addDays(monthStart, i));
     navLabelEl.textContent = monthStart.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
     renderMonth(monthStart);
   }
+
+  renderAgenda(days);
 }
 
 btnPrev.addEventListener('click', () => {
@@ -399,6 +555,8 @@ async function boot(): Promise<void> {
 
   try {
     const response = await fetchWithPolling();
+    renderTimezoneOffsetNote(response.timezone);
+
     const key = await resolveContentKey(response);
     const plaintext = await decryptString(key, response.ciphertext!);
     slots = JSON.parse(plaintext) as AvailabilitySlot[];
@@ -410,7 +568,14 @@ async function boot(): Promise<void> {
 
     render();
   } catch (error) {
+    if (error instanceof LinkExpiredError) {
+      mainEl.hidden = true;
+      expiredEl.hidden = false;
+      return;
+    }
+
     calendarRoot.hidden = true;
+    agendaRoot.hidden = true;
     statusEl.hidden = false;
     statusTextEl.textContent = error instanceof DecryptionFailedError
       ? 'Could not decrypt this calendar. The link may be broken.'

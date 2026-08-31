@@ -90,13 +90,31 @@ class ShareLinkAvailabilityApiTest extends TestCase
         ]);
     }
 
-    public function test_archived_share_links_are_not_served(): void
+    public function test_archived_share_links_return_401_as_the_link_expired_signal(): void
     {
         $shareLink = ShareLink::factory()->for(User::factory())->create(['archived' => true]);
 
         $response = $this->getJson(route('api.share-links.show', $shareLink));
 
-        $response->assertStatus(404);
+        // 401, not 404 — the link *was* valid, this is "expired," not "never existed."
+        $response->assertStatus(401);
+    }
+
+    public function test_response_includes_the_owners_timezone(): void
+    {
+        $user = User::factory()->create(['timezone' => 'Europe/Budapest']);
+        $shareLink = ShareLink::factory()->for($user)->create();
+        ShareLinkCache::create([
+            'share_link_id' => $shareLink->id,
+            'ciphertext' => 'ciphertext-blob',
+            'computed_range_start' => now(),
+            'computed_range_end' => now()->addDays(60),
+            'encrypted_at' => now(),
+        ]);
+
+        $response = $this->getJson(route('api.share-links.show', $shareLink));
+
+        $response->assertJson(['timezone' => 'Europe/Budapest']);
     }
 
     public function test_passphrase_protected_links_expose_the_wrapped_key_but_fragment_links_do_not(): void
