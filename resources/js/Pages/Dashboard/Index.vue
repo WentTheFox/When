@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 
 defineOptions({ layout: DashboardLayout });
@@ -13,6 +13,8 @@ defineProps<{
 </script>
 
 <template>
+  <Head title="Dashboard" />
+
   <h1 class="h3 mb-4">Welcome, {{ userName }}</h1>
 
   <div v-if="!hasCalendarUrl" class="alert alert-info">

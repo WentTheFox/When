@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
 import { BAlert, BButton, BCard, BFormCheckbox, BFormGroup, BFormInput } from 'bootstrap-vue-next';
 import { ref } from 'vue';
@@ -116,6 +117,8 @@ async function importLinks(event: Event): Promise<void> {
 </script>
 
 <template>
+  <Head title="Share links" />
+
   <BCard class="mb-4">
     <div class="d-flex justify-content-between align-items-center">
       <div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Link, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput } from 'bootstrap-vue-next';
 import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 
@@ -32,6 +32,8 @@ function disableTwoFactor(): void {
 </script>
 
 <template>
+  <Head title="Account" />
+
   <BCard class="mb-4">
     <h1 class="h3 mb-4">Account</h1>
 

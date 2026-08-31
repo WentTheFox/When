@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
 import { BButton, BCard, BFormGroup, BFormInput, BFormSelect, BFormTextarea } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
@@ -239,6 +240,8 @@ async function removeEdge(id: string): Promise<void> {
 </script>
 
 <template>
+  <Head title="Connections" />
+
   <BCard class="mb-4">
     <div class="d-flex justify-content-between align-items-center">
       <div>

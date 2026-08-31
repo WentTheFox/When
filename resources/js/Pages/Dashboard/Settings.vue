@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
+import { Head, useForm } from '@inertiajs/vue3';
 import axios from 'axios';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
@@ -490,6 +490,8 @@ function submit(): void {
 </script>
 
 <template>
+  <Head title="Settings" />
+
   <BAlert :model-value="!!$page.props.flash?.status" variant="success">{{ $page.props.flash?.status }}</BAlert>
 
   <BCard class="mb-4">
