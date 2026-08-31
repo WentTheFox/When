@@ -1107,6 +1107,13 @@ hr {
     background-color: rgba(var(--wtf-accent-rgb), 0.08);
 }
 
+/* A leading/trailing day from the adjacent month, padded in to fill out
+   the row (see MonthView.vue's paddedDays) — still real and clickable,
+   just visually secondary to the month actually being viewed. */
+.wtf-fmonth-day-cell-outside {
+    opacity: 0.45;
+}
+
 .wtf-fmonth-week-row:hover .wtf-fmonth-day-cell.is-today {
     background-color: rgba(var(--wtf-accent-rgb), 0.15);
 }

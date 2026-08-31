@@ -67,6 +67,39 @@ const firstDayOffset = computed(() => {
   return (dow - props.weekStart + 7) % 7;
 });
 
+/**
+ * How many trailing days are needed to fill out the last row to a full
+ * week — same idea as firstDayOffset, mirrored for the end of the month.
+ */
+const lastDayOffset = computed(() => {
+  if (props.days.length === 0) return 0;
+  const tzDay = new TZDate(props.days.at(-1)!, props.timezone);
+  const dow = getDay(tzDay);
+  return (props.weekStart - dow - 1 + 7) % 7;
+});
+
+/**
+ * The actual month's days, padded front and back with real adjacent-month
+ * dates so every row is a full week — a lone day like "Aug 31" on its own
+ * row, with the rest of that week blank, reads as broken; every other
+ * month-grid calendar shows the adjacent month's days there (dimmed) to
+ * fill it out instead. Data-wise this is safe: the availability API's own
+ * computed range already extends well past either end of any single
+ * viewed month (§5.1's LOOKAHEAD_DAYS), so blocks exist for these days
+ * the same way tentativeFadeStyle below already reaches a day past the
+ * rendered list.
+ */
+const paddedDays = computed(() => {
+  if (props.days.length === 0) return [];
+
+  const leading = Array.from({ length: firstDayOffset.value }, (_, i) =>
+    subDays(props.days[0]!, firstDayOffset.value - i));
+  const trailing = Array.from({ length: lastDayOffset.value }, (_, i) =>
+    addDays(props.days.at(-1)!, i + 1));
+
+  return [...leading, ...props.days, ...trailing];
+});
+
 function isDayToday(day: Date): boolean {
   const tzNow = new TZDate(new Date(), props.timezone);
   const tzDay = new TZDate(day, props.timezone);
@@ -95,13 +128,18 @@ type DayStatus = {
   number: string;
   isToday: boolean;
   isPast: boolean;
+  /** A leading/trailing padding day from the adjacent month, not part of the month actually being viewed — rendered dimmed. */
+  isOutsideMonth: boolean;
   allBlocks: ReturnType<typeof getBlocksForDay>;
   currentBlockIndex: number;
   currentTimeOffsetPct: number;
 };
 
-const dayStatuses = computed(() =>
-  props.days.map((day): DayStatus => {
+const dayStatuses = computed(() => {
+  const monthStart = props.days[0];
+  const monthEnd = props.days.at(-1);
+
+  return paddedDays.value.map((day): DayStatus => {
     const blocks = props.showBlocks
       ? getBlocksForDay(day, props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone)
       : [];
@@ -122,21 +160,22 @@ const dayStatuses = computed(() =>
       number: formatDay(day, 'd'),
       isToday,
       isPast: isDayPast(day),
+      isOutsideMonth: !monthStart || !monthEnd || day < monthStart || day > monthEnd,
       allBlocks: blocks,
       currentBlockIndex,
       currentTimeOffsetPct,
     };
-  }),
-);
+  });
+});
 
 // Same neighbor-blending idea as the week/agenda views: a tentative block's
 // edge fade blends into the adjacent block's color instead of just fading to
 // transparent. At the very top/bottom of a day's own blocks, it carries over
 // from the previous/next calendar day's last/first block, computed directly
-// rather than looked up in the rendered day list — the visible month grid
-// excludes the previous/next month's days entirely while the API still
-// returns data for the day just outside the requested range — falling back
-// to transparent only where there's truly no data for the adjacent day.
+// rather than looked up in the rendered day list — even with paddedDays
+// filling out both ends of the grid, a tentative block right at the very
+// first/last rendered day still has no rendered neighbor to look up,
+// falling back to transparent only where there's truly no data at all.
 function tentativeFadeStyle(cell: DayStatus, i: number): Record<string, string> {
   const blocks = cell.allBlocks;
   if (!isTentativeDisplay(blocks[i]!)) return {};
@@ -153,27 +192,22 @@ function tentativeFadeStyle(cell: DayStatus, i: number): Record<string, string> 
   return style;
 }
 
+// dayStatuses is paddedDays run through the same per-day computation, so
+// it's already a whole number of full weeks — no null padding needed to
+// square off a trailing partial row anymore.
 const weekRows = computed(() => {
-  const rows: { cells: (DayStatus | null)[]; firstActiveDay: Date }[] = [];
-  let cells: (DayStatus | null)[] = Array(firstDayOffset.value).fill(null);
-
-  const pushRow = (): void => {
-    const firstActiveDay = cells.find(c => c !== null && !c.isPast)?.day ?? null;
-    // A row with no active day (everything past or padding) is empty — skip it,
-    // otherwise the calendar renders a blank row with no visible dates.
-    if (firstActiveDay) rows.push({ cells, firstActiveDay });
-  };
+  const rows: { cells: DayStatus[]; firstActiveDay: Date }[] = [];
+  let cells: DayStatus[] = [];
 
   for (const status of dayStatuses.value) {
     cells.push(status);
     if (cells.length === 7) {
-      pushRow();
+      // A row with no active (non-past) day is entirely past — skip it,
+      // otherwise the calendar renders a blank row with no visible dates.
+      const firstActiveDay = cells.find(c => !c.isPast)?.day ?? null;
+      if (firstActiveDay) rows.push({ cells, firstActiveDay });
       cells = [];
     }
-  }
-  if (cells.length > 0) {
-    while (cells.length < 7) cells.push(null);
-    pushRow();
   }
   return rows;
 });
@@ -206,12 +240,12 @@ const weekRows = computed(() => {
           role="button"
           @click="emit('weekClick', week.firstActiveDay)"
         >
-          <template v-for="(cell, ci) in week.cells" :key="cell?.key ?? `empty-${ci}`">
-            <div v-if="!cell || cell.isPast" class="wtf-fmonth-day-cell-empty" />
+          <template v-for="cell in week.cells" :key="cell.key">
+            <div v-if="cell.isPast" class="wtf-fmonth-day-cell-empty" />
             <div
               v-else
               class="wtf-fmonth-day-cell"
-              :class="{ 'is-today': cell.isToday }"
+              :class="{ 'is-today': cell.isToday, 'wtf-fmonth-day-cell-outside': cell.isOutsideMonth }"
             >
               <span class="wtf-fmonth-day-number" :class="{ 'wtf-fmonth-day-number-today': cell.isToday }">
                 {{ cell.number }}
