@@ -137,9 +137,11 @@ a single command's own lifetime.
   (`bi_directional`) and may reference a connection defined later in the same file;
   `highlight_token_label` guarantees a connection exists under that name (creating a bare
   one if it isn't otherwise in this file) and ties a freshly created share link to it,
-  labeled with that same name — a link imported this way carries no calendar/highlight
-  config of its own, it just gives the owner somewhere to start instead of nothing;
-  `archived` maps directly onto `connections.archived`.
+  labeled with that same name *and* configured with it as the link's one highlight word
+  (skip that and the link would never highlight a single event — nothing to match
+  against) — a link imported this way carries no other calendar/highlight config of its
+  own, it just gives the owner somewhere to start instead of nothing; `archived` maps
+  directly onto `connections.archived`.
 - **`wtf:connections:backfill-share-links {email} {input}`** — one-time fix-up: given
   the *same* source-app export file already run through `wtf:connections:import`, ties/
   creates share links for connections whose `highlight_token_label` wasn't wired up yet

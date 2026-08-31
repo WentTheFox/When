@@ -9,11 +9,13 @@ use App\Models\ConnectionEdge;
 use App\Models\ConnectionSource;
 use App\Models\ConnectionSourceCategory;
 use App\Models\ShareLink;
+use App\Models\ShareLinkWord;
 use App\Models\User;
 use App\Services\Crypto\AesGcm;
 use App\Services\Crypto\Argon2id;
 use App\Services\Crypto\KeyRing;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -229,6 +231,10 @@ class ConnectionsCliTest extends TestCase
             AesGcm::decrypt(base64_decode($ring[$shareLink->id], true), $shareLink->label_ciphertext),
         );
         $this->assertNull($two->refresh()->share_link_id);
+
+        // Without a highlight word the link would never highlight a single event.
+        $word = ShareLinkWord::where('share_link_id', $shareLink->id)->firstOrFail();
+        $this->assertSame('TestPersonOne', Crypt::decryptString($word->word_ciphertext));
     }
 
     /**
@@ -264,7 +270,10 @@ class ConnectionsCliTest extends TestCase
 
         $this->artisan('wtf:connections:backfill-share-links', ['email' => $user->email, 'input' => $path])
             ->expectsQuestion('Enter the vault passphrase for '.$user->email, self::PASSPHRASE)
-            ->expectsOutputToContain('Linked 1 connection(s) to a new share link, skipped 0 already linked, 0 unresolved.')
+            ->expectsOutputToContain(
+                'Linked 1 connection(s) to a new share link, backfilled a missing highlight word onto '.
+                '0 already-linked share link(s), skipped 0 already up to date, 0 unresolved.'
+            )
             ->assertExitCode(0);
 
         $this->assertSame(1, Connection::count()); // no duplicate created
@@ -280,14 +289,83 @@ class ConnectionsCliTest extends TestCase
             AesGcm::decrypt(base64_decode($ring[$shareLink->id], true), $shareLink->label_ciphertext),
         );
 
+        $word = ShareLinkWord::where('share_link_id', $shareLink->id)->firstOrFail();
+        $this->assertSame('TestPersonOne', Crypt::decryptString($word->word_ciphertext));
+
         // Running it again is a no-op — no second link, no duplicate connection.
         $this->artisan('wtf:connections:backfill-share-links', ['email' => $user->email, 'input' => $path])
             ->expectsQuestion('Enter the vault passphrase for '.$user->email, self::PASSPHRASE)
-            ->expectsOutputToContain('Linked 0 connection(s) to a new share link, skipped 1 already linked, 0 unresolved.')
+            ->expectsOutputToContain(
+                'Linked 0 connection(s) to a new share link, backfilled a missing highlight word onto '.
+                '0 already-linked share link(s), skipped 1 already up to date, 0 unresolved.'
+            )
             ->assertExitCode(0);
 
         $this->assertSame(1, Connection::count());
         $this->assertSame(1, ShareLink::count());
+    }
+
+    /**
+     * The scenario a real user actually hit: a share link was already tied
+     * (e.g. created by a wtf:connections:import run before the
+     * highlight-word fix) but has zero highlight words, so it never
+     * highlights anything. The backfill command should add the missing
+     * word to the existing link rather than skip it outright — and never
+     * create a second share link for that connection.
+     */
+    public function test_backfill_share_links_adds_a_missing_highlight_word_to_an_already_linked_share_link(): void
+    {
+        $user = $this->userWithVault();
+        $vaultKey = $this->vaultKey($user);
+        $ring = KeyRing::decrypt($vaultKey, $user->key_ring_ciphertext);
+
+        [$connectionRawKey, $ring] = KeyRing::getOrCreateKey($ring, $connectionId = Str::uuid()->toString());
+        [, $ring] = KeyRing::getOrCreateKey($ring, $shareLinkId = Str::uuid()->toString());
+        $user->update(['key_ring_ciphertext' => KeyRing::encrypt($vaultKey, $ring)]);
+
+        $shareLink = ShareLink::create([
+            'id' => $shareLinkId,
+            'user_id' => $user->id,
+        ]);
+
+        $connection = Connection::create([
+            'id' => $connectionId,
+            'user_id' => $user->id,
+            'name_ciphertext' => AesGcm::encrypt($connectionRawKey, 'TestPersonOne'),
+            'share_link_id' => $shareLink->id,
+        ]);
+
+        $this->assertSame(0, ShareLinkWord::where('share_link_id', $shareLink->id)->count());
+
+        $path = tempnam(sys_get_temp_dir(), 'wtf-backfill').'.json';
+        file_put_contents($path, json_encode([
+            'connections' => [
+                ['name' => 'TestPersonOne', 'highlight_token_label' => 'TestPersonOne'],
+            ],
+        ]));
+
+        $this->artisan('wtf:connections:backfill-share-links', ['email' => $user->email, 'input' => $path])
+            ->expectsQuestion('Enter the vault passphrase for '.$user->email, self::PASSPHRASE)
+            ->expectsOutputToContain(
+                'Linked 0 connection(s) to a new share link, backfilled a missing highlight word onto '.
+                '1 already-linked share link(s), skipped 0 already up to date, 0 unresolved.'
+            )
+            ->assertExitCode(0);
+
+        $this->assertSame(1, ShareLink::count()); // no second link created
+        $word = ShareLinkWord::where('share_link_id', $shareLink->id)->firstOrFail();
+        $this->assertSame('TestPersonOne', Crypt::decryptString($word->word_ciphertext));
+
+        // Running it again is a no-op — the word already matches.
+        $this->artisan('wtf:connections:backfill-share-links', ['email' => $user->email, 'input' => $path])
+            ->expectsQuestion('Enter the vault passphrase for '.$user->email, self::PASSPHRASE)
+            ->expectsOutputToContain(
+                'Linked 0 connection(s) to a new share link, backfilled a missing highlight word onto '.
+                '0 already-linked share link(s), skipped 1 already up to date, 0 unresolved.'
+            )
+            ->assertExitCode(0);
+
+        $this->assertSame(1, ShareLinkWord::where('share_link_id', $shareLink->id)->count());
     }
 
     private function userWithVault(): User

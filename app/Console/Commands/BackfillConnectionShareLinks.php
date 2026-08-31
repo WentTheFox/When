@@ -5,9 +5,11 @@ namespace App\Console\Commands;
 use App\Console\Commands\Concerns\UnlocksVault;
 use App\Models\Connection;
 use App\Models\ShareLink;
+use App\Models\ShareLinkWord;
 use App\Services\Crypto\AesGcm;
 use App\Services\Crypto\KeyRing;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
 
 /**
@@ -21,7 +23,13 @@ use Illuminate\Support\Str;
  * ever reads {@see ImportConnections}'s source-app-export `connections[].name` +
  * `connections[].highlight_token_label` fields, resolves each token label
  * against a connection that must already exist (from the original import —
- * it never creates one), and ties/creates a share link for it. Everything
+ * it never creates one), and ties/creates a share link for it, configured
+ * with that same name as its one highlight word (without it the link would
+ * never highlight a single event). If the connection is already tied to a
+ * share link that's missing that word — e.g. one created by a version of
+ * this command or of wtf:connections:import predating the highlight-word
+ * fix — the word is added to it instead of skipping outright; no new share
+ * link is ever created for a connection that already has one. Everything
  * else in the file (sources, attribute_definitions, edges, archived,
  * created_at) is ignored.
  *
@@ -77,6 +85,7 @@ class BackfillConnectionShareLinks extends Command
         }
 
         $linked = 0;
+        $wordsBackfilled = 0;
         $skippedAlreadyLinked = 0;
         $skippedUnresolved = 0;
 
@@ -99,7 +108,22 @@ class BackfillConnectionShareLinks extends Command
             $connection = Connection::findOrFail($connectionId);
 
             if ($connection->share_link_id !== null) {
-                $skippedAlreadyLinked++;
+                $hasWord = ShareLinkWord::where('share_link_id', $connection->share_link_id)
+                    ->get()
+                    ->contains(fn (ShareLinkWord $word) => Crypt::decryptString($word->word_ciphertext) === $tokenName);
+
+                if ($hasWord) {
+                    $skippedAlreadyLinked++;
+
+                    continue;
+                }
+
+                ShareLinkWord::create([
+                    'share_link_id' => $connection->share_link_id,
+                    'word_ciphertext' => Crypt::encryptString($tokenName),
+                ]);
+
+                $wordsBackfilled++;
 
                 continue;
             }
@@ -113,6 +137,11 @@ class BackfillConnectionShareLinks extends Command
                 'label_ciphertext' => AesGcm::encrypt($labelKey, $tokenName),
             ]);
 
+            ShareLinkWord::create([
+                'share_link_id' => $shareLinkId,
+                'word_ciphertext' => Crypt::encryptString($tokenName),
+            ]);
+
             $connection->update(['share_link_id' => $shareLinkId]);
 
             $linked++;
@@ -120,7 +149,11 @@ class BackfillConnectionShareLinks extends Command
 
         $this->persistRing($user, $vaultKey, $ring);
 
-        $this->info("Linked {$linked} connection(s) to a new share link, skipped {$skippedAlreadyLinked} already linked, {$skippedUnresolved} unresolved.");
+        $this->info(
+            "Linked {$linked} connection(s) to a new share link, backfilled a missing highlight word onto ".
+            "{$wordsBackfilled} already-linked share link(s), skipped {$skippedAlreadyLinked} already up to date, ".
+            "{$skippedUnresolved} unresolved."
+        );
 
         return self::SUCCESS;
     }
