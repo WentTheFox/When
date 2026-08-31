@@ -18,7 +18,10 @@ import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 
 defineOptions({ layout: DashboardLayout });
 
-const props = defineProps<{ shareLinks: ShareLinkRow[] }>();
+const props = defineProps<{
+  shareLinks: ShareLinkRow[];
+  connections: { id: string; name_ciphertext: string }[];
+}>();
 const { createRecordKey } = useVault();
 
 const links = ref<ShareLinkRow[]>(props.shareLinks);
@@ -161,6 +164,7 @@ async function importLinks(event: Event): Promise<void> {
       v-for="link in links"
       :key="link.id"
       :link="link"
+      :connections="connections"
       @updated="onUpdated"
       @regenerated="onRegenerated"
     />

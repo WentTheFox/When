@@ -30,12 +30,18 @@ class ShareLinkManagementController extends Controller
     public function index(Request $request): Response
     {
         $shareLinks = $request->user()->shareLinks()
-            ->with(['words', 'manualTags'])
+            ->with(['words', 'manualTags', 'connection'])
             ->latest()
             ->get()
             ->map(fn (ShareLink $shareLink) => $this->serializeForOwner($shareLink));
 
-        return Inertia::render('Dashboard/ShareLinks', ['shareLinks' => $shareLinks]);
+        return Inertia::render('Dashboard/ShareLinks', [
+            'shareLinks' => $shareLinks,
+            // For the "tie to a connection" picker on each card — name is
+            // still ciphertext (client-vault tier, §0.1), decrypted in the
+            // browser same as everywhere else a connection name is shown.
+            'connections' => $request->user()->connections()->get(['id', 'name_ciphertext']),
+        ]);
     }
 
     /**
@@ -53,6 +59,7 @@ class ShareLinkManagementController extends Controller
             'bypass_dnd' => $shareLink->bypass_dnd,
             'show_activity' => $shareLink->show_activity,
             'legacy_token' => $shareLink->legacy_token,
+            'connection_id' => $shareLink->connection?->id,
             'highlight_words' => $shareLink->words->map(
                 fn (ShareLinkWord $word) => Crypt::decryptString($word->word_ciphertext),
             )->all(),
@@ -276,12 +283,19 @@ class ShareLinkManagementController extends Controller
      * content_key_ciphertext under the same runtime key as calendar_url
      * (§0.2) — this is that tier's documented "not protected against a
      * compromised runtime" trade-off, not a new exposure.
+     *
+     * Uses legacy_token (not id) as the path segment when one exists —
+     * ShareLinkController::show() happily resolves either, so building the
+     * URL from `id` isn't *broken*, but it hands the owner a second, brand
+     * new URL nobody they've actually shared the link with has, instead of
+     * the one already in circulation. Preserving the original token here
+     * is the whole point of keeping it around after the Stage 5 migration.
      */
     public function url(Request $request, string $shareLink): JsonResponse
     {
         $shareLink = $this->findOwned($request, $shareLink);
 
-        $path = route('share-links.show', $shareLink->id);
+        $path = route('share-links.show', $shareLink->legacy_token ?? $shareLink->id);
 
         if ($shareLink->key_protection !== 'fragment' || $shareLink->content_key_ciphertext === null) {
             return response()->json(['url' => $path]);

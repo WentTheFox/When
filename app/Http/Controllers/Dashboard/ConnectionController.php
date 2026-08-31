@@ -84,9 +84,19 @@ class ConnectionController extends Controller
             $connection->fill(array_filter([
                 'name_ciphertext' => $data['name_ciphertext'] ?? null,
                 'notes_ciphertext' => $data['notes_ciphertext'] ?? null,
-                'share_link_id' => $data['share_link_id'] ?? null,
                 'archived' => $data['archived'] ?? null,
             ], fn ($value) => $value !== null))->save();
+
+            // Not folded into the array_filter above — share_link_id is a
+            // real "untie this connection" action (the ShareLinkCard.vue
+            // picker's "None" option sends it explicitly as null), and
+            // array_filter's null check would silently drop that update,
+            // leaving the old link attached with no error and no visible
+            // sign the request did anything at all.
+            if (array_key_exists('share_link_id', $data)) {
+                $connection->share_link_id = $data['share_link_id'];
+                $connection->save();
+            }
 
             if (array_key_exists('source_ids', $data)) {
                 $connection->sources()->sync($data['source_ids']);

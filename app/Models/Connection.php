@@ -39,6 +39,7 @@ class Connection extends Model
         return $this->belongsToMany(ConnectionSource::class, 'connection_source_links', 'connection_id', 'source_id');
     }
 
+    /** The one share link this connection is "for" — the picker in ShareLinkCard.vue sets this from the link's own side, but the FK lives here since a connection can only ever point at one link. */
     public function shareLink(): BelongsTo
     {
         return $this->belongsTo(ShareLink::class);

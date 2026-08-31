@@ -61,4 +61,16 @@ class ShareLink extends Model
     {
         return $this->hasMany(ShareLinkManualTag::class);
     }
+
+    /**
+     * The connection this link is "for," if the owner has tied one — set
+     * from Connection::share_link_id, not a column here. hasOne rather
+     * than hasMany: nothing stops more than one connection pointing at the
+     * same link at the schema level, but the picker only ever shows/sets
+     * one, and this always resolves to whichever one comes first.
+     */
+    public function connection(): HasOne
+    {
+        return $this->hasOne(Connection::class);
+    }
 }
