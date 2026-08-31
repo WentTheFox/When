@@ -96,14 +96,14 @@ const dayBlocks = computed(() =>
 
 // Blocks tile the day with no gaps, so the previous/next array entry is the
 // immediately-adjacent block in time. A tentative block's edge fade blends
-// into that neighbor's color via a CSS var — but only when the neighbor
-// itself renders solid there. A neighbor that's also tentative-display is
-// fading at that exact shared edge too, not showing its plain type color,
-// so blending toward its nominal color produced a mismatched seam where
-// two adjacent tentative blocks each solidified into a color the other
-// never actually shows at the boundary. Left unset in that case, which
-// falls back to transparent (matching what's actually there) — same as
-// the top/bottom-of-day case where there's truly no neighbor.
+// into that neighbor's color via a CSS var. For a run of consecutive
+// tentative blocks, each block's bottom edge still fades toward the next
+// block's color — but the block below never fades in at its own top when
+// its predecessor is also tentative, so a shared seam only ever fades
+// once (attributed to the block above), not twice meeting in the middle.
+// That was the previous bug: both sides independently faded toward each
+// other's nominal color, producing a mismatched double-fade "pinch" at
+// every internal boundary instead of one continuous cascade down the run.
 //
 // At the very top/bottom of a day's own blocks, the neighbor carries over
 // from the previous/next calendar day's last/first block, computed
@@ -122,8 +122,17 @@ function tentativeFadeStyle(day: Date, blocks: DayBlock[], i: number): Record<st
   const next = i < blocks.length - 1
     ? blocks[i + 1]
     : getBlocksForDay(addDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone)[0];
-  if (prev && !isTentativeDisplay(prev)) style['--fade-start'] = `var(${BLOCK_TYPE_COLOR_VAR[prev.type]})`;
-  if (next && !isTentativeDisplay(next)) style['--fade-end'] = `var(${BLOCK_TYPE_COLOR_VAR[next.type]})`;
+  if (prev) {
+    // A block whose predecessor is also tentative starts solid, not fading
+    // in from transparent (the CSS's own no-neighbor fallback) — that fade
+    // already happened on the predecessor's own bottom edge above. Fading
+    // "start" to this block's *own* color is a no-op stop in the
+    // gradient, which reads as no fade at all rather than a second one.
+    style['--fade-start'] = isTentativeDisplay(prev)
+      ? `var(${BLOCK_TYPE_COLOR_VAR[blocks[i]!.type]})`
+      : `var(${BLOCK_TYPE_COLOR_VAR[prev.type]})`;
+  }
+  if (next) style['--fade-end'] = `var(${BLOCK_TYPE_COLOR_VAR[next.type]})`;
   return style;
 }
 
