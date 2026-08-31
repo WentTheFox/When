@@ -342,7 +342,7 @@ body {
    share links) — a fixed portion of the viewport height, scrolling
    internally once its items overflow it. */
 .wtf-master-list {
-    max-height: 60vh;
+    height: 60vh;
     overflow-y: auto;
 }
 
