@@ -13,8 +13,8 @@ if [[ "$refname" == "$RUN_FOR_REF" ]]; then
     CMD_COMPOSER="composer install --optimize-autoloader --no-dev"
     CMD_LARAVEL_DOWN="php artisan down"
     CMD_MIGRATE="php artisan migrate --force"
-    CMD_NPM="npm ci"
-    CMD_BUILD="npm run build"
+    CMD_NPM="pnpm install --frozen-lockfile"
+    CMD_BUILD="pnpm build"
     CMD_OPTIMIZE="php artisan optimize"
     CMD_HORIZON_RESTART="sudo systemctl restart whenthefox-horizon.service"
     CMD_LARAVEL_UP="php artisan up"
@@ -31,13 +31,13 @@ if [[ "$refname" == "$RUN_FOR_REF" ]]; then
     echo "$ $CMD_LARAVEL_DOWN"; eval ${CMD_LARAVEL_DOWN}
     echo "$ $CMD_MIGRATE"; eval ${CMD_MIGRATE}
 
-    if $GIT diff --name-only $oldrev $newrev | grep -q "^package-lock.json"; then
+    if $GIT diff --name-only $oldrev $newrev | grep -q "^pnpm-lock.yaml"; then
         echo "$ $CMD_NPM"; eval ${CMD_NPM}
     else
-        echo "# Skipping npm install, lockfile not modified"
+        echo "# Skipping pnpm install, lockfile not modified"
     fi
 
-    if $GIT diff --name-only $oldrev $newrev | grep -qE "^resources/|^package-lock.json"; then
+    if $GIT diff --name-only $oldrev $newrev | grep -qE "^resources/|^pnpm-lock.yaml"; then
         echo "$ $CMD_BUILD"
         if eval ${CMD_BUILD}; then
             echo "Build successful"
