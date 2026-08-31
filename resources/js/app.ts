@@ -10,8 +10,6 @@ import { setColorPalette } from './free/color-palette';
 // bootstrap/dist/css/bootstrap.min.css import still supplies all the actual
 // styling, this plugin just renders the same classes from Vue components.
 
-// English only for now — Hungarian (lang/hu.json) is ready but there's no
-// locale switcher yet to reach it; wiring one is a separate follow-up.
 const langJsonImporters = import.meta.glob<{ default: Record<string, string> }>('../../lang/*.json');
 
 createInertiaApp({
@@ -38,6 +36,16 @@ createInertiaApp({
       setColorPalette(colorPalette.swatches, colorPalette.defaults);
     }
 
+    // The initial page's own `locale` prop (e.g. /hu/free/{token} sends
+    // 'hu') — read synchronously here instead of always booting 'en' and
+    // relying on a page's post-mount loadLanguageAsync() call to correct
+    // it. That async correction still exists (Free/Show.vue calls it for
+    // client-side navigations within the SPA), but boot-time i18n install
+    // was hardcoded to 'en' regardless, so the very first paint of a
+    // non-English page briefly rendered (and could stay, if something
+    // downstream missed the reactive update) in English.
+    const initialLocale = (props.initialPage.props.locale as string | undefined) ?? 'en';
+
     // BApp is bootstrap-vue-next's recommended root wrapper — it hosts the
     // teleport targets BModal/BToast etc. render into, so it needs to wrap
     // the whole tree even for pages that don't use them yet.
@@ -46,7 +54,7 @@ createInertiaApp({
       .use(plugin)
       .use(createBootstrap())
       .use(i18nVue, {
-        lang: 'en',
+        lang: initialLocale,
         fallbackLang: 'en',
         resolve: async (lang: string) => {
           const path = `../../lang/${lang}.json`;
