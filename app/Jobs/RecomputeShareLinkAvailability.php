@@ -13,6 +13,7 @@ use App\Services\Calendar\EventNormalizer;
 use App\Services\Calendar\FeedClassifier;
 use App\Services\Calendar\IcsParser;
 use App\Services\Crypto\AesGcm;
+use App\Services\Crypto\LegacyShareLinkKey;
 use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -53,7 +54,7 @@ class RecomputeShareLinkAvailability implements ShouldQueue
         $shareLink = ShareLink::with('user')->findOrFail($this->shareLinkId);
         $user = $shareLink->user;
 
-        if ($user->calendar_url_ciphertext === null || $shareLink->content_key_ciphertext === null) {
+        if ($user->calendar_url_ciphertext === null || ! $this->hasUsableContentKey($shareLink)) {
             return;
         }
 
@@ -115,7 +116,7 @@ class RecomputeShareLinkAvailability implements ShouldQueue
         );
 
         $resultJson = json_encode(array_map(fn ($slot) => $slot->toArray(), $slots));
-        $contentKey = base64_decode(Crypt::decryptString($shareLink->content_key_ciphertext), true);
+        $contentKey = $this->resolveContentKey($shareLink);
 
         $ciphertext = AesGcm::encrypt($contentKey, $resultJson);
 
@@ -130,5 +131,25 @@ class RecomputeShareLinkAvailability implements ShouldQueue
         );
 
         unset($calendarUrl, $icsBody, $resultJson, $contentKey, $highlightWords, $manualTags);
+    }
+
+    private function hasUsableContentKey(ShareLink $shareLink): bool
+    {
+        return $shareLink->content_key_ciphertext !== null || $shareLink->legacy_token !== null;
+    }
+
+    /**
+     * §0.5: a migrated share link's key is derived deterministically from
+     * its legacy token rather than stored — see LegacyShareLinkKey's doc
+     * comment. Every other share link keeps its random,
+     * content_key_ciphertext-stored key.
+     */
+    private function resolveContentKey(ShareLink $shareLink): string
+    {
+        if ($shareLink->legacy_token !== null) {
+            return LegacyShareLinkKey::derive($shareLink->legacy_token);
+        }
+
+        return base64_decode(Crypt::decryptString($shareLink->content_key_ciphertext), true);
     }
 }

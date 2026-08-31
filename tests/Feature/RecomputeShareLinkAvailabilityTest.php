@@ -7,6 +7,7 @@ use App\Models\ShareLink;
 use App\Models\ShareLinkWord;
 use App\Models\User;
 use App\Services\Crypto\AesGcm;
+use App\Services\Crypto\LegacyShareLinkKey;
 use GuzzleHttp\Client;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
@@ -113,5 +114,29 @@ class RecomputeShareLinkAvailabilityTest extends TestCase
         RecomputeShareLinkAvailability::dispatchSync($shareLink->id);
 
         $this->assertNull($shareLink->fresh()->cache);
+    }
+
+    public function test_a_legacy_share_link_encrypts_with_a_key_derived_from_its_token_not_a_stored_key(): void
+    {
+        $this->mockCalendarResponse($this->icsFixture());
+
+        $user = User::factory()->create([
+            'calendar_url_ciphertext' => Crypt::encryptString('https://example.com/secret.ics'),
+        ]);
+        $shareLink = ShareLink::factory()->for($user)->create([
+            'legacy_token' => 'legacy-token-for-recompute-test',
+            'content_key_ciphertext' => null,
+        ]);
+
+        RecomputeShareLinkAvailability::dispatchSync($shareLink->id);
+
+        $cache = $shareLink->fresh()->cache;
+        $this->assertNotNull($cache);
+
+        $derivedKey = LegacyShareLinkKey::derive('legacy-token-for-recompute-test');
+        $decrypted = json_decode(AesGcm::decrypt($derivedKey, $cache->ciphertext), true);
+
+        $this->assertCount(1, $decrypted);
+        $this->assertSame('busy', $decrypted[0]['type']);
     }
 }

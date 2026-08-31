@@ -13,9 +13,13 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-// Public share-link view (§4, §0.4). Full build in Stage 6 — for now this
-// hosts the "create your own" invite CTA described in Stage 3.
-Route::get('/free/{shareLink}', [ShareLinkController::class, 'show'])->name('share-links.show');
+// Public share-link view (§4, §0.4, §0.5/Stage 5). Full build in Stage 6 —
+// for now this hosts the "create your own" invite CTA described in Stage 3,
+// plus the legacy-token resolution described in ShareLinkController's doc
+// comment. {token} (not {shareLink}) since it's a plain string, resolving
+// either a UUID share-link id or a legacy token inside the controller —
+// never Eloquent route-model-binding, since a legacy token isn't a model key.
+Route::get('/free/{token}', [ShareLinkController::class, 'show'])->name('share-links.show');
 
 Route::middleware('guest')->group(function () {
     Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');
