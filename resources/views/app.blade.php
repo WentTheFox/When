@@ -16,6 +16,11 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <link rel="manifest" href="/site.webmanifest">
     <meta name="theme-color" content="#6181b6">
+    {{-- Same brand font as WentTheNuxt (its nuxt.config.ts's googleFonts.families) —
+         see app.css's --bs-font-sans-serif override for how it's actually applied. --}}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Catamaran:wght@400;700&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.ts'])
     @inertiaHead
 </head>

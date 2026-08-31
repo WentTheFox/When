@@ -1,3 +1,18 @@
 @import 'bootstrap/dist/css/bootstrap.min.css';
 @import '@fortawesome/fontawesome-svg-core/styles.css';
 @import './dark-theme.css';
+
+/*
+ * Same brand font as WentTheNuxt (nuxt.config.ts's googleFonts.families —
+ * Catamaran, weights 400/700, latin + latin-ext), loaded via the
+ * <link> in app.blade.php's <head>. Overriding Bootstrap 5's own
+ * --bs-font-sans-serif custom property (rather than a bare `body {
+ * font-family }`) is what makes every Bootstrap component that already
+ * references it — headings, buttons, form controls, everything — pick it
+ * up for free, with the exact same system-font fallback chain Bootstrap
+ * ships by default.
+ */
+:root {
+    --bs-font-sans-serif: 'Catamaran', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans",
+        "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
