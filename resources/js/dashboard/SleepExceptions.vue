@@ -136,10 +136,10 @@ function onNoteFocus(event: FocusEvent): void {
         <td>{{ exception.start_date }}</td>
         <td>{{ exception.end_date }}</td>
         <td>
-          <span v-if="exception.label_ciphertext && !vaultUnlocked" class="text-muted small">
+          <BButton v-if="exception.label_ciphertext && !vaultUnlocked" size="sm" variant="outline-secondary" @click="requestUnlock()">
             <FontAwesomeIcon :icon="faUserLock" />
             Vault is locked
-          </span>
+          </BButton>
           <template v-else>{{ exception.label }}</template>
         </td>
         <td>
