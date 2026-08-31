@@ -252,7 +252,7 @@ async function remove(): Promise<void> {
         Show the activity name (e.g. "Dinner") on highlighted events, not just who it's with
       </BFormCheckbox>
       <BFormGroup label="Highlight words (one per line)" class="mb-3">
-        <BFormTextarea v-model="editWords" size="sm" :rows="Math.max(2, props.link.highlight_words?.length ?? 0)" />
+        <BFormTextarea v-model="editWords" size="sm" :rows="Math.max(2, editWords.split('\n').length)" />
       </BFormGroup>
       <BButton size="sm" variant="primary" @click="save">Save</BButton>
     </div>
