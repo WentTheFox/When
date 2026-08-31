@@ -24,7 +24,7 @@ export interface ConnectionOption {
 }
 
 const props = defineProps<{ link: ShareLinkRow; connections: ConnectionOption[] }>();
-const emit = defineEmits<{ updated: [ShareLinkRow] }>();
+const emit = defineEmits<{ updated: [ShareLinkRow]; regenerated: [ShareLinkRow, string]; deleted: [string] }>();
 
 const { getRecordKey, vaultUnlocked } = useVault();
 
@@ -181,6 +181,33 @@ async function copyUrl(): Promise<void> {
   setTimeout(() => { justCopied.value = false; }, 1500);
 }
 
+async function regenerateToken(): Promise<void> {
+  if (!window.confirm('This invalidates the existing link immediately and issues a new one. Continue?')) {
+    return;
+  }
+
+  try {
+    const { data } = await axios.post(`/dashboard/share-links/${props.link.id}/regenerate-token`);
+    const regeneratedUrl = `${window.location.origin}/free/${data.legacy_token ?? data.id}`;
+    emit('regenerated', data, regeneratedUrl);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+async function remove(): Promise<void> {
+  if (!window.confirm('Permanently delete this share link? This cannot be undone.')) {
+    return;
+  }
+
+  try {
+    await axios.delete(`/dashboard/share-links/${props.link.id}`);
+    emit('deleted', props.link.id);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 </script>
 
 <template>
@@ -195,9 +222,11 @@ async function copyUrl(): Promise<void> {
         <BButton variant="outline-secondary" size="sm" title="Copy link" @click="copyUrl">
           <FontAwesomeIcon :icon="justCopied ? faCheck : faCopy" />
         </BButton>
+        <BButton variant="outline-warning" size="sm" @click="regenerateToken">Regenerate link</BButton>
         <BButton variant="outline-danger" size="sm" @click="toggleArchive">
           {{ link.archived ? 'Unarchive' : 'Archive' }}
         </BButton>
+        <BButton variant="outline-danger" size="sm" @click="remove">Delete</BButton>
       </div>
     </div>
 

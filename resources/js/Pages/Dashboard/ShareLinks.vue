@@ -108,6 +108,17 @@ function onUpdated(updated: ShareLinkRow): void {
   delete decryptedLabels.value[updated.id];
 }
 
+function onRegenerated(updated: ShareLinkRow, url: string): void {
+  onUpdated(updated);
+  createdUrl.value = url;
+}
+
+function onDeleted(id: string): void {
+  links.value = links.value.filter((l) => l.id !== id);
+  delete decryptedLabels.value[id];
+  if (selectedLinkId.value === id) selectedLinkId.value = null;
+}
+
 async function exportLinks(): Promise<void> {
   const { data } = await axios.get('/dashboard/share-links/export');
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -191,6 +202,8 @@ async function importLinks(event: Event): Promise<void> {
             :link="selectedLink"
             :connections="connections"
             @updated="onUpdated"
+            @regenerated="onRegenerated"
+            @deleted="onDeleted"
           />
           <p v-else class="text-muted">Select a share link on the left to view or edit it.</p>
         </div>

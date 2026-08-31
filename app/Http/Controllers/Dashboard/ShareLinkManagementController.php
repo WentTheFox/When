@@ -25,9 +25,11 @@ use Inertia\Response;
  *
  * A share link's content key is never generated, stored, or handled here at
  * all — every link's key derives deterministically from its own id/
- * legacy_token (App\Services\Crypto\LegacyShareLinkKey), so there's nothing
- * for this controller to produce or protect on creation, and nothing to
- * rotate later.
+ * legacy_token (App\Services\Crypto\LegacyShareLinkKey). There's nothing to
+ * "rotate" in the old fragment/passphrase sense, but the id/legacy_token
+ * itself can still be replaced wholesale — see regenerateToken() — which
+ * invalidates every URL out in the wild by construction, same net effect a
+ * key rotation used to have.
  */
 class ShareLinkManagementController extends Controller
 {
@@ -138,6 +140,47 @@ class ShareLinkManagementController extends Controller
         // stale cache after an owner-initiated edit (§5.3's job re-derives
         // it lazily on the next viewer request).
         ShareLinkCache::where('share_link_id', $shareLink->id)->delete();
+    }
+
+    /**
+     * Replaces the link's public identifier with a freshly generated
+     * alphanumeric token (same generation method the old app used for
+     * calendar_highlight_tokens.token: base64-encode random bytes, retry
+     * until the result happens to contain only letters and digits — no
+     * `+`/`/`/`=` to worry about escaping in a URL path segment). Since the
+     * content key derives from `legacy_token ?? id` (LegacyShareLinkKey),
+     * swapping in a new token also changes the derived key, so every URL
+     * anyone already has — whether it used the old legacy_token or the
+     * link's own id — stops decrypting immediately. Works on any link, not
+     * just already-legacy ones: a link with no legacy_token yet gets one
+     * for the first time, permanently switching its public URL from
+     * `/free/{id}` to `/free/{token}`.
+     */
+    public function regenerateToken(Request $request, string $shareLink): JsonResponse
+    {
+        $shareLink = $this->findOwned($request, $shareLink);
+
+        $shareLink->update(['legacy_token' => $this->generateLegacyStyleToken()]);
+
+        ShareLinkCache::where('share_link_id', $shareLink->id)->delete();
+
+        return response()->json($this->serializeForOwner($shareLink));
+    }
+
+    private function generateLegacyStyleToken(): string
+    {
+        do {
+            $token = base64_encode(random_bytes(24));
+        } while (! ctype_alnum($token) || ShareLink::where('legacy_token', $token)->exists());
+
+        return $token;
+    }
+
+    public function destroy(Request $request, string $shareLink): JsonResponse
+    {
+        $this->findOwned($request, $shareLink)->delete();
+
+        return response()->json(null, 204);
     }
 
     /**
