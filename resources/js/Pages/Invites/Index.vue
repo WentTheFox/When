@@ -52,33 +52,35 @@ function revoke(invite: InviteRow): void {
     </form>
   </BCard>
 
-  <div class="table-responsive">
-    <table class="table table-sm">
-      <thead>
-        <tr>
-          <th>Code</th>
-          <th>Uses</th>
-          <th>Max uses</th>
-          <th>Expires</th>
-          <th>Source</th>
-          <th />
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="invite in invites" :key="invite.id">
-          <td><a :href="`/register?code=${invite.code}`">{{ invite.code }}</a></td>
-          <td>{{ invite.redemption_count }}</td>
-          <td>{{ invite.max_uses ?? '∞' }}</td>
-          <td>{{ invite.expires_at ?? 'never' }}</td>
-          <td>{{ invite.source }}</td>
-          <td>
-            <BButton variant="outline-danger" size="sm" @click="revoke(invite)">Revoke</BButton>
-          </td>
-        </tr>
-        <tr v-if="invites.length === 0">
-          <td colspan="6" class="text-muted">No invites yet.</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+  <BCard body-class="p-0">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Uses</th>
+            <th>Max uses</th>
+            <th>Expires</th>
+            <th>Source</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="invite in invites" :key="invite.id">
+            <td><a :href="`/register?code=${invite.code}`">{{ invite.code }}</a></td>
+            <td>{{ invite.redemption_count }}</td>
+            <td>{{ invite.max_uses ?? '∞' }}</td>
+            <td>{{ invite.expires_at ?? 'never' }}</td>
+            <td>{{ invite.source }}</td>
+            <td>
+              <BButton variant="outline-danger" size="sm" @click="revoke(invite)">Revoke</BButton>
+            </td>
+          </tr>
+          <tr v-if="invites.length === 0">
+            <td colspan="6" class="text-muted">No invites yet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </BCard>
 </template>

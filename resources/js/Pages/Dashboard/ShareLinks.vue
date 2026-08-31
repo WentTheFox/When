@@ -116,17 +116,21 @@ async function importLinks(event: Event): Promise<void> {
 </script>
 
 <template>
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h3 mb-0">Share links</h1>
-    <div>
-      <BButton variant="outline-secondary" size="sm" @click="exportLinks">Export</BButton>
-      <label class="btn btn-outline-secondary btn-sm mb-0">
-        Import
-        <input type="file" accept="application/json" hidden @change="importLinks">
-      </label>
-      <BButton variant="primary" size="sm" @click="showNewForm = !showNewForm">New link</BButton>
+  <h1 class="h3 mb-4">Share links</h1>
+
+  <BCard class="mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+      <span class="text-muted small">Create, export, or import your share links.</span>
+      <div>
+        <BButton variant="outline-secondary" size="sm" @click="exportLinks">Export</BButton>
+        <label class="btn btn-outline-secondary btn-sm mb-0">
+          Import
+          <input type="file" accept="application/json" hidden @change="importLinks">
+        </label>
+        <BButton variant="primary" size="sm" @click="showNewForm = !showNewForm">New link</BButton>
+      </div>
     </div>
-  </div>
+  </BCard>
 
   <BAlert :model-value="!!createdUrl" variant="success" dismissible @close="createdUrl = ''">
     <strong>Link ready:</strong> <span class="font-monospace">{{ createdUrl }}</span>
