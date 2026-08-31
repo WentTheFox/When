@@ -16,7 +16,6 @@ use App\Services\Crypto\KeyRing;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
 
 /**
@@ -380,8 +379,6 @@ class ImportConnections extends Command
                 'id' => $shareLinkId,
                 'user_id' => $user->id,
                 'label_ciphertext' => AesGcm::encrypt($labelKey, $tokenName),
-                'content_key_ciphertext' => Crypt::encryptString(base64_encode(random_bytes(32))),
-                'key_protection' => 'fragment',
             ]);
 
             $connection->update(['share_link_id' => $shareLinkId]);

@@ -1,13 +1,16 @@
 import { utf8ToBytes } from './encoding';
 
 /**
- * §0.5 legacy-token key derivation via WebCrypto's native HKDF (RFC 5869) —
- * matches App\Services\Crypto\LegacyShareLinkKey.php byte-for-byte. Both
- * sides derive the same AES-256 key from just the token, which is already
- * the visible URL path segment for a migrated share link, instead of
- * transmitting or storing a separate key. See that PHP class's doc comment
- * for the trust-model reasoning. If you touch SALT/INFO here, touch the PHP
- * side too, and re-run the interop test.
+ * Every share link's content key derivation, via WebCrypto's native HKDF
+ * (RFC 5869) — matches App\Services\Crypto\LegacyShareLinkKey.php
+ * byte-for-byte. Both sides derive the same AES-256 key from just the
+ * link's own id/legacy_token, which is already the visible URL path
+ * segment, instead of transmitting or storing a separate key. Originally
+ * built only for pre-migration legacy tokens (§0.5) — the filename is the
+ * one thing still reflecting that history — but now used unconditionally
+ * for every share link. See the PHP class's doc comment for the
+ * trust-model reasoning. If you touch SALT/INFO here, touch the PHP side
+ * too, and re-run the interop test.
  */
 const SALT = 'WhenTheFox-legacy-share-link-v1';
 const INFO = 'content-key';

@@ -49,7 +49,7 @@ class RecomputeShareLinkAvailabilityTest extends TestCase
         $this->app->bind(Client::class, fn () => new Client(['handler' => $handlerStack]));
     }
 
-    public function test_recompute_stores_a_ciphertext_result_decryptable_with_the_share_links_content_key(): void
+    public function test_recompute_stores_a_ciphertext_result_decryptable_with_the_share_links_derived_content_key(): void
     {
         $this->mockCalendarResponse($this->icsFixture());
 
@@ -57,10 +57,7 @@ class RecomputeShareLinkAvailabilityTest extends TestCase
             'calendar_url_ciphertext' => Crypt::encryptString('https://example.com/secret.ics'),
         ]);
 
-        $rawContentKey = random_bytes(32);
-        $shareLink = ShareLink::factory()->for($user)->create([
-            'content_key_ciphertext' => Crypt::encryptString(base64_encode($rawContentKey)),
-        ]);
+        $shareLink = ShareLink::factory()->for($user)->create();
 
         ShareLinkWord::create([
             'share_link_id' => $shareLink->id,
@@ -76,7 +73,8 @@ class RecomputeShareLinkAvailabilityTest extends TestCase
         $this->assertStringNotContainsString('Alice', $cache->ciphertext);
         $this->assertStringNotContainsString('example.com/secret.ics', $cache->ciphertext);
 
-        $decrypted = json_decode(AesGcm::decrypt($rawContentKey, $cache->ciphertext), true);
+        $derivedKey = LegacyShareLinkKey::derive($shareLink->id);
+        $decrypted = json_decode(AesGcm::decrypt($derivedKey, $cache->ciphertext), true);
 
         $this->assertCount(1, $decrypted['highlighted']);
         $this->assertSame(['Alice'], $decrypted['highlighted'][0]['highlight_words']);
@@ -90,9 +88,7 @@ class RecomputeShareLinkAvailabilityTest extends TestCase
         $user = User::factory()->create([
             'calendar_url_ciphertext' => Crypt::encryptString('https://example.com/secret.ics'),
         ]);
-        $shareLink = ShareLink::factory()->for($user)->create([
-            'content_key_ciphertext' => Crypt::encryptString(base64_encode(random_bytes(32))),
-        ]);
+        $shareLink = ShareLink::factory()->for($user)->create();
 
         RecomputeShareLinkAvailability::dispatchSync($shareLink->id);
 
@@ -107,16 +103,14 @@ class RecomputeShareLinkAvailabilityTest extends TestCase
         $this->mockCalendarResponse($this->icsFixture());
 
         $user = User::factory()->create(['calendar_url_ciphertext' => null]);
-        $shareLink = ShareLink::factory()->for($user)->create([
-            'content_key_ciphertext' => Crypt::encryptString(base64_encode(random_bytes(32))),
-        ]);
+        $shareLink = ShareLink::factory()->for($user)->create();
 
         RecomputeShareLinkAvailability::dispatchSync($shareLink->id);
 
         $this->assertNull($shareLink->fresh()->cache);
     }
 
-    public function test_a_legacy_share_link_encrypts_with_a_key_derived_from_its_token_not_a_stored_key(): void
+    public function test_a_legacy_share_link_encrypts_with_a_key_derived_from_its_legacy_token_not_its_id(): void
     {
         $this->mockCalendarResponse($this->icsFixture());
 
@@ -125,7 +119,6 @@ class RecomputeShareLinkAvailabilityTest extends TestCase
         ]);
         $shareLink = ShareLink::factory()->for($user)->create([
             'legacy_token' => 'legacy-token-for-recompute-test',
-            'content_key_ciphertext' => null,
         ]);
 
         RecomputeShareLinkAvailability::dispatchSync($shareLink->id);

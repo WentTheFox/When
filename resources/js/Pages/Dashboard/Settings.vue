@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, useForm, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
@@ -26,6 +26,7 @@ import { getColorPalette, getDefaultSwatchKey, resolveSwatchHex } from '../../fr
 import type { ColorSlot } from '../../free/color-palette';
 import { useResolvedTheme } from '../../composables/useTheme';
 import type { AvailabilityResponse } from '../../free/nuxt-blocks';
+import type { SharedPageProps } from '../../sharedPageProps';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -65,6 +66,8 @@ const props = defineProps<{
   calendarUrl: string | null;
   sleepExceptions: { id: string; start_date: string; end_date: string; label_ciphertext: string | null }[];
 }>();
+
+const page = usePage<SharedPageProps>();
 
 const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const weekStartOptions = days.map((label, value) => ({ value, label }));
@@ -522,7 +525,7 @@ function submit(): void {
 <template>
   <Head title="Settings" />
 
-  <BAlert :model-value="!!$page.props.flash?.status" variant="success">{{ $page.props.flash?.status }}</BAlert>
+  <BAlert :model-value="!!page.props.flash?.status" variant="success">{{ page.props.flash?.status }}</BAlert>
 
   <BCard class="mb-4">
     <h1 class="h3 mb-4">Settings</h1>
@@ -630,7 +633,7 @@ function submit(): void {
     </BFormGroup>
 
     <BFormGroup label="Week starts on" label-for="week_start" class="mb-3">
-      <BFormSelect id="week_start" v-model.number="form.week_start">
+      <BFormSelect id="week_start" v-model="form.week_start">
         <option v-for="opt in weekStartOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
       </BFormSelect>
       <template #description>

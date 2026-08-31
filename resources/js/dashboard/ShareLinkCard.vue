@@ -10,7 +10,6 @@ import { useVault } from './useVault';
 export interface ShareLinkRow {
   id: string;
   label_ciphertext: string | null;
-  key_protection: 'fragment' | 'passphrase';
   archived: boolean;
   bypass_dnd: boolean;
   show_activity: boolean;
@@ -25,12 +24,11 @@ export interface ConnectionOption {
 }
 
 const props = defineProps<{ link: ShareLinkRow; connections: ConnectionOption[] }>();
-const emit = defineEmits<{ updated: [ShareLinkRow]; regenerated: [ShareLinkRow, string] }>();
+const emit = defineEmits<{ updated: [ShareLinkRow] }>();
 
 const { getRecordKey, vaultUnlocked } = useVault();
 
 const label = ref('');
-const editing = ref(false);
 const editLabel = ref('');
 const editBypassDnd = ref(props.link.bypass_dnd);
 const editShowActivity = ref(props.link.show_activity);
@@ -62,7 +60,9 @@ watch(vaultUnlocked, (unlocked) => {
 
 const connectionOptions = computed(() => [
   { value: '', text: '(none)' },
-  ...props.connections.map((c) => ({ value: c.id, text: decryptedConnectionNames.value[c.id] ?? '…' })),
+  ...props.connections
+    .map((c) => ({ value: c.id, text: decryptedConnectionNames.value[c.id] ?? '…' }))
+    .sort((a, b) => a.text.localeCompare(b.text)),
 ]);
 
 async function onConnectionChange(): Promise<void> {
@@ -102,12 +102,12 @@ const linkedConnectionName = computed(() => {
 });
 
 /**
- * What the card actually shows — falls back to the tied connection's name
+ * What the card's header shows — falls back to the tied connection's name
  * when there's no explicit label, rather than a bare "(no label)". Kept
  * separate from `label` itself (which stays the real, possibly-"(no
- * label)"-sentinel value): startEdit() below needs to tell "there really
- * is no label" apart from "showing a connection's name as a stand-in,"
- * otherwise editing would pre-fill the edit box with a connection's name
+ * label)"-sentinel value): onMounted below needs to tell "there really is
+ * no label" apart from "showing a connection's name as a stand-in,"
+ * otherwise the label field would get pre-filled with a connection's name
  * as if it were the link's own saved label.
  */
 const displayLabel = computed(() => {
@@ -116,40 +116,14 @@ const displayLabel = computed(() => {
 });
 
 /**
- * A passphrase-protected or legacy link's URL carries no secret at all
- * (the passphrase supplies the key on the viewer's side; a legacy link's
- * key is derived straight from its token — see LegacyShareLinkKey) — the
- * path alone, built the same hardcoded `/free/{token}` way createLink()/
- * regenerateKey() already do (no Ziggy in this app), is the whole URL, no
- * server round trip needed. A real, non-legacy fragment-protected link is
- * the one case that does still need one: its key only ever existed
- * client-side for the moment it was generated (createLink()/
- * regenerateKey() build that URL locally, right then) — reloading this
- * card later has no local copy of it, only the server's
- * content_key_ciphertext, so revealing it again means asking the server
- * to decrypt it.
+ * A share link's URL carries no secret at all — every link's content key
+ * derives deterministically from its own id/legacy_token (see
+ * LegacyShareLinkKey), so the path alone (no fragment, no server round
+ * trip) is the whole URL.
  */
-const url = ref<string | null>(null);
-
-async function loadUrl(): Promise<void> {
-  const token = props.link.legacy_token ?? props.link.id;
-
-  if (props.link.legacy_token || props.link.key_protection === 'passphrase') {
-    url.value = `${window.location.origin}/free/${token}`;
-    return;
-  }
-
-  try {
-    const { data } = await axios.get(`/dashboard/share-links/${props.link.id}/url`);
-    url.value = data.url as string;
-  } catch (error) {
-    console.error(error);
-  }
-}
+const url = computed(() => `${window.location.origin}/free/${props.link.legacy_token ?? props.link.id}`);
 
 onMounted(async () => {
-  loadUrl();
-
   if (!props.link.label_ciphertext) {
     label.value = '(no label)';
     return;
@@ -157,16 +131,12 @@ onMounted(async () => {
   try {
     const key = await getRecordKey(props.link.id);
     label.value = await decryptString(key, props.link.label_ciphertext);
+    editLabel.value = label.value;
   } catch (error) {
     console.error(error);
     label.value = '(could not decrypt)';
   }
 });
-
-function startEdit(): void {
-  editLabel.value = label.value === '(no label)' ? '' : label.value;
-  editing.value = true;
-}
 
 async function save(): Promise<void> {
   try {
@@ -184,7 +154,6 @@ async function save(): Promise<void> {
     });
 
     label.value = editLabel.value || '(no label)';
-    editing.value = false;
     emit('updated', data);
   } catch (error) {
     console.error(error);
@@ -212,30 +181,6 @@ async function copyUrl(): Promise<void> {
   setTimeout(() => { justCopied.value = false; }, 1500);
 }
 
-async function regenerateKey(): Promise<void> {
-  if (!window.confirm('This invalidates the existing link immediately. Continue?')) {
-    return;
-  }
-
-  try {
-    const { generateFragmentKey, buildFragment, exportAesKey, bytesToBase64 } = await import('../crypto');
-    const { key, encoded } = await generateFragmentKey();
-    const rawKey = await exportAesKey(key);
-
-    const { data } = await axios.post(`/dashboard/share-links/${props.link.id}/regenerate-key`, {
-      content_key: bytesToBase64(rawKey),
-      key_protection: 'fragment',
-    });
-
-    const regeneratedUrl = `${window.location.origin}/free/${props.link.id}#${buildFragment(encoded)}`;
-    url.value = regeneratedUrl;
-    emit('regenerated', data, regeneratedUrl);
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-const badgeVariant = computed(() => (props.link.archived ? 'secondary' : 'info'));
 </script>
 
 <template>
@@ -244,16 +189,11 @@ const badgeVariant = computed(() => (props.link.archived ? 'secondary' : 'info')
       <div>
         <span>{{ displayLabel }}</span>
         <BBadge v-if="link.archived" variant="secondary" class="ms-2">Archived</BBadge>
-        <BBadge :variant="badgeVariant" class="ms-2">{{ link.key_protection }}</BBadge>
-        <BBadge v-if="link.legacy_token" variant="light" class="ms-2" title="Its key is derived from the token itself, not a separate fragment secret — it can't be rotated with Regenerate key.">token link</BBadge>
+        <BBadge v-if="link.legacy_token" variant="light" class="ms-2" title="Imported from the old app — its key is derived from the original token itself.">legacy token</BBadge>
       </div>
       <div>
         <BButton variant="outline-secondary" size="sm" title="Copy link" @click="copyUrl">
           <FontAwesomeIcon :icon="justCopied ? faCheck : faCopy" />
-        </BButton>
-        <BButton variant="outline-secondary" size="sm" @click="startEdit">Edit</BButton>
-        <BButton v-if="!link.legacy_token" variant="outline-warning" size="sm" @click="regenerateKey">
-          Regenerate key
         </BButton>
         <BButton variant="outline-danger" size="sm" @click="toggleArchive">
           {{ link.archived ? 'Unarchive' : 'Archive' }}
@@ -275,7 +215,7 @@ const badgeVariant = computed(() => (props.link.archived ? 'secondary' : 'info')
       />
     </BFormGroup>
 
-    <div v-if="editing" class="mt-3">
+    <div class="mt-3">
       <BFormGroup label="Label" class="mb-3">
         <BFormInput v-model="editLabel" type="text" size="sm" />
       </BFormGroup>

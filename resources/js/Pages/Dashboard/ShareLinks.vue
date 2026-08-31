@@ -1,17 +1,9 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
-import { BAlert, BButton, BCard, BFormCheckbox, BFormGroup, BFormInput } from 'bootstrap-vue-next';
+import { BAlert, BButton, BCard, BFormGroup, BFormInput } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
-import {
-  bytesToBase64,
-  buildFragment,
-  decryptString,
-  encryptString,
-  exportAesKey,
-  generateFragmentKey,
-  wrapKeyWithPassphrase,
-} from '../../crypto';
+import { decryptString, encryptString } from '../../crypto';
 import ShareLinkCard, { type ShareLinkRow } from '../../dashboard/ShareLinkCard.vue';
 import VaultGate from '../../dashboard/VaultGate.vue';
 import { useVault } from '../../dashboard/useVault';
@@ -28,13 +20,14 @@ const { createRecordKey, getRecordKey, vaultUnlocked } = useVault();
 const links = ref<ShareLinkRow[]>(props.shareLinks);
 const showNewForm = ref(false);
 const newLabel = ref('');
-const usePassphrase = ref(false);
-const newPassphrase = ref('');
 const newLinkError = ref('');
 const createdUrl = ref('');
 const creating = ref(false);
 const selectedLinkId = ref<string | null>(null);
 const selectedLink = computed(() => links.value.find((l) => l.id === selectedLinkId.value) ?? null);
+const sortedLinks = computed(() =>
+  [...links.value].sort((a, b) => (decryptedLabels.value[a.id] ?? '').localeCompare(decryptedLabels.value[b.id] ?? '')),
+);
 
 // Master-list display labels only — ShareLinkCard.vue does its own,
 // independent decryption for the detail pane; this is a lighter-weight
@@ -82,18 +75,10 @@ function select(id: string): void {
 
 async function createLink(): Promise<void> {
   newLinkError.value = '';
-
-  if (usePassphrase.value && !newPassphrase.value) {
-    newLinkError.value = 'Enter a passphrase, or uncheck passphrase protection.';
-    return;
-  }
-
   creating.value = true;
 
   try {
     const id = crypto.randomUUID();
-    const { key, encoded } = await generateFragmentKey();
-    const rawKey = await exportAesKey(key);
 
     let labelCiphertext: string | null = null;
     if (newLabel.value) {
@@ -101,30 +86,13 @@ async function createLink(): Promise<void> {
       labelCiphertext = await encryptString(labelKey, newLabel.value);
     }
 
-    const payload: Record<string, unknown> = {
-      id,
-      label_ciphertext: labelCiphertext,
-      content_key: bytesToBase64(rawKey),
-      key_protection: usePassphrase.value ? 'passphrase' : 'fragment',
-    };
-
-    if (usePassphrase.value) {
-      const { wrappedKey, salt } = await wrapKeyWithPassphrase(key, newPassphrase.value);
-      payload.wrapped_key = wrappedKey;
-      payload.wrap_salt = salt;
-    }
-
-    const { data } = await axios.post('/dashboard/share-links', payload);
+    const { data } = await axios.post('/dashboard/share-links', { id, label_ciphertext: labelCiphertext });
     links.value.unshift(data);
     selectedLinkId.value = data.id;
 
-    createdUrl.value = usePassphrase.value
-      ? `${window.location.origin}/free/${id}`
-      : `${window.location.origin}/free/${id}#${buildFragment(encoded)}`;
+    createdUrl.value = `${window.location.origin}/free/${id}`;
 
     newLabel.value = '';
-    newPassphrase.value = '';
-    usePassphrase.value = false;
     showNewForm.value = false;
   } catch (error) {
     console.error(error);
@@ -138,11 +106,6 @@ function onUpdated(updated: ShareLinkRow): void {
   const index = links.value.findIndex((l) => l.id === updated.id);
   if (index !== -1) links.value[index] = updated;
   delete decryptedLabels.value[updated.id];
-}
-
-function onRegenerated(updated: ShareLinkRow, url: string): void {
-  onUpdated(updated);
-  createdUrl.value = url;
 }
 
 async function exportLinks(): Promise<void> {
@@ -198,12 +161,6 @@ async function importLinks(event: Event): Promise<void> {
       <BFormGroup label="Label (private, only you can see it)" class="mb-3">
         <BFormInput v-model="newLabel" type="text" placeholder="For Mom" />
       </BFormGroup>
-      <BFormCheckbox id="new-link-passphrase-toggle" v-model="usePassphrase" class="mb-3">
-        Protect with a passphrase instead of a link fragment
-      </BFormCheckbox>
-      <BFormGroup v-if="usePassphrase" label="Passphrase" class="mb-3">
-        <BFormInput v-model="newPassphrase" type="text" />
-      </BFormGroup>
       <BButton variant="primary" :disabled="creating" @click="createLink">Create</BButton>
       <div class="text-danger small mt-2">{{ newLinkError }}</div>
     </BCard>
@@ -214,7 +171,7 @@ async function importLinks(event: Event): Promise<void> {
           <p v-if="links.length === 0" class="text-muted small">No share links yet.</p>
           <div v-else class="list-group wtf-master-list">
             <button
-              v-for="link in links"
+              v-for="link in sortedLinks"
               :key="link.id"
               type="button"
               class="list-group-item list-group-item-action"
@@ -234,7 +191,6 @@ async function importLinks(event: Event): Promise<void> {
             :link="selectedLink"
             :connections="connections"
             @updated="onUpdated"
-            @regenerated="onRegenerated"
           />
           <p v-else class="text-muted">Select a share link on the left to view or edit it.</p>
         </div>

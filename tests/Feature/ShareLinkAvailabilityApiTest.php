@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\RecomputeShareLinkAvailability;
 use App\Models\ShareLink;
 use App\Models\ShareLinkCache;
 use App\Models\User;
@@ -22,7 +23,7 @@ class ShareLinkAvailabilityApiTest extends TestCase
         $response = $this->getJson(route('api.share-links.show', $shareLink));
 
         $response->assertStatus(202)->assertJson(['status' => 'pending']);
-        Bus::assertDispatched(\App\Jobs\RecomputeShareLinkAvailability::class);
+        Bus::assertDispatched(RecomputeShareLinkAvailability::class);
     }
 
     public function test_serves_a_fresh_cached_result_without_triggering_a_recompute(): void
@@ -45,7 +46,7 @@ class ShareLinkAvailabilityApiTest extends TestCase
             'ciphertext' => 'opaque-ciphertext-blob',
             'stale' => false,
         ]);
-        Bus::assertNotDispatched(\App\Jobs\RecomputeShareLinkAvailability::class);
+        Bus::assertNotDispatched(RecomputeShareLinkAvailability::class);
     }
 
     public function test_serves_a_stale_cached_result_while_also_triggering_a_recompute(): void
@@ -68,7 +69,7 @@ class ShareLinkAvailabilityApiTest extends TestCase
             'ciphertext' => 'stale-ciphertext-blob',
             'stale' => true,
         ]);
-        Bus::assertDispatched(\App\Jobs\RecomputeShareLinkAvailability::class);
+        Bus::assertDispatched(RecomputeShareLinkAvailability::class);
     }
 
     public function test_resolves_a_legacy_token_the_same_as_a_uuid_id(): void
@@ -115,29 +116,5 @@ class ShareLinkAvailabilityApiTest extends TestCase
         $response = $this->getJson(route('api.share-links.show', $shareLink));
 
         $response->assertJson(['timezone' => 'Europe/Budapest']);
-    }
-
-    public function test_passphrase_protected_links_expose_the_wrapped_key_but_fragment_links_do_not(): void
-    {
-        $shareLink = ShareLink::factory()->for(User::factory())->create([
-            'key_protection' => 'passphrase',
-            'wrapped_key' => 'wrapped-key-blob',
-            'wrap_salt' => 'salt-blob',
-        ]);
-        ShareLinkCache::create([
-            'share_link_id' => $shareLink->id,
-            'ciphertext' => 'ciphertext-blob',
-            'computed_range_start' => now(),
-            'computed_range_end' => now()->addDays(60),
-            'encrypted_at' => now(),
-        ]);
-
-        $response = $this->getJson(route('api.share-links.show', $shareLink));
-
-        $response->assertJson([
-            'key_protection' => 'passphrase',
-            'wrapped_key' => 'wrapped-key-blob',
-            'wrap_salt' => 'salt-blob',
-        ]);
     }
 }

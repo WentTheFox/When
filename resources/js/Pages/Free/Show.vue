@@ -16,7 +16,7 @@ import { faChevronLeft, faChevronRight, faLock } from '@fortawesome/free-solid-s
  * isn't a useful mobile view.
  */
 import { Head } from '@inertiajs/vue3';
-import { BButton, BFormInput } from 'bootstrap-vue-next';
+import { BButton } from 'bootstrap-vue-next';
 import {
   addDays as addDaysFns,
   addMonths,
@@ -27,13 +27,7 @@ import {
 } from 'date-fns';
 import { loadLanguageAsync } from 'laravel-vue-i18n';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import {
-  decryptString,
-  DecryptionFailedError,
-  deriveLegacyShareLinkKey,
-  importKeyFromFragment,
-  unwrapKeyWithPassphrase,
-} from '../../crypto';
+import { decryptString, DecryptionFailedError, deriveLegacyShareLinkKey } from '../../crypto';
 import SiteFooter from '../../Components/SiteFooter.vue';
 import SiteHeader from '../../Components/SiteHeader.vue';
 import CalendarView from '../../free/CalendarView.vue';
@@ -48,7 +42,6 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 
 const props = defineProps<{
   token: string;
-  keyProtection: 'fragment' | 'passphrase';
   inviteCode: string;
   ownerName: string;
   pageTitle: string;
@@ -106,9 +99,6 @@ class LinkExpiredError extends Error {
 interface ApiResponse {
   status: 'pending' | 'ready';
   ciphertext?: string;
-  key_protection: 'fragment' | 'passphrase';
-  wrapped_key?: string | null;
-  wrap_salt?: string | null;
   computed_range_start?: string;
   computed_range_end?: string;
   stale?: boolean;
@@ -117,9 +107,6 @@ interface ApiResponse {
 
 const showError = ref(false);
 
-// ── Template refs ────────────────────────────────────────────────────
-const passphraseInput = ref<HTMLInputElement | null>(null);
-
 // ── Reactive UI state ───────────────────────────────────────────────
 const showExpired = ref(false);
 const showStatus = ref(true);
@@ -127,10 +114,6 @@ const statusText = ref('Loading…');
 const showCalendar = ref(false);
 const timezoneOffsetNote = ref('');
 const timezone = ref('UTC');
-const showPassphraseModal = ref(false);
-const passphraseValue = ref('');
-const passphraseErrorText = ref('');
-const showPassphraseError = ref(false);
 
 const availability = ref<AvailabilityResponse>({
   free: [],
@@ -288,51 +271,9 @@ function getTimezoneOffsetMinutes(date: Date, timeZone: string): number {
 
 // ── Decryption ───────────────────────────────────────────────────────
 
-async function resolveContentKey(response: ApiResponse): Promise<CryptoKey> {
-  const fragment = location.hash.startsWith('#') ? location.hash.slice(1) : '';
-
-  if (fragment.startsWith('k=')) {
-    return importKeyFromFragment(fragment);
-  }
-
-  if (props.keyProtection === 'passphrase') {
-    return promptForPassphraseKey(response);
-  }
-
-  // No fragment, not passphrase-protected: a legacy migrated link (§0.5) —
-  // the key derives deterministically from the token itself.
+/** Every share link's key derives deterministically from its own URL token — see LegacyShareLinkKey. */
+function resolveContentKey(): Promise<CryptoKey> {
   return deriveLegacyShareLinkKey(props.token);
-}
-
-function promptForPassphraseKey(response: ApiResponse): Promise<CryptoKey> {
-  return new Promise((resolve) => {
-    showPassphraseModal.value = true;
-    setTimeout(() => passphraseInput.value?.focus(), 0);
-
-    submitPassphrase = async () => {
-      showPassphraseError.value = false;
-
-      try {
-        const key = await unwrapKeyWithPassphrase(
-          { wrappedKey: response.wrapped_key!, salt: response.wrap_salt! },
-          passphraseValue.value,
-        );
-        showPassphraseModal.value = false;
-        resolve(key);
-      } catch (error) {
-        passphraseErrorText.value = error instanceof DecryptionFailedError
-          ? 'Wrong passphrase. Please try again.'
-          : 'Something went wrong. Please try again.';
-        showPassphraseError.value = true;
-      }
-    };
-  });
-}
-
-let submitPassphrase: (() => Promise<void>) | null = null;
-
-function onPassphraseSubmit(): void {
-  submitPassphrase?.();
 }
 
 async function fetchWithPolling(): Promise<ApiResponse> {
@@ -372,7 +313,7 @@ async function boot(): Promise<void> {
     timezone.value = response.timezone;
     renderTimezoneOffsetNote(response.timezone);
 
-    const key = await resolveContentKey(response);
+    const key = await resolveContentKey();
     const plaintext = await decryptString(key, response.ciphertext!);
     availability.value = JSON.parse(plaintext) as AvailabilityResponse;
 
@@ -530,28 +471,5 @@ onMounted(() => {
     </div>
 
     <SiteFooter/>
-  </div>
-
-  <div
-    v-if="showPassphraseModal"
-    class="position-fixed d-flex align-items-center justify-content-center"
-    style="inset: 0; background: rgba(0,0,0,0.6); z-index: 1000;"
-  >
-    <div class="card p-4" style="max-width: 24rem; width: 90%;">
-      <h2 class="h5 mb-3">Enter passphrase</h2>
-      <p class="small text-muted">This calendar requires a passphrase to view.</p>
-      <form @submit.prevent="onPassphraseSubmit">
-        <BFormInput
-          ref="passphraseInput"
-          v-model="passphraseValue"
-          type="password"
-          class="mb-3"
-          autocomplete="off"
-          required
-        />
-        <p v-show="showPassphraseError" class="small text-danger mb-3">{{ passphraseErrorText }}</p>
-        <BButton type="submit" variant="secondary" class="w-100">Unlock</BButton>
-      </form>
-    </div>
   </div>
 </template>

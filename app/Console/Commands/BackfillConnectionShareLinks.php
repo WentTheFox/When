@@ -8,7 +8,6 @@ use App\Models\ShareLink;
 use App\Services\Crypto\AesGcm;
 use App\Services\Crypto\KeyRing;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
 
 /**
@@ -112,8 +111,6 @@ class BackfillConnectionShareLinks extends Command
                 'id' => $shareLinkId,
                 'user_id' => $user->id,
                 'label_ciphertext' => AesGcm::encrypt($labelKey, $tokenName),
-                'content_key_ciphertext' => Crypt::encryptString(base64_encode(random_bytes(32))),
-                'key_protection' => 'fragment',
             ]);
 
             $connection->update(['share_link_id' => $shareLinkId]);

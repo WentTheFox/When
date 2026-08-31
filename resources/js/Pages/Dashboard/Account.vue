@@ -2,6 +2,7 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput } from 'bootstrap-vue-next';
 import DashboardLayout from '../../Layouts/DashboardLayout.vue';
+import type { SharedPageProps } from '../../sharedPageProps';
 
 defineOptions({ layout: DashboardLayout });
 
@@ -11,7 +12,7 @@ const props = defineProps<{
   twoFactorEnabled: boolean;
 }>();
 
-const page = usePage();
+const page = usePage<SharedPageProps>();
 
 const nameForm = useForm({ name: props.name });
 const emailForm = useForm({ email: props.email ?? '' });

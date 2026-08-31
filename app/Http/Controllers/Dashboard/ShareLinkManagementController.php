@@ -19,10 +19,15 @@ use Inertia\Response;
  *   - label_ciphertext: client-vault E2EE (§0.1/§0.3) — the client sends
  *     ciphertext it already produced with a per-link key from its own
  *     key ring; this controller never sees the plaintext label.
- *   - highlight words / manual tags / the raw content key: server-runtime
- *     tier (§0.2) — the client sends plaintext (the server needs it to
- *     recompute), and this controller is the one that calls Crypt::
- *     encryptString on it before storing.
+ *   - highlight words: server-runtime tier (§0.2) — the client sends
+ *     plaintext (the server needs it to recompute), and this controller is
+ *     the one that calls Crypt::encryptString on it before storing.
+ *
+ * A share link's content key is never generated, stored, or handled here at
+ * all — every link's key derives deterministically from its own id/
+ * legacy_token (App\Services\Crypto\LegacyShareLinkKey), so there's nothing
+ * for this controller to produce or protect on creation, and nothing to
+ * rotate later.
  */
 class ShareLinkManagementController extends Controller
 {
@@ -53,7 +58,6 @@ class ShareLinkManagementController extends Controller
         return [
             'id' => $shareLink->id,
             'label_ciphertext' => $shareLink->label_ciphertext,
-            'key_protection' => $shareLink->key_protection,
             'archived' => $shareLink->archived,
             'bypass_dnd' => $shareLink->bypass_dnd,
             'show_activity' => $shareLink->show_activity,
@@ -76,10 +80,6 @@ class ShareLinkManagementController extends Controller
         $data = $request->validate([
             'id' => ['required', 'uuid', 'unique:share_links,id'],
             'label_ciphertext' => ['nullable', 'string'],
-            'content_key' => ['required', 'string'], // raw 32-byte AES key, base64 (not base64url)
-            'key_protection' => ['required', 'in:fragment,passphrase'],
-            'wrapped_key' => ['nullable', 'string', 'required_if:key_protection,passphrase'],
-            'wrap_salt' => ['nullable', 'string', 'required_if:key_protection,passphrase'],
             'bypass_dnd' => ['nullable', 'boolean'],
             'show_activity' => ['nullable', 'boolean'],
         ]);
@@ -87,10 +87,6 @@ class ShareLinkManagementController extends Controller
         $shareLink = $request->user()->shareLinks()->create([
             'id' => $data['id'],
             'label_ciphertext' => $data['label_ciphertext'] ?? null,
-            'content_key_ciphertext' => Crypt::encryptString($data['content_key']),
-            'key_protection' => $data['key_protection'],
-            'wrapped_key' => $data['wrapped_key'] ?? null,
-            'wrap_salt' => $data['wrap_salt'] ?? null,
             'bypass_dnd' => $data['bypass_dnd'] ?? false,
             'show_activity' => $data['show_activity'] ?? true,
         ]);
@@ -107,9 +103,6 @@ class ShareLinkManagementController extends Controller
             'bypass_dnd' => ['nullable', 'boolean'],
             'show_activity' => ['nullable', 'boolean'],
             'archived' => ['nullable', 'boolean'],
-            'key_protection' => ['nullable', 'in:fragment,passphrase'],
-            'wrapped_key' => ['nullable', 'string'],
-            'wrap_salt' => ['nullable', 'string'],
             'highlight_words' => ['nullable', 'array'],
             'highlight_words.*' => ['string'],
         ]);
@@ -128,9 +121,6 @@ class ShareLinkManagementController extends Controller
                 'bypass_dnd' => $data['bypass_dnd'] ?? null,
                 'show_activity' => $data['show_activity'] ?? null,
                 'archived' => $data['archived'] ?? null,
-                'key_protection' => $data['key_protection'] ?? null,
-                'wrapped_key' => $data['wrapped_key'] ?? null,
-                'wrap_salt' => $data['wrap_salt'] ?? null,
             ], fn ($value) => $value !== null))->save();
 
             if (array_key_exists('highlight_words', $data)) {
@@ -148,40 +138,6 @@ class ShareLinkManagementController extends Controller
         // stale cache after an owner-initiated edit (§5.3's job re-derives
         // it lazily on the next viewer request).
         ShareLinkCache::where('share_link_id', $shareLink->id)->delete();
-    }
-
-    /**
-     * Rotates the content key. Invalidates every existing viewer link
-     * (fragment or passphrase-wrapped) immediately — there is no way to
-     * "update" a fragment a viewer already has.
-     */
-    public function regenerateKey(Request $request, string $shareLink): JsonResponse
-    {
-        $shareLink = $this->findOwned($request, $shareLink);
-
-        if ($shareLink->legacy_token !== null) {
-            return response()->json([
-                'message' => 'Legacy links derive their key from the token itself and cannot be rotated.',
-            ], 422);
-        }
-
-        $data = $request->validate([
-            'content_key' => ['required', 'string'],
-            'key_protection' => ['required', 'in:fragment,passphrase'],
-            'wrapped_key' => ['nullable', 'string', 'required_if:key_protection,passphrase'],
-            'wrap_salt' => ['nullable', 'string', 'required_if:key_protection,passphrase'],
-        ]);
-
-        $shareLink->update([
-            'content_key_ciphertext' => Crypt::encryptString($data['content_key']),
-            'key_protection' => $data['key_protection'],
-            'wrapped_key' => $data['wrapped_key'] ?? null,
-            'wrap_salt' => $data['wrap_salt'] ?? null,
-        ]);
-
-        ShareLinkCache::where('share_link_id', $shareLink->id)->delete();
-
-        return response()->json($this->serializeForOwner($shareLink));
     }
 
     /**
@@ -239,38 +195,6 @@ class ShareLinkManagementController extends Controller
         }
 
         return response()->json(['imported' => $imported, 'skipped' => $skipped]);
-    }
-
-    /**
-     * Reconstructs the full viewer URL, including the fragment key for
-     * fragment-protected links. Safe: the server already holds
-     * content_key_ciphertext under the same runtime key as calendar_url
-     * (§0.2) — this is that tier's documented "not protected against a
-     * compromised runtime" trade-off, not a new exposure.
-     *
-     * Uses legacy_token (not id) as the path segment when one exists —
-     * ShareLinkController::show() happily resolves either, so building the
-     * URL from `id` isn't *broken*, but it hands the owner a second, brand
-     * new URL nobody they've actually shared the link with has, instead of
-     * the one already in circulation. Preserving the original token here
-     * is the whole point of keeping it around after the Stage 5 migration.
-     */
-    public function url(Request $request, string $shareLink): JsonResponse
-    {
-        $shareLink = $this->findOwned($request, $shareLink);
-
-        $path = route('share-links.show', $shareLink->legacy_token ?? $shareLink->id);
-
-        if ($shareLink->key_protection !== 'fragment' || $shareLink->content_key_ciphertext === null) {
-            return response()->json(['url' => $path]);
-        }
-
-        // Same bytes, just re-encoded from standard base64 (how it's stored)
-        // to base64url (how fragment.ts's importKeyFromFragment expects it).
-        $rawKeyBase64 = Crypt::decryptString($shareLink->content_key_ciphertext);
-        $fragmentKey = rtrim(str_replace(['+', '/'], ['-', '_'], $rawKeyBase64), '=');
-
-        return response()->json(['url' => "{$path}#k={$fragmentKey}"]);
     }
 
     private function findOwned(Request $request, string $id): ShareLink

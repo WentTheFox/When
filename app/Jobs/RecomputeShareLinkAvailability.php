@@ -75,7 +75,7 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
         $shareLink = ShareLink::with('user')->findOrFail($this->shareLinkId);
         $user = $shareLink->user;
 
-        if ($user->calendar_url_ciphertext === null || ! $this->hasUsableContentKey($shareLink)) {
+        if ($user->calendar_url_ciphertext === null) {
             return;
         }
 
@@ -160,7 +160,7 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
         ]);
 
         $resultJson = json_encode($result->toArray());
-        $contentKey = $this->resolveContentKey($shareLink);
+        $contentKey = LegacyShareLinkKey::derive($shareLink->legacy_token ?? $shareLink->id);
 
         $ciphertext = AesGcm::encrypt($contentKey, $resultJson);
 
@@ -177,25 +177,5 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
         $timer->lap('encrypt_and_store');
 
         unset($calendarUrl, $icsBody, $resultJson, $contentKey, $highlightWords);
-    }
-
-    private function hasUsableContentKey(ShareLink $shareLink): bool
-    {
-        return $shareLink->content_key_ciphertext !== null || $shareLink->legacy_token !== null;
-    }
-
-    /**
-     * §0.5: a migrated share link's key is derived deterministically from
-     * its legacy token rather than stored — see LegacyShareLinkKey's doc
-     * comment. Every other share link keeps its random,
-     * content_key_ciphertext-stored key.
-     */
-    private function resolveContentKey(ShareLink $shareLink): string
-    {
-        if ($shareLink->legacy_token !== null) {
-            return LegacyShareLinkKey::derive($shareLink->legacy_token);
-        }
-
-        return base64_decode(Crypt::decryptString($shareLink->content_key_ciphertext), true);
     }
 }

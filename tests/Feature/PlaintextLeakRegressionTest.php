@@ -15,7 +15,6 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
@@ -25,32 +24,43 @@ use Tests\TestCase;
  *
  * - calendar_url / highlight words (§0.2): encrypted at rest with the
  *   runtime-only key (Crypt/APP_KEY). Never plaintext in any column.
- * - Connections CRM + share-link content keys (§0.1/§0.4): the server never
- *   sees plaintext at all, so fixtures here simulate opaque client-produced
- *   ciphertext — the assertion is that the known plaintext never appears
- *   anywhere in the dump, and that a raw (unwrapped) share-link content key
- *   is never persisted server-side under the default fragment-only mode.
+ * - Connections CRM (§0.1): the server never sees plaintext at all, so
+ *   fixtures here simulate opaque client-produced ciphertext — the
+ *   assertion is that the known plaintext never appears anywhere in the
+ *   dump. A share link's content key is never generated or stored at all
+ *   (it derives deterministically from the link's own id/legacy_token, see
+ *   LegacyShareLinkKey), so there's no separate key-secrecy assertion to
+ *   make for it here.
  */
 class PlaintextLeakRegressionTest extends TestCase
 {
     use RefreshDatabase;
 
     private const USER_NAME = 'PlaintextSentinelUserName_AliceExampleton';
-    private const USER_EMAIL = 'plaintext-sentinel-alice@example.com';
-    private const CALENDAR_URL = 'https://calendar.example.com/secret-feed-9182734.ics';
-    private const HIGHLIGHT_WORD = 'PlaintextSentinelWord_CoffeeWithAlice';
-    private const CONNECTION_NAME = 'PlaintextSentinelName_AliceExampleton';
-    private const CONNECTION_NOTES = 'PlaintextSentinelNotes_MetAtConference2026';
-    private const SLEEP_LABEL = 'PlaintextSentinelLabel_OnVacationInJapan';
-    private const SHARE_LINK_LABEL = 'PlaintextSentinelLabel_ForMomOnly';
-    private const ATTRIBUTE_LABEL = 'PlaintextSentinelAttr_Birthday';
-    private const ATTRIBUTE_VALUE = 'PlaintextSentinelValue_19900101';
-    private const EDGE_LABEL = 'PlaintextSentinelEdge_SiblingOf';
-    private const SOURCE_NAME = 'PlaintextSentinelSource_MetOnDiscord';
-    private const CATEGORY_NAME = 'PlaintextSentinelCategory_SocialMedia';
 
-    /** The raw, unwrapped share-link content key — must NEVER touch storage. */
-    private const SHARE_LINK_CONTENT_KEY = 'PlaintextSentinelKey_do-not-persist-me';
+    private const USER_EMAIL = 'plaintext-sentinel-alice@example.com';
+
+    private const CALENDAR_URL = 'https://calendar.example.com/secret-feed-9182734.ics';
+
+    private const HIGHLIGHT_WORD = 'PlaintextSentinelWord_CoffeeWithAlice';
+
+    private const CONNECTION_NAME = 'PlaintextSentinelName_AliceExampleton';
+
+    private const CONNECTION_NOTES = 'PlaintextSentinelNotes_MetAtConference2026';
+
+    private const SLEEP_LABEL = 'PlaintextSentinelLabel_OnVacationInJapan';
+
+    private const SHARE_LINK_LABEL = 'PlaintextSentinelLabel_ForMomOnly';
+
+    private const ATTRIBUTE_LABEL = 'PlaintextSentinelAttr_Birthday';
+
+    private const ATTRIBUTE_VALUE = 'PlaintextSentinelValue_19900101';
+
+    private const EDGE_LABEL = 'PlaintextSentinelEdge_SiblingOf';
+
+    private const SOURCE_NAME = 'PlaintextSentinelSource_MetOnDiscord';
+
+    private const CATEGORY_NAME = 'PlaintextSentinelCategory_SocialMedia';
 
     public function test_no_known_plaintext_survives_in_any_stored_column(): void
     {
@@ -86,7 +96,6 @@ class PlaintextLeakRegressionTest extends TestCase
         $shareLink = ShareLink::create([
             'user_id' => $user->id,
             'label_ciphertext' => $this->fakeClientCiphertext(self::SHARE_LINK_LABEL),
-            'key_protection' => 'fragment',
         ]);
 
         // Highlight words are matched server-side against ICS titles during
@@ -145,7 +154,6 @@ class PlaintextLeakRegressionTest extends TestCase
             self::EDGE_LABEL,
             self::SOURCE_NAME,
             self::CATEGORY_NAME,
-            self::SHARE_LINK_CONTENT_KEY,
         ];
 
         foreach ($knownPlaintextSecrets as $secret) {

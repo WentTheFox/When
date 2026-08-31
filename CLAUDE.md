@@ -64,12 +64,18 @@ ordinary password). See `resources/js/crypto/argon2.ts`.
 ## Verifying changes
 
 - `pnpm typecheck` — `tsconfig.json`'s `include` covers both `**/*.ts` and `**/*.vue`
-  (it didn't always; a stale config meant `.vue` files went unchecked for a while). A
-  handful of pre-existing, unrelated type errors exist (`SiteHeader.vue`,
-  `DashboardLayout.vue`, `Account.vue`, `Settings.vue`, `ConnectionCard.vue`) from
-  untyped Inertia page-prop shapes (`page.props.auth`, `.flash`, etc. resolve to `{}`).
-  These are known and not regressions — don't chase them down as part of an unrelated
-  change; do fix them if you're the one touching that exact prop's typing.
+  (it didn't always; a stale config meant `.vue` files went unchecked for a while).
+  `resources/js/sharedPageProps.ts` exports `SharedPageProps`, mirroring exactly what
+  `HandleInertiaRequests::share()` sends — pass it explicitly as `usePage<SharedPageProps>()`
+  wherever a component reads `auth`/`flash`/`appName`/`isFirstUser`/`colorPalette` off the
+  page props (`SiteHeader.vue`, `SiteFooter.vue`, `DashboardLayout.vue`, `Account.vue`,
+  `Settings.vue` are the current examples). The "obvious" fix — augmenting
+  `@inertiajs/core`'s `InertiaConfig.sharedPageProps` via the module's own documented
+  `declare module` extension point — does not actually flow through into `usePage()`'s
+  return type under this project's TS/vue-tsc versions (verified directly: with that
+  augmentation in place, `usePage().props.auth` still typechecked as `unknown`), so don't
+  reintroduce it as "the correct way" — the explicit generic is the one that works. Update
+  `SharedPageProps` itself if `HandleInertiaRequests::share()`'s shape changes.
 - `pnpm build` — Vite build; must succeed before any deploy.
 - `php artisan test` — full suite, currently 177 tests. Run before committing anything
   backend-touching.

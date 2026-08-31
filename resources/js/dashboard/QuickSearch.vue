@@ -71,6 +71,7 @@ const results = computed(() => {
 
   return index.value
     .filter((row) => row.name.toLowerCase().includes(needle))
+    .sort((a, b) => a.name.localeCompare(b.name))
     .slice(0, 8);
 });
 

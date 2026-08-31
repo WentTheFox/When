@@ -8,8 +8,9 @@ import { provideLiveThemePreview } from '../dashboard/liveThemePreview';
 import { hexToRgbTriplet, yiqTextColor } from '../free/color-utils';
 import { resolveSwatchHex } from '../free/color-palette';
 import { useResolvedTheme } from '../composables/useTheme';
+import type { SharedPageProps } from '../sharedPageProps';
 
-const page = usePage();
+const page = usePage<SharedPageProps>();
 
 const liveThemeOverride = provideLiveThemePreview();
 const resolvedTheme = useResolvedTheme();

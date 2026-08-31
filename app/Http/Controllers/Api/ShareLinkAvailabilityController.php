@@ -52,7 +52,6 @@ class ShareLinkAvailabilityController extends Controller
         if ($cache === null) {
             return response()->json([
                 'status' => 'pending',
-                'key_protection' => $shareLink->key_protection,
                 'timezone' => $shareLink->user->timezone,
             ], 202);
         }
@@ -60,9 +59,6 @@ class ShareLinkAvailabilityController extends Controller
         return response()->json([
             'status' => 'ready',
             'ciphertext' => $cache->ciphertext,
-            'key_protection' => $shareLink->key_protection,
-            'wrapped_key' => $shareLink->key_protection === 'passphrase' ? $shareLink->wrapped_key : null,
-            'wrap_salt' => $shareLink->key_protection === 'passphrase' ? $shareLink->wrap_salt : null,
             'computed_range_start' => $cache->computed_range_start->toIso8601String(),
             'computed_range_end' => $cache->computed_range_end->toIso8601String(),
             'stale' => $isStale,

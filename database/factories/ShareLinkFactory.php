@@ -18,7 +18,6 @@ class ShareLinkFactory extends Factory
         return [
             'user_id' => User::factory(),
             'label_ciphertext' => null,
-            'key_protection' => 'fragment',
             'archived' => false,
             'bypass_dnd' => false,
         ];

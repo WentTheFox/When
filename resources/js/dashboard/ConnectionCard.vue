@@ -10,8 +10,9 @@ import {
   BFormRadio,
   BFormSelect,
   BFormTextarea,
+  type InputType,
 } from 'bootstrap-vue-next';
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { decryptString, encryptString } from '../crypto';
 import { useVault } from './useVault';
 
@@ -49,6 +50,8 @@ const editSourceIds = ref<string[]>([...props.connection.source_ids]);
 const editArchived = ref(props.connection.archived);
 const editAttributeValues = ref<Record<string, string>>({});
 
+const sortedSources = computed(() => [...props.sources].sort((a, b) => a.label.localeCompare(b.label)));
+
 async function decryptAll(): Promise<void> {
   try {
     const key = await getRecordKey(props.connection.id);
@@ -78,9 +81,9 @@ function attributeLabel(id: string): string {
   return props.attributeDefinitions.find((d) => d.id === id)?.label ?? id;
 }
 
-const INPUT_TYPE: Record<string, string> = { phone: 'tel' };
-function inputType(type: string): string {
-  return INPUT_TYPE[type] ?? type;
+const INPUT_TYPE: Record<string, InputType> = { phone: 'tel' };
+function inputType(type: string): InputType {
+  return INPUT_TYPE[type] ?? (type as InputType);
 }
 
 function startEdit(): void {
@@ -168,7 +171,7 @@ async function remove(): Promise<void> {
         <div class="col-md-6">
           <BFormGroup label="Sources" class="mb-3">
             <BFormSelect v-model="editSourceIds" multiple size="sm">
-              <option v-for="source in sources" :key="source.id" :value="source.id">{{ source.label }}</option>
+              <option v-for="source in sortedSources" :key="source.id" :value="source.id">{{ source.label }}</option>
             </BFormSelect>
           </BFormGroup>
         </div>

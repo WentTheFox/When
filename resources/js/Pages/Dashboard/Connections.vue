@@ -40,8 +40,11 @@ const newConnectionError = ref('');
 
 const decryptedNames = ref<Record<string, string>>({});
 const connectionOptions = computed(() =>
-  connections.value.map((c) => ({ id: c.id, label: decryptedNames.value[c.id] ?? '' })),
+  connections.value
+    .map((c) => ({ id: c.id, label: decryptedNames.value[c.id] ?? '' }))
+    .sort((a, b) => a.label.localeCompare(b.label)),
 );
+const sortedSources = computed(() => [...sources.value].sort((a, b) => a.label.localeCompare(b.label)));
 
 /**
  * Master-detail instead of every connection rendering full-size, one after
@@ -335,7 +338,7 @@ async function removeEdge(id: string): Promise<void> {
             </BFormGroup>
             <BFormGroup label="Sources" label-class="small" description="Ctrl/Cmd-click to select more than one." class="mb-2">
               <BFormSelect v-model="newSourceIds" size="sm" multiple>
-                <option v-for="source in sources" :key="source.id" :value="source.id">{{ source.label }}</option>
+                <option v-for="source in sortedSources" :key="source.id" :value="source.id">{{ source.label }}</option>
               </BFormSelect>
             </BFormGroup>
             <BFormGroup label="Notes" label-class="small" class="mb-2">

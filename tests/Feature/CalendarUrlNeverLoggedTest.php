@@ -50,9 +50,7 @@ class CalendarUrlNeverLoggedTest extends TestCase
         $user = User::factory()->create([
             'calendar_url_ciphertext' => Crypt::encryptString(self::SECRET_CALENDAR_URL),
         ]);
-        $shareLink = ShareLink::factory()->for($user)->create([
-            'content_key_ciphertext' => Crypt::encryptString(base64_encode(random_bytes(32))),
-        ]);
+        $shareLink = ShareLink::factory()->for($user)->create();
 
         try {
             RecomputeShareLinkAvailability::dispatchSync($shareLink->id);

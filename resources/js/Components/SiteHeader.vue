@@ -16,6 +16,7 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
  */
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { BButton } from 'bootstrap-vue-next';
+import type { SharedPageProps } from '../sharedPageProps';
 import LanguageSwitcher from './LanguageSwitcher.vue';
 import ThemeToggle from './ThemeToggle.vue';
 // Imported (not a plain /public path) so Vite fingerprints it — unlike
@@ -26,7 +27,7 @@ import ThemeToggle from './ThemeToggle.vue';
 // like every other asset the bundle references.
 import logoUrl from '../../img/WhenTheFox.svg';
 
-const page = usePage();
+const page = usePage<SharedPageProps>();
 
 function logout(): void {
   router.post('/logout');

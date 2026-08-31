@@ -33,8 +33,8 @@ class ShareLinkController extends Controller
     /**
      * Handles both the current share-link id shape (UUID) and legacy
      * pre-migration tokens (§0.5/Stage 5) under one route and one path
-     * shape — no redirect involved for either (a migrated link's content
-     * key is derived deterministically from the token itself, §0.5,
+     * shape — no redirect involved for either (every link's content key is
+     * derived deterministically from its own id/legacy_token,
      * App\Services\Crypto\LegacyShareLinkKey, so there's nothing to add to
      * the URL and nowhere to redirect to for that concern specifically).
      * The locale redirect below is a separate concern — /free vs /hu/free —
@@ -114,7 +114,6 @@ class ShareLinkController extends Controller
 
         return Inertia::render('Free/Show', [
             'token' => $token,
-            'keyProtection' => $shareLink->key_protection,
             'inviteCode' => $invite->code,
             'ownerName' => $owner->name,
             'locale' => $locale,

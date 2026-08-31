@@ -112,7 +112,6 @@ class ImportLegacyShareLinks extends Command
             } else {
                 $shareLink = ShareLink::create([
                     'user_id' => $user->id,
-                    'key_protection' => 'fragment',
                     'bypass_dnd' => $row['bypass_dnd'] ?? false,
                     'legacy_token' => $row['token'],
                 ]);

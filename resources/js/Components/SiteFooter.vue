@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { usePage } from '@inertiajs/vue3';
 import { getRememberedInviteCode } from '../composables/useInviteCode';
+import type { SharedPageProps } from '../sharedPageProps';
 
-const page = usePage();
+const page = usePage<SharedPageProps>();
 const inviteCode = getRememberedInviteCode();
 </script>
 <template>
