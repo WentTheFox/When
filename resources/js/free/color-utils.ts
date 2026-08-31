@@ -32,10 +32,14 @@ export function hexToRgbTriplet(hex: string): string {
   return `${parseInt(r!, 16)}, ${parseInt(g!, 16)}, ${parseInt(b!, 16)}`;
 }
 
-/** Matches dark-theme.css's dark-theme block alphas exactly (checked against the reference site's own computed styles). */
+/**
+ * Matches dark-theme.css's own per-theme block alphas exactly (checked
+ * against the reference site's own computed styles) — the light and dark
+ * defaults use different alphas, not just different base colors, so an
+ * owner's custom color needs the theme-appropriate alpha too or it reads
+ * over/under-saturated next to Bootstrap's own theme-native controls.
+ */
 export const BLOCK_ALPHA = {
-  free: 0.35,
-  busy: 0.3,
-  highlighted: 0.35,
-  sleep: 0.35,
+  dark: { free: 0.35, busy: 0.3, highlighted: 0.35, sleep: 0.35 },
+  light: { free: 0.25, busy: 0.2, highlighted: 0.3, sleep: 0.3 },
 } as const;

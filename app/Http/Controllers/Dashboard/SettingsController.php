@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Services\Calendar\ActivityExtractor;
 use App\Services\Calendar\HighlightMatcher;
 use App\Services\Calendar\IcsParser;
+use App\Support\ColorPalette;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -51,12 +53,12 @@ class SettingsController extends Controller
                 'public_page_title_en' => $user->public_page_title_en,
                 'public_page_title_hu' => $user->public_page_title_hu,
                 'name' => $user->name,
-                'accent_color' => $user->accent_color,
-                'secondary_color' => $user->secondary_color,
-                'sleep_color' => $user->sleep_color,
-                'busy_color' => $user->busy_color,
-                'free_color' => $user->free_color,
-                'highlight_color' => $user->highlight_color,
+                'accent_color_key' => $user->accent_color_key,
+                'secondary_color_key' => $user->secondary_color_key,
+                'sleep_color_key' => $user->sleep_color_key,
+                'busy_color_key' => $user->busy_color_key,
+                'free_color_key' => $user->free_color_key,
+                'highlight_color_key' => $user->highlight_color_key,
                 'now_color' => $user->now_color,
                 'availability' => $user->availability_settings ?? [],
             ],
@@ -100,12 +102,12 @@ class SettingsController extends Controller
             'tentative_pattern' => ['nullable', 'string'],
             'public_page_title_en' => ['nullable', 'string', 'max:255'],
             'public_page_title_hu' => ['nullable', 'string', 'max:255'],
-            'accent_color' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
-            'secondary_color' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
-            'sleep_color' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
-            'busy_color' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
-            'free_color' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
-            'highlight_color' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'accent_color_key' => ['nullable', Rule::in(ColorPalette::KEYS)],
+            'secondary_color_key' => ['nullable', Rule::in(ColorPalette::KEYS)],
+            'sleep_color_key' => ['nullable', Rule::in(ColorPalette::KEYS)],
+            'busy_color_key' => ['nullable', Rule::in(ColorPalette::KEYS)],
+            'free_color_key' => ['nullable', Rule::in(ColorPalette::KEYS)],
+            'highlight_color_key' => ['nullable', Rule::in(ColorPalette::KEYS)],
             'now_color' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'availability' => ['nullable', 'array'],
             'availability.*.wake' => ['nullable', 'string'],
@@ -133,12 +135,12 @@ class SettingsController extends Controller
             'tentative_pattern' => $data['tentative_pattern'] ?? null,
             'public_page_title_en' => $data['public_page_title_en'] ?? null,
             'public_page_title_hu' => $data['public_page_title_hu'] ?? null,
-            'accent_color' => $data['accent_color'] ?? null,
-            'secondary_color' => $data['secondary_color'] ?? null,
-            'sleep_color' => $data['sleep_color'] ?? null,
-            'busy_color' => $data['busy_color'] ?? null,
-            'free_color' => $data['free_color'] ?? null,
-            'highlight_color' => $data['highlight_color'] ?? null,
+            'accent_color_key' => $data['accent_color_key'] ?? null,
+            'secondary_color_key' => $data['secondary_color_key'] ?? null,
+            'sleep_color_key' => $data['sleep_color_key'] ?? null,
+            'busy_color_key' => $data['busy_color_key'] ?? null,
+            'free_color_key' => $data['free_color_key'] ?? null,
+            'highlight_color_key' => $data['highlight_color_key'] ?? null,
             'now_color' => $data['now_color'] ?? null,
             'availability_settings' => $availability,
         ])->save();

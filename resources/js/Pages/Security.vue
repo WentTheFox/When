@@ -14,17 +14,21 @@ const page = usePage();
   </Head>
 
   <div style="max-width: 42rem; margin: 0 auto;">
-    <h1 class="mb-4">Security &amp; data handling</h1>
-
-    <p class="mb-4">
-      This page states plainly what {{ page.props.appName }} actually protects and what it
-      doesn't, rather than making a blanket "everything is end-to-end encrypted"
-      claim that wouldn't survive scrutiny. Two different kinds of data live in
-      this system, and they get genuinely different treatment.
-    </p>
-
     <div class="card mb-4">
       <div class="card-body">
+        <h1 class="mb-4">Security &amp; data handling</h1>
+
+        <p class="mb-2">
+          This page states plainly what {{ page.props.appName }} actually protects and what it
+          doesn't, rather than making a blanket "everything is end-to-end encrypted"
+          claim that wouldn't survive scrutiny. Two different kinds of data live in
+          this system, and they get genuinely different treatment.
+        </p>
+
+        <p class="text-muted mb-4">
+          Source code for all of this is publicly <a href="https://github.com/WentTheFox/WhenTheFox" target="_blank" rel="noopener">available on Github</a>.
+        </p>
+
         <h2 class="h5">
           <span class="badge text-bg-success me-2">True end-to-end encryption</span>
           Connections CRM
@@ -36,15 +40,11 @@ const page = usePage();
           back unmodified &mdash; we cannot read this data, at rest, in
           transit, or in a running server process, even if compelled to.
         </p>
-        <p class="mb-0">
+        <p class="mb-4">
           The encryption key is derived from your master password entirely
           client-side and never leaves your browser in any form.
         </p>
-      </div>
-    </div>
 
-    <div class="card mb-4">
-      <div class="card-body">
         <h2 class="h5">
           <span class="badge text-bg-warning text-dark me-2">Ciphertext at rest, not full E2EE</span>
           Calendar URL &amp; computed availability
@@ -69,17 +69,27 @@ const page = usePage();
           They are never logged, never written to any table, and never
           included in error reports.
         </p>
-        <p class="mb-0">
+        <p class="mb-4">
           The computed result (which times are free, busy, or highlighted) is
           re-encrypted immediately after it's computed, using the relevant
           share link's own key, before it's cached or served to anyone
           viewing your link.
         </p>
-      </div>
-    </div>
 
-    <div class="card mb-4">
-      <div class="card-body">
+        <h2 class="h5">Account security</h2>
+        <p class="mb-2">
+          Optional two-factor authentication (TOTP, i.e. an authenticator
+          app) is available for your login &mdash; you can turn it on from
+          your account's security settings.
+        </p>
+        <p class="mb-4">
+          An email address is optional. If you set one, it's only ever used
+          to fetch your Gravatar avatar (only an MD5 hash of it is sent to
+          Gravatar, never the address itself) and, if you like, as an
+          alternate way to log in alongside your username. It's stored
+          encrypted at rest, the same as your calendar URL above.
+        </p>
+
         <h2 class="h5">How your master password works</h2>
         <p class="mb-2">
           You set one master password. It's split, client-side, into two
@@ -91,19 +101,12 @@ const page = usePage();
           password itself.
         </p>
         <p class="mb-0">
-          If we lose your master password, we cannot recover your Connections
+          If you lose your master password, we cannot recover your Connections
           data for you &mdash; that's the direct consequence of us never
           having the key. Choose something you can actually remember, or use
           a password manager.
         </p>
       </div>
     </div>
-
-    <p class="text-muted mb-0">
-      Source code for all of this is public &mdash;
-      <a href="https://github.com/WentTheFox/WhenTheFox" target="_blank" rel="noopener">
-        see for yourself
-      </a>.
-    </p>
   </div>
 </template>

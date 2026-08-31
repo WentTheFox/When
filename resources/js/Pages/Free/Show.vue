@@ -30,6 +30,8 @@ import CalendarView from '../../free/CalendarView.vue';
 import AgendaView from '../../free/AgendaView.vue';
 import MonthView from '../../free/MonthView.vue';
 import { BLOCK_ALPHA, hexToRgba, hexToRgbTriplet } from '../../free/color-utils';
+import { resolveSwatchHex } from '../../free/color-palette';
+import { useResolvedTheme } from '../../composables/useTheme';
 import type { AvailabilityResponse } from '../../free/nuxt-blocks';
 
 const props = defineProps<{
@@ -48,19 +50,37 @@ const props = defineProps<{
     busy: string | null;
     sleep: string | null;
     highlighted: string | null;
+    /** Deliberately theme-independent (see dark-theme.css) — a raw hex, not a palette key. */
     now: string | null;
   };
 }>();
 
-const rootStyle = {
-  ...(props.colors.accent ? { '--wtf-accent': props.colors.accent, '--wtf-accent-rgb': hexToRgbTriplet(props.colors.accent) } : {}),
-  ...(props.colors.secondary ? { '--wtf-text-muted': props.colors.secondary } : {}),
-  ...(props.colors.free ? { '--wtf-color-free': hexToRgba(props.colors.free, BLOCK_ALPHA.free) } : {}),
-  ...(props.colors.busy ? { '--wtf-color-busy': hexToRgba(props.colors.busy, BLOCK_ALPHA.busy) } : {}),
-  ...(props.colors.sleep ? { '--wtf-color-sleep': hexToRgba(props.colors.sleep, BLOCK_ALPHA.sleep) } : {}),
-  ...(props.colors.highlighted ? { '--wtf-color-highlighted': hexToRgba(props.colors.highlighted, BLOCK_ALPHA.highlighted) } : {}),
-  ...(props.colors.now ? { '--wtf-color-now': props.colors.now } : {}),
-};
+const resolvedTheme = useResolvedTheme();
+
+const rootStyle = computed(() => {
+  const theme = resolvedTheme.value;
+  const accent = resolveSwatchHex(props.colors.accent, 'accent', theme);
+  const secondary = resolveSwatchHex(props.colors.secondary, 'secondary', theme);
+  const free = resolveSwatchHex(props.colors.free, 'free', theme);
+  const busy = resolveSwatchHex(props.colors.busy, 'busy', theme);
+  const sleep = resolveSwatchHex(props.colors.sleep, 'sleep', theme);
+  const highlighted = resolveSwatchHex(props.colors.highlighted, 'highlighted', theme);
+  const alpha = BLOCK_ALPHA[theme];
+
+  return {
+    '--wtf-accent': accent,
+    '--wtf-accent-rgb': hexToRgbTriplet(accent),
+    '--wtf-text-muted': secondary,
+    '--wtf-color-free': hexToRgba(free, alpha.free),
+    '--wtf-hue-free': free,
+    '--wtf-color-busy': hexToRgba(busy, alpha.busy),
+    '--wtf-color-sleep': hexToRgba(sleep, alpha.sleep),
+    '--wtf-hue-sleep': sleep,
+    '--wtf-color-highlighted': hexToRgba(highlighted, alpha.highlighted),
+    '--wtf-hue-highlighted': highlighted,
+    ...(props.colors.now ? { '--wtf-color-now': props.colors.now } : {}),
+  };
+});
 
 class LinkExpiredError extends Error {}
 

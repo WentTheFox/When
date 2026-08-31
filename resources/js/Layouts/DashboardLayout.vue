@@ -2,10 +2,13 @@
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { BButton } from 'bootstrap-vue-next';
 import { computed } from 'vue';
+import SiteFooter from '../Components/SiteFooter.vue';
 import ThemeToggle from '../Components/ThemeToggle.vue';
 import VaultUnlockModal from '../dashboard/VaultUnlockModal.vue';
 import { provideLiveThemePreview } from '../dashboard/liveThemePreview';
 import { hexToRgbTriplet } from '../free/color-utils.ts';
+import { resolveSwatchHex } from '../free/color-palette';
+import { useResolvedTheme } from '../composables/useTheme';
 
 const page = usePage();
 
@@ -14,17 +17,22 @@ function logout(): void {
 }
 
 const liveThemeOverride = provideLiveThemePreview();
+const resolvedTheme = useResolvedTheme();
 
 /**
  * Reflects the owner's own public-page accent/secondary colors (Settings)
  * across their dashboard too, not just their public share page's own
  * preview — same --wtf-accent/--wtf-accent-rgb/--wtf-text-muted mapping
- * Free/Show.vue's rootStyle already applies there. A live override (see
- * liveThemePreview.ts) takes priority while Settings.vue's color pickers
- * are being dragged, before anything is saved.
+ * Free/Show.vue's rootStyle already applies there, resolved against
+ * whichever theme the dashboard itself is currently rendered in. A live
+ * override (see liveThemePreview.ts) takes priority while Settings.vue's
+ * color pickers are being dragged, before anything is saved — it's already
+ * resolved to the current theme by the time it lands here.
  */
-const accentColor = computed(() => liveThemeOverride.value?.accent ?? page.props.auth?.user?.accentColor ?? '#6181b6');
-const secondaryColor = computed(() => liveThemeOverride.value?.secondary ?? page.props.auth?.user?.secondaryColor ?? '#6c757d');
+const accentColor = computed(() => liveThemeOverride.value?.accent
+  ?? resolveSwatchHex(page.props.auth?.user?.accentColorKey, 'accent', resolvedTheme.value));
+const secondaryColor = computed(() => liveThemeOverride.value?.secondary
+  ?? resolveSwatchHex(page.props.auth?.user?.secondaryColorKey, 'secondary', resolvedTheme.value));
 const accentStyle = computed(() => ({
   '--wtf-accent': accentColor.value,
   '--wtf-accent-rgb': hexToRgbTriplet(accentColor.value),
@@ -86,6 +94,8 @@ const accentStyle = computed(() => ({
     <div class="container py-4">
       <slot />
     </div>
+
+    <SiteFooter />
 
     <VaultUnlockModal />
   </div>

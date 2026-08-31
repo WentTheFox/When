@@ -93,13 +93,18 @@ class ShareLinkController extends Controller
             'locale' => $locale,
             'pageTitle' => $this->resolveTitle($owner, $locale),
             'weekStart' => $owner->week_start,
+            // Each slot except now_color (deliberately theme-independent,
+            // see dark-theme.css) is a palette KEY, not a hex — the
+            // frontend resolves it to an actual light/dark hex pair via
+            // resources/js/free/color-palette.ts, falling back to that
+            // slot's own default swatch when null.
             'colors' => [
-                'accent' => $owner->accent_color,
-                'secondary' => $owner->secondary_color,
-                'free' => $owner->free_color,
-                'busy' => $owner->busy_color,
-                'sleep' => $owner->sleep_color,
-                'highlighted' => $owner->highlight_color,
+                'accent' => $owner->accent_color_key,
+                'secondary' => $owner->secondary_color_key,
+                'free' => $owner->free_color_key,
+                'busy' => $owner->busy_color_key,
+                'sleep' => $owner->sleep_color_key,
+                'highlighted' => $owner->highlight_color_key,
                 'now' => $owner->now_color,
             ],
         ]);

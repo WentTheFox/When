@@ -54,9 +54,10 @@ class HandleInertiaRequests extends Middleware
                     // rootStyle already applies them on the public page
                     // (--wtf-accent/--wtf-accent-rgb, --wtf-text-muted) —
                     // not sensitive, same tier as the other public-page
-                    // display settings (§0.2, not §0.1).
-                    'accentColor' => $request->user()->accent_color,
-                    'secondaryColor' => $request->user()->secondary_color,
+                    // display settings (§0.2, not §0.1). Palette KEYs, not
+                    // hex — see resources/js/free/color-palette.ts.
+                    'accentColorKey' => $request->user()->accent_color_key,
+                    'secondaryColorKey' => $request->user()->secondary_color_key,
                 ] : null,
             ],
             'flash' => [

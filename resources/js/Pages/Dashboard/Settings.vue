@@ -19,6 +19,9 @@ import PatternPreview from '../../dashboard/PatternPreview.vue';
 import SleepExceptions from '../../dashboard/SleepExceptions.vue';
 import CalendarView from '../../free/CalendarView.vue';
 import { BLOCK_ALPHA, hexToRgba, hexToRgbTriplet } from '../../free/color-utils';
+import { COLOR_PALETTE, DEFAULT_SWATCH_KEY, resolveSwatchHex } from '../../free/color-palette';
+import type { ColorSlot } from '../../free/color-palette';
+import { useResolvedTheme } from '../../composables/useTheme';
 import type { AvailabilityResponse } from '../../free/nuxt-blocks';
 
 defineOptions({ layout: DashboardLayout });
@@ -36,12 +39,12 @@ interface Settings {
   public_page_title_en: string | null;
   public_page_title_hu: string | null;
   name: string;
-  accent_color: string | null;
-  secondary_color: string | null;
-  sleep_color: string | null;
-  busy_color: string | null;
-  free_color: string | null;
-  highlight_color: string | null;
+  accent_color_key: string | null;
+  secondary_color_key: string | null;
+  sleep_color_key: string | null;
+  busy_color_key: string | null;
+  free_color_key: string | null;
+  highlight_color_key: string | null;
   now_color: string | null;
   availability: Record<number, { wake: string | null; sleep: string | null }>;
 }
@@ -62,14 +65,23 @@ const props = defineProps<{
 
 const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const weekStartOptions = days.map((label, value) => ({ value, label }));
-const colorFields: { field: keyof Settings; label: string; default: string }[] = [
-  { field: 'accent_color', label: 'Accent', default: '#6181b6' },
-  { field: 'secondary_color', label: 'Secondary', default: '#6c757d' },
-  { field: 'free_color', label: 'Free', default: '#6181b6' },
-  { field: 'busy_color', label: 'Busy', default: '#212529' },
-  { field: 'sleep_color', label: 'Sleep', default: '#6f42c1' },
-  { field: 'highlight_color', label: 'Highlighted', default: '#ffc107' },
-  { field: 'now_color', label: 'Current time', default: '#e5566a' },
+/**
+ * Each slot picks a swatch KEY from the app's fixed palette (see
+ * color-palette.ts) rather than an arbitrary hex — a free-form picker let
+ * an owner choose a color that read fine in whichever theme they were
+ * previewing and badly in the other (e.g. a light pastel free-block color
+ * picked in light mode nearly disappears against dark mode's own dark
+ * background); every swatch instead has its own hand-picked light AND dark
+ * hex. "Current time" isn't here — it's deliberately theme-independent
+ * (see dark-theme.css) and stays a plain hex picker.
+ */
+const colorFields: { field: keyof Settings; slot: ColorSlot; label: string }[] = [
+  { field: 'accent_color_key', slot: 'accent', label: 'Accent' },
+  { field: 'secondary_color_key', slot: 'secondary', label: 'Secondary' },
+  { field: 'free_color_key', slot: 'free', label: 'Free' },
+  { field: 'busy_color_key', slot: 'busy', label: 'Busy' },
+  { field: 'sleep_color_key', slot: 'sleep', label: 'Sleep' },
+  { field: 'highlight_color_key', slot: 'highlighted', label: 'Highlighted' },
 ];
 
 /**
@@ -247,12 +259,12 @@ const form = useForm({
   tentative_pattern: props.settings.tentative_pattern ?? props.defaults.tentativePattern,
   public_page_title_en: props.settings.public_page_title_en ?? '',
   public_page_title_hu: props.settings.public_page_title_hu ?? '',
-  accent_color: props.settings.accent_color ?? '#6181b6',
-  secondary_color: props.settings.secondary_color ?? '#6c757d',
-  free_color: props.settings.free_color ?? '#6181b6',
-  busy_color: props.settings.busy_color ?? '#212529',
-  sleep_color: props.settings.sleep_color ?? '#6f42c1',
-  highlight_color: props.settings.highlight_color ?? '#ffc107',
+  accent_color_key: props.settings.accent_color_key ?? DEFAULT_SWATCH_KEY.accent,
+  secondary_color_key: props.settings.secondary_color_key ?? DEFAULT_SWATCH_KEY.secondary,
+  free_color_key: props.settings.free_color_key ?? DEFAULT_SWATCH_KEY.free,
+  busy_color_key: props.settings.busy_color_key ?? DEFAULT_SWATCH_KEY.busy,
+  sleep_color_key: props.settings.sleep_color_key ?? DEFAULT_SWATCH_KEY.sleep,
+  highlight_color_key: props.settings.highlight_color_key ?? DEFAULT_SWATCH_KEY.highlighted,
   now_color: props.settings.now_color ?? '#e5566a',
   availability: days.map((_, i) => ({
     wake: props.settings.availability[i]?.wake ?? '',
@@ -264,11 +276,19 @@ const form = useForm({
 // links, muted text) as these two pickers are dragged, not just in this
 // page's own preview panels below — see liveThemePreview.ts. Cleared on
 // unmount so navigating away restores the owner's actually-saved colors.
+// Resolved against whichever theme the dashboard is actually rendered in
+// right now, same as DashboardLayout does for the saved (non-live) colors
+// — dragging the dark-mode picker while viewing in light mode shouldn't
+// visibly change anything until the theme is actually switched.
+const resolvedTheme = useResolvedTheme();
 const liveTheme = useLiveThemePreview();
 watch(
-  () => [form.accent_color, form.secondary_color] as const,
-  ([accent, secondary]) => {
-    liveTheme.value = { accent, secondary };
+  () => [form.accent_color_key, form.secondary_color_key, resolvedTheme.value] as const,
+  ([accentKey, secondaryKey, theme]) => {
+    liveTheme.value = {
+      accent: resolveSwatchHex(accentKey, 'accent', theme),
+      secondary: resolveSwatchHex(secondaryKey, 'secondary', theme),
+    };
   },
   { immediate: true },
 );
@@ -299,15 +319,29 @@ const currentTimePct = (() => {
  * page (see color-utils.ts). Re-applies the same alpha so what's previewed
  * here actually matches what a viewer would see.
  */
-const previewColorStyle = computed(() => ({
-  '--wtf-accent': form.accent_color,
-  '--wtf-accent-rgb': hexToRgbTriplet(form.accent_color),
-  '--wtf-color-free': hexToRgba(form.free_color, BLOCK_ALPHA.free),
-  '--wtf-color-busy': hexToRgba(form.busy_color, BLOCK_ALPHA.busy),
-  '--wtf-color-sleep': hexToRgba(form.sleep_color, BLOCK_ALPHA.sleep),
-  '--wtf-color-highlighted': hexToRgba(form.highlight_color, BLOCK_ALPHA.highlighted),
-  '--wtf-color-now': form.now_color,
-}));
+const previewColorStyle = computed(() => {
+  const accent = resolveSwatchHex(form.accent_color_key, 'accent', resolvedTheme.value);
+  const free = resolveSwatchHex(form.free_color_key, 'free', resolvedTheme.value);
+  const busy = resolveSwatchHex(form.busy_color_key, 'busy', resolvedTheme.value);
+  const sleep = resolveSwatchHex(form.sleep_color_key, 'sleep', resolvedTheme.value);
+  const highlighted = resolveSwatchHex(form.highlight_color_key, 'highlighted', resolvedTheme.value);
+  const alpha = BLOCK_ALPHA[resolvedTheme.value];
+
+  return {
+    '--wtf-accent': accent,
+    '--wtf-accent-rgb': hexToRgbTriplet(accent),
+    '--wtf-color-free': hexToRgba(free, alpha.free),
+    '--wtf-hue-free': free,
+    '--wtf-color-busy': hexToRgba(busy, alpha.busy),
+    '--wtf-color-sleep': hexToRgba(sleep, alpha.sleep),
+    '--wtf-hue-sleep': sleep,
+    '--wtf-color-highlighted': hexToRgba(highlighted, alpha.highlighted),
+    '--wtf-hue-highlighted': highlighted,
+    '--wtf-color-now': form.now_color,
+  };
+});
+
+const previewSecondaryColor = computed(() => resolveSwatchHex(form.secondary_color_key, 'secondary', resolvedTheme.value));
 
 function onUrlInput(): void {
   calendarUrlForm.calendar_url_preview_confirmed = false;
@@ -702,21 +736,36 @@ function submit(): void {
         </div>
 
         <div class="row">
-          <div v-for="colorField in colorFields" :key="colorField.field" class="col-md-2 col-6 mb-3">
+          <div v-for="colorField in colorFields" :key="colorField.field" class="col-md-4 col-6 mb-3">
             <BFormGroup :label="colorField.label">
-              <div class="input-group">
-                <BFormInput
-                  v-model="(form as unknown as Record<string, string>)[colorField.field]"
-                  type="color"
-                />
-                <BButton
-                  variant="outline-secondary"
-                  size="sm"
-                  @click="resetColor(colorField.field, colorField.default)"
+              <div class="wtf-swatch-grid">
+                <button
+                  v-for="swatch in COLOR_PALETTE"
+                  :key="swatch.key"
+                  type="button"
+                  class="wtf-swatch-btn"
+                  :class="{ 'wtf-swatch-btn-active': (form as unknown as Record<string, string>)[colorField.field] === swatch.key }"
+                  :title="swatch.label"
+                  :aria-pressed="(form as unknown as Record<string, string>)[colorField.field] === swatch.key"
+                  :style="{ '--wtf-swatch-light': swatch.light, '--wtf-swatch-dark': swatch.dark }"
+                  @click="(form as unknown as Record<string, string>)[colorField.field] = swatch.key"
                 >
+                  <span class="visually-hidden">{{ swatch.label }}</span>
+                </button>
+              </div>
+            </BFormGroup>
+          </div>
+          <div class="col-md-4 col-6 mb-3">
+            <BFormGroup label="Current time">
+              <div class="input-group">
+                <BFormInput v-model="form.now_color" type="color" />
+                <BButton variant="outline-secondary" size="sm" @click="resetColor('now_color', '#e5566a')">
                   Reset
                 </BButton>
               </div>
+              <template #description>
+                Same in both themes — it's a fixed marker color, not tied to a theme's own palette.
+              </template>
             </BFormGroup>
           </div>
         </div>
@@ -725,7 +774,7 @@ function submit(): void {
           <p class="small fw-bold mb-1">
             {{ form.public_page_title_en || `${settings.name}'s Free Time` }}
           </p>
-          <p class="small mb-2" :style="{ color: form.secondary_color }">
+          <p class="small mb-2" :style="{ color: previewSecondaryColor }">
             <template v-if="previewAvailability">
               A smaller reference for how these colors read together — see the full preview under "Calendar" above for your actual events.
             </template>

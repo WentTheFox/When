@@ -38,12 +38,12 @@ class User extends Authenticatable
         'tentative_pattern',
         'public_page_title_en',
         'public_page_title_hu',
-        'accent_color',
-        'secondary_color',
-        'sleep_color',
-        'busy_color',
-        'free_color',
-        'highlight_color',
+        'accent_color_key',
+        'secondary_color_key',
+        'sleep_color_key',
+        'busy_color_key',
+        'free_color_key',
+        'highlight_color_key',
         'now_color',
     ];
 

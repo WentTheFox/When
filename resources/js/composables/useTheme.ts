@@ -38,12 +38,26 @@ function resolve(pref: Preference): 'light' | 'dark' {
   return pref === 'system' ? (media?.matches ? 'dark' : 'light') : pref;
 }
 
+// Module-level singleton, not a per-call ref — every page that renders
+// <ThemeToggle> (i.e. every page that calls useTheme()) shares this same
+// ref, so owner-color pickers elsewhere on the page (Settings.vue's live
+// preview, Free/Show.vue's rootStyle) can pick the theme-appropriate half
+// of a light/dark color pair reactively without each re-deriving the
+// current theme themselves.
+const resolvedTheme = ref<'light' | 'dark'>(resolve(getPreference()));
+
 function apply(pref: Preference): void {
+  const resolved = resolve(pref);
+  resolvedTheme.value = resolved;
   // Bootstrap 5's own native theming attribute — its built-in component
   // styles (card, btn, form-control, alert, ...) re-theme themselves under
   // this automatically; dark-theme.css only needs to supply this app's own
   // --wtf-* variables and whatever Bootstrap doesn't cover on top of that.
-  document.documentElement.setAttribute('data-bs-theme', resolve(pref));
+  document.documentElement.setAttribute('data-bs-theme', resolved);
+}
+
+export function useResolvedTheme() {
+  return resolvedTheme;
 }
 
 export function useTheme() {
