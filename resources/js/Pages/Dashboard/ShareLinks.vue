@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { faArchive, faBolt } from '@fortawesome/free-solid-svg-icons';
 import { BAlert, BButton, BCard, BFormGroup, BFormInput } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../../crypto';
@@ -190,7 +192,8 @@ async function importLinks(event: Event): Promise<void> {
               @click="select(link.id)"
             >
               {{ decryptedLabels[link.id] ?? '…' }}
-              <span v-if="link.archived" class="text-muted small"> (archived)</span>
+              <FontAwesomeIcon v-if="link.archived" :icon="faArchive" class="ms-2 text-muted" title="Archived" />
+              <FontAwesomeIcon v-if="link.bypass_dnd" :icon="faBolt" class="ms-2 text-warning" title="Bypasses do not disturb" />
             </button>
           </div>
         </div>
