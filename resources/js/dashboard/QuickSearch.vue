@@ -9,7 +9,7 @@
  */
 import { router, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { decryptString } from '../crypto';
 import { requestUnlock } from './vaultModal';
 import { useVault } from './useVault';
@@ -85,9 +85,14 @@ function goTo(id: string): void {
     return;
   }
 
-  router.visit('/dashboard/connections', {
-    onSuccess: () => nextTick(() => document.getElementById(anchor)?.scrollIntoView({ block: 'center' })),
-  });
+  // No onSuccess/nextTick scroll here — from this persistent header
+  // component, that raced the actual page swap (nextTick only waits for a
+  // Vue update already scheduled at the moment it's called, and the new
+  // page's render often hadn't been queued yet when onSuccess fired, so
+  // the scroll ran against the still-outgoing page and found nothing).
+  // The hash instead lets Connections.vue itself scroll on its own
+  // onMounted, which Vue guarantees fires only once its own DOM exists.
+  router.visit(`/dashboard/connections#${anchor}`);
 }
 
 // Closing on blur would also swallow the click on a result (blur fires

@@ -2,7 +2,7 @@
 import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
 import { BButton, BCard, BFormGroup, BFormInput, BFormSelect, BFormTextarea } from 'bootstrap-vue-next';
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../../crypto';
 import AttributesPanel from '../../dashboard/AttributesPanel.vue';
 import ConnectionCard, { type ConnectionRow } from '../../dashboard/ConnectionCard.vue';
@@ -102,6 +102,25 @@ watch(vaultUnlocked, async (unlocked) => {
     }
     edges.value.push({ ...edge, label });
   }
+}, { immediate: true });
+
+/**
+ * QuickSearch.vue (the dashboard-wide search box) links here as
+ * /dashboard/connections#connection-<id> rather than trying to scroll from
+ * the header component itself — that raced Inertia's page swap, since
+ * nextTick() there only waits for a Vue update already scheduled at the
+ * moment it's called, not one queued moments later. Reacting to
+ * vaultUnlocked from inside this page instead means the scroll only ever
+ * runs once this component's own cards are actually in the DOM: either
+ * immediately (vault was already unlocked when this page loaded) or once
+ * VaultGate's own unlock prompt resolves (it wasn't).
+ */
+watch(vaultUnlocked, (unlocked) => {
+  if (!unlocked || !window.location.hash) return;
+
+  nextTick(() => {
+    document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
 }, { immediate: true });
 
 function nameOf(connectionId: string): string {
