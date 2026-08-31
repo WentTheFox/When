@@ -232,7 +232,16 @@ class AvailabilityService
                 $windowEnd = $windowEnd->addDay();
             }
         } else {
-            $windowEnd = $day->endOfDay();
+            // Next midnight, not this day's endOfDay() (23:59:59.999999) —
+            // the latter leaves a 1-microsecond gap against the following
+            // day's startOfDay() that computeSleepBlocks' inversion picks
+            // up as a degenerate "sleep" entry for every day boundary in
+            // the range, even with no wake/sleep configured at all. User-
+            // reported: showed up as spurious sleep records with nothing
+            // configured. Exact midnight-to-midnight closes the gap so
+            // consecutive blank days merge into one continuous awake
+            // window with zero sleep artifacts.
+            $windowEnd = $day->addDay()->startOfDay();
         }
 
         return [$windowStart, $windowEnd];

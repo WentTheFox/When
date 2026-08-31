@@ -394,14 +394,14 @@ class AvailabilityServiceTest extends TestCase
         $result = $this->compute();
 
         // No wake/sleep configured at all — every day of the range is
-        // (almost entirely) free. A day boundary's 23:59:59 endOfDay() vs.
-        // the next day's 00:00:00 startOfDay() leaves a 1-microsecond gap
-        // that technically becomes "sleep" — a real, harmless artifact of
-        // this being a verbatim port of the source app's own day-window
-        // algorithm, not something to paper over here.
-        foreach ($result->sleep as $slot) {
-            $this->assertLessThanOrEqual(1, $slot->start->diffInMicroseconds($slot->end));
-        }
+        // fully free, with zero sleep entries. dayWindow()'s "whole day"
+        // fallback used to be this day's endOfDay() (23:59:59.999999)
+        // rather than the next day's startOfDay(), leaving a
+        // 1-microsecond gap at every day boundary that computeSleepBlocks'
+        // inversion picked up as a spurious degenerate sleep entry — user-
+        // reported as "sleep records added even if no sleep times are
+        // configured". Exact midnight-to-midnight windows close that gap.
+        $this->assertEmpty($result->sleep);
         $this->assertNotEmpty($result->free);
     }
 }
