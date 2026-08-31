@@ -18,12 +18,21 @@ class TwoFactorController extends Controller
 
     public function __construct(private readonly TwoFactorAuthenticationService $twoFactor) {}
 
-    public function setup(Request $request): Response
+    public function setup(Request $request): Response|RedirectResponse
     {
         /** @var User $user */
         $user = $request->user();
 
-        if (! $user->two_factor_secret || $user->two_factor_confirmed_at) {
+        // Already enabled — visiting this page directly must never
+        // silently regenerate the secret (that would invalidate the
+        // authenticator entry the user already has confirmed, without
+        // disabling 2FA first). Management (including disabling) lives on
+        // the Security page now.
+        if ($user->two_factor_confirmed_at) {
+            return redirect()->route('dashboard.security');
+        }
+
+        if (! $user->two_factor_secret) {
             $this->twoFactor->generateSecret($user);
             $user->refresh();
         }
@@ -44,8 +53,11 @@ class TwoFactorController extends Controller
             throw ValidationException::withMessages(['code' => 'That code did not match.']);
         }
 
+        // Back to the Security page's own two-factor section, not the
+        // setup wizard — that's where the "Enabled" status and recovery
+        // codes now belong (see Dashboard/Security.vue).
         return redirect()
-            ->route('two-factor.setup')
+            ->route('dashboard.security')
             ->with('recoveryCodes', $recoveryCodes);
     }
 
@@ -53,7 +65,7 @@ class TwoFactorController extends Controller
     {
         $this->twoFactor->disable($request->user());
 
-        return redirect()->route('dashboard');
+        return redirect()->route('dashboard.security');
     }
 
     public function challenge(Request $request): Response|RedirectResponse

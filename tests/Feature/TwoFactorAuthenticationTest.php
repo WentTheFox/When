@@ -94,6 +94,52 @@ class TwoFactorAuthenticationTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_visiting_setup_when_not_yet_enabled_renders_the_setup_page(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->get('/two-factor')->assertOk();
+    }
+
+    public function test_visiting_setup_when_already_enabled_redirects_to_security_without_regenerating_the_secret(): void
+    {
+        $user = User::factory()->create();
+        app(TwoFactorAuthenticationService::class)->generateSecret($user);
+        $user->refresh();
+        $this->confirmTwoFactor($user);
+        $user->refresh();
+        $secretBefore = $user->two_factor_secret;
+
+        $this->actingAs($user)->get('/two-factor')->assertRedirect(route('dashboard.security'));
+
+        $this->assertSame($secretBefore, $user->fresh()->two_factor_secret);
+    }
+
+    public function test_confirming_setup_redirects_to_security_with_recovery_codes_flashed(): void
+    {
+        $user = User::factory()->create();
+        app(TwoFactorAuthenticationService::class)->generateSecret($user);
+        $user->refresh();
+        $code = (new Google2FA())->getCurrentOtp($user->two_factor_secret);
+
+        $response = $this->actingAs($user)->post('/two-factor/confirm', ['code' => $code]);
+
+        $response->assertRedirect(route('dashboard.security'));
+        $response->assertSessionHas('recoveryCodes');
+    }
+
+    public function test_disabling_two_factor_redirects_to_security(): void
+    {
+        $user = User::factory()->create();
+        app(TwoFactorAuthenticationService::class)->generateSecret($user);
+        $user->refresh();
+        $this->confirmTwoFactor($user);
+
+        $response = $this->actingAs($user)->delete('/two-factor');
+
+        $response->assertRedirect(route('dashboard.security'));
+    }
+
     private function confirmTwoFactor(User $user): array
     {
         $service = app(TwoFactorAuthenticationService::class);

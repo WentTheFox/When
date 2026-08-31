@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Link, useForm } from '@inertiajs/vue3';
-import { BBadge, BButton, BCard } from 'bootstrap-vue-next';
+import { Link, useForm, usePage } from '@inertiajs/vue3';
+import { BAlert, BBadge, BButton, BCard } from 'bootstrap-vue-next';
 import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 
 defineOptions({ layout: DashboardLayout });
@@ -8,6 +8,8 @@ defineOptions({ layout: DashboardLayout });
 defineProps<{
   twoFactorEnabled: boolean;
 }>();
+
+const page = usePage();
 
 const disableTwoFactorForm = useForm({});
 
@@ -30,6 +32,17 @@ function disableTwoFactor(): void {
       Adds a one-time code from an authenticator app to every login, separate from your
       master password.
     </p>
+
+    <BAlert :model-value="!!page.props.flash?.recoveryCodes" variant="warning">
+      <strong>Save these recovery codes somewhere safe</strong> — each one works once,
+      and this is the only time they're shown:
+      <ul class="mb-0 mt-2">
+        <li v-for="recoveryCode in page.props.flash?.recoveryCodes" :key="recoveryCode">
+          <code>{{ recoveryCode }}</code>
+        </li>
+      </ul>
+    </BAlert>
+
     <Link v-if="!twoFactorEnabled" href="/two-factor" class="btn btn-primary">Set up two-factor authentication</Link>
     <BButton v-else variant="outline-danger" :disabled="disableTwoFactorForm.processing" @click="disableTwoFactor">
       Disable two-factor authentication

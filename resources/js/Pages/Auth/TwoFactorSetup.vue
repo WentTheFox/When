@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, useForm, usePage } from '@inertiajs/vue3';
+import { Head, useForm } from '@inertiajs/vue3';
 import { BAlert, BButton, BCard, BFormGroup, BFormInput } from 'bootstrap-vue-next';
 import QRCode from 'qrcode';
 import { onMounted, ref } from 'vue';
@@ -11,8 +11,6 @@ const props = defineProps<{
   secret: string;
   qrCodeUrl: string;
 }>();
-
-const page = usePage();
 
 const form = useForm({ code: '' });
 
@@ -41,16 +39,6 @@ onMounted(async () => {
     <h1 class="h3 mb-4 text-center">Two-factor authentication</h1>
 
     <div style="max-width: 28rem; margin: 0 auto;">
-      <BAlert :model-value="!!page.props.flash?.recoveryCodes" variant="warning">
-        <strong>Save these recovery codes somewhere safe</strong> — each one works once,
-        and this is the only time they're shown:
-        <ul class="mb-0 mt-2">
-          <li v-for="recoveryCode in page.props.flash?.recoveryCodes" :key="recoveryCode">
-            <code>{{ recoveryCode }}</code>
-          </li>
-        </ul>
-      </BAlert>
-
       <BAlert :model-value="Object.keys(form.errors).length > 0" variant="danger">
         <ul class="mb-0">
           <li v-for="(message, field) in form.errors" :key="field">{{ message }}</li>
