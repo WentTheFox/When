@@ -96,8 +96,12 @@ const rootStyle = computed(() => {
 class LinkExpiredError extends Error {
 }
 
+/** The owner hasn't set a calendar URL — nothing will ever compute for this link until they do, so this is a terminal state, not "still loading." */
+class CalendarUnconfiguredError extends Error {
+}
+
 interface ApiResponse {
-  status: 'pending' | 'ready';
+  status: 'pending' | 'ready' | 'unconfigured';
   ciphertext?: string;
   computed_range_start?: string;
   computed_range_end?: string;
@@ -296,6 +300,10 @@ async function fetchWithPolling(): Promise<ApiResponse> {
       return data;
     }
 
+    if (data.status === 'unconfigured') {
+      throw new CalendarUnconfiguredError();
+    }
+
     statusText.value = "Your friend's calendar is being fetched for the first time — this can take a moment…";
     await new Promise((r) => setTimeout(r, 2000));
   }
@@ -327,9 +335,11 @@ async function boot(): Promise<void> {
     showCalendar.value = false;
     showStatus.value = true;
     showError.value = true;
-    statusText.value = error instanceof DecryptionFailedError
-      ? 'Could not decrypt this calendar. The link may be broken.'
-      : 'Could not load this calendar right now. Please try again later.';
+    statusText.value = error instanceof CalendarUnconfiguredError
+      ? "This calendar hasn't been set up yet. Ask them to add a calendar URL in their settings."
+      : error instanceof DecryptionFailedError
+        ? 'Could not decrypt this calendar. The link may be broken.'
+        : 'Could not load this calendar right now. Please try again later.';
   }
 }
 

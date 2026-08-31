@@ -8,17 +8,27 @@ use App\Models\ShareLinkCache;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Crypt;
 use Tests\TestCase;
 
 class ShareLinkAvailabilityApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** A calendar URL must be configured for the pending/ready/stale flows below — see the dedicated "unconfigured" tests for the no-calendar-URL path. */
+    private function userWithCalendar(array $attributes = []): User
+    {
+        return User::factory()->create([
+            'calendar_url_ciphertext' => Crypt::encryptString('https://example.com/secret.ics'),
+            ...$attributes,
+        ]);
+    }
+
     public function test_returns_pending_and_dispatches_a_recompute_when_nothing_is_cached_yet(): void
     {
         Bus::fake();
 
-        $shareLink = ShareLink::factory()->for(User::factory())->create();
+        $shareLink = ShareLink::factory()->for($this->userWithCalendar())->create();
 
         $response = $this->getJson(route('api.share-links.show', $shareLink));
 
@@ -39,7 +49,7 @@ class ShareLinkAvailabilityApiTest extends TestCase
     {
         Bus::fake();
 
-        $shareLink = ShareLink::factory()->for(User::factory())->create();
+        $shareLink = ShareLink::factory()->for($this->userWithCalendar())->create();
 
         $this->getJson(route('api.share-links.show', $shareLink))->assertStatus(202);
         $this->getJson(route('api.share-links.show', $shareLink))->assertStatus(202);
@@ -52,7 +62,7 @@ class ShareLinkAvailabilityApiTest extends TestCase
     {
         Bus::fake();
 
-        $shareLink = ShareLink::factory()->for(User::factory())->create();
+        $shareLink = ShareLink::factory()->for($this->userWithCalendar())->create();
         ShareLinkCache::create([
             'share_link_id' => $shareLink->id,
             'ciphertext' => 'opaque-ciphertext-blob',
@@ -75,7 +85,7 @@ class ShareLinkAvailabilityApiTest extends TestCase
     {
         Bus::fake();
 
-        $shareLink = ShareLink::factory()->for(User::factory())->create();
+        $shareLink = ShareLink::factory()->for($this->userWithCalendar())->create();
         ShareLinkCache::create([
             'share_link_id' => $shareLink->id,
             'ciphertext' => 'stale-ciphertext-blob',
@@ -96,7 +106,7 @@ class ShareLinkAvailabilityApiTest extends TestCase
 
     public function test_resolves_a_legacy_token_the_same_as_a_uuid_id(): void
     {
-        $shareLink = ShareLink::factory()->for(User::factory())->create(['legacy_token' => 'legacy-abc-123']);
+        $shareLink = ShareLink::factory()->for($this->userWithCalendar())->create(['legacy_token' => 'legacy-abc-123']);
         ShareLinkCache::create([
             'share_link_id' => $shareLink->id,
             'ciphertext' => 'legacy-ciphertext-blob',
@@ -115,7 +125,7 @@ class ShareLinkAvailabilityApiTest extends TestCase
 
     public function test_archived_share_links_return_401_as_the_link_expired_signal(): void
     {
-        $shareLink = ShareLink::factory()->for(User::factory())->create(['archived' => true]);
+        $shareLink = ShareLink::factory()->for($this->userWithCalendar())->create(['archived' => true]);
 
         $response = $this->getJson(route('api.share-links.show', $shareLink));
 
@@ -125,7 +135,7 @@ class ShareLinkAvailabilityApiTest extends TestCase
 
     public function test_response_includes_the_owners_timezone(): void
     {
-        $user = User::factory()->create(['timezone' => 'Europe/Budapest']);
+        $user = $this->userWithCalendar(['timezone' => 'Europe/Budapest']);
         $shareLink = ShareLink::factory()->for($user)->create();
         ShareLinkCache::create([
             'share_link_id' => $shareLink->id,
@@ -138,5 +148,43 @@ class ShareLinkAvailabilityApiTest extends TestCase
         $response = $this->getJson(route('api.share-links.show', $shareLink));
 
         $response->assertJson(['timezone' => 'Europe/Budapest']);
+    }
+
+    /**
+     * The bug this guards against: an owner with no calendar URL set was
+     * silently stuck on "pending" forever — a recompute got dispatched on
+     * every poll, ran, found nothing to fetch, and no-opped, over and
+     * over, with no way for the viewer to tell that apart from "still
+     * fetching for the first time."
+     */
+    public function test_returns_unconfigured_and_never_dispatches_a_recompute_when_no_calendar_url_is_set(): void
+    {
+        Bus::fake();
+
+        $shareLink = ShareLink::factory()->for(User::factory()->create(['calendar_url_ciphertext' => null]))->create();
+
+        $response = $this->getJson(route('api.share-links.show', $shareLink));
+
+        $response->assertOk()->assertJson(['status' => 'unconfigured']);
+        Bus::assertNotDispatched(RecomputeShareLinkAvailability::class);
+    }
+
+    public function test_unconfigured_status_still_wins_even_with_a_stale_cache_present(): void
+    {
+        Bus::fake();
+
+        $shareLink = ShareLink::factory()->for(User::factory()->create(['calendar_url_ciphertext' => null]))->create();
+        ShareLinkCache::create([
+            'share_link_id' => $shareLink->id,
+            'ciphertext' => 'stale-ciphertext-blob',
+            'computed_range_start' => now()->subHours(20),
+            'computed_range_end' => now()->addDays(60),
+            'encrypted_at' => now()->subMinutes(30),
+        ]);
+
+        $response = $this->getJson(route('api.share-links.show', $shareLink));
+
+        $response->assertOk()->assertJson(['status' => 'unconfigured']);
+        Bus::assertNotDispatched(RecomputeShareLinkAvailability::class);
     }
 }

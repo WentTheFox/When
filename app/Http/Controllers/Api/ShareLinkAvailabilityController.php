@@ -59,6 +59,19 @@ class ShareLinkAvailabilityController extends Controller
             return response()->json(['error' => 'This share link has expired.'], 401);
         }
 
+        if ($shareLink->user->calendar_url_ciphertext === null) {
+            // Distinct terminal status, not "pending": there is nothing to
+            // fetch, and never will be until the owner sets a calendar URL,
+            // so dispatching a recompute here would just no-op on every
+            // single poll forever instead of ever computing anything — the
+            // viewer would otherwise sit on "loading" with no explanation
+            // and no way to tell this apart from a slow first fetch.
+            return response()->json([
+                'status' => 'unconfigured',
+                'timezone' => $shareLink->user->timezone,
+            ]);
+        }
+
         $cache = $shareLink->cache;
         $isStale = $cache === null || $cache->encrypted_at->lt(now()->subMinutes(self::CACHE_TTL_MINUTES));
 
