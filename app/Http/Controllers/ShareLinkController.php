@@ -26,10 +26,6 @@ class ShareLinkController extends Controller
      * same-path domain redirect; it needs no per-token data from this app
      * at all, since the token in the URL never changes between the two
      * apps.
-     *
-     * STUB pending Stage 6's full public viewer build (scrambled→decrypted
-     * transition, month/week/agenda views, etc) for the actual rendering
-     * path.
      */
     public function show(string $token): View
     {
@@ -37,7 +33,7 @@ class ShareLinkController extends Controller
             $shareLink = ShareLink::find($token);
 
             if ($shareLink !== null) {
-                return $this->renderStub($shareLink);
+                return $this->render($shareLink, $token);
             }
         }
 
@@ -47,10 +43,10 @@ class ShareLinkController extends Controller
             abort(Response::HTTP_NOT_FOUND);
         }
 
-        return $this->renderStub($shareLink);
+        return $this->render($shareLink, $token);
     }
 
-    private function renderStub(ShareLink $shareLink): View
+    private function render(ShareLink $shareLink, string $token): View
     {
         $invite = Invite::where('source_share_link_id', $shareLink->id)
             ->whereNull('max_uses')
@@ -64,9 +60,26 @@ class ShareLinkController extends Controller
             );
         }
 
+        $owner = $shareLink->user;
+
         return view('share-links.show', [
             'shareLink' => $shareLink,
+            'token' => $token,
             'inviteCode' => $invite->code,
+            'ownerName' => $owner->name,
+            // No hardcoded "My Free Time" branding — owners can override
+            // the page heading entirely; the default is computed here
+            // rather than baked into the frontend so the fallback text
+            // itself stays server-controlled.
+            'pageTitle' => $owner->public_page_title ?? "{$owner->name}'s Free Time",
+            'colors' => [
+                'accent' => $owner->accent_color,
+                'secondary' => $owner->secondary_color,
+                'free' => $owner->free_color,
+                'busy' => $owner->busy_color,
+                'sleep' => $owner->sleep_color,
+                'highlighted' => $owner->highlight_color,
+            ],
         ]);
     }
 }

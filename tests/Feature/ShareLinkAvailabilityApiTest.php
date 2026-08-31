@@ -71,6 +71,25 @@ class ShareLinkAvailabilityApiTest extends TestCase
         Bus::assertDispatched(\App\Jobs\RecomputeShareLinkAvailability::class);
     }
 
+    public function test_resolves_a_legacy_token_the_same_as_a_uuid_id(): void
+    {
+        $shareLink = ShareLink::factory()->for(User::factory())->create(['legacy_token' => 'legacy-abc-123']);
+        ShareLinkCache::create([
+            'share_link_id' => $shareLink->id,
+            'ciphertext' => 'legacy-ciphertext-blob',
+            'computed_range_start' => now(),
+            'computed_range_end' => now()->addDays(60),
+            'encrypted_at' => now(),
+        ]);
+
+        $response = $this->getJson('/api/share/legacy-abc-123');
+
+        $response->assertOk()->assertJson([
+            'status' => 'ready',
+            'ciphertext' => 'legacy-ciphertext-blob',
+        ]);
+    }
+
     public function test_archived_share_links_are_not_served(): void
     {
         $shareLink = ShareLink::factory()->for(User::factory())->create(['archived' => true]);

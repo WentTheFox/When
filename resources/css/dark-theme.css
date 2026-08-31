@@ -1,0 +1,106 @@
+/*
+ * Bootstrap 4 dark-mode override (plan explicitly calls for Bootstrap 4 +
+ * dark-mode variable overrides, not Bootstrap 5 — BS4 has no native
+ * CSS-variable theming, so this is a manual override layer on top of the
+ * default light theme rather than a Sass recompile.
+ *
+ * Slot-type colors (--wtf-color-*) are set as defaults here and can be
+ * overridden inline per owner via users.accent_color/free_color/etc.
+ * (Stage 6/7 schema) — see share-links/show.blade.php.
+ */
+
+:root {
+    --wtf-bg: #14161a;
+    --wtf-bg-elevated: #1c1f26;
+    --wtf-text: #e7e9ee;
+    --wtf-text-muted: #9aa1ad;
+    --wtf-border: rgba(255, 255, 255, 0.1);
+
+    --wtf-accent: #e8853a;
+    --wtf-color-free: rgba(232, 133, 58, 0.25);
+    --wtf-color-busy: rgba(20, 22, 26, 0.55);
+    --wtf-color-highlighted: rgba(255, 193, 7, 0.3);
+    --wtf-color-sleep: rgba(111, 66, 193, 0.3);
+    --wtf-color-tentative: rgba(154, 161, 173, 0.25);
+}
+
+body {
+    background-color: var(--wtf-bg);
+    color: var(--wtf-text);
+}
+
+/*
+ * Bootstrap 4 utility classes like .d-flex use !important, which otherwise
+ * beats the native [hidden] attribute's display:none (lower specificity, no
+ * !important in the UA stylesheet). This guarantees hidden always wins.
+ */
+[hidden] {
+    display: none !important;
+}
+
+a {
+    color: var(--wtf-accent);
+}
+
+.card,
+.modal-content {
+    background-color: var(--wtf-bg-elevated);
+    border-color: var(--wtf-border);
+    color: var(--wtf-text);
+}
+
+.btn-outline-secondary {
+    color: var(--wtf-text-muted);
+    border-color: var(--wtf-border);
+}
+
+.btn-outline-secondary:hover:not(:disabled) {
+    background-color: var(--wtf-bg-elevated);
+    color: var(--wtf-text);
+    border-color: var(--wtf-text-muted);
+}
+
+.btn-secondary {
+    background-color: var(--wtf-accent);
+    border-color: var(--wtf-accent);
+    color: #14161a;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    filter: brightness(1.1);
+    background-color: var(--wtf-accent);
+    border-color: var(--wtf-accent);
+    color: #14161a;
+}
+
+.btn-group .btn-outline-secondary.active,
+.btn-check:checked + .btn-outline-secondary {
+    background-color: var(--wtf-accent);
+    border-color: var(--wtf-accent);
+    color: #14161a;
+}
+
+.form-control {
+    background-color: var(--wtf-bg-elevated);
+    border-color: var(--wtf-border);
+    color: var(--wtf-text);
+}
+
+.form-control:focus {
+    background-color: var(--wtf-bg-elevated);
+    color: var(--wtf-text);
+    border-color: var(--wtf-accent);
+    box-shadow: 0 0 0 0.2rem rgba(232, 133, 58, 0.25);
+}
+
+.text-warning {
+    color: #ffc107 !important;
+}
+
+.text-danger {
+    color: #e5566a !important;
+}
+
+hr {
+    border-top-color: var(--wtf-border);
+}

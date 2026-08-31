@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Jobs\RecomputeShareLinkAvailability;
 use App\Models\ShareLink;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * §5.3's public API: serves whatever's cached, and triggers a recompute
@@ -18,8 +20,21 @@ class ShareLinkAvailabilityController extends Controller
     /** How long a cached result is served before a request triggers a refresh. */
     private const CACHE_TTL_MINUTES = 15;
 
-    public function show(ShareLink $shareLink): JsonResponse
+    /**
+     * Plain string token, not Eloquent route-model-binding — same reasoning
+     * as ShareLinkController::show: a legacy token (§0.5) isn't a model key,
+     * so implicit binding (which only ever looks up by `id`) would 404 on
+     * every migrated link.
+     */
+    public function show(string $token): JsonResponse
     {
+        $shareLink = Str::isUuid($token) ? ShareLink::find($token) : null;
+        $shareLink ??= ShareLink::where('legacy_token', $token)->first();
+
+        if ($shareLink === null) {
+            abort(Response::HTTP_NOT_FOUND);
+        }
+
         if ($shareLink->archived) {
             return response()->json(['error' => 'This share link has been archived.'], 404);
         }
