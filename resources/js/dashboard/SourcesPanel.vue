@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { BButton, BCard, BFormGroup, BFormInput } from 'bootstrap-vue-next';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 interface SourceOption {
   id: string;
@@ -14,6 +14,13 @@ const emit = defineEmits<{ add: [string]; update: [string, string]; remove: [str
 const newName = ref('');
 const selectedId = ref<string | null>(null);
 const editName = ref('');
+
+const sortedSources = computed(() => [...props.sources].sort((a, b) => a.label.localeCompare(b.label)));
+const filteredSources = computed(() => {
+  const query = newName.value.trim().toLowerCase();
+  if (!query) return sortedSources.value;
+  return sortedSources.value.filter((s) => s.label.toLowerCase().includes(query));
+});
 
 function add(): void {
   if (!newName.value) return;
@@ -53,10 +60,14 @@ function remove(): void {
     <h2 class="h5 mb-3">Connection sources</h2>
     <div class="row">
       <div class="col-md-4">
-        <p v-if="sources.length === 0" class="text-muted small">No sources yet.</p>
+        <div class="input-group input-group-sm mb-2">
+          <BFormInput v-model="newName" type="text" placeholder="Search or new source" @keyup.enter="add" />
+          <BButton variant="outline-secondary" @click="add">Add</BButton>
+        </div>
+        <p v-if="filteredSources.length === 0" class="text-muted small">No sources found.</p>
         <div v-else class="list-group wtf-master-list">
           <button
-            v-for="source in sources"
+            v-for="source in filteredSources"
             :key="source.id"
             type="button"
             class="list-group-item list-group-item-action"
@@ -65,10 +76,6 @@ function remove(): void {
           >
             {{ source.label }}
           </button>
-        </div>
-        <div class="input-group input-group-sm mt-2">
-          <BFormInput v-model="newName" type="text" placeholder="New source" @keyup.enter="add" />
-          <BButton variant="outline-secondary" @click="add">Add</BButton>
         </div>
       </div>
 

@@ -2,7 +2,6 @@
 
 namespace App\Jobs;
 
-use App\Domain\Calendar\ManualTag;
 use App\Models\CalendarDetection;
 use App\Models\ShareLink;
 use App\Models\ShareLinkCache;
@@ -128,13 +127,6 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
             ->map(fn (string $ciphertext) => Crypt::decryptString($ciphertext))
             ->all();
 
-        $manualTags = $shareLink->manualTags->map(fn ($tag) => new ManualTag(
-            word: Crypt::decryptString($tag->word_ciphertext),
-            weekday: $tag->weekday,
-            startTime: $tag->start_time,
-            endTime: $tag->end_time,
-        ))->all();
-
         $sleepExceptions = SleepException::where('user_id', $user->id)
             ->get(['start_date', 'end_date'])
             ->map(fn ($exception) => [
@@ -152,7 +144,6 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
             dndEventName: $user->dnd_event_name,
             napEventName: $user->nap_event_name,
             highlightWords: $highlightWords,
-            manualTags: $manualTags,
             bypassDnd: $shareLink->bypass_dnd,
             rangeStart: $rangeStart,
             rangeEnd: $rangeEnd,
@@ -185,7 +176,7 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
 
         $timer->lap('encrypt_and_store');
 
-        unset($calendarUrl, $icsBody, $resultJson, $contentKey, $highlightWords, $manualTags);
+        unset($calendarUrl, $icsBody, $resultJson, $contentKey, $highlightWords);
     }
 
     private function hasUsableContentKey(ShareLink $shareLink): bool

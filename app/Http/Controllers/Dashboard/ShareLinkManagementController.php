@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Models\ShareLink;
 use App\Models\ShareLinkCache;
-use App\Models\ShareLinkManualTag;
 use App\Models\ShareLinkWord;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,7 +29,7 @@ class ShareLinkManagementController extends Controller
     public function index(Request $request): Response
     {
         $shareLinks = $request->user()->shareLinks()
-            ->with(['words', 'manualTags', 'connection'])
+            ->with(['words', 'connection'])
             ->latest()
             ->get()
             ->map(fn (ShareLink $shareLink) => $this->serializeForOwner($shareLink));
@@ -63,12 +62,6 @@ class ShareLinkManagementController extends Controller
             'highlight_words' => $shareLink->words->map(
                 fn (ShareLinkWord $word) => Crypt::decryptString($word->word_ciphertext),
             )->all(),
-            'manual_tags' => $shareLink->manualTags->map(fn (ShareLinkManualTag $tag) => [
-                'word' => Crypt::decryptString($tag->word_ciphertext),
-                'weekday' => $tag->weekday,
-                'start_time' => $tag->start_time,
-                'end_time' => $tag->end_time,
-            ])->all(),
         ];
     }
 
@@ -119,11 +112,6 @@ class ShareLinkManagementController extends Controller
             'wrap_salt' => ['nullable', 'string'],
             'highlight_words' => ['nullable', 'array'],
             'highlight_words.*' => ['string'],
-            'manual_tags' => ['nullable', 'array'],
-            'manual_tags.*.word' => ['required_with:manual_tags', 'string'],
-            'manual_tags.*.weekday' => ['nullable', 'integer', 'min:0', 'max:6'],
-            'manual_tags.*.start_time' => ['required_with:manual_tags', 'string'],
-            'manual_tags.*.end_time' => ['required_with:manual_tags', 'string'],
         ]);
 
         $this->applyUpdate($shareLink, $data);
@@ -151,19 +139,6 @@ class ShareLinkManagementController extends Controller
                     ShareLinkWord::create([
                         'share_link_id' => $shareLink->id,
                         'word_ciphertext' => Crypt::encryptString($word),
-                    ]);
-                }
-            }
-
-            if (array_key_exists('manual_tags', $data)) {
-                $shareLink->manualTags()->delete();
-                foreach ($data['manual_tags'] as $tag) {
-                    ShareLinkManualTag::create([
-                        'share_link_id' => $shareLink->id,
-                        'word_ciphertext' => Crypt::encryptString($tag['word']),
-                        'weekday' => $tag['weekday'] ?? null,
-                        'start_time' => $tag['start_time'],
-                        'end_time' => $tag['end_time'],
                     ]);
                 }
             }
@@ -218,7 +193,7 @@ class ShareLinkManagementController extends Controller
      */
     public function export(Request $request): JsonResponse
     {
-        $shareLinks = $request->user()->shareLinks()->with(['words', 'manualTags'])->get();
+        $shareLinks = $request->user()->shareLinks()->with('words')->get();
 
         return response()->json([
             'share_links' => $shareLinks->map(fn (ShareLink $shareLink) => [
@@ -229,12 +204,6 @@ class ShareLinkManagementController extends Controller
                 'highlight_words' => $shareLink->words->map(
                     fn (ShareLinkWord $word) => Crypt::decryptString($word->word_ciphertext),
                 )->all(),
-                'manual_tags' => $shareLink->manualTags->map(fn (ShareLinkManualTag $tag) => [
-                    'word' => Crypt::decryptString($tag->word_ciphertext),
-                    'weekday' => $tag->weekday,
-                    'start_time' => $tag->start_time,
-                    'end_time' => $tag->end_time,
-                ])->all(),
             ])->all(),
         ]);
     }
@@ -250,11 +219,6 @@ class ShareLinkManagementController extends Controller
             'share_links.*.show_activity' => ['nullable', 'boolean'],
             'share_links.*.highlight_words' => ['nullable', 'array'],
             'share_links.*.highlight_words.*' => ['string'],
-            'share_links.*.manual_tags' => ['nullable', 'array'],
-            'share_links.*.manual_tags.*.word' => ['required_with:share_links.*.manual_tags', 'string'],
-            'share_links.*.manual_tags.*.weekday' => ['nullable', 'integer', 'min:0', 'max:6'],
-            'share_links.*.manual_tags.*.start_time' => ['required_with:share_links.*.manual_tags', 'string'],
-            'share_links.*.manual_tags.*.end_time' => ['required_with:share_links.*.manual_tags', 'string'],
         ]);
 
         $imported = 0;

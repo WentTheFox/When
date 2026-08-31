@@ -3,7 +3,6 @@
 namespace App\Services\Calendar;
 
 use App\Domain\Calendar\HighlightMatch;
-use App\Domain\Calendar\ManualTag;
 use App\Domain\Calendar\ParsedEvent;
 use App\Support\Regex;
 
@@ -15,8 +14,7 @@ use App\Support\Regex;
  *   title) out of SUMMARY/DESCRIPTION and check whether any comma-separated
  *   token in X matches a configured word.
  * - free_busy_only: no real titles exist, so fall back to LOCATION (if
- *   present) or manual time-block tags — never fabricate a match against a
- *   generic "Busy" summary.
+ *   present) — never fabricate a match against a generic "Busy" summary.
  * - mixed: decided per event by {@see ParsedEvent::$isFreeBusyOnly}.
  *
  * A matched event's title can still contain more than the bare highlight
@@ -48,16 +46,15 @@ class HighlightMatcher
 
     /**
      * @param  string[]  $highlightWords  Owner's configured words, already decrypted.
-     * @param  ManualTag[]  $manualTags  Already decrypted.
      */
-    public function match(ParsedEvent $event, array $highlightWords, array $manualTags, ?string $clausePattern = null): ?HighlightMatch
+    public function match(ParsedEvent $event, array $highlightWords, ?string $clausePattern = null): ?HighlightMatch
     {
         if ($event->isFreeBusyOnly) {
-            return $this->matchFreeBusyOnly($event, $highlightWords, $manualTags);
+            return $this->matchFreeBusyOnly($event, $highlightWords);
         }
 
         return $this->matchFullDetail($event, $highlightWords, $clausePattern)
-            ?? $this->matchFreeBusyOnly($event, $highlightWords, $manualTags);
+            ?? $this->matchFreeBusyOnly($event, $highlightWords);
     }
 
     private function matchFullDetail(ParsedEvent $event, array $highlightWords, ?string $clausePattern): ?HighlightMatch
@@ -134,22 +131,13 @@ class HighlightMatcher
         return $matched;
     }
 
-    private function matchFreeBusyOnly(ParsedEvent $event, array $highlightWords, array $manualTags): ?HighlightMatch
+    private function matchFreeBusyOnly(ParsedEvent $event, array $highlightWords): ?HighlightMatch
     {
         if ($event->location !== null) {
             foreach ($highlightWords as $word) {
                 if (mb_strtolower(trim($event->location)) === mb_strtolower($word)) {
                     return new HighlightMatch([$word]);
                 }
-            }
-        }
-
-        $weekday = (int) $event->start->format('w');
-        $timeOfDay = $event->start->format('H:i');
-
-        foreach ($manualTags as $tag) {
-            if ($tag->matchesWeekdayAndTime($weekday, $timeOfDay)) {
-                return new HighlightMatch([$tag->word]);
             }
         }
 

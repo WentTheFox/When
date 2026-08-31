@@ -7,13 +7,6 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../crypto';
 import { useVault } from './useVault';
 
-interface ManualTag {
-  word: string;
-  weekday: number | null;
-  start_time: string;
-  end_time: string;
-}
-
 export interface ShareLinkRow {
   id: string;
   label_ciphertext: string | null;
@@ -24,7 +17,6 @@ export interface ShareLinkRow {
   legacy_token: string | null;
   connection_id: string | null;
   highlight_words: string[];
-  manual_tags: ManualTag[];
 }
 
 export interface ConnectionOption {
@@ -43,9 +35,6 @@ const editLabel = ref('');
 const editBypassDnd = ref(props.link.bypass_dnd);
 const editShowActivity = ref(props.link.show_activity);
 const editWords = ref(props.link.highlight_words.join('\n'));
-const editTags = ref(
-  props.link.manual_tags.map((t) => `${t.word},${t.weekday ?? ''},${t.start_time},${t.end_time}`).join('\n'),
-);
 
 // Populated once the vault unlocks — both this card's own connection
 // names (for the "tie to a connection" picker) and, if the link is
@@ -179,17 +168,6 @@ function startEdit(): void {
   editing.value = true;
 }
 
-function parseManualTags(text: string): ManualTag[] {
-  return text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [word, weekday, start, end] = line.split(',').map((part) => part.trim());
-      return { word, weekday: weekday ? Number(weekday) : null, start_time: start, end_time: end };
-    });
-}
-
 async function save(): Promise<void> {
   try {
     let labelCiphertext: string | undefined;
@@ -203,7 +181,6 @@ async function save(): Promise<void> {
       bypass_dnd: editBypassDnd.value,
       show_activity: editShowActivity.value,
       highlight_words: editWords.value.split('\n').map((w) => w.trim()).filter(Boolean),
-      manual_tags: parseManualTags(editTags.value),
     });
 
     label.value = editLabel.value || '(no label)';
@@ -308,12 +285,6 @@ const badgeVariant = computed(() => (props.link.archived ? 'secondary' : 'info')
       </BFormCheckbox>
       <BFormGroup label="Highlight words (one per line)" class="mb-3">
         <BFormTextarea v-model="editWords" size="sm" rows="2" />
-      </BFormGroup>
-      <BFormGroup
-        label="Manual tags (word, weekday 0-6 or blank, start HH:MM, end HH:MM — one per line, comma-separated)"
-        class="mb-3"
-      >
-        <BFormTextarea v-model="editTags" size="sm" rows="3" />
       </BFormGroup>
       <BButton size="sm" variant="primary" @click="save">Save</BButton>
     </div>

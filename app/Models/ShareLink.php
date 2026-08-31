@@ -57,11 +57,6 @@ class ShareLink extends Model
         return $this->hasOne(ShareLinkCache::class);
     }
 
-    public function manualTags(): HasMany
-    {
-        return $this->hasMany(ShareLinkManualTag::class);
-    }
-
     /**
      * The connection this link is "for," if the owner has tied one — set
      * from Connection::share_link_id, not a column here. hasOne rather

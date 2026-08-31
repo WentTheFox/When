@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Domain\Calendar\ManualTag;
 use App\Services\Calendar\AvailabilityService;
 use App\Services\Calendar\CalendarFetcher;
 use App\Services\Calendar\EventNormalizer;
@@ -45,11 +44,6 @@ class CalendarPreviewController extends Controller
             'highlight_words.*' => ['string'],
             'bypass_dnd' => ['nullable', 'boolean'],
             'availability_settings' => ['nullable', 'array'],
-            'manual_tags' => ['nullable', 'array'],
-            'manual_tags.*.word' => ['required_with:manual_tags', 'string'],
-            'manual_tags.*.weekday' => ['nullable', 'integer', 'min:0', 'max:6'],
-            'manual_tags.*.start_time' => ['required_with:manual_tags', 'string'],
-            'manual_tags.*.end_time' => ['required_with:manual_tags', 'string'],
         ]);
 
         $timezone = $data['timezone'] ?? 'UTC';
@@ -82,16 +76,6 @@ class CalendarPreviewController extends Controller
         $events = $normalizer->normalize($rawItems, $parsingMode);
         $timer->lap('normalize', ['event_count' => count($events)]);
 
-        $manualTags = array_map(
-            fn (array $tag) => new ManualTag(
-                word: $tag['word'],
-                weekday: $tag['weekday'] ?? null,
-                startTime: $tag['start_time'],
-                endTime: $tag['end_time'],
-            ),
-            $data['manual_tags'] ?? [],
-        );
-
         $result = $availabilityService->compute(
             events: $events,
             weeklyAvailability: $data['availability_settings'] ?? [],
@@ -99,7 +83,6 @@ class CalendarPreviewController extends Controller
             dndEventName: $data['dnd_event_name'] ?? null,
             napEventName: $data['nap_event_name'] ?? null,
             highlightWords: $data['highlight_words'] ?? [],
-            manualTags: $manualTags,
             bypassDnd: $data['bypass_dnd'] ?? false,
             rangeStart: $rangeStart,
             rangeEnd: $rangeEnd,

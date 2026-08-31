@@ -4,7 +4,6 @@ namespace Tests\Unit\Calendar;
 
 use App\Domain\Calendar\AvailabilityResult;
 use App\Domain\Calendar\AvailabilitySlot;
-use App\Domain\Calendar\ManualTag;
 use App\Domain\Calendar\ParsedEvent;
 use App\Services\Calendar\ActivityExtractor;
 use App\Services\Calendar\AvailabilityService;
@@ -64,7 +63,6 @@ class AvailabilityServiceTest extends TestCase
         ?string $dndEventName = null,
         ?string $napEventName = null,
         array $highlightWords = [],
-        array $manualTags = [],
         bool $bypassDnd = false,
         bool $showActivity = true,
         ?string $activityClausePattern = null,
@@ -76,7 +74,6 @@ class AvailabilityServiceTest extends TestCase
             $dndEventName,
             $napEventName,
             $highlightWords,
-            $manualTags,
             $bypassDnd,
             $this->rangeStart,
             $this->rangeEnd,
@@ -341,21 +338,6 @@ class AvailabilityServiceTest extends TestCase
 
         $this->assertCount(1, $result->highlighted);
         $this->assertSame(['Alice'], $result->highlighted[0]->highlightWords);
-    }
-
-    public function test_free_busy_only_event_falls_back_to_a_manual_time_block_tag(): void
-    {
-        // 2026-06-03 is a Wednesday.
-        $result = $this->compute(
-            events: [$this->event(
-                'fb1', '2026-06-03 12:00', '2026-06-03 13:00',
-                summary: 'Busy', isFreeBusyOnly: true,
-            )],
-            manualTags: [new ManualTag(word: 'Gym', weekday: 3, startTime: '12:00', endTime: '14:00')],
-        );
-
-        $this->assertCount(1, $result->highlighted);
-        $this->assertSame(['Gym'], $result->highlighted[0]->highlightWords);
     }
 
     public function test_free_busy_only_event_with_no_signal_is_plain_unavailable_never_fabricated(): void

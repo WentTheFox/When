@@ -55,6 +55,18 @@ const connectionOptions = computed(() =>
 const selectedConnectionId = ref<string | null>(null);
 const selectedConnection = computed(() => connections.value.find((c) => c.id === selectedConnectionId.value) ?? null);
 
+const connectionFilter = ref('');
+const sortedConnections = computed(() =>
+  [...connections.value].sort((a, b) =>
+    (decryptedNames.value[a.id] ?? '').localeCompare(decryptedNames.value[b.id] ?? ''),
+  ),
+);
+const filteredConnections = computed(() => {
+  const query = connectionFilter.value.trim().toLowerCase();
+  if (!query) return sortedConnections.value;
+  return sortedConnections.value.filter((c) => (decryptedNames.value[c.id] ?? '').toLowerCase().includes(query));
+});
+
 watch(vaultUnlocked, async (unlocked) => {
   if (!unlocked) return;
 
@@ -153,6 +165,11 @@ const edgesForPanel = computed(() =>
   })),
 );
 
+function toggleNewForm(): void {
+  showNewForm.value = !showNewForm.value;
+  if (showNewForm.value && !newName.value) newName.value = connectionFilter.value.trim();
+}
+
 async function createConnection(): Promise<void> {
   newConnectionError.value = '';
 
@@ -180,6 +197,7 @@ async function createConnection(): Promise<void> {
     newSourceIds.value = [];
     newNotes.value = '';
     showNewForm.value = false;
+    connectionFilter.value = '';
   } catch (error) {
     console.error(error);
     newConnectionError.value = 'Could not create that connection.';
@@ -299,41 +317,38 @@ async function removeEdge(id: string): Promise<void> {
         <h1 class="h3 mb-1">Connections</h1>
         <span class="text-muted small">Your private CRM, end-to-end encrypted.</span>
       </div>
-      <BButton variant="primary" size="sm" @click="showNewForm = !showNewForm">New connection</BButton>
     </div>
   </BCard>
 
   <VaultGate>
-    <BCard v-if="showNewForm" class="mb-4">
-      <h2 class="h5 mb-3">New connection</h2>
-      <div class="row">
-        <div class="col-md-6">
-          <BFormGroup label="Name" class="mb-3">
-            <BFormInput v-model="newName" type="text" />
-          </BFormGroup>
-        </div>
-        <div class="col-md-6">
-          <BFormGroup label="Sources" description="Ctrl/Cmd-click to select more than one." class="mb-3">
-            <BFormSelect v-model="newSourceIds" multiple>
-              <option v-for="source in sources" :key="source.id" :value="source.id">{{ source.label }}</option>
-            </BFormSelect>
-          </BFormGroup>
-        </div>
-      </div>
-      <BFormGroup label="Notes" class="mb-3">
-        <BFormTextarea v-model="newNotes" rows="2" />
-      </BFormGroup>
-      <BButton variant="primary" @click="createConnection">Create</BButton>
-      <div class="text-danger small mt-2">{{ newConnectionError }}</div>
-    </BCard>
-
     <BCard class="mb-4">
       <div class="row">
         <div class="col-md-4">
-          <p v-if="connections.length === 0" class="text-muted">No connections yet.</p>
+          <div class="input-group input-group-sm mb-2">
+            <BFormInput v-model="connectionFilter" type="text" placeholder="Search or new connection name" />
+            <BButton variant="outline-secondary" @click="toggleNewForm">New</BButton>
+          </div>
+
+          <BCard v-if="showNewForm" class="mb-2" body-class="p-2">
+            <BFormGroup label="Name" label-class="small" class="mb-2">
+              <BFormInput v-model="newName" type="text" size="sm" />
+            </BFormGroup>
+            <BFormGroup label="Sources" label-class="small" description="Ctrl/Cmd-click to select more than one." class="mb-2">
+              <BFormSelect v-model="newSourceIds" size="sm" multiple>
+                <option v-for="source in sources" :key="source.id" :value="source.id">{{ source.label }}</option>
+              </BFormSelect>
+            </BFormGroup>
+            <BFormGroup label="Notes" label-class="small" class="mb-2">
+              <BFormTextarea v-model="newNotes" size="sm" rows="2" />
+            </BFormGroup>
+            <BButton size="sm" variant="primary" @click="createConnection">Create</BButton>
+            <div class="text-danger small mt-2">{{ newConnectionError }}</div>
+          </BCard>
+
+          <p v-if="filteredConnections.length === 0" class="text-muted">No connections found.</p>
           <div v-else class="list-group wtf-master-list">
             <button
-              v-for="connection in connections"
+              v-for="connection in filteredConnections"
               :key="connection.id"
               type="button"
               class="list-group-item list-group-item-action"

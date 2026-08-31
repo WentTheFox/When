@@ -4,7 +4,6 @@ namespace App\Services\Calendar;
 
 use App\Domain\Calendar\AvailabilityResult;
 use App\Domain\Calendar\AvailabilitySlot;
-use App\Domain\Calendar\ManualTag;
 use App\Domain\Calendar\ParsedEvent;
 use Carbon\CarbonImmutable;
 
@@ -33,7 +32,6 @@ class AvailabilityService
      * @param  array<int, array{wake: ?string, sleep: ?string}>  $weeklyAvailability  Keyed 0 (Sun) .. 6 (Sat).
      * @param  array{start: CarbonImmutable, end: CarbonImmutable}[]  $sleepExceptions  Date-only ranges; suppress the default sleep block.
      * @param  string[]  $highlightWords
-     * @param  ManualTag[]  $manualTags
      */
     public function compute(
         array $events,
@@ -42,7 +40,6 @@ class AvailabilityService
         ?string $dndEventName,
         ?string $napEventName,
         array $highlightWords,
-        array $manualTags,
         bool $bypassDnd,
         CarbonImmutable $rangeStart,
         CarbonImmutable $rangeEnd,
@@ -67,7 +64,7 @@ class AvailabilityService
                 $napIntervals[] = ['start' => $event->start, 'end' => $event->end];
             }
 
-            $highlightMatch = $this->matcher->match($event, $highlightWords, $manualTags, $highlightClausePattern);
+            $highlightMatch = $this->matcher->match($event, $highlightWords, $highlightClausePattern);
 
             if ($highlightMatch !== null) {
                 $activity = ($showActivity && $event->summary !== null)

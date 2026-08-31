@@ -129,9 +129,19 @@ a single command's own lifetime.
   can have any number of `source`-kind edges (no one-source-per-connection limit); a
   `connection`-kind edge creates one `ConnectionEdge` row (`one_way`) or two
   (`bi_directional`) and may reference a connection defined later in the same file;
-  `highlight_token_label` just guarantees a bare connection exists under that name (not
-  wired into any share link automatically); `archived` maps directly onto
-  `connections.archived`.
+  `highlight_token_label` guarantees a connection exists under that name (creating a bare
+  one if it isn't otherwise in this file) and ties a freshly created share link to it,
+  labeled with that same name — a link imported this way carries no calendar/highlight
+  config of its own, it just gives the owner somewhere to start instead of nothing;
+  `archived` maps directly onto `connections.archived`.
+- **`wtf:connections:backfill-share-links {email} {input}`** — one-time fix-up: given
+  the *same* source-app export file already run through `wtf:connections:import`, ties/
+  creates share links for connections whose `highlight_token_label` wasn't wired up yet
+  (imports run before that wiring existed). Unlike re-running `wtf:connections:import`
+  itself — which is **not** safe here, since its source-app-export connection-creation
+  loop has no dedupe-by-name check and would duplicate every connection in the file —
+  this command only ever resolves an existing connection by name and never creates one;
+  idempotent, safe to re-run.
 - **`wtf:vault:import-labels {email} {input}`** — one-time/backfill helper: sets
   share-link labels via the owner's vault, from a JSON array of `{"token":
   "<share_links.id or legacy_token>", "label": "..."}`.

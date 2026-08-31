@@ -9,10 +9,14 @@ use App\Models\ConnectionAttributeValue;
 use App\Models\ConnectionEdge;
 use App\Models\ConnectionSource;
 use App\Models\ConnectionSourceCategory;
+use App\Models\ShareLink;
 use App\Models\User;
 use App\Services\Crypto\AesGcm;
 use App\Services\Crypto\KeyRing;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
 
 /**
@@ -334,25 +338,53 @@ class ImportConnections extends Command
 
         // A highlight token names someone worth tracking even if this
         // export's own connection list never separately defines them —
-        // ensure a bare connection exists for every such name.
+        // ensure a bare connection exists for every such name, then tie a
+        // fresh share link to it (whichever connection the name resolves
+        // to — the row's own, if the token label just repeats its name, or
+        // the bare one just created otherwise), labeled with that same
+        // name. Old source-app share links carry no calendar/highlight
+        // config of their own worth carrying over — this only recreates
+        // the *link*, not its settings — but "wire it up so an owner isn't
+        // starting from zero" is the whole point of importing it at all.
         foreach ($data['connections'] ?? [] as $row) {
             $tokenName = $row['highlight_token_label'] ?? null;
 
-            if ($tokenName === null || isset($this->connectionIdsByName[$tokenName])) {
+            if ($tokenName === null) {
                 continue;
             }
 
-            $connectionId = (string) Str::uuid();
-            [$rawKey, $ring] = KeyRing::getOrCreateKey($ring, $connectionId);
+            if (! isset($this->connectionIdsByName[$tokenName])) {
+                $connectionId = (string) Str::uuid();
+                [$rawKey, $ring] = KeyRing::getOrCreateKey($ring, $connectionId);
 
-            Connection::create([
-                'id' => $connectionId,
+                Connection::create([
+                    'id' => $connectionId,
+                    'user_id' => $user->id,
+                    'name_ciphertext' => AesGcm::encrypt($rawKey, $tokenName),
+                ]);
+
+                $this->connectionIdsByName[$tokenName] = $connectionId;
+                $imported++;
+            }
+
+            $connection = Connection::find($this->connectionIdsByName[$tokenName]);
+
+            if ($connection->share_link_id !== null) {
+                continue;
+            }
+
+            $shareLinkId = (string) Str::uuid();
+            [$labelKey, $ring] = KeyRing::getOrCreateKey($ring, $shareLinkId);
+
+            ShareLink::create([
+                'id' => $shareLinkId,
                 'user_id' => $user->id,
-                'name_ciphertext' => AesGcm::encrypt($rawKey, $tokenName),
+                'label_ciphertext' => AesGcm::encrypt($labelKey, $tokenName),
+                'content_key_ciphertext' => Crypt::encryptString(base64_encode(random_bytes(32))),
+                'key_protection' => 'fragment',
             ]);
 
-            $this->connectionIdsByName[$tokenName] = $connectionId;
-            $imported++;
+            $connection->update(['share_link_id' => $shareLinkId]);
         }
 
         return $imported;
@@ -460,7 +492,7 @@ class ImportConnections extends Command
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, \Illuminate\Database\Eloquent\Model>  $models
+     * @param  Collection<int, Model>  $models
      * @param  array<string, string>  $ring
      * @return array<string, string> plaintext label -> model id
      */
