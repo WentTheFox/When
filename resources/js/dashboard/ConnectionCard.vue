@@ -1,8 +1,11 @@
 <script setup lang="ts">
+import { faPencil, faTrashCan } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import axios from 'axios';
 import {
   BBadge,
   BButton,
+  BButtonGroup,
   BCard,
   BFormCheckbox,
   BFormGroup,
@@ -155,10 +158,10 @@ async function remove(): Promise<void> {
           </template>
         </dl>
       </div>
-      <div>
-        <BButton variant="outline-secondary" size="sm" @click="startEdit">Edit</BButton>
-        <BButton variant="outline-danger" size="sm" @click="remove">Delete</BButton>
-      </div>
+      <BButtonGroup>
+        <BButton variant="outline-secondary" size="sm" @click="startEdit"><FontAwesomeIcon :icon="faPencil"/></BButton>
+        <BButton variant="outline-danger" size="sm" @click="remove"><FontAwesomeIcon :icon="faTrashCan"/></BButton>
+      </BButtonGroup>
     </div>
 
     <div v-if="editing" class="mt-3">
@@ -189,9 +192,17 @@ async function remove(): Promise<void> {
         />
         <div v-else-if="definition.type === 'radio'">
           <BFormRadio
+            v-model="editAttributeValues[definition.id]"
+            inline
+            value=""
+          >
+            (unset)
+          </BFormRadio>
+          <BFormRadio
             v-for="choice in definition.options"
             :key="choice"
             v-model="editAttributeValues[definition.id]"
+            inline
             :value="choice"
           >
             {{ choice }}
