@@ -604,14 +604,26 @@ hr {
     background-color: rgba(var(--wtf-accent-rgb), var(--wtf-fcal-today-alpha));
 }
 
-.wtf-fcal-free-block {
+/* Shared positioning for every block type, regardless of which type-specific
+   color class (.wtf-fcal-free-block etc.) is also present — kept neutrally
+   named and separate from .wtf-fcal-free-block itself, which used to also
+   carry these unconditionally (via a static template class alongside the
+   dynamic per-type one) so every block, including highlighted/sleep/etc.
+   ones, always rendered with "wtf-fcal-free-block" in its class list too.
+   Harmless for solid backgrounds only by CSS-source-order luck; not
+   harmless for the ::before fade-color combinator selectors below, which
+   is what actually surfaced this as a real, visible bug. */
+.wtf-fcal-block {
     position: absolute;
     left: 0;
     right: 0;
-    background-color: var(--wtf-color-free);
     overflow: hidden;
     min-height: 4px;
     container-type: size;
+}
+
+.wtf-fcal-free-block {
+    background-color: var(--wtf-color-free);
 }
 
 .wtf-fcal-unavailable-block {

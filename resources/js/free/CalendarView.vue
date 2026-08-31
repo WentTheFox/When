@@ -27,7 +27,7 @@ import { formatReservedDuration, formatTentativeStart, getBlocksForDay, isTentat
 import type { DayBlock, FreeSlot, HighlightedSlot, TentativeSlot } from './nuxt-blocks';
 
 const BLOCK_TYPE_CLASS: Record<DayBlock['type'], string> = {
-  free: '',
+  free: 'wtf-fcal-free-block',
   unavailable: 'wtf-fcal-unavailable-block',
   highlighted: 'wtf-fcal-highlighted-block',
   sleep: 'wtf-fcal-sleep-block',
@@ -96,11 +96,20 @@ const dayBlocks = computed(() =>
 
 // Blocks tile the day with no gaps, so the previous/next array entry is the
 // immediately-adjacent block in time. A tentative block's edge fade blends
-// into that neighbor's color via a CSS var. At the very top/bottom of a day's
-// own blocks, it carries over from the previous/next calendar day's last/first
-// block, computed directly rather than looked up in the rendered day list —
-// the visible range can trim a day (e.g. past-day filtering on the current
-// week) while the API still returns that day's data, padded a day either side
+// into that neighbor's color via a CSS var — but only when the neighbor
+// itself renders solid there. A neighbor that's also tentative-display is
+// fading at that exact shared edge too, not showing its plain type color,
+// so blending toward its nominal color produced a mismatched seam where
+// two adjacent tentative blocks each solidified into a color the other
+// never actually shows at the boundary. Left unset in that case, which
+// falls back to transparent (matching what's actually there) — same as
+// the top/bottom-of-day case where there's truly no neighbor.
+//
+// At the very top/bottom of a day's own blocks, the neighbor carries over
+// from the previous/next calendar day's last/first block, computed
+// directly rather than looked up in the rendered day list — the visible
+// range can trim a day (e.g. past-day filtering on the current week)
+// while the API still returns that day's data, padded a day either side
 // of the requested range — falling back to transparent only where there's
 // truly no data for the adjacent day.
 function tentativeFadeStyle(day: Date, blocks: DayBlock[], i: number): Record<string, string> {
@@ -113,8 +122,8 @@ function tentativeFadeStyle(day: Date, blocks: DayBlock[], i: number): Record<st
   const next = i < blocks.length - 1
     ? blocks[i + 1]
     : getBlocksForDay(addDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone)[0];
-  if (prev) style['--fade-start'] = `var(${BLOCK_TYPE_COLOR_VAR[prev.type]})`;
-  if (next) style['--fade-end'] = `var(${BLOCK_TYPE_COLOR_VAR[next.type]})`;
+  if (prev && !isTentativeDisplay(prev)) style['--fade-start'] = `var(${BLOCK_TYPE_COLOR_VAR[prev.type]})`;
+  if (next && !isTentativeDisplay(next)) style['--fade-end'] = `var(${BLOCK_TYPE_COLOR_VAR[next.type]})`;
   return style;
 }
 
@@ -190,7 +199,7 @@ function formatDay(day: Date, fmt: string): string {
               <div
                 v-for="(block, i) in blocks"
                 :key="i"
-                class="wtf-fcal-free-block"
+                class="wtf-fcal-block"
                 :class="[BLOCK_TYPE_CLASS[block.type], { 'wtf-fcal-tentative-block': isTentativeDisplay(block) }]"
                 :style="{ top: `${block.topPct}%`, height: `${block.heightPct}%`, ...tentativeFadeStyle(day, blocks, i) }"
               >
