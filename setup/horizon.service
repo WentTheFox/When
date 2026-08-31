@@ -17,8 +17,14 @@ ExecStop=/usr/bin/php artisan horizon:terminate
 Restart=always
 RestartSec=3
 
-# Ensure environment variables from .env are available
-EnvironmentFile="/var/www/WhenTheFox/.env"
+# Ensure environment variables from .env are available. No quotes — systemd
+# treats EnvironmentFile's value literally, so a quoted path doesn't start
+# with / and gets silently ignored (confirmed: this exact bug, copied from
+# SledgeHammerTime's unit, produced "path is not absolute, ignoring" in
+# `journalctl -u whenthefox-horizon.service`). Harmless today only because
+# Laravel's own dotenv loading at artisan boot is independent of systemd's
+# EnvironmentFile mechanism, but the directive itself was dead.
+EnvironmentFile=/var/www/WhenTheFox/.env
 
 [Install]
 WantedBy=multi-user.target
