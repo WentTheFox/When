@@ -184,7 +184,11 @@ function formatDay(day: Date, fmt: string): string {
         </div>
 
         <div v-if="pending" class="wtf-fcal-loading-overlay">
-          <FontAwesomeIcon :icon="faSpinner" spin size="2x" />
+          <span
+            class="spinner-border spinner-border-lg"
+            role="status"
+            aria-hidden="true"
+          />
         </div>
 
         <div v-else-if="hasError" class="wtf-fcal-error-state">
