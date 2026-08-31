@@ -515,7 +515,7 @@ onMounted(() => {
 
   <p class="text-center small text-muted mt-4">
     <a :href="`/register?code=${inviteCode}`">
-      Want your own {{ $page.props.appName }} calendar? You're invited by {{ ownerName }} to create one.
+      Want your own <em>{{ $page.props.appName }}</em> calendar? You're invited by {{ ownerName }} to create one.
     </a>
   </p>
 </template>

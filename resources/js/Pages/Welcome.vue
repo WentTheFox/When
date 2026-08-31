@@ -28,7 +28,7 @@ const page = usePage();
 
         <h2 class="h5">What this is</h2>
         <p class="mb-3">
-          {{ page.props.appName }} turns your calendar into a free/busy link you can hand to
+          <em>{{ page.props.appName }}</em> turns your calendar into a free/busy link you can hand to
           anyone. Friends, coworkers, whoever. It doesn't expose what's actually in your calendar
           (unless you explicitly enable it). Your calendar URL is encrypted at rest
           and only decrypted transiently to compute availability. The computed result is
@@ -47,9 +47,9 @@ const page = usePage();
           invite, but every account after it will.
         </p>
         <p v-else class="mb-0">
-          Registration is invite-only. If someone shared a {{ page.props.appName }} calendar
-          link with you, it comes with an invite to create your own. Otherwise,
-          you'll need an invite from an existing owner.
+          Registration is invite-only. If someone shared a <em>{{ page.props.appName }}</em>
+          calendar link with you, it comes with an invite to create your own. Otherwise,
+          you'll need an invite from an existing user.
         </p>
       </div>
     </div>
