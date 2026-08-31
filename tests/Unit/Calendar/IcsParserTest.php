@@ -98,4 +98,35 @@ class IcsParserTest extends TestCase
         $this->assertSame('2026-06-02', $standups[0]->start->toDateString());
         $this->assertSame('2026-06-09', $standups[1]->start->toDateString());
     }
+
+    public function test_a_custom_tentative_title_pattern_overrides_the_default(): void
+    {
+        // With the default pattern, "(?)" is stripped/detected but a
+        // "[tentative]" suffix (this owner's own convention) is not.
+        $items = $this->parser->parse(
+            $this->fixture('full_detail.ics'),
+            CarbonImmutable::parse('2026-06-01', 'UTC'),
+            CarbonImmutable::parse('2026-06-10', 'UTC'),
+        );
+        $coffee = $items[0];
+        $this->assertSame('Coffee with Alice', $coffee->summary);
+        $this->assertFalse($coffee->isTentative);
+
+        // Swapping in a custom pattern changes what's detected/stripped
+        // instead — the default "(?)" convention no longer applies at all.
+        $items = $this->parser->parse(
+            $this->fixture('full_detail.ics'),
+            CarbonImmutable::parse('2026-06-01', 'UTC'),
+            CarbonImmutable::parse('2026-06-10', 'UTC'),
+            'Alice$',
+        );
+        $coffee = $items[0];
+        $this->assertSame('Coffee with', $coffee->summary);
+        $this->assertTrue($coffee->isTentative);
+
+        // And the "Maybe lunch (?)" event is no longer detected as
+        // tentative by title (STATUS:TENTATIVE still applies independently).
+        $maybeLunch = $items[1];
+        $this->assertSame('Maybe lunch (?)', $maybeLunch->summary);
+    }
 }

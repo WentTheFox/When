@@ -35,6 +35,8 @@ class PlaintextLeakRegressionTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const USER_NAME = 'PlaintextSentinelUserName_AliceExampleton';
+    private const USER_EMAIL = 'plaintext-sentinel-alice@example.com';
     private const CALENDAR_URL = 'https://calendar.example.com/secret-feed-9182734.ics';
     private const HIGHLIGHT_WORD = 'PlaintextSentinelWord_CoffeeWithAlice';
     private const CONNECTION_NAME = 'PlaintextSentinelName_AliceExampleton';
@@ -53,6 +55,8 @@ class PlaintextLeakRegressionTest extends TestCase
     public function test_no_known_plaintext_survives_in_any_stored_column(): void
     {
         $user = User::factory()->create([
+            'name' => self::USER_NAME,
+            'email' => self::USER_EMAIL,
             'calendar_url_ciphertext' => Crypt::encryptString(self::CALENDAR_URL),
         ]);
 
@@ -128,6 +132,8 @@ class PlaintextLeakRegressionTest extends TestCase
         $dump = $this->dumpEntireDatabaseAsString();
 
         $knownPlaintextSecrets = [
+            self::USER_NAME,
+            self::USER_EMAIL,
             self::CALENDAR_URL,
             self::HIGHLIGHT_WORD,
             self::CONNECTION_NAME,
@@ -149,6 +155,31 @@ class PlaintextLeakRegressionTest extends TestCase
                 "Found plaintext secret \"{$secret}\" in the raw database dump — a ciphertext column is storing plaintext."
             );
         }
+    }
+
+    public function test_name_and_email_columns_round_trip_via_runtime_key_only(): void
+    {
+        $user = User::factory()->create([
+            'name' => self::USER_NAME,
+            'email' => self::USER_EMAIL,
+        ]);
+
+        $row = DB::table('users')->where('id', $user->id)->first();
+
+        $this->assertStringNotContainsString(self::USER_NAME, $row->name);
+        $this->assertStringNotContainsString(self::USER_EMAIL, $row->email);
+        $this->assertSame(self::USER_NAME, Crypt::decryptString($row->name));
+        $this->assertSame(self::USER_EMAIL, Crypt::decryptString($row->email));
+
+        // The accessor decrypts transparently...
+        $this->assertSame(self::USER_NAME, $user->refresh()->name);
+        $this->assertSame(self::USER_EMAIL, $user->email);
+
+        // ...and the deterministic hash (not the ciphertext) is what makes
+        // lookup and uniqueness possible against an encrypted column.
+        $this->assertSame(User::hashEmail(self::USER_EMAIL), $row->email_hash);
+        $this->assertTrue(User::whereEmail(self::USER_EMAIL)->first()->is($user));
+        $this->assertTrue(User::whereEmail(strtoupper(self::USER_EMAIL))->exists());
     }
 
     public function test_calendar_url_column_round_trips_via_runtime_key_only(): void

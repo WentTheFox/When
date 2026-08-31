@@ -55,3 +55,36 @@ export function generateSalt(byteLength = 16): string {
   crypto.getRandomValues(salt);
   return bytesToBase64(salt);
 }
+
+/**
+ * One master password, split client-side into two independent secrets
+ * (same approach Bitwarden/1Password use): the vault key
+ * (`deriveKeyFromPassphrase`, salted with the random, server-stored
+ * `passphrase_salt`) never leaves the browser, while THIS function derives
+ * a completely separate value — the login verifier — that's submitted to
+ * the server as the session-auth "password" and hashed/checked exactly
+ * like any ordinary password would be (`Hash::make`/`Hash::check`,
+ * unchanged server-side). Both are Argon2id(masterPassword, salt) with the
+ * SAME profile, differing only in salt, so knowing one reveals nothing
+ * about the other without brute-forcing the master password itself — a
+ * compromised server that steals the login verifier's hash still has zero
+ * shortcut to the vault key.
+ *
+ * The salt here is deterministic (SHA-256 of the lowercased, trimmed
+ * email, truncated to 16 bytes) rather than random-and-stored, so the
+ * client can compute the verifier at login time from just what the user
+ * typed — no extra round trip to fetch a salt before the login POST can
+ * even be built.
+ */
+export async function deriveLoginVerifier(masterPassword: string, email: string): Promise<string> {
+  const salt = await emailToDeterministicSalt(email);
+  const { keyBytes } = await deriveKeyFromPassphrase(masterPassword, salt);
+  return bytesToBase64(keyBytes);
+}
+
+async function emailToDeterministicSalt(email: string): Promise<string> {
+  const normalized = email.trim().toLowerCase();
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(normalized));
+  const saltBytes = new Uint8Array(digest).slice(0, 16);
+  return bytesToBase64(saltBytes);
+}

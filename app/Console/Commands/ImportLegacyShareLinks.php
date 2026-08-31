@@ -74,7 +74,7 @@ class ImportLegacyShareLinks extends Command
                 continue;
             }
 
-            $user = User::where('email', $row['owner_email'])->first();
+            $user = User::whereEmail($row['owner_email'])->first();
 
             if ($user === null) {
                 $this->warn("Skipping token {$row['token']}: no user found for {$row['owner_email']}.");

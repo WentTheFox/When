@@ -3,17 +3,20 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\View\View;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    /**
-     * STUB pending Stage 7's full dashboard build (settings, share-link
-     * management, Connections CRM, invite management UI). For now this is
-     * just the post-login landing page auth flows redirect to.
-     */
-    public function index(Request $request): View
+    public function index(Request $request): Response
     {
-        return view('dashboard.index', ['user' => $request->user()]);
+        $user = $request->user();
+
+        return Inertia::render('Dashboard/Index', [
+            'userName' => $user->name,
+            'shareLinkCount' => $user->shareLinks()->where('archived', false)->count(),
+            'connectionCount' => $user->connections()->count(),
+            'hasCalendarUrl' => $user->calendar_url_ciphertext !== null,
+        ]);
     }
 }

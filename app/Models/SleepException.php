@@ -11,6 +11,7 @@ class SleepException extends Model
     use HasUuids;
 
     protected $fillable = [
+        'id',
         'user_id',
         'start_date',
         'end_date',

@@ -7,16 +7,18 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
-use Illuminate\View\View;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class AuthenticatedSessionController extends Controller
 {
     private const TWO_FACTOR_SESSION_KEY = 'auth.two_factor.user_id';
 
-    public function create(): View
+    public function create(): Response
     {
-        return view('auth.login');
+        return Inertia::render('Auth/Login');
     }
 
     /**
@@ -30,14 +32,18 @@ class AuthenticatedSessionController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (! Auth::validate($credentials)) {
+        // email is encrypted at rest (§0.2) — Auth::validate()'s default
+        // provider does a plain `where('email', ...)`, which can never match
+        // ciphertext, so the lookup and password check are done manually
+        // here via the whereEmail() scope (see User::hashEmail()'s doc
+        // comment) instead.
+        $user = User::whereEmail($credentials['email'])->first();
+
+        if (! $user || ! Hash::check($credentials['password'], $user->password)) {
             throw ValidationException::withMessages([
                 'email' => 'These credentials do not match our records.',
             ]);
         }
-
-        /** @var User $user */
-        $user = User::where('email', $credentials['email'])->firstOrFail();
 
         if ($user->two_factor_confirmed_at !== null) {
             $request->session()->put(self::TWO_FACTOR_SESSION_KEY, $user->id);

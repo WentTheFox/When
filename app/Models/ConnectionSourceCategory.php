@@ -12,6 +12,7 @@ class ConnectionSourceCategory extends Model
     use HasUuids;
 
     protected $fillable = [
+        'id',
         'user_id',
         'name_ciphertext',
     ];

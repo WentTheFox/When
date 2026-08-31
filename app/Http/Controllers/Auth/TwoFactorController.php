@@ -9,7 +9,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
-use Illuminate\View\View;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class TwoFactorController extends Controller
 {
@@ -17,7 +18,7 @@ class TwoFactorController extends Controller
 
     public function __construct(private readonly TwoFactorAuthenticationService $twoFactor) {}
 
-    public function setup(Request $request): View
+    public function setup(Request $request): Response
     {
         /** @var User $user */
         $user = $request->user();
@@ -27,7 +28,7 @@ class TwoFactorController extends Controller
             $user->refresh();
         }
 
-        return view('auth.two-factor-setup', [
+        return Inertia::render('Auth/TwoFactorSetup', [
             'secret' => $user->two_factor_secret,
             'qrCodeUrl' => $this->twoFactor->getQrCodeUrl($user),
         ]);
@@ -55,13 +56,13 @@ class TwoFactorController extends Controller
         return redirect()->route('dashboard');
     }
 
-    public function challenge(Request $request): View|RedirectResponse
+    public function challenge(Request $request): Response|RedirectResponse
     {
         if (! $request->session()->has(self::SESSION_KEY)) {
             return redirect()->route('login');
         }
 
-        return view('auth.two-factor-challenge');
+        return Inertia::render('Auth/TwoFactorChallenge');
     }
 
     public function verifyChallenge(Request $request): RedirectResponse

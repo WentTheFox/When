@@ -51,10 +51,12 @@ class CalendarPreviewTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonPath('detected_mode', 'full_detail');
-        $slots = $response->json('slots');
-        $this->assertCount(1, $slots);
-        $this->assertSame('highlighted', $slots[0]['type']);
-        $this->assertSame('Alice', $slots[0]['highlight_word']);
+        $highlighted = $response->json('highlighted');
+        $this->assertCount(1, $highlighted);
+        $this->assertSame(['Alice'], $highlighted[0]['highlight_words']);
+        // The same event is also present in unavailable — highlighted and
+        // unavailable can legitimately overlap (AvailabilityResult).
+        $this->assertCount(1, $response->json('unavailable'));
 
         // Nothing persisted: no cache, no detection history, no stored URL anywhere.
         $this->assertDatabaseCount('share_link_cache', 0);

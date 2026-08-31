@@ -1,0 +1,211 @@
+<script setup lang="ts">
+/**
+ * Ported from WentTheNuxt's app/components/free/CalendarView.vue as closely
+ * as the two apps' stacks allow — same layout, same block-splitting
+ * algorithm (nuxt-blocks.ts, itself a verbatim port), same visual language.
+ * What had to change, and why:
+ *   - useI18n()'s {t, locale} -> laravel-vue-i18n's trans()/currentLocale
+ *     (this app uses the Laravel-family i18n package, not raw vue-i18n).
+ *   - CSS modules (*.module.scss, Bootstrap 5 SCSS vars) -> plain CSS
+ *     classes in resources/css/dark-theme.css using this app's own
+ *     --wtf-color-* custom properties (this app is Bootstrap 4 + a manual
+ *     dark-theme overlay, not Sass).
+ *   - <FontAwesome> (Nuxt global component) -> local FontAwesomeIcon import.
+ *   - <CutieMarkPlayer> (a WentTheNuxt-specific mascot asset) -> a plain
+ *     spinning FontAwesome icon.
+ * The template structure, class names (wtf-fcal-* here vs the source's CSS
+ * module names), and all rendering logic are otherwise unchanged.
+ */
+import { addDays, format, subDays } from 'date-fns';
+import { enUS, hu } from 'date-fns/locale';
+import { TZDate } from '@date-fns/tz';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { faBan, faCheck, faMoon, faSpinner, faStar } from '@fortawesome/free-solid-svg-icons';
+import { computed } from 'vue';
+import { currentLocale, trans } from 'laravel-vue-i18n';
+import { formatReservedDuration, formatTentativeStart, getBlocksForDay, isTentativeDisplay, tildeTime } from './nuxt-blocks';
+import type { DayBlock, FreeSlot, HighlightedSlot, TentativeSlot } from './nuxt-blocks';
+
+const BLOCK_TYPE_CLASS: Record<DayBlock['type'], string> = {
+  free: '',
+  unavailable: 'wtf-fcal-unavailable-block',
+  highlighted: 'wtf-fcal-highlighted-block',
+  sleep: 'wtf-fcal-sleep-block',
+};
+
+const BLOCK_TYPE_ICON = {
+  free: faCheck,
+  unavailable: faBan,
+  highlighted: faStar,
+  sleep: faMoon,
+} satisfies Record<DayBlock['type'], object>;
+
+const BLOCK_TYPE_LABEL_KEY: Record<DayBlock['type'], string> = {
+  free: 'free.freeLabel',
+  unavailable: 'free.unavailableLabel',
+  highlighted: 'free.highlightedLabel',
+  sleep: 'free.sleepLabel',
+};
+
+const BLOCK_TYPE_COLOR_VAR: Record<DayBlock['type'], string> = {
+  free: '--wtf-color-free',
+  unavailable: '--wtf-color-busy',
+  highlighted: '--wtf-color-highlighted',
+  sleep: '--wtf-color-sleep',
+};
+
+const props = defineProps<{
+  visibleDays: Date[];
+  freeSlots: FreeSlot[];
+  highlightedSlots: HighlightedSlot[];
+  unavailableSlots: TentativeSlot[];
+  sleepSlots: FreeSlot[];
+  pending: boolean;
+  hasError: boolean;
+  hasAnyFreeTime: boolean;
+  timezone: string;
+  showBlocks: boolean;
+  showCurrentTime: boolean;
+  currentTimePct: number;
+}>();
+
+const dateFnsLocale = computed(() => currentLocale.value === 'hu' ? hu : enUS);
+
+function blockLabel(block: DayBlock): string {
+  if (block.type === 'highlighted' && block.activity) return block.activity;
+  return trans(BLOCK_TYPE_LABEL_KEY[block.type]);
+}
+
+function blockTimeText(block: DayBlock): string {
+  if (block.type !== 'free' && block.type !== 'highlighted') return '';
+  if (block.type === 'highlighted' && block.tentative) {
+    const duration = trans('free.reservedSuffix', { duration: formatReservedDuration(block.startTime, block.endTime, currentLocale.value) });
+    return ` ${formatTentativeStart(block.startTime, currentLocale.value)} (${duration})`;
+  }
+  return ` ${tildeTime(block.startTime, block.tentative)} – ${tildeTime(block.endTime, block.tentative)}`;
+}
+
+const dayBlocks = computed(() =>
+  props.visibleDays.map(day => ({
+    day,
+    blocks: props.showBlocks
+      ? getBlocksForDay(day, props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone)
+      : [],
+  })),
+);
+
+// Blocks tile the day with no gaps, so the previous/next array entry is the
+// immediately-adjacent block in time. A tentative block's edge fade blends
+// into that neighbor's color via a CSS var. At the very top/bottom of a day's
+// own blocks, it carries over from the previous/next calendar day's last/first
+// block, computed directly rather than looked up in the rendered day list —
+// the visible range can trim a day (e.g. past-day filtering on the current
+// week) while the API still returns that day's data, padded a day either side
+// of the requested range — falling back to transparent only where there's
+// truly no data for the adjacent day.
+function tentativeFadeStyle(day: Date, blocks: DayBlock[], i: number): Record<string, string> {
+  if (!isTentativeDisplay(blocks[i]!)) return {};
+
+  const style: Record<string, string> = {};
+  const prev = i > 0
+    ? blocks[i - 1]
+    : getBlocksForDay(subDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone).at(-1);
+  const next = i < blocks.length - 1
+    ? blocks[i + 1]
+    : getBlocksForDay(addDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone)[0];
+  if (prev) style['--fade-start'] = `var(${BLOCK_TYPE_COLOR_VAR[prev.type]})`;
+  if (next) style['--fade-end'] = `var(${BLOCK_TYPE_COLOR_VAR[next.type]})`;
+  return style;
+}
+
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+
+function isDayToday(day: Date): boolean {
+  const tzNow = new TZDate(new Date(), props.timezone);
+  const tzDay = new TZDate(day, props.timezone);
+  return (
+    tzNow.getFullYear() === tzDay.getFullYear() &&
+    tzNow.getMonth() === tzDay.getMonth() &&
+    tzNow.getDate() === tzDay.getDate()
+  );
+}
+
+function formatDay(day: Date, fmt: string): string {
+  return format(new TZDate(day, props.timezone), fmt, { locale: dateFnsLocale.value });
+}
+</script>
+
+<template>
+  <div class="wtf-fcal-wrap">
+    <div class="wtf-fcal">
+      <div class="wtf-fcal-header">
+        <div class="wtf-fcal-time-gutter-header" />
+        <div class="wtf-fcal-days-header" :style="{ gridTemplateColumns: `repeat(${visibleDays.length}, 1fr)` }">
+          <div
+            v-for="day in visibleDays"
+            :key="formatDay(day, 'yyyy-MM-dd')"
+            class="wtf-fcal-day-header"
+            :class="{ 'is-today': isDayToday(day) }"
+          >
+            <div class="wtf-fcal-day-name">{{ formatDay(day, 'EEE') }}</div>
+            <div class="wtf-fcal-day-date">{{ formatDay(day, 'MMM d') }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="wtf-fcal-body">
+        <div class="wtf-fcal-time-gutter">
+          <div
+            v-for="hour in HOURS"
+            :key="hour"
+            class="wtf-fcal-hour-label"
+            :style="{ top: `${(hour / 24) * 100}%` }"
+          >
+            {{ String(hour).padStart(2, '0') }}:00
+          </div>
+        </div>
+
+        <div v-if="pending" class="wtf-fcal-loading-overlay">
+          <FontAwesomeIcon :icon="faSpinner" spin size="2x" />
+        </div>
+
+        <div v-else-if="hasError" class="wtf-fcal-error-state">
+          {{ $t('free.error') }}
+        </div>
+
+        <div v-else class="wtf-fcal-days-grid" :style="{ gridTemplateColumns: `repeat(${visibleDays.length}, 1fr)` }">
+          <div
+            v-for="{ day, blocks } in dayBlocks"
+            :key="formatDay(day, 'yyyy-MM-dd')"
+            class="wtf-fcal-day-column"
+            :class="{ 'is-today': isDayToday(day) }"
+          >
+            <div
+              v-if="showCurrentTime && isDayToday(day)"
+              class="wtf-fcal-current-time"
+              :style="{ top: `${currentTimePct}%` }"
+            />
+
+            <template v-if="showBlocks">
+              <div
+                v-for="(block, i) in blocks"
+                :key="i"
+                class="wtf-fcal-free-block"
+                :class="[BLOCK_TYPE_CLASS[block.type], { 'wtf-fcal-tentative-block': isTentativeDisplay(block) }]"
+                :style="{ top: `${block.topPct}%`, height: `${block.heightPct}%`, ...tentativeFadeStyle(day, blocks, i) }"
+              >
+                <span class="wtf-fcal-block-label">
+                  <strong><FontAwesomeIcon :icon="BLOCK_TYPE_ICON[block.type]" class="wtf-fcal-block-label-icon me-1" />{{ blockLabel(block) }}{{ block.tentative ? $t('free.tentativeSuffix') : '' }}</strong><span class="wtf-fcal-block-label-time">{{ blockTimeText(block) }}</span>
+                </span>
+              </div>
+            </template>
+          </div>
+
+          <div v-if="!hasAnyFreeTime" class="wtf-fcal-no-data">
+            {{ $t('free.noDataWeek') }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>

@@ -37,6 +37,9 @@ class CalendarPreviewController extends Controller
             'dnd_event_name' => ['nullable', 'string'],
             'nap_event_name' => ['nullable', 'string'],
             'highlight_clause_pattern' => ['nullable', 'string'],
+            'activity_clause_pattern' => ['nullable', 'string'],
+            'tentative_pattern' => ['nullable', 'string'],
+            'show_activity' => ['nullable', 'boolean'],
             'highlight_words' => ['nullable', 'array'],
             'highlight_words.*' => ['string'],
             'bypass_dnd' => ['nullable', 'boolean'],
@@ -56,7 +59,7 @@ class CalendarPreviewController extends Controller
         // response — see the class doc comment.
         $icsBody = $fetcher->fetch($data['calendar_url']);
 
-        $rawItems = $icsParser->parse($icsBody, $rangeStart, $rangeEnd);
+        $rawItems = $icsParser->parse($icsBody, $rangeStart, $rangeEnd, $data['tentative_pattern'] ?? null);
         $detectedMode = $classifier->classify($rawItems);
 
         $parsingMode = $data['calendar_parsing_mode'] ?? 'auto';
@@ -72,7 +75,7 @@ class CalendarPreviewController extends Controller
             $data['manual_tags'] ?? [],
         );
 
-        $slots = $availabilityService->compute(
+        $result = $availabilityService->compute(
             events: $events,
             weeklyAvailability: $data['availability_settings'] ?? [],
             sleepExceptions: [],
@@ -84,11 +87,13 @@ class CalendarPreviewController extends Controller
             rangeStart: $rangeStart,
             rangeEnd: $rangeEnd,
             highlightClausePattern: $data['highlight_clause_pattern'] ?? null,
+            activityClausePattern: $data['activity_clause_pattern'] ?? null,
+            showActivity: $data['show_activity'] ?? true,
         );
 
         return response()->json([
             'detected_mode' => $detectedMode->value,
-            'slots' => array_map(fn ($slot) => $slot->toArray(), $slots),
+            ...$result->toArray(),
         ]);
     }
 }

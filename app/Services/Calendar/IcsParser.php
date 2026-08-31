@@ -3,6 +3,7 @@
 namespace App\Services\Calendar;
 
 use App\Domain\Calendar\RawCalendarItem;
+use App\Support\Regex;
 use Carbon\CarbonImmutable;
 use Sabre\VObject\Component\VCalendar;
 use Sabre\VObject\Reader;
@@ -22,8 +23,19 @@ use Sabre\VObject\Reader;
  */
 class IcsParser
 {
+    /**
+     * Regex fragment (no delimiters — same convention as DND/nap/highlight/
+     * activity patterns), matched case-insensitively, unanchored except for
+     * its own trailing $. Owner-customizable via users.tentative_pattern;
+     * this is just the fallback when that's null. A plain literal like
+     * "(?)" still works as-is; owners whose own convention differs (e.g. a
+     * trailing "[tentative]") can override it the same way as any other
+     * pattern here.
+     */
+    public const DEFAULT_TENTATIVE_TITLE_PATTERN = '\(\?\)\s*$';
+
     /** @return RawCalendarItem[] */
-    public function parse(string $icsBody, CarbonImmutable $rangeStart, CarbonImmutable $rangeEnd): array
+    public function parse(string $icsBody, CarbonImmutable $rangeStart, CarbonImmutable $rangeEnd, ?string $tentativeTitlePattern = null): array
     {
         /** @var VCalendar $calendar */
         $calendar = Reader::read($icsBody, Reader::OPTION_FORGIVING);
@@ -41,8 +53,10 @@ class IcsParser
 
         $items = [];
 
+        $pattern = $tentativeTitlePattern ?: self::DEFAULT_TENTATIVE_TITLE_PATTERN;
+
         foreach ($expandedCalendar->select('VEVENT') as $vevent) {
-            $item = $this->parseVEvent($vevent);
+            $item = $this->parseVEvent($vevent, $pattern);
 
             if ($item !== null && $item->end > $rangeStart && $item->start < $rangeEnd) {
                 $items[] = $item;
@@ -60,7 +74,7 @@ class IcsParser
         return $items;
     }
 
-    private function parseVEvent(\Sabre\VObject\Component $vevent): ?RawCalendarItem
+    private function parseVEvent(\Sabre\VObject\Component $vevent, string $tentativeTitlePattern): ?RawCalendarItem
     {
         if (! isset($vevent->DTSTART)) {
             return null;
@@ -73,14 +87,24 @@ class IcsParser
 
         $summary = isset($vevent->SUMMARY) ? (string) $vevent->SUMMARY : null;
         $isTentativeStatus = isset($vevent->STATUS) && strtoupper((string) $vevent->STATUS) === 'TENTATIVE';
-        $isTentativeTitle = $summary !== null && preg_match('/\(\?\)\s*$/', trim($summary)) === 1;
+
+        // \x01 delimiter, same reasoning as ParsedEvent::matchesEventNamePattern:
+        // lets an owner's pattern contain any printable character freely.
+        // An invalid pattern fails closed (no match) rather than throwing.
+        $delimitedPattern = "\x01".$tentativeTitlePattern."\x01iu";
+        $isTentativeTitle = $summary !== null && Regex::tryMatch($delimitedPattern, trim($summary)) !== null;
+        // Whatever matched is stripped out too, so it never leaks into
+        // downstream DND/nap/highlight/activity matching or gets shown
+        // anywhere — same idea as the built-in "(?)" convention, just
+        // generalized to whatever pattern actually matched.
+        $cleanedSummary = $summary !== null ? preg_replace("\x01\\s*".ltrim($delimitedPattern, "\x01"), '', $summary) : null;
 
         return new RawCalendarItem(
             uid: isset($vevent->UID) ? (string) $vevent->UID : bin2hex(random_bytes(8)),
             start: $start,
             end: $end,
             componentType: 'VEVENT',
-            summary: $summary !== null ? preg_replace('/\s*\(\?\)\s*$/', '', $summary) : null,
+            summary: $cleanedSummary,
             description: isset($vevent->DESCRIPTION) ? (string) $vevent->DESCRIPTION : null,
             location: isset($vevent->LOCATION) ? (string) $vevent->LOCATION : null,
             isTentative: $isTentativeStatus || $isTentativeTitle,

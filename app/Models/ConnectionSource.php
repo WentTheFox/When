@@ -5,13 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class ConnectionSource extends Model
 {
     use HasUuids;
 
     protected $fillable = [
+        'id',
         'user_id',
         'category_id',
         'name_ciphertext',
@@ -27,8 +28,8 @@ class ConnectionSource extends Model
         return $this->belongsTo(ConnectionSourceCategory::class, 'category_id');
     }
 
-    public function connections(): HasMany
+    public function connections(): BelongsToMany
     {
-        return $this->hasMany(Connection::class, 'source_id');
+        return $this->belongsToMany(Connection::class, 'connection_source_links', 'source_id', 'connection_id');
     }
 }

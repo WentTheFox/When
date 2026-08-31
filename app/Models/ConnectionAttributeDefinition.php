@@ -12,9 +12,11 @@ class ConnectionAttributeDefinition extends Model
     use HasUuids;
 
     protected $fillable = [
+        'id',
         'user_id',
         'label_ciphertext',
         'type',
+        'options_ciphertext',
     ];
 
     public function user(): BelongsTo

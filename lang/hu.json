@@ -1,0 +1,18 @@
+{
+    "free.freeLabel": "Szabad",
+    "free.unavailableLabel": "Elfoglalt",
+    "free.highlightedLabel": "Tervek veled",
+    "free.sleepLabel": "Alvás",
+    "free.tentativeSuffix": " (képlékeny)",
+    "free.reservedSuffix": ":duration lefoglalva",
+    "free.error": "Nem sikerült betölteni az elérhetőségi adatokat.",
+    "free.noData": "Ebben a hónapban nem maradt szabad időm.",
+    "free.noDataWeek": "Ezen a héten nem maradt szabad időm.",
+    "free.today": "Ma",
+    "free.monthView": "Hónap",
+    "free.weekView": "Hét",
+    "free.prevMonth": "Előző hónap",
+    "free.nextMonth": "Következő hónap",
+    "free.prevWeek": "Előző hét",
+    "free.nextWeek": "Következő hét"
+}

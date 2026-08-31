@@ -4,9 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Invite;
 use App\Models\ShareLink;
+use App\Models\User;
 use App\Services\InviteService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Illuminate\View\View;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class ShareLinkController extends Controller
@@ -27,13 +30,15 @@ class ShareLinkController extends Controller
      * at all, since the token in the URL never changes between the two
      * apps.
      */
-    public function show(string $token): View
+    public function show(Request $request, string $token): InertiaResponse
     {
+        $locale = $request->route('locale', 'en');
+
         if (Str::isUuid($token)) {
             $shareLink = ShareLink::find($token);
 
             if ($shareLink !== null) {
-                return $this->render($shareLink, $token);
+                return $this->render($shareLink, $token, $locale);
             }
         }
 
@@ -43,10 +48,28 @@ class ShareLinkController extends Controller
             abort(Response::HTTP_NOT_FOUND);
         }
 
-        return $this->render($shareLink, $token);
+        return $this->render($shareLink, $token, $locale);
     }
 
-    private function render(ShareLink $shareLink, string $token): View
+    /**
+     * The path (/free vs /hu/free) is the only thing that decides locale —
+     * no query param, no Accept-Language guessing. Falling back to the
+     * other locale's title (if set) beats falling straight to the generic
+     * default.
+     */
+    private function resolveTitle(User $owner, string $locale): string
+    {
+        $primary = $locale === 'hu' ? $owner->public_page_title_hu : $owner->public_page_title_en;
+        $secondary = $locale === 'hu' ? $owner->public_page_title_en : $owner->public_page_title_hu;
+
+        // No hardcoded "My Free Time" branding — owners can override the
+        // page heading entirely; the default is computed here rather than
+        // baked into the frontend so the fallback text itself stays
+        // server-controlled.
+        return $primary ?? $secondary ?? "{$owner->name}'s Free Time";
+    }
+
+    private function render(ShareLink $shareLink, string $token, string $locale): InertiaResponse
     {
         $invite = Invite::where('source_share_link_id', $shareLink->id)
             ->whereNull('max_uses')
@@ -62,16 +85,14 @@ class ShareLinkController extends Controller
 
         $owner = $shareLink->user;
 
-        return view('share-links.show', [
-            'shareLink' => $shareLink,
+        return Inertia::render('Free/Show', [
             'token' => $token,
+            'keyProtection' => $shareLink->key_protection,
             'inviteCode' => $invite->code,
             'ownerName' => $owner->name,
-            // No hardcoded "My Free Time" branding — owners can override
-            // the page heading entirely; the default is computed here
-            // rather than baked into the frontend so the fallback text
-            // itself stays server-controlled.
-            'pageTitle' => $owner->public_page_title ?? "{$owner->name}'s Free Time",
+            'locale' => $locale,
+            'pageTitle' => $this->resolveTitle($owner, $locale),
+            'weekStart' => $owner->week_start,
             'colors' => [
                 'accent' => $owner->accent_color,
                 'secondary' => $owner->secondary_color,
@@ -79,6 +100,7 @@ class ShareLinkController extends Controller
                 'busy' => $owner->busy_color,
                 'sleep' => $owner->sleep_color,
                 'highlighted' => $owner->highlight_color,
+                'now' => $owner->now_color,
             ],
         ]);
     }

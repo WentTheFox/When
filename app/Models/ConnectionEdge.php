@@ -11,6 +11,7 @@ class ConnectionEdge extends Model
     use HasUuids;
 
     protected $fillable = [
+        'id',
         'user_id',
         'from_connection_id',
         'to_connection_id',

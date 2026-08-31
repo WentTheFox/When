@@ -68,7 +68,7 @@ class RecomputeShareLinkAvailability implements ShouldQueue
         $calendarUrl = Crypt::decryptString($user->calendar_url_ciphertext);
         $icsBody = $fetcher->fetch($calendarUrl);
 
-        $rawItems = $icsParser->parse($icsBody, $rangeStart, $rangeEnd);
+        $rawItems = $icsParser->parse($icsBody, $rangeStart, $rangeEnd, $user->tentative_pattern);
         $detectedMode = $classifier->classify($rawItems);
 
         CalendarDetection::create([
@@ -101,7 +101,7 @@ class RecomputeShareLinkAvailability implements ShouldQueue
 
         $weeklyAvailability = $user->availability_settings ?? [];
 
-        $slots = $availabilityService->compute(
+        $result = $availabilityService->compute(
             events: $events,
             weeklyAvailability: $weeklyAvailability,
             sleepExceptions: $sleepExceptions,
@@ -113,9 +113,11 @@ class RecomputeShareLinkAvailability implements ShouldQueue
             rangeStart: $rangeStart,
             rangeEnd: $rangeEnd,
             highlightClausePattern: $user->highlight_clause_pattern,
+            activityClausePattern: $user->activity_clause_pattern,
+            showActivity: $shareLink->show_activity,
         );
 
-        $resultJson = json_encode(array_map(fn ($slot) => $slot->toArray(), $slots));
+        $resultJson = json_encode($result->toArray());
         $contentKey = $this->resolveContentKey($shareLink);
 
         $ciphertext = AesGcm::encrypt($contentKey, $resultJson);

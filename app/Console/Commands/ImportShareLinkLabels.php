@@ -42,7 +42,7 @@ class ImportShareLinkLabels extends Command
 
     public function handle(): int
     {
-        $user = User::where('email', $this->argument('email'))->first();
+        $user = User::whereEmail($this->argument('email'))->first();
 
         if ($user === null) {
             $this->error("No user found for {$this->argument('email')}.");

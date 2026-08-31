@@ -14,6 +14,7 @@ class ShareLink extends Model
     use HasFactory, HasUuids;
 
     protected $fillable = [
+        'id',
         'user_id',
         'label_ciphertext',
         'key_protection',
@@ -22,6 +23,7 @@ class ShareLink extends Model
         'content_key_ciphertext',
         'archived',
         'bypass_dnd',
+        'show_activity',
         'legacy_token',
     ];
 
@@ -36,6 +38,7 @@ class ShareLink extends Model
         return [
             'archived' => 'boolean',
             'bypass_dnd' => 'boolean',
+            'show_activity' => 'boolean',
         ];
     }
 

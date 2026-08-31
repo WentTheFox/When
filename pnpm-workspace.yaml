@@ -11,3 +11,9 @@ allowBuilds:
 # and unpublished/flagged within that window — this buys time for that to
 # happen before it ever lands in this app's dependency tree.
 minimumReleaseAge: 20160
+
+# bootstrap-vue-next 1.0.2 is its first stable Vue3/Bootstrap5 release and
+# was needed sooner than the standard 14-day window — explicitly reviewed
+# before excepting it, not a blanket bypass.
+minimumReleaseAgeExclude:
+  - bootstrap-vue-next

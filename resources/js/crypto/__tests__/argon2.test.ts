@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ARGON2ID_PROFILE, deriveKeyFromPassphrase, generateSalt } from '../argon2';
+import { ARGON2ID_PROFILE, deriveKeyFromPassphrase, deriveLoginVerifier, generateSalt } from '../argon2';
 import { importAesKey } from '../aesgcm';
 
 describe('Argon2id vault key derivation', () => {
@@ -50,5 +50,45 @@ describe('Argon2id vault key derivation', () => {
   it('generates salts of the requested length, base64-encoded', () => {
     const salt = generateSalt(16);
     expect(Buffer.from(salt, 'base64')).toHaveLength(16);
+  });
+});
+
+describe('login verifier derivation (single master-password split, §0.3)', () => {
+  it('is deterministic for the same master password + email', async () => {
+    const a = await deriveLoginVerifier('correct horse battery staple', 'Fox@Example.com');
+    const b = await deriveLoginVerifier('correct horse battery staple', 'Fox@Example.com');
+
+    expect(a).toEqual(b);
+  });
+
+  it('is case- and whitespace-insensitive on the email, matching how emails are normally compared', async () => {
+    const a = await deriveLoginVerifier('correct horse battery staple', 'fox@example.com');
+    const b = await deriveLoginVerifier('correct horse battery staple', '  Fox@Example.com  ');
+
+    expect(a).toEqual(b);
+  });
+
+  it('produces a different verifier for a different master password', async () => {
+    const a = await deriveLoginVerifier('master password one', 'fox@example.com');
+    const b = await deriveLoginVerifier('master password two', 'fox@example.com');
+
+    expect(a).not.toEqual(b);
+  });
+
+  it('produces a different verifier for a different email, same master password', async () => {
+    const a = await deriveLoginVerifier('correct horse battery staple', 'fox@example.com');
+    const b = await deriveLoginVerifier('correct horse battery staple', 'wolf@example.com');
+
+    expect(a).not.toEqual(b);
+  });
+
+  it('produces a value independent of the vault key derived from the same master password', async () => {
+    const email = 'fox@example.com';
+    const vaultSalt = generateSalt();
+
+    const verifier = await deriveLoginVerifier('correct horse battery staple', email);
+    const { keyBytes: vaultKey } = await deriveKeyFromPassphrase('correct horse battery staple', vaultSalt);
+
+    expect(verifier).not.toEqual(Buffer.from(vaultKey).toString('base64'));
   });
 });

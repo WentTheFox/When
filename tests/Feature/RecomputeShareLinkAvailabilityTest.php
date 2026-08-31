@@ -78,9 +78,9 @@ class RecomputeShareLinkAvailabilityTest extends TestCase
 
         $decrypted = json_decode(AesGcm::decrypt($rawContentKey, $cache->ciphertext), true);
 
-        $this->assertCount(1, $decrypted);
-        $this->assertSame('highlighted', $decrypted[0]['type']);
-        $this->assertSame('Alice', $decrypted[0]['highlight_word']);
+        $this->assertCount(1, $decrypted['highlighted']);
+        $this->assertSame(['Alice'], $decrypted['highlighted'][0]['highlight_words']);
+        $this->assertCount(1, $decrypted['unavailable']);
     }
 
     public function test_recompute_records_a_calendar_detection(): void
@@ -136,7 +136,7 @@ class RecomputeShareLinkAvailabilityTest extends TestCase
         $derivedKey = LegacyShareLinkKey::derive('legacy-token-for-recompute-test');
         $decrypted = json_decode(AesGcm::decrypt($derivedKey, $cache->ciphertext), true);
 
-        $this->assertCount(1, $decrypted);
-        $this->assertSame('busy', $decrypted[0]['type']);
+        $this->assertCount(1, $decrypted['unavailable']);
+        $this->assertCount(0, $decrypted['highlighted']);
     }
 }

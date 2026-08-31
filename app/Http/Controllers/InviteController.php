@@ -2,25 +2,35 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Invite;
 use App\Services\InviteService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\View\View;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class InviteController extends Controller
 {
     public function __construct(private readonly InviteService $invites) {}
 
-    public function index(Request $request): View
+    public function index(Request $request): Response
     {
         $invites = $request->user()
             ->invitesIssued()
             ->with('redemptions.user')
             ->latest()
-            ->get();
+            ->get()
+            ->map(fn (Invite $invite) => [
+                'id' => $invite->id,
+                'code' => $invite->code,
+                'redemption_count' => $invite->redemptions->count(),
+                'max_uses' => $invite->max_uses,
+                'expires_at' => $invite->expires_at?->toDateString(),
+                'source' => $invite->source_share_link_id ? 'share-link CTA' : 'manual',
+            ]);
 
-        return view('invites.index', ['invites' => $invites]);
+        return Inertia::render('Invites/Index', ['invites' => $invites]);
     }
 
     public function store(Request $request): RedirectResponse

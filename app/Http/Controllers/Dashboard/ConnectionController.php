@@ -1,0 +1,150 @@
+<?php
+
+namespace App\Http\Controllers\Dashboard;
+
+use App\Http\Controllers\Controller;
+use App\Models\Connection;
+use App\Models\ConnectionAttributeValue;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+use Inertia\Response;
+
+/**
+ * Full Connections CRM CRUD (Stage 7, §0.1). Every field this controller
+ * touches that's suffixed _ciphertext is client-vault E2EE end to end —
+ * the client encrypts before sending and decrypts after fetching; this
+ * controller only ever moves ciphertext blobs it cannot open. See
+ * vault.ts's createRecordKey for how the client derives each record's key
+ * before calling store().
+ */
+class ConnectionController extends Controller
+{
+    public function index(Request $request): Response
+    {
+        $user = $request->user();
+
+        return Inertia::render('Dashboard/Connections', [
+            'connections' => $user->connections()->with(['attributeValues', 'sources'])->get([
+                'id', 'name_ciphertext', 'notes_ciphertext', 'share_link_id', 'archived',
+            ])->map(fn (Connection $c) => $this->serialize($c)),
+            'sources' => $user->connectionSources()->get(['id', 'category_id', 'name_ciphertext']),
+            'attributeDefinitions' => $user->connectionAttributeDefinitions()->get(['id', 'label_ciphertext', 'type', 'options_ciphertext']),
+            'edges' => $user->connectionEdges()->get(['id', 'from_connection_id', 'to_connection_id', 'label_ciphertext']),
+        ]);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $data = $this->validateConnection($request, requireId: true);
+
+        $connection = DB::transaction(function () use ($request, $data) {
+            $connection = $request->user()->connections()->create([
+                'id' => $data['id'],
+                'name_ciphertext' => $data['name_ciphertext'],
+                'notes_ciphertext' => $data['notes_ciphertext'] ?? null,
+                'share_link_id' => $data['share_link_id'] ?? null,
+                'archived' => $data['archived'] ?? false,
+            ]);
+
+            if (array_key_exists('source_ids', $data)) {
+                $connection->sources()->sync($data['source_ids']);
+            }
+
+            $this->syncAttributeValues($connection, $data['attribute_values'] ?? null);
+
+            return $connection;
+        });
+
+        return response()->json($this->serialize($connection->refresh()), 201);
+    }
+
+    public function update(Request $request, string $connection): JsonResponse
+    {
+        $connection = $this->findOwned($request, $connection);
+        $data = $this->validateConnection($request, requireId: false);
+
+        DB::transaction(function () use ($connection, $data) {
+            $connection->fill(array_filter([
+                'name_ciphertext' => $data['name_ciphertext'] ?? null,
+                'notes_ciphertext' => $data['notes_ciphertext'] ?? null,
+                'share_link_id' => $data['share_link_id'] ?? null,
+                'archived' => $data['archived'] ?? null,
+            ], fn ($value) => $value !== null))->save();
+
+            if (array_key_exists('source_ids', $data)) {
+                $connection->sources()->sync($data['source_ids']);
+            }
+
+            if (array_key_exists('attribute_values', $data)) {
+                $this->syncAttributeValues($connection, $data['attribute_values']);
+            }
+        });
+
+        return response()->json($this->serialize($connection->refresh()));
+    }
+
+    /**
+     * Every create/update returns the full row (not just {status: ok}) so
+     * the Vue page can splice it straight into its reactive list without a
+     * full reload — see ConnectionCard.vue's props.
+     */
+    private function serialize(Connection $connection): array
+    {
+        return [
+            'id' => $connection->id,
+            'source_ids' => $connection->sources->pluck('id'),
+            'name_ciphertext' => $connection->name_ciphertext,
+            'notes_ciphertext' => $connection->notes_ciphertext,
+            'share_link_id' => $connection->share_link_id,
+            'archived' => $connection->archived,
+            'attribute_values' => $connection->attributeValues()->get(['attribute_definition_id', 'value_ciphertext']),
+        ];
+    }
+
+    public function destroy(Request $request, string $connection): JsonResponse
+    {
+        $this->findOwned($request, $connection)->delete();
+
+        return response()->json(['status' => 'ok']);
+    }
+
+    private function validateConnection(Request $request, bool $requireId): array
+    {
+        return $request->validate([
+            'id' => $requireId ? ['required', 'uuid', 'unique:connections,id'] : ['sometimes'],
+            'source_ids' => ['nullable', 'array'],
+            'source_ids.*' => ['uuid', 'exists:connection_sources,id'],
+            'name_ciphertext' => $requireId ? ['required', 'string'] : ['sometimes', 'string'],
+            'notes_ciphertext' => ['nullable', 'string'],
+            'share_link_id' => ['nullable', 'uuid', 'exists:share_links,id'],
+            'archived' => ['nullable', 'boolean'],
+            'attribute_values' => ['nullable', 'array'],
+            'attribute_values.*.attribute_definition_id' => ['required', 'uuid', 'exists:connection_attribute_definitions,id'],
+            'attribute_values.*.value_ciphertext' => ['required', 'string'],
+        ]);
+    }
+
+    private function syncAttributeValues(Connection $connection, ?array $attributeValues): void
+    {
+        if ($attributeValues === null) {
+            return;
+        }
+
+        $connection->attributeValues()->delete();
+
+        foreach ($attributeValues as $value) {
+            ConnectionAttributeValue::create([
+                'connection_id' => $connection->id,
+                'attribute_definition_id' => $value['attribute_definition_id'],
+                'value_ciphertext' => $value['value_ciphertext'],
+            ]);
+        }
+    }
+
+    private function findOwned(Request $request, string $id): Connection
+    {
+        return $request->user()->connections()->where('id', $id)->firstOrFail();
+    }
+}

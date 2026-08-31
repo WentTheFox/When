@@ -1,0 +1,18 @@
+{
+    "free.freeLabel": "Free",
+    "free.unavailableLabel": "Unavailable",
+    "free.highlightedLabel": "Plans with you",
+    "free.sleepLabel": "Sleep",
+    "free.tentativeSuffix": " (tentative)",
+    "free.reservedSuffix": ":duration reserved",
+    "free.error": "Could not load availability data.",
+    "free.noData": "No free time left this month.",
+    "free.noDataWeek": "No free time left this week.",
+    "free.today": "Today",
+    "free.monthView": "Month",
+    "free.weekView": "Week",
+    "free.prevMonth": "Previous month",
+    "free.nextMonth": "Next month",
+    "free.prevWeek": "Previous week",
+    "free.nextWeek": "Next week"
+}
