@@ -43,7 +43,7 @@ const accentStyle = computed(() => ({
 <template>
   <div class="wtf-backdrop" :style="accentStyle">
     <nav
-      class="navbar navbar-expand navbar-dark"
+      class="navbar navbar-expand navbar-dark sticky-top"
       style="background: var(--wtf-bg-elevated); border-bottom: 1px solid var(--wtf-border);"
     >
       <div class="container">

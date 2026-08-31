@@ -122,6 +122,19 @@
     --wtf-border: #495057;
     --wtf-fcal-today-alpha: 0.12;
     --wtf-fcal-text-unavailable: #717e8c;
+    /* Redeclared, not just inherited — --wtf-fcal-text-free/highlighted/
+       sleep below are themselves color-mix() aliases of --wtf-hue-x and
+       --wtf-text, and a custom property's var() references resolve
+       against the scope where THAT property is declared, not wherever
+       it's later used. Since the :root versions only ever resolve against
+       :root's own (page-theme-following) --wtf-text, simply inheriting
+       them here would silently ignore this scope's fixed --wtf-text
+       above — exactly the bug this block exists to avoid. Redeclaring the
+       formula here, with the same --wtf-hue-* fallback, forces it to
+       resolve against THIS scope's own vars instead. */
+    --wtf-fcal-text-free: color-mix(in srgb, var(--wtf-hue-free, var(--wtf-accent)) 65%, var(--wtf-text) 35%);
+    --wtf-fcal-text-highlighted: color-mix(in srgb, var(--wtf-hue-highlighted, #ffc107) 65%, var(--wtf-text) 35%);
+    --wtf-fcal-text-sleep: color-mix(in srgb, var(--wtf-hue-sleep, #6f42c1) 65%, var(--wtf-text) 35%);
     color: var(--wtf-text);
 }
 
@@ -133,6 +146,9 @@
     --wtf-border: #dee2e6;
     --wtf-fcal-today-alpha: 0.06;
     --wtf-fcal-text-unavailable: #0f1112;
+    --wtf-fcal-text-free: color-mix(in srgb, var(--wtf-hue-free, var(--wtf-accent)) 65%, var(--wtf-text) 35%);
+    --wtf-fcal-text-highlighted: color-mix(in srgb, var(--wtf-hue-highlighted, #ffc107) 65%, var(--wtf-text) 35%);
+    --wtf-fcal-text-sleep: color-mix(in srgb, var(--wtf-hue-sleep, #6f42c1) 65%, var(--wtf-text) 35%);
     color: var(--wtf-text);
 }
 
