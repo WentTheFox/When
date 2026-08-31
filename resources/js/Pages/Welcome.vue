@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, usePage } from '@inertiajs/vue3';
 import PublicLayout from '../Layouts/PublicLayout.vue';
+import logoUrl from '../../img/WhenTheFox.svg';
 
 defineOptions({ layout: PublicLayout });
 
@@ -16,6 +17,10 @@ const page = usePage();
   <div style="max-width: 42rem; margin: 0 auto;">
     <div class="card mb-4">
       <div class="card-body">
+        <div class="text-center mb-4">
+          <img :src="logoUrl" alt="" width="160" height="160">
+        </div>
+
         <h1 class="mb-2 text-center">{{ page.props.appName }}</h1>
         <p class="text-center mb-5">
           Share your availability with friends for simpler event planning across timezones
