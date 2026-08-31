@@ -1240,3 +1240,19 @@ hr {
 .wtf-swatch-btn-active {
     box-shadow: 0 0 0 2px var(--wtf-text);
 }
+
+/*
+ * bootstrap-vue-next's v-b-tooltip directive already defaults to
+ * `noninteractive` (its own prop name for "can't be clicked/focused as
+ * its own element"), but that alone doesn't stop the rendered bubble from
+ * still receiving pointer events — sitting between adjacent swatches
+ * (e.g. wtf-swatch-btn's tooltip), it could intercept mousemove/mouseover
+ * meant for whatever's underneath or beside it, breaking hover on a
+ * neighboring element until the tooltip itself finished fading out. A
+ * decorative label like this should never be the thing the mouse
+ * actually lands on — pointer-events: none guarantees hover always passes
+ * straight through it.
+ */
+.tooltip {
+    pointer-events: none;
+}

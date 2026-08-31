@@ -12,7 +12,7 @@ import {
   BFormInput,
   BFormSelect,
   BFormTextarea,
-  vBTooltip,
+  BTooltip,
 } from 'bootstrap-vue-next';
 import { addDays as addDaysFns, startOfWeek as startOfWeekFns } from 'date-fns';
 import { computed, onUnmounted, ref, watch } from 'vue';
@@ -88,6 +88,29 @@ const colorFields: { field: keyof Settings; slot: ColorSlot; label: string }[] =
 ];
 
 const colorPalette = getColorPalette();
+
+/**
+ * One shared tooltip for every swatch across every color-slot group,
+ * instead of a separate v-b-tooltip instance per circle — with ~21
+ * swatches per group across 6 groups, that was well over a hundred
+ * always-mounted floating-ui instances, and each one's own bubble sat in
+ * the DOM regardless of visibility, easy to have overlap and steal
+ * hover/hit-testing from a neighboring swatch. A single tooltip just
+ * moves to whichever swatch is currently hovered/focused instead.
+ */
+const tooltipVisible = ref(false);
+const activeSwatchTarget = ref<HTMLElement | null>(null);
+const activeSwatchLabel = ref('');
+
+function showSwatchTooltip(event: FocusEvent | MouseEvent, label: string): void {
+  activeSwatchTarget.value = event.currentTarget as HTMLElement;
+  activeSwatchLabel.value = label;
+  tooltipVisible.value = true;
+}
+
+function hideSwatchTooltip(): void {
+  tooltipVisible.value = false;
+}
 
 /**
  * A representative week of made-up events, fed into the exact same
@@ -801,13 +824,16 @@ function submit(): void {
                 <button
                   v-for="swatch in colorPalette"
                   :key="swatch.key"
-                  v-b-tooltip="swatch.label"
                   type="button"
                   class="wtf-swatch-btn"
                   :class="{ 'wtf-swatch-btn-active': (form as unknown as Record<string, string>)[colorField.field] === swatch.key }"
                   :aria-pressed="(form as unknown as Record<string, string>)[colorField.field] === swatch.key"
                   :style="{ '--wtf-swatch-light': swatch.light, '--wtf-swatch-dark': swatch.dark }"
                   @click="(form as unknown as Record<string, string>)[colorField.field] = swatch.key"
+                  @mouseenter="showSwatchTooltip($event, swatch.label)"
+                  @mouseleave="hideSwatchTooltip"
+                  @focus="showSwatchTooltip($event, swatch.label)"
+                  @blur="hideSwatchTooltip"
                 >
                   <span class="visually-hidden">{{ swatch.label }}</span>
                 </button>
@@ -828,6 +854,17 @@ function submit(): void {
             </BFormGroup>
           </div>
         </div>
+
+        <BTooltip
+          v-if="activeSwatchTarget"
+          v-model="tooltipVisible"
+          :target="activeSwatchTarget"
+          no-fade
+          noninteractive
+          placement="top"
+        >
+          {{ activeSwatchLabel }}
+        </BTooltip>
 
         <div class="row">
           <div v-for="theme in (['light', 'dark'] as const)" :key="theme" class="col-md-6 mb-3">
