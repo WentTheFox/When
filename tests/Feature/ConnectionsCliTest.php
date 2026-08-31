@@ -136,14 +136,14 @@ class ConnectionsCliTest extends TestCase
     }
 
     /**
-     * the source app export shape — {sources, attribute_definitions,
+     * Source-app export shape — {sources, attribute_definitions,
      * connections} — using entirely synthetic names/data, not a real export.
      */
-    public function test_import_from_the source app_shape_creates_sources_categories_attributes_and_edges(): void
+    public function test_import_from_source_app_shape_creates_sources_categories_attributes_and_edges(): void
     {
         $user = $this->userWithVault();
 
-        $path = tempnam(sys_get_temp_dir(), 'wtf-the source app').'.json';
+        $path = tempnam(sys_get_temp_dir(), 'wtf-source-app-export').'.json';
         file_put_contents($path, json_encode([
             'sources' => [
                 ['name' => 'Widget Meetup', 'category' => 'group'],

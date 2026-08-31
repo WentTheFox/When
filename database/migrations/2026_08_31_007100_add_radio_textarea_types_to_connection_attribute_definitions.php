@@ -10,7 +10,7 @@ return new class extends Migration
     /**
      * 'radio' (a fixed set of choices, e.g. "Standing": friend/acquaintance/
      * hostile/...) and 'textarea' (multi-line free text) — needed to import
-     * the source app connection data losslessly. options_ciphertext holds a
+     * the source app's connection data losslessly. options_ciphertext holds a
      * JSON-encoded {"choices": [...]} for 'radio' definitions, encrypted
      * with the *definition's* own vault key (same key as label_ciphertext,
      * not the connection's) since it's a property of the definition, not

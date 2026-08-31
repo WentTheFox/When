@@ -16,16 +16,16 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
 /**
- * Operator CLI (Stage 7's Connections CLI extension — see ImportShareLinkLabels's
- * doc comment for why this exists and how it respects the E2EE boundary):
- * bulk import from a JSON or CSV file. Every _ciphertext field is encrypted
- * here, client-side from this process's point of view, before it ever
- * touches the database — see CLI.md for the exact file shapes.
+ * Operator CLI (see ImportShareLinkLabels's doc comment for why this exists
+ * and how it respects the E2EE boundary): bulk import from a JSON or CSV
+ * file. Every _ciphertext field is encrypted here, client-side from this
+ * process's point of view, before it ever touches the database — see
+ * CLAUDE.md's "Operator CLI" section for the exact file shapes.
  *
  * Two JSON shapes are accepted:
  *   - The simple shape: a flat array of {name, notes, source, attributes}.
- *   - the source app export shape: {sources, attribute_definitions,
- *     connections} — see importthe source app() below. Detected by the
+ *   - The source-app export shape: {sources, attribute_definitions,
+ *     connections} — see importSourceAppExport() below. Detected by the
  *     presence of a top-level "connections" key.
  */
 class ImportConnections extends Command
@@ -34,7 +34,7 @@ class ImportConnections extends Command
 
     protected $signature = 'wtf:connections:import {email : Owner email} {input : Path to a .json or .csv file}';
 
-    protected $description = 'Operator CLI: bulk-import connections via the owner\'s vault (see CLI.md for file shapes)';
+    protected $description = 'Operator CLI: bulk-import connections via the owner\'s vault (see CLAUDE.md for file shapes)';
 
     /** @var array<string, string> attribute label -> definition id, lazily built */
     private array $definitionIdsByLabel = [];
@@ -45,7 +45,7 @@ class ImportConnections extends Command
     /** @var array<string, string> category name -> category id, lazily built */
     private array $categoryIdsByName = [];
 
-    /** @var array<string, string> connection name -> connection id, lazily built (the source app shape only) */
+    /** @var array<string, string> connection name -> connection id, lazily built (source-app shape only) */
     private array $connectionIdsByName = [];
 
     public function handle(): int
@@ -103,7 +103,7 @@ class ImportConnections extends Command
             $decoded = json_decode(file_get_contents($inputPath), associative: true, flags: JSON_THROW_ON_ERROR);
 
             if (is_array($decoded) && array_key_exists('connections', $decoded)) {
-                $imported = $this->importthe source app($user, $ring, $decoded);
+                $imported = $this->importSourceAppExport($user, $ring, $decoded);
             } else {
                 $imported = $this->importSimpleRows($user, $ring, $this->parseJson($inputPath));
             }
@@ -175,7 +175,7 @@ class ImportConnections extends Command
     }
 
     /**
-     * the source app export shape:
+     * Source-app export shape:
      *   sources: [{name, category}]
      *   attribute_definitions: [{label, type, options: {choices:[...]}|null, sort_order}]
      *   connections: [{name, archived, created_at, attribute_values: [{attribute_label, value}],
@@ -186,7 +186,7 @@ class ImportConnections extends Command
      * created first, since connection-to-connection edges and highlight
      * tokens need every connection's id already resolved by name.
      */
-    private function importthe source app(User $user, array &$ring, array $data): int
+    private function importSourceAppExport(User $user, array &$ring, array $data): int
     {
         foreach ($data['sources'] ?? [] as $sourceRow) {
             $name = $sourceRow['name'] ?? null;
@@ -381,7 +381,7 @@ class ImportConnections extends Command
         ]);
     }
 
-    /** connection_attribute_definitions.type only supports these — anything else (e.g. an unrecognized future the source app type) falls back to 'text' rather than failing the whole import. */
+    /** connection_attribute_definitions.type only supports these — anything else (e.g. an unrecognized future source-app type) falls back to 'text' rather than failing the whole import. */
     private function mapAttributeType(string $type): string
     {
         return in_array($type, ['text', 'textarea', 'date', 'number', 'url', 'email', 'phone', 'radio'], true)

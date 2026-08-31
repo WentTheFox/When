@@ -11,8 +11,8 @@ use Carbon\CarbonImmutable;
 /**
  * Computes the final free/highlighted/unavailable/sleep result (§5.1),
  * ported from the source app's own AvailabilityController +
- * AvailabilityService (the source app) to match its API contract
- * exactly rather than our own earlier single-flat-list design: the four
+ * AvailabilityService to match its API contract exactly rather than our
+ * own earlier single-flat-list design: the four
  * output arrays are computed mostly independently and can legitimately
  * overlap (an event that's both busy and highlighted appears in both
  * `unavailable` and `highlighted`) — see AvailabilityResult's doc comment

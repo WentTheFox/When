@@ -1,4 +1,4 @@
-# When (WhenTheFox)
+# When *(The Fox)*
 
 Availability/free-busy sharing with an end-to-end-encrypted Connections CRM bolted on.
 An owner shares a `/free/{token}` link; a viewer sees computed free/busy/highlighted/
@@ -79,8 +79,8 @@ ordinary password). See `resources/js/crypto/argon2.ts`.
 ## Deploy
 
 Two independent git remotes:
-- `git push origin main` → GitHub (`WentTheFox/WhenTheFox`), code hosting only.
-- `git push production main` → `vinyl.vps:/var/www/WhenTheFox`, a **non-bare** repo
+- `git push origin main` → GitHub, code hosting only.
+- `git push production main` → a **non-bare** repo on a remote SSH host
   with `receive.denyCurrentBranch=updateInstead`, so pushing directly updates the
   working tree. Triggers `setup/post-receive.sh`: fetch → (composer install if
   `composer.lock` changed) → `artisan down` → `artisan migrate --force` → (pnpm install
@@ -119,7 +119,7 @@ a single command's own lifetime.
   type `text`). JSON is an array of `{name, notes, source, attributes: {Label: value}}`
   objects (only `name` required); CSV is `name,notes,source,attr:<Label>,...` (any
   `attr:`-prefixed column becomes a custom attribute keyed by the rest of its header). A
-  JSON file with a top-level `connections` key is auto-detected as a **the source app
+  JSON file with a top-level `connections` key is auto-detected as a **source-app
   export** instead and handled differently — `sources[].category` and
   `attribute_definitions[]` (types `text`/`textarea`/`date`/`number`/`url`/`email`/
   `phone`/`radio`, anything else falls back to `text`; `radio`'s `options.choices`
