@@ -17,7 +17,7 @@ if [[ "$refname" == "$RUN_FOR_REF" ]]; then
     CMD_NPM="pnpm install --frozen-lockfile"
     CMD_BUILD="pnpm build"
     CMD_OPTIMIZE="php artisan optimize"
-    CMD_HORIZON_RESTART="sudo systemctl restart whenthefox-horizon.service"
+    CMD_HORIZON_RESTART="sudo systemctl restart when-horizon.service"
     CMD_LARAVEL_UP="php artisan up"
 
     echo "$ $CMD_FETCH"; eval ${CMD_FETCH}

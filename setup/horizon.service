@@ -1,5 +1,5 @@
 [Unit]
-Description=WhenTheFox Laravel Horizon Queue Worker
+Description=When Laravel Horizon Queue Worker
 After=network.target redis-server.service
 
 [Service]
@@ -21,7 +21,7 @@ RestartSec=3
 # treats EnvironmentFile's value literally, so a quoted path doesn't start
 # with / and gets silently ignored (confirmed: this exact bug, copied from
 # SledgeHammerTime's unit, produced "path is not absolute, ignoring" in
-# `journalctl -u whenthefox-horizon.service`). Harmless today only because
+# `journalctl -u when-horizon.service`). Harmless today only because
 # Laravel's own dotenv loading at artisan boot is independent of systemd's
 # EnvironmentFile mechanism, but the directive itself was dead.
 EnvironmentFile=/var/www/WhenTheFox/.env

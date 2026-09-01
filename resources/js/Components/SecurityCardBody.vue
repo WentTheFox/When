@@ -16,7 +16,7 @@ const page = usePage();
   </p>
 
   <p class="text-muted mb-4">
-    Source code for all of this is publicly <a href="https://github.com/WentTheFox/WhenTheFox" target="_blank" rel="noopener">available on Github</a>.
+    Source code for all of this is publicly <a href="https://github.com/WentTheFox/When" target="_blank" rel="noopener">available on Github</a>.
   </p>
 
   <h2 class="h5">

@@ -24,6 +24,6 @@ const inviteCode = getRememberedInviteCode();
     <span>&middot;</span>
     <span><a href="/about">About this project</a></span>
     <span>&middot;</span>
-    <span><a href="https://github.com/WentTheFox/WhenTheFox" target="_blank" rel="noopener">Source code</a></span>
+    <span><a href="https://github.com/WentTheFox/When" target="_blank" rel="noopener">Source code</a></span>
   </footer>
 </template>

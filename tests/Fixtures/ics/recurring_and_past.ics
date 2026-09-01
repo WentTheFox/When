@@ -1,6 +1,6 @@
 BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//WhenTheFox Test Fixtures//EN
+PRODID:-//When Test Fixtures//EN
 BEGIN:VEVENT
 UID:old-nonrecurring@example.com
 DTSTAMP:20200101T000000Z

@@ -21,7 +21,7 @@ class CalendarPreviewTest extends TestCase
         return <<<ICS
         BEGIN:VCALENDAR
         VERSION:2.0
-        PRODID:-//WhenTheFox Test Fixtures//EN
+        PRODID:-//When Test Fixtures//EN
         BEGIN:VEVENT
         UID:preview-1@example.com
         DTSTAMP:{$eventDate}T000000Z

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { usePage } from '@inertiajs/vue3';
-import logoUrl from '../../img/WhenTheFox.svg';
+import logoUrl from '../../img/When.svg';
 
 const page = usePage();
 </script>

@@ -8,7 +8,7 @@ return new class extends Migration
 {
     /**
      * Stage 6: the public share view shows the owner's name, not any
-     * WhenTheFox branding — but owners can override the page heading text
+     * When branding — but owners can override the page heading text
      * entirely (e.g. "Book time with me" instead of the default "{name}'s
      * Free Time"). Null means "use the computed default."
      */

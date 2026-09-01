@@ -1,4 +1,4 @@
-# When *(The Fox)*
+# When
 
 Availability/free-busy sharing with an end-to-end-encrypted Connections CRM bolted on.
 An owner shares a `/free/{token}` link; a viewer sees computed free/busy/highlighted/
@@ -93,11 +93,17 @@ Two independent git remotes:
   working tree. Triggers `setup/post-receive.sh`: fetch → (composer install if
   `composer.lock` changed) → `artisan down` → `artisan migrate --force` → (pnpm install
   if lockfile changed) → `pnpm build` (if `resources/` changed) → `artisan optimize` →
-  restart `whenthefox-horizon.service` → `artisan up`. Live at `https://when.went.tf`.
+  restart `when-horizon.service` → `artisan up`. Live at `https://when.went.tf`.
 
 Pushing to `production` deploys immediately and takes the app down briefly during
 migrate/build — never push there without the user's explicit go-ahead for that specific
 push, even if `origin` was already approved.
+
+The project was renamed from "WhenTheFox" to "When" (GitHub repo, app name, systemd
+service). The production directory (`/var/www/WhenTheFox`), Postgres database
+(`whenthefox`), and DB role (`whenthefox_app`) were deliberately left un-renamed —
+renaming a live directory/database carries real downtime/breakage risk for no
+user-visible benefit, so don't "fix" these to match unless asked.
 
 ## Operator CLI
 

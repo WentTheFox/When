@@ -25,7 +25,7 @@ import ThemeToggle from './ThemeToggle.vue';
 // browser convention of a fixed, unversioned favicon URL), this one
 // renders from inside the app bundle itself and should get cache-busted
 // like every other asset the bundle references.
-import logoUrl from '../../img/WhenTheFox.svg';
+import logoUrl from '../../img/When.svg';
 
 const page = usePage<SharedPageProps>();
 
