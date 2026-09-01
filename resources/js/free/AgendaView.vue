@@ -15,7 +15,7 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faBan, faCheck, faMoon, faSpinner, faStar } from '@fortawesome/free-solid-svg-icons';
 import { computed } from 'vue';
 import { currentLocale, trans } from 'laravel-vue-i18n';
-import { formatReservedDuration, formatTentativeStart, getBlocksForDay, isTentativeDisplay, pctToTime, tildeTime } from './nuxt-blocks';
+import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, pctToTime, tildeTime } from './nuxt-blocks';
 import type { DayBlock, FreeSlot, HighlightedSlot, TentativeSlot } from './nuxt-blocks';
 
 const AGENDA_SLOT_CLASS: Record<DayBlock['type'], string> = {
@@ -68,11 +68,21 @@ function slotLabel(slot: DayBlock): string {
 }
 
 function slotTimeText(slot: DayBlock): string {
-  if (isTentativeDisplay(slot)) {
+  const startFuzzy = isTentativeStartDisplay(slot);
+  const endFuzzy = isTentativeEndDisplay(slot);
+
+  // A single fuzzy edge collapses to just its known side + a reserved
+  // duration ("From 17:00 (2h reserved)" / "Until 19:00 (2h reserved)")
+  // rather than an explicit range — there's no point printing a clock time
+  // for the edge we don't actually know.
+  if (startFuzzy || endFuzzy) {
     const duration = trans('free.reservedSuffix', { duration: formatReservedDuration(slot.startTime, slot.endTime, currentLocale.value) });
-    return `${formatTentativeStart(slot.startTime, currentLocale.value)} (${duration})`;
+    if (startFuzzy && endFuzzy) return `${formatTentativeStart(slot.startTime, currentLocale.value)} (${duration})`;
+    if (startFuzzy) return `${formatUntilTime(slot.endTime, currentLocale.value)} (${duration})`;
+    return `${formatFromTime(slot.startTime, currentLocale.value)} (${duration})`;
   }
-  return `${tildeTime(slot.startTime, slot.tentative)} – ${tildeTime(slot.endTime, slot.tentative)}`;
+
+  return `${tildeTime(slot.startTime, startFuzzy)} – ${tildeTime(slot.endTime, endFuzzy)}`;
 }
 
 function isDayToday(day: Date): boolean {
@@ -97,26 +107,43 @@ function slotHeightStyle(heightPct: number): Record<string, string> {
   };
 }
 
-// Same neighbor-blending idea as the week view: a tentative slot's edge fade
-// blends into the adjacent slot's color instead of just fading to transparent.
-// At the very top/bottom of a day's own slots, it carries over from the
-// previous/next calendar day's last/first slot, computed directly rather than
-// looked up in the rendered day list — the visible range can trim a day (e.g.
-// past-day filtering) while the API still returns that day's data, padded a
-// day either side of the requested range — falling back to transparent only
-// where there's truly no data for the adjacent day.
+// Same neighbor-blending idea as the week view: only an edge that's actually
+// fuzzy (tentativeStart/tentativeEnd, independently) blends into the
+// adjacent slot's color — the other edge renders as a hard line at its own
+// solid color. At the very top/bottom of a day's own slots, the neighbor
+// carries over from the previous/next calendar day's last/first slot,
+// computed directly rather than looked up in the rendered day list — the
+// visible range can trim a day (e.g. past-day filtering) while the API
+// still returns that day's data, padded a day either side of the requested
+// range — falling back to transparent only where there's truly no data for
+// the adjacent day (a hard, non-fuzzy edge never falls back to transparent,
+// since it always renders its own solid color).
 function tentativeFadeStyle(day: Date, slots: DayBlock[], i: number): Record<string, string> {
-  if (!isTentativeDisplay(slots[i]!)) return {};
+  const slot = slots[i]!;
+  const startFuzzy = isTentativeStartDisplay(slot);
+  const endFuzzy = isTentativeEndDisplay(slot);
+  if (!startFuzzy && !endFuzzy) return {};
 
   const style: Record<string, string> = {};
-  const prev = i > 0
-    ? slots[i - 1]
-    : getBlocksForDay(subDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone).at(-1);
-  const next = i < slots.length - 1
-    ? slots[i + 1]
-    : getBlocksForDay(addDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone)[0];
-  if (prev) style['--fade-start'] = `var(${AGENDA_SLOT_COLOR_VAR[prev.type]})`;
-  if (next) style['--fade-end'] = `var(${AGENDA_SLOT_COLOR_VAR[next.type]})`;
+
+  if (startFuzzy) {
+    const prev = i > 0
+      ? slots[i - 1]
+      : getBlocksForDay(subDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone).at(-1);
+    if (prev) style['--fade-start'] = `var(${AGENDA_SLOT_COLOR_VAR[prev.type]})`;
+  } else {
+    style['--fade-start'] = `var(${AGENDA_SLOT_COLOR_VAR[slot.type]})`;
+  }
+
+  if (endFuzzy) {
+    const next = i < slots.length - 1
+      ? slots[i + 1]
+      : getBlocksForDay(addDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone)[0];
+    if (next) style['--fade-end'] = `var(${AGENDA_SLOT_COLOR_VAR[next.type]})`;
+  } else {
+    style['--fade-end'] = `var(${AGENDA_SLOT_COLOR_VAR[slot.type]})`;
+  }
+
   return style;
 }
 
@@ -171,7 +198,7 @@ const agendaEntries = computed(() =>
           v-for="(slot, i) in slots"
           :key="i"
           class="wtf-fagenda-slot"
-          :class="[AGENDA_SLOT_CLASS[slot.type], { 'wtf-fagenda-slot-tentative': isTentativeDisplay(slot) }]"
+          :class="[AGENDA_SLOT_CLASS[slot.type], { 'wtf-fagenda-slot-tentative': isTentativeStartDisplay(slot) || isTentativeEndDisplay(slot) }]"
           :style="{ ...slotHeightStyle(slot.heightPct), ...tentativeFadeStyle(day, slots, i) }"
         >
           <div
@@ -180,7 +207,7 @@ const agendaEntries = computed(() =>
             :style="{ top: `${currentTimeOffsetPct}%` }"
           />
           <span class="wtf-fagenda-slot-time">{{ slotTimeText(slot) }}</span>
-          <span class="wtf-fagenda-slot-label"><FontAwesomeIcon :icon="AGENDA_SLOT_ICON[slot.type]" class="wtf-fagenda-slot-icon me-1" />{{ slotLabel(slot) }}{{ slot.tentative ? $t('free.tentativeSuffix') : '' }}</span>
+          <span class="wtf-fagenda-slot-label"><FontAwesomeIcon :icon="AGENDA_SLOT_ICON[slot.type]" class="wtf-fagenda-slot-icon me-1" />{{ slotLabel(slot) }}{{ isTentativeStartDisplay(slot) || isTentativeEndDisplay(slot) ? $t('free.tentativeSuffix') : '' }}</span>
         </div>
       </div>
     </div>

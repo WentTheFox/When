@@ -18,7 +18,8 @@ export interface FreeSlot {
 }
 
 export interface TentativeSlot extends FreeSlot {
-  tentative?: boolean;
+  tentative_start?: boolean;
+  tentative_end?: boolean;
 }
 
 export interface HighlightedSlot extends TentativeSlot {
@@ -42,7 +43,8 @@ export interface DayBlock {
   startTime: string;
   endTime: string;
   type: 'free' | 'unavailable' | 'highlighted' | 'sleep';
-  tentative?: boolean;
+  tentativeStart?: boolean;
+  tentativeEnd?: boolean;
   activity?: string | null;
   visiting?: boolean;
   hosting?: boolean;
@@ -72,24 +74,58 @@ export function formatReservedDuration(startTime: string, endTime: string, local
   return minutes === 0 ? `${hours}h` : `${hours}h${minutes}m`;
 }
 
-// "From ~17:00"/"From ~17:30" (en); "~17 órától" (hu, "óra" is always back-vowel
-// so the hour-only form is always "-tól") or "~17:30-tól"/"~17:30-től" (hu, minutes
-// present — the suffix attaches directly to the minute number, see hu-time-suffix.ts).
-export function formatTentativeStart(startTime: string, locale: string): string {
+// "From ~17:00"/"From 17:00" (en); "~17 órától"/"17 órától" (hu, "óra" is always
+// back-vowel so the hour-only form is always "-tól") or "~17:30-tól"/"17:30-től" (hu,
+// minutes present — the suffix attaches directly to the minute number, see
+// hu-time-suffix.ts). `tentative` controls only the "~" mark: a fully-tentative
+// event's start is itself unknown (tilde-marked), while a fixed-start/open-end
+// event's start is the known edge, shown plain — see formatFromTime below.
+function formatFromTimeCore(startTime: string, locale: string, tentative: boolean): string {
+  const mark = tentative ? '~' : '';
   if (locale === 'hu') {
     const minutes = Number(startTime.split(':')[1]);
     return minutes === 0
-      ? `~${Number(startTime.split(':')[0])} órától`
-      : `~${startTime}-${huFromSuffix(minutes)}`;
+      ? `${mark}${Number(startTime.split(':')[0])} órától`
+      : `${mark}${startTime}-${huFromSuffix(minutes)}`;
   }
-  return `From ~${startTime}`;
+  return `From ${mark}${startTime}`;
+}
+
+export function formatTentativeStart(startTime: string, locale: string): string {
+  return formatFromTimeCore(startTime, locale, true);
+}
+
+// The known-start side of a fixed-start/open-end event: "From 17:00" (en) /
+// "17 órától"/"17:30-tól" (hu) — same wording as formatTentativeStart, just
+// never tilde-marked since this time is the confirmed edge, not the fuzzy one.
+export function formatFromTime(startTime: string, locale: string): string {
+  return formatFromTimeCore(startTime, locale, false);
+}
+
+// The known-end side of an open-start/fixed-end event: "Until 19:00" (en) /
+// "19 óráig"/"19:30-ig" (hu — "-ig" is vowel-harmony-invariant, unlike
+// "-tól/-től", so no hu-time-suffix lookup is needed for the digital form;
+// the round-hour spelled form takes a linking "á" before "-ig", same as
+// "-tól" attaches to "óra" as "órától" in formatFromTimeCore). Never
+// tilde-marked, same reasoning as formatFromTime.
+export function formatUntilTime(endTime: string, locale: string): string {
+  if (locale === 'hu') {
+    const minutes = Number(endTime.split(':')[1]);
+    return minutes === 0 ? `${Number(endTime.split(':')[0])} óráig` : `${endTime}-ig`;
+  }
+  return `Until ${endTime}`;
 }
 
 // Sleep ranges are inferred rather than confirmed, so they always get the
-// tentative fade/dashed-border treatment, even though the API never marks
-// them `tentative` (that flag only exists on highlighted/unavailable slots).
-export function isTentativeDisplay(block: DayBlock): boolean {
-  return !!block.tentative || block.type === 'sleep';
+// tentative fade/dashed-border treatment on both edges, even though the API
+// never marks them tentative (those flags only exist on highlighted/
+// unavailable slots).
+export function isTentativeStartDisplay(block: DayBlock): boolean {
+  return !!block.tentativeStart || block.type === 'sleep';
+}
+
+export function isTentativeEndDisplay(block: DayBlock): boolean {
+  return !!block.tentativeEnd || block.type === 'sleep';
 }
 
 export function pctToTime(pct: number): string {
@@ -134,7 +170,8 @@ function slotsToBlocks(
       startTime: effStartTs > slotStart.getTime() ? '00:00' : format(slotStartInTz, 'HH:mm'),
       endTime: effEndTs < slotEnd.getTime() ? '00:00' : formatSlotEndTime(slotEndInTz),
       type,
-      tentative: slot.tentative,
+      tentativeStart: slot.tentative_start,
+      tentativeEnd: slot.tentative_end,
       activity: slot.activity,
       visiting: slot.visiting,
       hosting: slot.hosting,
@@ -146,16 +183,17 @@ function slotsToBlocks(
 // The API can return overlapping/redundant ranges for the same slot type (e.g. a
 // busy block that's a superset of two narrower busy blocks). Coalesce those before
 // rendering so they don't show up as duplicate blocks/rows. Blocks are only ever
-// merged within the same type+tentative group: e.g. a non-tentative "unavailable"
-// range can fully contain a tentative one (the tentative sub-range duplicates a
-// `highlighted` event so it can be carved out elsewhere) — merging across that
-// boundary would wrongly mark the whole confirmed-busy span as tentative.
+// merged within the same type+tentativeStart+tentativeEnd group: e.g. a confirmed
+// "unavailable" range can fully contain a fully-tentative one (the tentative
+// sub-range duplicates a `highlighted` event so it can be carved out elsewhere) —
+// merging across that boundary would wrongly mark the whole confirmed-busy span as
+// tentative, and an open-start block should never silently absorb an open-end one.
 function mergeOverlappingBlocks(blocks: DayBlock[]): DayBlock[] {
   if (blocks.length <= 1) return blocks;
 
   const groups = new Map<string, DayBlock[]>();
   for (const block of blocks) {
-    const key = `${block.type}|${block.tentative ? '1' : '0'}|${block.activity ?? ''}|${(block.highlightWords ?? []).join(',')}`;
+    const key = `${block.type}|${block.tentativeStart ? '1' : '0'}${block.tentativeEnd ? '1' : '0'}|${block.activity ?? ''}|${(block.highlightWords ?? []).join(',')}`;
     const group = groups.get(key);
     if (group) group.push(block);
     else groups.set(key, [block]);

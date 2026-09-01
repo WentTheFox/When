@@ -2,11 +2,12 @@
 
 namespace App\Domain\Calendar;
 
+use App\Services\Calendar\FeedClassifier;
 use Carbon\CarbonImmutable;
 
 /**
  * The intermediate form between raw ICS parsing and the normalized
- * {@see ParsedEvent} — kept separate so {@see \App\Services\Calendar\FeedClassifier}
+ * {@see ParsedEvent} — kept separate so {@see FeedClassifier}
  * can inspect componentType/summary presence before generic-summary
  * detection collapses that into a single isFreeBusyOnly flag.
  */
@@ -20,6 +21,7 @@ final class RawCalendarItem
         public readonly ?string $summary = null,
         public readonly ?string $description = null,
         public readonly ?string $location = null,
-        public readonly bool $isTentative = false,
+        public readonly bool $tentativeStart = false,
+        public readonly bool $tentativeEnd = false,
     ) {}
 }

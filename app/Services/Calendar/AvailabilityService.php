@@ -58,7 +58,7 @@ class AvailabilityService
             }
 
             $busyIntervals[] = ['start' => $event->start, 'end' => $event->end];
-            $unavailable[] = ['start' => $event->start, 'end' => $event->end, 'tentative' => $event->isTentative];
+            $unavailable[] = ['start' => $event->start, 'end' => $event->end, 'tentativeStart' => $event->tentativeStart, 'tentativeEnd' => $event->tentativeEnd];
 
             if ($event->matchesEventNamePattern($napEventName)) {
                 $napIntervals[] = ['start' => $event->start, 'end' => $event->end];
@@ -74,7 +74,8 @@ class AvailabilityService
                 $highlighted[] = new AvailabilitySlot(
                     start: $event->start,
                     end: $event->end,
-                    tentative: $event->isTentative,
+                    tentativeStart: $event->tentativeStart,
+                    tentativeEnd: $event->tentativeEnd,
                     activity: $activity,
                     visiting: $highlightMatch->visiting,
                     hosting: $highlightMatch->hosting,
@@ -96,7 +97,7 @@ class AvailabilityService
         return new AvailabilityResult(
             free: array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end']), $free),
             highlighted: $highlighted,
-            unavailable: array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], tentative: $s['tentative']), $unavailable),
+            unavailable: array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd']), $unavailable),
             sleep: array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end']), $sleepIntervals),
         );
     }
@@ -323,11 +324,11 @@ class AvailabilityService
      * Clips each event against $sleepBlocks so sleep takes precedence over
      * busy time: events fully within a sleep block are dropped, and events
      * straddling one are split around it. Each resulting segment keeps its
-     * originating event's own tentative flag.
+     * originating event's own tentativeStart/tentativeEnd flags.
      *
-     * @param  array{start: CarbonImmutable, end: CarbonImmutable, tentative: bool}[]  $events
+     * @param  array{start: CarbonImmutable, end: CarbonImmutable, tentativeStart: bool, tentativeEnd: bool}[]  $events
      * @param  array{start: CarbonImmutable, end: CarbonImmutable}[]  $sleepBlocks
-     * @return array{start: CarbonImmutable, end: CarbonImmutable, tentative: bool}[]
+     * @return array{start: CarbonImmutable, end: CarbonImmutable, tentativeStart: bool, tentativeEnd: bool}[]
      */
     private function subtractSleepFromEvents(array $events, array $sleepBlocks): array
     {
@@ -337,7 +338,7 @@ class AvailabilityService
             $remaining = $this->subtractIntervals([['start' => $event['start'], 'end' => $event['end']]], $sleepBlocks);
 
             foreach ($remaining as $slot) {
-                $segments[] = ['start' => $slot['start'], 'end' => $slot['end'], 'tentative' => $event['tentative']];
+                $segments[] = ['start' => $slot['start'], 'end' => $slot['end'], 'tentativeStart' => $event['tentativeStart'], 'tentativeEnd' => $event['tentativeEnd']];
             }
         }
 
@@ -347,40 +348,70 @@ class AvailabilityService
     }
 
     /**
-     * Merges directly adjacent/overlapping segments of the same tentative-
-     * ness into one. A tentative segment is carved out of any confirmed
-     * segment it overlaps (its own exact span takes precedence) rather
-     * than the two being reported as redundant overlapping ranges — so a
-     * tentative segment never merges into a confirmed one or vice versa.
+     * Merges directly adjacent/overlapping segments of the same
+     * tentativeStart/tentativeEnd pair into one, applying a 3-tier
+     * precedence cascade across the resulting four buckets rather than
+     * reporting redundant overlapping ranges:
      *
-     * @param  array{start: CarbonImmutable, end: CarbonImmutable, tentative: bool}[]  $segments
-     * @return array{start: CarbonImmutable, end: CarbonImmutable, tentative: bool}[]
+     * 1. Fully-tentative (both edges unknown — "might not happen at all")
+     *    has the highest precedence: its own exact span is carved out of
+     *    every other bucket it overlaps.
+     * 2. Confirmed (neither edge unknown) is carved by fully-tentative,
+     *    but itself takes precedence over the two open-edged buckets below
+     *    — a confirmed event's span always wins an overlap against one
+     *    with a merely fuzzy boundary.
+     * 3. Open-start-only and open-end-only (exactly one edge unknown) sit
+     *    at the bottom: carved by both of the above, but never carved by
+     *    or carving each other — there's no ordering between the two, so
+     *    they're left independent where they overlap.
+     *
+     * @param  array{start: CarbonImmutable, end: CarbonImmutable, tentativeStart: bool, tentativeEnd: bool}[]  $segments
+     * @return array{start: CarbonImmutable, end: CarbonImmutable, tentativeStart: bool, tentativeEnd: bool}[]
      */
     private function mergeEventSegments(array $segments): array
     {
-        $tentative = array_values(array_filter($segments, fn ($s) => $s['tentative']));
-        $confirmed = array_values(array_filter($segments, fn ($s) => ! $s['tentative']));
+        $fullyTentative = array_values(array_filter($segments, fn ($s) => $s['tentativeStart'] && $s['tentativeEnd']));
+        $confirmed = array_values(array_filter($segments, fn ($s) => ! $s['tentativeStart'] && ! $s['tentativeEnd']));
+        $openStart = array_values(array_filter($segments, fn ($s) => $s['tentativeStart'] && ! $s['tentativeEnd']));
+        $openEnd = array_values(array_filter($segments, fn ($s) => ! $s['tentativeStart'] && $s['tentativeEnd']));
 
-        $mergedTentative = array_map(
-            fn ($s) => ['start' => $s['start'], 'end' => $s['end'], 'tentative' => true],
-            $this->mergeIntervals($tentative),
-        );
+        $mergedFullyTentative = $this->mergeIntervals($fullyTentative);
+        $mergedConfirmed = $this->mergeIntervals($this->carveOut($confirmed, $mergedFullyTentative));
+        $mergedOpenStart = $this->mergeIntervals($this->carveOut($this->carveOut($openStart, $mergedFullyTentative), $mergedConfirmed));
+        $mergedOpenEnd = $this->mergeIntervals($this->carveOut($this->carveOut($openEnd, $mergedFullyTentative), $mergedConfirmed));
 
-        $carvedConfirmed = [];
-        foreach ($confirmed as $event) {
-            $remaining = $this->subtractIntervals([['start' => $event['start'], 'end' => $event['end']]], $mergedTentative);
-            foreach ($remaining as $slot) {
-                $carvedConfirmed[] = ['start' => $slot['start'], 'end' => $slot['end'], 'tentative' => false];
-            }
-        }
-        $mergedConfirmed = array_map(
-            fn ($s) => ['start' => $s['start'], 'end' => $s['end'], 'tentative' => false],
-            $this->mergeIntervals($carvedConfirmed),
-        );
-
-        $merged = [...$mergedTentative, ...$mergedConfirmed];
+        $merged = [
+            ...array_map(fn ($s) => ['start' => $s['start'], 'end' => $s['end'], 'tentativeStart' => true, 'tentativeEnd' => true], $mergedFullyTentative),
+            ...array_map(fn ($s) => ['start' => $s['start'], 'end' => $s['end'], 'tentativeStart' => false, 'tentativeEnd' => false], $mergedConfirmed),
+            ...array_map(fn ($s) => ['start' => $s['start'], 'end' => $s['end'], 'tentativeStart' => true, 'tentativeEnd' => false], $mergedOpenStart),
+            ...array_map(fn ($s) => ['start' => $s['start'], 'end' => $s['end'], 'tentativeStart' => false, 'tentativeEnd' => true], $mergedOpenEnd),
+        ];
         usort($merged, fn ($a, $b) => $a['start']->getTimestamp() <=> $b['start']->getTimestamp());
 
         return $merged;
+    }
+
+    /**
+     * Removes every portion of $events that overlaps $carveOut — each
+     * surviving fragment keeps only its start/end (any other keys on the
+     * input, e.g. stale tentative flags, are intentionally dropped since
+     * the caller reattaches the correct bucket-wide flags afterward).
+     *
+     * @param  array{start: CarbonImmutable, end: CarbonImmutable}[]  $events
+     * @param  array{start: CarbonImmutable, end: CarbonImmutable}[]  $carveOut
+     * @return array{start: CarbonImmutable, end: CarbonImmutable}[]
+     */
+    private function carveOut(array $events, array $carveOut): array
+    {
+        $result = [];
+
+        foreach ($events as $event) {
+            $remaining = $this->subtractIntervals([['start' => $event['start'], 'end' => $event['end']]], $carveOut);
+            foreach ($remaining as $slot) {
+                $result[] = ['start' => $slot['start'], 'end' => $slot['end']];
+            }
+        }
+
+        return $result;
     }
 }

@@ -16,8 +16,10 @@ final class AvailabilitySlot
     public function __construct(
         public readonly CarbonImmutable $start,
         public readonly CarbonImmutable $end,
-        /** Whether the source event's title ended in "(?)". Only ever true within highlighted/unavailable — free/sleep are never tentative. */
-        public readonly bool $tentative = false,
+        /** Start time is unknown/approximate (source title ended in "(?-)", or fully-tentative "(?)"/STATUS:TENTATIVE). Only ever true within highlighted/unavailable — free/sleep never carry this. */
+        public readonly bool $tentativeStart = false,
+        /** End time is unknown/approximate (source title ended in "(-?)", or fully-tentative "(?)"/STATUS:TENTATIVE). Only ever true within highlighted/unavailable — free/sleep never carry this. */
+        public readonly bool $tentativeEnd = false,
         /** Freetext preceding "with X"/"w/ X" (e.g. "Dinner"). Only ever set within highlighted. Null unless share_links.show_activity is on for this link. See ActivityExtractor. */
         public readonly ?string $activity = null,
         /** True when the event title was "Host <token>" — the token is visiting the calendar owner. Only ever set within highlighted. */
@@ -33,7 +35,8 @@ final class AvailabilitySlot
         return [
             'start' => $this->start->toIso8601String(),
             'end' => $this->end->toIso8601String(),
-            'tentative' => $this->tentative,
+            'tentative_start' => $this->tentativeStart,
+            'tentative_end' => $this->tentativeEnd,
             'activity' => $this->activity,
             'visiting' => $this->visiting,
             'hosting' => $this->hosting,

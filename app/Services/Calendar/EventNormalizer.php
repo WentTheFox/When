@@ -34,7 +34,8 @@ class EventNormalizer
                 description: $item->description,
                 location: $item->location,
                 isFreeBusyOnly: $this->isFreeBusyOnly($item, $parsingMode),
-                isTentative: $item->isTentative,
+                tentativeStart: $item->tentativeStart,
+                tentativeEnd: $item->tentativeEnd,
             ),
             $items,
         );

@@ -5,6 +5,7 @@ namespace App\Services\Calendar;
 use App\Domain\Calendar\RawCalendarItem;
 use App\Support\Regex;
 use Carbon\CarbonImmutable;
+use Sabre\VObject\Component;
 use Sabre\VObject\Component\VCalendar;
 use Sabre\VObject\Reader;
 
@@ -34,9 +35,31 @@ class IcsParser
      */
     public const DEFAULT_TENTATIVE_TITLE_PATTERN = '\(\?\)\s*$';
 
+    /**
+     * Confirmed event, end time unknown/open-ended — e.g. "Dinner (-?)".
+     * Sets only $tentativeEnd, unlike DEFAULT_TENTATIVE_TITLE_PATTERN which
+     * sets both. Chosen so it never collides with the "(?)" pattern above:
+     * that one requires "(", "?", ")" immediately consecutive at the end,
+     * which "(-?)"'s trailing "-?)" never produces.
+     */
+    public const DEFAULT_OPEN_END_TITLE_PATTERN = '\(-\?\)\s*$';
+
+    /**
+     * Confirmed event, start time unknown/open-ended — e.g. "Dinner (?-)".
+     * Sets only $tentativeStart. Same non-collision reasoning as
+     * DEFAULT_OPEN_END_TITLE_PATTERN.
+     */
+    public const DEFAULT_OPEN_START_TITLE_PATTERN = '\(\?-\)\s*$';
+
     /** @return RawCalendarItem[] */
-    public function parse(string $icsBody, CarbonImmutable $rangeStart, CarbonImmutable $rangeEnd, ?string $tentativeTitlePattern = null): array
-    {
+    public function parse(
+        string $icsBody,
+        CarbonImmutable $rangeStart,
+        CarbonImmutable $rangeEnd,
+        ?string $tentativeTitlePattern = null,
+        ?string $openEndTitlePattern = null,
+        ?string $openStartTitlePattern = null,
+    ): array {
         /** @var VCalendar $calendar */
         $calendar = Reader::read($icsBody, Reader::OPTION_FORGIVING);
 
@@ -54,9 +77,11 @@ class IcsParser
         $items = [];
 
         $pattern = $tentativeTitlePattern ?: self::DEFAULT_TENTATIVE_TITLE_PATTERN;
+        $openEndPattern = $openEndTitlePattern ?: self::DEFAULT_OPEN_END_TITLE_PATTERN;
+        $openStartPattern = $openStartTitlePattern ?: self::DEFAULT_OPEN_START_TITLE_PATTERN;
 
         foreach ($expandedCalendar->select('VEVENT') as $vevent) {
-            $item = $this->parseVEvent($vevent, $pattern);
+            $item = $this->parseVEvent($vevent, $pattern, $openEndPattern, $openStartPattern);
 
             if ($item !== null && $item->end > $rangeStart && $item->start < $rangeEnd) {
                 $items[] = $item;
@@ -74,8 +99,12 @@ class IcsParser
         return $items;
     }
 
-    private function parseVEvent(\Sabre\VObject\Component $vevent, string $tentativeTitlePattern): ?RawCalendarItem
-    {
+    private function parseVEvent(
+        Component $vevent,
+        string $tentativeTitlePattern,
+        string $openEndTitlePattern,
+        string $openStartTitlePattern,
+    ): ?RawCalendarItem {
         if (! isset($vevent->DTSTART)) {
             return null;
         }
@@ -88,31 +117,60 @@ class IcsParser
         $summary = isset($vevent->SUMMARY) ? (string) $vevent->SUMMARY : null;
         $isTentativeStatus = isset($vevent->STATUS) && strtoupper((string) $vevent->STATUS) === 'TENTATIVE';
 
-        // \x01 delimiter, same reasoning as ParsedEvent::matchesEventNamePattern:
-        // lets an owner's pattern contain any printable character freely.
-        // An invalid pattern fails closed (no match) rather than throwing.
-        $delimitedPattern = "\x01".$tentativeTitlePattern."\x01iu";
-        $isTentativeTitle = $summary !== null && Regex::tryMatch($delimitedPattern, trim($summary)) !== null;
-        // Whatever matched is stripped out too, so it never leaks into
-        // downstream DND/nap/highlight/activity matching or gets shown
-        // anywhere — same idea as the built-in "(?)" convention, just
-        // generalized to whatever pattern actually matched.
-        $cleanedSummary = $summary !== null ? preg_replace("\x01\\s*".ltrim($delimitedPattern, "\x01"), '', $summary) : null;
+        // Each of the three patterns is checked and stripped independently
+        // (against the progressively-cleaned summary), then OR'd into the
+        // two directional flags. The three defaults can never collide with
+        // each other (see the DEFAULT_*_TITLE_PATTERN doc comments), but a
+        // custom owner pattern in principle could match more than one —
+        // stripping sequentially keeps that safe either way.
+        [$isTentativeTitle, $summary] = $this->matchAndStrip($tentativeTitlePattern, $summary);
+        [$isOpenEndTitle, $summary] = $this->matchAndStrip($openEndTitlePattern, $summary);
+        [$isOpenStartTitle, $summary] = $this->matchAndStrip($openStartTitlePattern, $summary);
 
         return new RawCalendarItem(
             uid: isset($vevent->UID) ? (string) $vevent->UID : bin2hex(random_bytes(8)),
             start: $start,
             end: $end,
             componentType: 'VEVENT',
-            summary: $cleanedSummary,
+            summary: $summary,
             description: isset($vevent->DESCRIPTION) ? (string) $vevent->DESCRIPTION : null,
             location: isset($vevent->LOCATION) ? (string) $vevent->LOCATION : null,
-            isTentative: $isTentativeStatus || $isTentativeTitle,
+            tentativeStart: $isTentativeStatus || $isTentativeTitle || $isOpenStartTitle,
+            tentativeEnd: $isTentativeStatus || $isTentativeTitle || $isOpenEndTitle,
         );
     }
 
+    /**
+     * Matches $pattern (a delimiter-less regex fragment) against the
+     * trailing end of $summary, case-insensitively, and strips it out if
+     * found — so it never leaks into downstream DND/nap/highlight/activity
+     * matching or gets shown anywhere. \x01 delimiter, same reasoning as
+     * ParsedEvent::matchesEventNamePattern: lets an owner's pattern contain
+     * any printable character freely. An invalid pattern fails closed (no
+     * match) rather than throwing.
+     *
+     * @return array{0: bool, 1: ?string} [matched, cleaned summary]
+     */
+    private function matchAndStrip(string $pattern, ?string $summary): array
+    {
+        if ($summary === null) {
+            return [false, null];
+        }
+
+        $delimitedPattern = "\x01".$pattern."\x01iu";
+        $matched = Regex::tryMatch($delimitedPattern, trim($summary)) !== null;
+
+        if (! $matched) {
+            return [false, $summary];
+        }
+
+        $cleaned = preg_replace("\x01\\s*".ltrim($delimitedPattern, "\x01"), '', $summary);
+
+        return [true, $cleaned];
+    }
+
     /** @return RawCalendarItem[] */
-    private function parseVFreeBusy(\Sabre\VObject\Component $vfreebusy): array
+    private function parseVFreeBusy(Component $vfreebusy): array
     {
         $items = [];
 
@@ -140,7 +198,8 @@ class IcsParser
                     start: $start,
                     end: $end,
                     componentType: 'VFREEBUSY',
-                    isTentative: $fbType === 'BUSY-TENTATIVE',
+                    tentativeStart: $fbType === 'BUSY-TENTATIVE',
+                    tentativeEnd: $fbType === 'BUSY-TENTATIVE',
                 );
             }
         }

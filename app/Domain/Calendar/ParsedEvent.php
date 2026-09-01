@@ -2,13 +2,15 @@
 
 namespace App\Domain\Calendar;
 
+use App\Services\Calendar\AvailabilityService;
+use App\Services\Calendar\IcsParser;
 use App\Support\Regex;
 use Carbon\CarbonImmutable;
 
 /**
  * A normalized calendar event, decoupled from the ICS format so
- * {@see \App\Services\Calendar\AvailabilityService} can be tested without
- * any ICS parsing details, and {@see \App\Services\Calendar\IcsParser} can
+ * {@see AvailabilityService} can be tested without
+ * any ICS parsing details, and {@see IcsParser} can
  * be tested without any availability-computation details.
  */
 final class ParsedEvent
@@ -28,7 +30,10 @@ final class ParsedEvent
          * generic summary like "Busy".
          */
         public readonly bool $isFreeBusyOnly = false,
-        public readonly bool $isTentative = false,
+        /** Start time is unknown/approximate — from "(?-)" or a fully-tentative "(?)"/STATUS:TENTATIVE match. */
+        public readonly bool $tentativeStart = false,
+        /** End time is unknown/approximate — from "(-?)" or a fully-tentative "(?)"/STATUS:TENTATIVE match. */
+        public readonly bool $tentativeEnd = false,
     ) {}
 
     /**

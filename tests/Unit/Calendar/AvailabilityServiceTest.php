@@ -42,7 +42,8 @@ class AvailabilityServiceTest extends TestCase
         ?string $description = null,
         ?string $location = null,
         bool $isFreeBusyOnly = false,
-        bool $isTentative = false,
+        bool $tentativeStart = false,
+        bool $tentativeEnd = false,
     ): ParsedEvent {
         return new ParsedEvent(
             uid: $uid,
@@ -52,7 +53,8 @@ class AvailabilityServiceTest extends TestCase
             description: $description,
             location: $location,
             isFreeBusyOnly: $isFreeBusyOnly,
-            isTentative: $isTentative,
+            tentativeStart: $tentativeStart,
+            tentativeEnd: $tentativeEnd,
         );
     }
 
@@ -198,22 +200,23 @@ class AvailabilityServiceTest extends TestCase
     public function test_a_tentative_event_is_flagged_not_a_separate_category(): void
     {
         $result = $this->compute(
-            events: [$this->event('maybe', '2026-06-03 15:00', '2026-06-03 16:00', 'Maybe lunch', isTentative: true)],
+            events: [$this->event('maybe', '2026-06-03 15:00', '2026-06-03 16:00', 'Maybe lunch', tentativeStart: true, tentativeEnd: true)],
         );
 
         $this->assertCount(1, $result->unavailable);
-        $this->assertTrue($result->unavailable[0]->tentative);
+        $this->assertTrue($result->unavailable[0]->tentativeStart);
+        $this->assertTrue($result->unavailable[0]->tentativeEnd);
     }
 
     public function test_a_tentative_slot_is_carved_out_of_an_overlapping_confirmed_one(): void
     {
         $result = $this->compute(events: [
             $this->event('confirmed', '2026-06-03 09:00', '2026-06-03 12:00', 'Meeting'),
-            $this->event('tentative', '2026-06-03 10:00', '2026-06-03 11:00', 'Maybe', isTentative: true),
+            $this->event('tentative', '2026-06-03 10:00', '2026-06-03 11:00', 'Maybe', tentativeStart: true, tentativeEnd: true),
         ]);
 
-        $tentative = array_values(array_filter($result->unavailable, fn (AvailabilitySlot $s) => $s->tentative));
-        $confirmed = array_values(array_filter($result->unavailable, fn (AvailabilitySlot $s) => ! $s->tentative));
+        $tentative = array_values(array_filter($result->unavailable, fn (AvailabilitySlot $s) => $s->tentativeStart && $s->tentativeEnd));
+        $confirmed = array_values(array_filter($result->unavailable, fn (AvailabilitySlot $s) => ! $s->tentativeStart && ! $s->tentativeEnd));
 
         $this->assertCount(1, $tentative);
         $this->assertSame('2026-06-03T10:00:00+00:00', $tentative[0]->start->toIso8601String());
@@ -226,6 +229,70 @@ class AvailabilityServiceTest extends TestCase
         );
         $this->assertContains(['2026-06-03T09:00:00+00:00', '2026-06-03T10:00:00+00:00'], $confirmedRanges);
         $this->assertContains(['2026-06-03T11:00:00+00:00', '2026-06-03T12:00:00+00:00'], $confirmedRanges);
+    }
+
+    public function test_a_confirmed_event_takes_precedence_over_an_overlapping_open_end_event(): void
+    {
+        $result = $this->compute(events: [
+            $this->event('open-end', '2026-06-03 09:00', '2026-06-03 11:00', 'Dinner (-?)', tentativeEnd: true),
+            $this->event('confirmed', '2026-06-03 10:00', '2026-06-03 12:00', 'Meeting'),
+        ]);
+
+        $openEnd = array_values(array_filter($result->unavailable, fn (AvailabilitySlot $s) => $s->tentativeEnd && ! $s->tentativeStart));
+        $confirmed = array_values(array_filter($result->unavailable, fn (AvailabilitySlot $s) => ! $s->tentativeStart && ! $s->tentativeEnd));
+
+        // The confirmed event's own span wins the 10:00-11:00 overlap — the
+        // open-end event is carved down to just its non-overlapping portion.
+        $this->assertCount(1, $openEnd);
+        $this->assertSame('2026-06-03T09:00:00+00:00', $openEnd[0]->start->toIso8601String());
+        $this->assertSame('2026-06-03T10:00:00+00:00', $openEnd[0]->end->toIso8601String());
+
+        $this->assertCount(1, $confirmed);
+        $this->assertSame('2026-06-03T10:00:00+00:00', $confirmed[0]->start->toIso8601String());
+        $this->assertSame('2026-06-03T12:00:00+00:00', $confirmed[0]->end->toIso8601String());
+    }
+
+    public function test_a_confirmed_event_takes_precedence_over_an_overlapping_open_start_event(): void
+    {
+        $result = $this->compute(events: [
+            $this->event('confirmed', '2026-06-03 09:00', '2026-06-03 11:00', 'Meeting'),
+            $this->event('open-start', '2026-06-03 10:00', '2026-06-03 12:00', 'Party (?-)', tentativeStart: true),
+        ]);
+
+        $confirmed = array_values(array_filter($result->unavailable, fn (AvailabilitySlot $s) => ! $s->tentativeStart && ! $s->tentativeEnd));
+        $openStart = array_values(array_filter($result->unavailable, fn (AvailabilitySlot $s) => $s->tentativeStart && ! $s->tentativeEnd));
+
+        $this->assertCount(1, $confirmed);
+        $this->assertSame('2026-06-03T09:00:00+00:00', $confirmed[0]->start->toIso8601String());
+        $this->assertSame('2026-06-03T11:00:00+00:00', $confirmed[0]->end->toIso8601String());
+
+        // The open-start event's own span loses the 10:00-11:00 overlap to
+        // the confirmed event — carved down to its non-overlapping remainder.
+        $this->assertCount(1, $openStart);
+        $this->assertSame('2026-06-03T11:00:00+00:00', $openStart[0]->start->toIso8601String());
+        $this->assertSame('2026-06-03T12:00:00+00:00', $openStart[0]->end->toIso8601String());
+    }
+
+    public function test_a_fully_tentative_event_still_carves_out_of_an_open_edged_event(): void
+    {
+        $result = $this->compute(events: [
+            $this->event('open-end', '2026-06-03 09:00', '2026-06-03 11:00', 'Dinner (-?)', tentativeEnd: true),
+            $this->event('tentative', '2026-06-03 10:00', '2026-06-03 12:00', 'Maybe', tentativeStart: true, tentativeEnd: true),
+        ]);
+
+        $fullyTentative = array_values(array_filter($result->unavailable, fn (AvailabilitySlot $s) => $s->tentativeStart && $s->tentativeEnd));
+        $openEnd = array_values(array_filter($result->unavailable, fn (AvailabilitySlot $s) => $s->tentativeEnd && ! $s->tentativeStart));
+
+        // The fully-tentative event's own exact span wins the overlap even
+        // against a merely open-edged event, same top-tier precedence as
+        // against a fully confirmed one.
+        $this->assertCount(1, $fullyTentative);
+        $this->assertSame('2026-06-03T10:00:00+00:00', $fullyTentative[0]->start->toIso8601String());
+        $this->assertSame('2026-06-03T12:00:00+00:00', $fullyTentative[0]->end->toIso8601String());
+
+        $this->assertCount(1, $openEnd);
+        $this->assertSame('2026-06-03T09:00:00+00:00', $openEnd[0]->start->toIso8601String());
+        $this->assertSame('2026-06-03T10:00:00+00:00', $openEnd[0]->end->toIso8601String());
     }
 
     public function test_back_to_back_unavailable_events_merge_into_one_continuous_block(): void

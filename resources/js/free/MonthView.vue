@@ -13,7 +13,7 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { computed } from 'vue';
 import { currentLocale } from 'laravel-vue-i18n';
-import { getBlocksForDay, isTentativeDisplay } from './nuxt-blocks';
+import { getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay } from './nuxt-blocks';
 import type { DayBlock, FreeSlot, HighlightedSlot, TentativeSlot } from './nuxt-blocks';
 
 const AVAIL_BLOCK_CLASS: Record<DayBlock['type'], string> = {
@@ -168,9 +168,10 @@ const dayStatuses = computed(() => {
   });
 });
 
-// Same neighbor-blending idea as the week/agenda views: a tentative block's
-// edge fade blends into the adjacent block's color instead of just fading to
-// transparent. At the very top/bottom of a day's own blocks, it carries over
+// Same neighbor-blending idea as the week/agenda views: only an edge that's
+// actually fuzzy (tentativeStart/tentativeEnd, independently) blends into
+// the adjacent block's color — the other edge renders as a hard line at its
+// own solid color. At the very top/bottom of a day's own blocks, it carries over
 // from the previous/next calendar day's last/first block, computed directly
 // rather than looked up in the rendered day list — even with paddedDays
 // filling out both ends of the grid, a tentative block right at the very
@@ -178,17 +179,31 @@ const dayStatuses = computed(() => {
 // falling back to transparent only where there's truly no data at all.
 function tentativeFadeStyle(cell: DayStatus, i: number): Record<string, string> {
   const blocks = cell.allBlocks;
-  if (!isTentativeDisplay(blocks[i]!)) return {};
+  const block = blocks[i]!;
+  const startFuzzy = isTentativeStartDisplay(block);
+  const endFuzzy = isTentativeEndDisplay(block);
+  if (!startFuzzy && !endFuzzy) return {};
 
   const style: Record<string, string> = {};
-  const prev = i > 0
-    ? blocks[i - 1]
-    : getBlocksForDay(subDays(cell.day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone).at(-1);
-  const next = i < blocks.length - 1
-    ? blocks[i + 1]
-    : getBlocksForDay(addDays(cell.day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone)[0];
-  if (prev) style['--fade-start'] = `var(${AVAIL_BLOCK_COLOR_VAR[prev.type]})`;
-  if (next) style['--fade-end'] = `var(${AVAIL_BLOCK_COLOR_VAR[next.type]})`;
+
+  if (startFuzzy) {
+    const prev = i > 0
+      ? blocks[i - 1]
+      : getBlocksForDay(subDays(cell.day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone).at(-1);
+    if (prev) style['--fade-start'] = `var(${AVAIL_BLOCK_COLOR_VAR[prev.type]})`;
+  } else {
+    style['--fade-start'] = `var(${AVAIL_BLOCK_COLOR_VAR[block.type]})`;
+  }
+
+  if (endFuzzy) {
+    const next = i < blocks.length - 1
+      ? blocks[i + 1]
+      : getBlocksForDay(addDays(cell.day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone)[0];
+    if (next) style['--fade-end'] = `var(${AVAIL_BLOCK_COLOR_VAR[next.type]})`;
+  } else {
+    style['--fade-end'] = `var(${AVAIL_BLOCK_COLOR_VAR[block.type]})`;
+  }
+
   return style;
 }
 
@@ -256,7 +271,7 @@ const weekRows = computed(() => {
                   v-for="(block, i) in cell.allBlocks"
                   :key="i"
                   class="wtf-fmonth-avail-block"
-                  :class="[AVAIL_BLOCK_CLASS[block.type], { 'wtf-fmonth-avail-block-tentative': isTentativeDisplay(block) }]"
+                  :class="[AVAIL_BLOCK_CLASS[block.type], { 'wtf-fmonth-avail-block-tentative': isTentativeStartDisplay(block) || isTentativeEndDisplay(block) }]"
                   :style="{ '--flex': block.heightPct, ...tentativeFadeStyle(cell, i) }"
                 >
                   <div

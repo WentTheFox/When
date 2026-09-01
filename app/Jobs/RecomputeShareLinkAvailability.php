@@ -116,7 +116,14 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
 
         $timer->lap('fetch', ['ics_bytes' => strlen($icsBody)]);
 
-        $rawItems = $icsParser->parse($icsBody, $rangeStart, $rangeEnd, $user->tentative_pattern);
+        $rawItems = $icsParser->parse(
+            $icsBody,
+            $rangeStart,
+            $rangeEnd,
+            $user->tentative_pattern,
+            $user->open_end_pattern,
+            $user->open_start_pattern,
+        );
         $timer->lap('parse', ['raw_item_count' => count($rawItems)]);
 
         $detectedMode = $classifier->classify($rawItems);

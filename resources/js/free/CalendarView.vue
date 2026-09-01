@@ -23,7 +23,7 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faBan, faCheck, faMoon, faSpinner, faStar } from '@fortawesome/free-solid-svg-icons';
 import { computed } from 'vue';
 import { currentLocale, trans } from 'laravel-vue-i18n';
-import { formatReservedDuration, formatTentativeStart, getBlocksForDay, isTentativeDisplay, tildeTime } from './nuxt-blocks';
+import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, tildeTime } from './nuxt-blocks';
 import type { DayBlock, FreeSlot, HighlightedSlot, TentativeSlot } from './nuxt-blocks';
 
 const BLOCK_TYPE_CLASS: Record<DayBlock['type'], string> = {
@@ -78,11 +78,22 @@ function blockLabel(block: DayBlock): string {
 
 function blockTimeText(block: DayBlock): string {
   if (block.type !== 'free' && block.type !== 'highlighted') return '';
-  if (block.type === 'highlighted' && block.tentative) {
+
+  const startFuzzy = isTentativeStartDisplay(block);
+  const endFuzzy = isTentativeEndDisplay(block);
+
+  // A single fuzzy edge collapses to just its known side + a reserved
+  // duration ("From 17:00 (2h reserved)" / "Until 19:00 (2h reserved)")
+  // rather than an explicit range — there's no point printing a clock time
+  // for the edge we don't actually know.
+  if (block.type === 'highlighted' && (startFuzzy || endFuzzy)) {
     const duration = trans('free.reservedSuffix', { duration: formatReservedDuration(block.startTime, block.endTime, currentLocale.value) });
-    return ` ${formatTentativeStart(block.startTime, currentLocale.value)} (${duration})`;
+    if (startFuzzy && endFuzzy) return ` ${formatTentativeStart(block.startTime, currentLocale.value)} (${duration})`;
+    if (startFuzzy) return ` ${formatUntilTime(block.endTime, currentLocale.value)} (${duration})`;
+    return ` ${formatFromTime(block.startTime, currentLocale.value)} (${duration})`;
   }
-  return ` ${tildeTime(block.startTime, block.tentative)} – ${tildeTime(block.endTime, block.tentative)}`;
+
+  return ` ${tildeTime(block.startTime, startFuzzy)} – ${tildeTime(block.endTime, endFuzzy)}`;
 }
 
 const dayBlocks = computed(() =>
@@ -95,15 +106,18 @@ const dayBlocks = computed(() =>
 );
 
 // Blocks tile the day with no gaps, so the previous/next array entry is the
-// immediately-adjacent block in time. A tentative block's edge fade blends
-// into that neighbor's color via a CSS var. For a run of consecutive
-// tentative blocks, each block's bottom edge still fades toward the next
-// block's color — but the block below never fades in at its own top when
-// its predecessor is also tentative, so a shared seam only ever fades
-// once (attributed to the block above), not twice meeting in the middle.
-// That was the previous bug: both sides independently faded toward each
-// other's nominal color, producing a mismatched double-fade "pinch" at
-// every internal boundary instead of one continuous cascade down the run.
+// immediately-adjacent block in time. Only an edge that's actually fuzzy
+// (tentativeStart/tentativeEnd, independently) gets a gradient at all — the
+// other edge renders as a hard line at its own solid color. A fuzzy edge's
+// gradient blends into that neighbor's color via a CSS var. For a run of
+// consecutive tentative blocks, each block's bottom edge still fades toward
+// the next block's color — but the block below never fades in at its own
+// top when its predecessor's bottom edge is also fuzzy, so a shared seam
+// only ever fades once (attributed to the block above), not twice meeting
+// in the middle. That was a previous bug: both sides independently faded
+// toward each other's nominal color, producing a mismatched double-fade
+// "pinch" at every internal boundary instead of one continuous cascade
+// down the run.
 //
 // At the very top/bottom of a day's own blocks, the neighbor carries over
 // from the previous/next calendar day's last/first block, computed
@@ -111,28 +125,38 @@ const dayBlocks = computed(() =>
 // range can trim a day (e.g. past-day filtering on the current week)
 // while the API still returns that day's data, padded a day either side
 // of the requested range — falling back to transparent only where there's
-// truly no data for the adjacent day.
+// truly no data for the adjacent day (a hard, non-fuzzy edge never falls
+// back to transparent, since it always renders its own solid color).
 function tentativeFadeStyle(day: Date, blocks: DayBlock[], i: number): Record<string, string> {
-  if (!isTentativeDisplay(blocks[i]!)) return {};
+  const block = blocks[i]!;
+  const startFuzzy = isTentativeStartDisplay(block);
+  const endFuzzy = isTentativeEndDisplay(block);
+  if (!startFuzzy && !endFuzzy) return {};
 
   const style: Record<string, string> = {};
-  const prev = i > 0
-    ? blocks[i - 1]
-    : getBlocksForDay(subDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone).at(-1);
-  const next = i < blocks.length - 1
-    ? blocks[i + 1]
-    : getBlocksForDay(addDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone)[0];
-  if (prev) {
-    // A block whose predecessor is also tentative starts solid, not fading
-    // in from transparent (the CSS's own no-neighbor fallback) — that fade
-    // already happened on the predecessor's own bottom edge above. Fading
-    // "start" to this block's *own* color is a no-op stop in the
-    // gradient, which reads as no fade at all rather than a second one.
-    style['--fade-start'] = isTentativeDisplay(prev)
-      ? `var(${BLOCK_TYPE_COLOR_VAR[blocks[i]!.type]})`
-      : `var(${BLOCK_TYPE_COLOR_VAR[prev.type]})`;
+
+  if (startFuzzy) {
+    const prev = i > 0
+      ? blocks[i - 1]
+      : getBlocksForDay(subDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone).at(-1);
+    if (prev) {
+      style['--fade-start'] = isTentativeEndDisplay(prev)
+        ? `var(${BLOCK_TYPE_COLOR_VAR[block.type]})`
+        : `var(${BLOCK_TYPE_COLOR_VAR[prev.type]})`;
+    }
+  } else {
+    style['--fade-start'] = `var(${BLOCK_TYPE_COLOR_VAR[block.type]})`;
   }
-  if (next) style['--fade-end'] = `var(${BLOCK_TYPE_COLOR_VAR[next.type]})`;
+
+  if (endFuzzy) {
+    const next = i < blocks.length - 1
+      ? blocks[i + 1]
+      : getBlocksForDay(addDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone)[0];
+    if (next) style['--fade-end'] = `var(${BLOCK_TYPE_COLOR_VAR[next.type]})`;
+  } else {
+    style['--fade-end'] = `var(${BLOCK_TYPE_COLOR_VAR[block.type]})`;
+  }
+
   return style;
 }
 
@@ -213,11 +237,11 @@ function formatDay(day: Date, fmt: string): string {
                 v-for="(block, i) in blocks"
                 :key="i"
                 class="wtf-fcal-block"
-                :class="[BLOCK_TYPE_CLASS[block.type], { 'wtf-fcal-tentative-block': isTentativeDisplay(block) }]"
+                :class="[BLOCK_TYPE_CLASS[block.type], { 'wtf-fcal-tentative-block': isTentativeStartDisplay(block) || isTentativeEndDisplay(block) }]"
                 :style="{ top: `${block.topPct}%`, height: `${block.heightPct}%`, ...tentativeFadeStyle(day, blocks, i) }"
               >
                 <span class="wtf-fcal-block-label">
-                  <strong><FontAwesomeIcon :icon="BLOCK_TYPE_ICON[block.type]" class="wtf-fcal-block-label-icon me-1" />{{ blockLabel(block) }}{{ block.tentative ? $t('free.tentativeSuffix') : '' }}</strong><span class="wtf-fcal-block-label-time">{{ blockTimeText(block) }}</span>
+                  <strong><FontAwesomeIcon :icon="BLOCK_TYPE_ICON[block.type]" class="wtf-fcal-block-label-icon me-1" />{{ blockLabel(block) }}{{ isTentativeStartDisplay(block) || isTentativeEndDisplay(block) ? $t('free.tentativeSuffix') : '' }}</strong><span class="wtf-fcal-block-label-time">{{ blockTimeText(block) }}</span>
                 </span>
               </div>
             </template>

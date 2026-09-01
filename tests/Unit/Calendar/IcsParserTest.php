@@ -13,7 +13,7 @@ class IcsParserTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->parser = new IcsParser();
+        $this->parser = new IcsParser;
     }
 
     private function fixture(string $name): string
@@ -35,16 +35,42 @@ class IcsParserTest extends TestCase
         $this->assertSame('VEVENT', $coffee->componentType);
         $this->assertSame('Coffee with Alice', $coffee->summary);
         $this->assertSame('Downtown Cafe', $coffee->location);
-        $this->assertFalse($coffee->isTentative);
+        $this->assertFalse($coffee->tentativeStart);
+        $this->assertFalse($coffee->tentativeEnd);
 
-        // "(?)" title suffix signals tentative and is stripped from the summary.
+        // "(?)" title suffix signals fully tentative (both edges) and is stripped from the summary.
         $maybeLunch = $items[1];
         $this->assertSame('Maybe lunch', $maybeLunch->summary);
-        $this->assertTrue($maybeLunch->isTentative);
+        $this->assertTrue($maybeLunch->tentativeStart);
+        $this->assertTrue($maybeLunch->tentativeEnd);
 
-        // STATUS:TENTATIVE also signals tentative.
+        // STATUS:TENTATIVE also signals fully tentative.
         $standup = $items[2];
-        $this->assertTrue($standup->isTentative);
+        $this->assertTrue($standup->tentativeStart);
+        $this->assertTrue($standup->tentativeEnd);
+    }
+
+    public function test_open_end_and_open_start_title_suffixes_set_only_one_edge(): void
+    {
+        $items = $this->parser->parse(
+            $this->fixture('open_edges.ics'),
+            CarbonImmutable::parse('2026-06-01', 'UTC'),
+            CarbonImmutable::parse('2026-06-10', 'UTC'),
+        );
+
+        $this->assertCount(2, $items);
+
+        // "(-?)" -> confirmed start, open (unknown) end.
+        $dinner = $items[0];
+        $this->assertSame('Dinner', $dinner->summary);
+        $this->assertFalse($dinner->tentativeStart);
+        $this->assertTrue($dinner->tentativeEnd);
+
+        // "(?-)" -> open (unknown) start, confirmed end.
+        $party = $items[1];
+        $this->assertSame('Party', $party->summary);
+        $this->assertTrue($party->tentativeStart);
+        $this->assertFalse($party->tentativeEnd);
     }
 
     public function test_parses_vfreebusy_blocks_and_skips_free_periods(): void
@@ -63,7 +89,7 @@ class IcsParserTest extends TestCase
             $this->assertNull($item->summary);
         }
 
-        $tentative = array_values(array_filter($items, fn ($i) => $i->isTentative));
+        $tentative = array_values(array_filter($items, fn ($i) => $i->tentativeStart && $i->tentativeEnd));
         $this->assertCount(1, $tentative);
     }
 
@@ -110,7 +136,8 @@ class IcsParserTest extends TestCase
         );
         $coffee = $items[0];
         $this->assertSame('Coffee with Alice', $coffee->summary);
-        $this->assertFalse($coffee->isTentative);
+        $this->assertFalse($coffee->tentativeStart);
+        $this->assertFalse($coffee->tentativeEnd);
 
         // Swapping in a custom pattern changes what's detected/stripped
         // instead — the default "(?)" convention no longer applies at all.
@@ -122,11 +149,42 @@ class IcsParserTest extends TestCase
         );
         $coffee = $items[0];
         $this->assertSame('Coffee with', $coffee->summary);
-        $this->assertTrue($coffee->isTentative);
+        $this->assertTrue($coffee->tentativeStart);
+        $this->assertTrue($coffee->tentativeEnd);
 
         // And the "Maybe lunch (?)" event is no longer detected as
         // tentative by title (STATUS:TENTATIVE still applies independently).
         $maybeLunch = $items[1];
         $this->assertSame('Maybe lunch (?)', $maybeLunch->summary);
+    }
+
+    public function test_a_custom_open_end_pattern_overrides_the_default(): void
+    {
+        // With the default pattern, "(-?)" is stripped/detected but a
+        // "[open]" suffix (this owner's own convention) is not.
+        $items = $this->parser->parse(
+            $this->fixture('open_edges.ics'),
+            CarbonImmutable::parse('2026-06-01', 'UTC'),
+            CarbonImmutable::parse('2026-06-10', 'UTC'),
+        );
+        $dinner = $items[0];
+        $this->assertSame('Dinner', $dinner->summary);
+        $this->assertTrue($dinner->tentativeEnd);
+        $this->assertFalse($dinner->tentativeStart);
+
+        // Swapping in a custom open-end pattern changes what's detected/
+        // stripped instead — the default "(-?)" convention no longer
+        // applies at all, so "Dinner (-?)" is left untouched and confirmed.
+        $items = $this->parser->parse(
+            $this->fixture('open_edges.ics'),
+            CarbonImmutable::parse('2026-06-01', 'UTC'),
+            CarbonImmutable::parse('2026-06-10', 'UTC'),
+            null,
+            'Alice$',
+        );
+        $dinner = $items[0];
+        $this->assertSame('Dinner (-?)', $dinner->summary);
+        $this->assertFalse($dinner->tentativeStart);
+        $this->assertFalse($dinner->tentativeEnd);
     }
 }

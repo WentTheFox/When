@@ -40,6 +40,8 @@ interface Settings {
   highlight_clause_pattern: string | null;
   activity_clause_pattern: string | null;
   tentative_pattern: string | null;
+  open_end_pattern: string | null;
+  open_start_pattern: string | null;
   public_page_title_en: string | null;
   public_page_title_hu: string | null;
   name: string;
@@ -61,6 +63,8 @@ const props = defineProps<{
     highlightClausePattern: string;
     activityClausePattern: string;
     tentativePattern: string;
+    openEndPattern: string;
+    openStartPattern: string;
   };
   timezones: string[];
   calendarUrl: string | null;
@@ -203,12 +207,14 @@ const exampleAvailability = computed<AvailabilityResponse>(() => {
   // into the tail of the unavailable block instead of the two meeting
   // cleanly — the reported "gap in the second day after the unavailable
   // block".
-  const events: { day: number; start: number; end: number; tentative?: boolean; activity?: string; highlightWords?: string[] }[] = [
+  const events: { day: number; start: number; end: number; tentativeStart?: boolean; tentativeEnd?: boolean; activity?: string; highlightWords?: string[] }[] = [
     { day: 0, start: 12 * 60, end: 14 * 60, activity: 'Lunch', highlightWords: ['Alice'] }, // Mon: Lunch with Alice
     { day: 1, start: 9 * 60, end: 11 * 60 + 30 }, // Tue: Team meeting
-    { day: 2, start: 14 * 60, end: 16 * 60, tentative: true }, // Wed: Maybe call
-    { day: 3, start: 10 * 60, end: 12 * 60, tentative: true, activity: 'Coffee', highlightWords: ['Bob'] }, // Thu: Coffee with Bob
+    { day: 2, start: 14 * 60, end: 16 * 60, tentativeStart: true, tentativeEnd: true }, // Wed: Maybe call
+    { day: 3, start: 10 * 60, end: 12 * 60, tentativeStart: true, tentativeEnd: true, activity: 'Coffee', highlightWords: ['Bob'] }, // Thu: Coffee with Bob
     { day: 4, start: 13 * 60, end: 17 * 60 }, // Fri: Workshop
+    { day: 5, start: 18 * 60, end: 20 * 60, tentativeEnd: true, activity: 'Dinner', highlightWords: ['Alice'] }, // Sat: Dinner with Alice, open end
+    { day: 6, start: 15 * 60, end: 17 * 60, tentativeStart: true }, // Sun: open start
   ];
 
   /** This event's [start, end], clamped to its own day's wake/sleep window — null if the window clips it away entirely (e.g. it falls fully inside a since-configured sleep period). */
@@ -282,7 +288,12 @@ const exampleAvailability = computed<AvailabilityResponse>(() => {
       .map((event) => {
         const clipped = clippedEventMinutes(event);
         if (!clipped) return null;
-        return { start: atAbsMinutes(event.day * 1440 + clipped[0]), end: atAbsMinutes(event.day * 1440 + clipped[1]), tentative: event.tentative };
+        return {
+          start: atAbsMinutes(event.day * 1440 + clipped[0]),
+          end: atAbsMinutes(event.day * 1440 + clipped[1]),
+          tentative_start: event.tentativeStart,
+          tentative_end: event.tentativeEnd,
+        };
       })
       .filter((slot) => slot !== null),
     highlighted: events
@@ -295,7 +306,8 @@ const exampleAvailability = computed<AvailabilityResponse>(() => {
           end: atAbsMinutes(event.day * 1440 + clipped[1]),
           activity: event.activity,
           highlight_words: event.highlightWords,
-          tentative: event.tentative,
+          tentative_start: event.tentativeStart,
+          tentative_end: event.tentativeEnd,
         };
       })
       .filter((slot) => slot !== null),
@@ -333,6 +345,8 @@ const form = useForm({
   // consciously decided to. See ActivityExtractor's own doc comment.
   activity_clause_pattern: props.settings.activity_clause_pattern ?? '',
   tentative_pattern: props.settings.tentative_pattern ?? props.defaults.tentativePattern,
+  open_end_pattern: props.settings.open_end_pattern ?? props.defaults.openEndPattern,
+  open_start_pattern: props.settings.open_start_pattern ?? props.defaults.openStartPattern,
   public_page_title_en: props.settings.public_page_title_en ?? '',
   public_page_title_hu: props.settings.public_page_title_hu ?? '',
   accent_color_key: props.settings.accent_color_key ?? getDefaultSwatchKey('accent'),
@@ -457,6 +471,8 @@ async function preview(): Promise<void> {
       highlight_clause_pattern: form.highlight_clause_pattern,
       activity_clause_pattern: form.activity_clause_pattern,
       tentative_pattern: form.tentative_pattern,
+      open_end_pattern: form.open_end_pattern,
+      open_start_pattern: form.open_start_pattern,
       availability_settings: availabilitySettings,
     });
 
@@ -617,9 +633,10 @@ function submit(): void {
     -->
     <BFormGroup label="Parsing mode" label-for="calendar_parsing_mode" class="mb-3">
       <BFormSelect id="calendar_parsing_mode" v-model="form.calendar_parsing_mode">
+        <!-- TODO remove autodetect in favor of setting the right one during import and being able to gate event title processing on it -->
         <option value="auto">Auto-detect</option>
         <option value="full_detail">Full detail (event titles are used for highlighting)</option>
-        <option value="free_busy_only">Free/busy only (titles aren't meaningful; use manual tags instead)</option>
+        <option value="free_busy_only">Free/busy only (track availability only, ignoring event tiles)</option>
       </BFormSelect>
       <template #description>
         Auto-detect looks at your feed once and picks the closest match. Pin it here if it guesses wrong.
@@ -708,10 +725,32 @@ function submit(): void {
               <BFormInput id="tentative_pattern" v-model="form.tentative_pattern" type="text" :placeholder="defaults.tentativePattern" />
               <template #description>
                 Same regex-body rules as above. An event whose title matches this (in addition to
-                any calendar-provided "tentative" status) is shown to viewers as tentative, and the
-                matched text is stripped from the title they see. The default matches a trailing
-                <code>(?)</code>, e.g. "Maybe lunch (?)" &rarr; "Maybe lunch". Leave blank to fall
-                back to that default rather than turning detection off.
+                any calendar-provided "tentative" status) is shown to viewers as tentative — both
+                its start and end are shown as unknown — and the matched text is stripped from the
+                title they see. The default matches a trailing <code>(?)</code>, e.g. "Maybe lunch
+                (?)" &rarr; "Maybe lunch". Leave blank to fall back to that default rather than
+                turning detection off.
+              </template>
+            </BFormGroup>
+
+            <BFormGroup label="Open-end title pattern (advanced)" label-for="open_end_pattern" class="mb-3">
+              <BFormInput id="open_end_pattern" v-model="form.open_end_pattern" type="text" :placeholder="defaults.openEndPattern" />
+              <template #description>
+                For an event that's definitely happening but has no known end time (e.g. it runs
+                until whenever it's over). Same regex-body rules as above; matched text is stripped
+                the same way. The default matches a trailing <code>(-?)</code>, e.g. "Dinner (-?)"
+                &rarr; "Dinner", shown to viewers with a known start and an open end. Leave blank to
+                fall back to that default rather than turning detection off.
+              </template>
+            </BFormGroup>
+
+            <BFormGroup label="Open-start title pattern (advanced)" label-for="open_start_pattern" class="mb-3">
+              <BFormInput id="open_start_pattern" v-model="form.open_start_pattern" type="text" :placeholder="defaults.openStartPattern" />
+              <template #description>
+                Same idea as open-end above, for an event whose start time isn't known but which
+                definitely ends by a known time. The default matches a trailing <code>(?-)</code>,
+                e.g. "Dinner (?-)" &rarr; "Dinner", shown to viewers with an open start and a known
+                end. Leave blank to fall back to that default rather than turning detection off.
               </template>
             </BFormGroup>
           </div>
@@ -760,6 +799,24 @@ function submit(): void {
               <PatternPreview
                 :pattern="form.tentative_pattern || defaults.tentativePattern"
                 :examples="['Maybe lunch (?)', 'Team standup', 'Coffee with Alice (?)', 'Workshop']"
+                mode="match"
+              />
+
+              <p class="small text-muted mb-1 mt-3">
+                Open-end title — <code>{{ form.open_end_pattern || defaults.openEndPattern }}</code>
+              </p>
+              <PatternPreview
+                :pattern="form.open_end_pattern || defaults.openEndPattern"
+                :examples="['Dinner (-?)', 'Team standup', 'Party (-?)', 'Workshop']"
+                mode="match"
+              />
+
+              <p class="small text-muted mb-1 mt-3">
+                Open-start title — <code>{{ form.open_start_pattern || defaults.openStartPattern }}</code>
+              </p>
+              <PatternPreview
+                :pattern="form.open_start_pattern || defaults.openStartPattern"
+                :examples="['Dinner (?-)', 'Team standup', 'Party (?-)', 'Workshop']"
                 mode="match"
               />
             </div>

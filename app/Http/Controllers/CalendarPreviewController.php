@@ -39,6 +39,8 @@ class CalendarPreviewController extends Controller
             'highlight_clause_pattern' => ['nullable', 'string'],
             'activity_clause_pattern' => ['nullable', 'string'],
             'tentative_pattern' => ['nullable', 'string'],
+            'open_end_pattern' => ['nullable', 'string'],
+            'open_start_pattern' => ['nullable', 'string'],
             'show_activity' => ['nullable', 'boolean'],
             'highlight_words' => ['nullable', 'array'],
             'highlight_words.*' => ['string'],
@@ -68,7 +70,14 @@ class CalendarPreviewController extends Controller
 
         $timer->lap('fetch', ['ics_bytes' => strlen($icsBody)]);
 
-        $rawItems = $icsParser->parse($icsBody, $rangeStart, $rangeEnd, $data['tentative_pattern'] ?? null);
+        $rawItems = $icsParser->parse(
+            $icsBody,
+            $rangeStart,
+            $rangeEnd,
+            $data['tentative_pattern'] ?? null,
+            $data['open_end_pattern'] ?? null,
+            $data['open_start_pattern'] ?? null,
+        );
         $detectedMode = $classifier->classify($rawItems);
         $timer->lap('parse_and_classify', ['raw_item_count' => count($rawItems), 'detected_mode' => $detectedMode->value]);
 

@@ -37,6 +37,8 @@ class User extends Authenticatable
         'highlight_clause_pattern',
         'activity_clause_pattern',
         'tentative_pattern',
+        'open_end_pattern',
+        'open_start_pattern',
         'public_page_title_en',
         'public_page_title_hu',
         'accent_color_key',
