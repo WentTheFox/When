@@ -165,6 +165,19 @@ class AvailabilityServiceTest extends TestCase
         $this->assertTrue($wednesday[0]->end->gte(CarbonImmutable::parse('2026-06-03 10:00:00', 'UTC')));
     }
 
+    public function test_dnd_pattern_never_matches_a_free_busy_only_event(): void
+    {
+        $result = $this->compute(
+            events: [$this->event('dnd-1', '2026-06-03 09:00', '2026-06-03 10:00', 'Therapy', isFreeBusyOnly: true)],
+            dndEventName: 'Therapy',
+        );
+
+        // Not excluded — the generic "Therapy" text is a coincidence, not a
+        // real DND signal, since this event's summary was never real title
+        // text to begin with.
+        $this->assertCount(1, $result->unavailable);
+    }
+
     public function test_dnd_bypass_share_links_see_the_dnd_event(): void
     {
         $result = $this->compute(

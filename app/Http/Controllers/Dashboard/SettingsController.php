@@ -100,7 +100,7 @@ class SettingsController extends Controller
             'week_start' => ['required', 'integer', 'between:0,6'],
             'dnd_event_name' => ['nullable', 'string', 'max:255'],
             'nap_event_name' => ['nullable', 'string', 'max:255'],
-            'calendar_parsing_mode' => ['required', 'in:full_detail,free_busy_only,auto'],
+            'calendar_parsing_mode' => ['required', 'in:full_detail,free_busy_only'],
             'highlight_clause_pattern' => ['nullable', 'string'],
             'activity_clause_pattern' => ['nullable', 'string'],
             'tentative_pattern' => ['nullable', 'string'],

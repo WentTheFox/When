@@ -51,7 +51,16 @@ class IcsParser
      */
     public const DEFAULT_OPEN_START_TITLE_PATTERN = '\(\?-\)\s*$';
 
-    /** @return RawCalendarItem[] */
+    /**
+     * @param  'full_detail'|'free_busy_only'  $parsingMode  Gates only the
+     *                                                       three title-*regex* signals below (tentative/open-end/open-start
+     *                                                       suffixes) — `free_busy_only` skips evaluating and stripping them
+     *                                                       entirely, since a free-busy-only feed's SUMMARY (if present at all)
+     *                                                       is a fake generic placeholder like "Busy", not real title text. Does
+     *                                                       NOT gate the structured ICS STATUS:TENTATIVE / VFREEBUSY
+     *                                                       FBTYPE=BUSY-TENTATIVE signals, which stay honored either way.
+     * @return RawCalendarItem[]
+     */
     public function parse(
         string $icsBody,
         CarbonImmutable $rangeStart,
@@ -59,6 +68,7 @@ class IcsParser
         ?string $tentativeTitlePattern = null,
         ?string $openEndTitlePattern = null,
         ?string $openStartTitlePattern = null,
+        string $parsingMode = 'full_detail',
     ): array {
         /** @var VCalendar $calendar */
         $calendar = Reader::read($icsBody, Reader::OPTION_FORGIVING);
@@ -80,8 +90,10 @@ class IcsParser
         $openEndPattern = $openEndTitlePattern ?: self::DEFAULT_OPEN_END_TITLE_PATTERN;
         $openStartPattern = $openStartTitlePattern ?: self::DEFAULT_OPEN_START_TITLE_PATTERN;
 
+        $applyTitlePatterns = $parsingMode !== 'free_busy_only';
+
         foreach ($expandedCalendar->select('VEVENT') as $vevent) {
-            $item = $this->parseVEvent($vevent, $pattern, $openEndPattern, $openStartPattern);
+            $item = $this->parseVEvent($vevent, $pattern, $openEndPattern, $openStartPattern, $applyTitlePatterns);
 
             if ($item !== null && $item->end > $rangeStart && $item->start < $rangeEnd) {
                 $items[] = $item;
@@ -104,6 +116,7 @@ class IcsParser
         string $tentativeTitlePattern,
         string $openEndTitlePattern,
         string $openStartTitlePattern,
+        bool $applyTitlePatterns,
     ): ?RawCalendarItem {
         if (! isset($vevent->DTSTART)) {
             return null;
@@ -117,15 +130,22 @@ class IcsParser
         $summary = isset($vevent->SUMMARY) ? (string) $vevent->SUMMARY : null;
         $isTentativeStatus = isset($vevent->STATUS) && strtoupper((string) $vevent->STATUS) === 'TENTATIVE';
 
-        // Each of the three patterns is checked and stripped independently
-        // (against the progressively-cleaned summary), then OR'd into the
-        // two directional flags. The three defaults can never collide with
-        // each other (see the DEFAULT_*_TITLE_PATTERN doc comments), but a
-        // custom owner pattern in principle could match more than one —
-        // stripping sequentially keeps that safe either way.
-        [$isTentativeTitle, $summary] = $this->matchAndStrip($tentativeTitlePattern, $summary);
-        [$isOpenEndTitle, $summary] = $this->matchAndStrip($openEndTitlePattern, $summary);
-        [$isOpenStartTitle, $summary] = $this->matchAndStrip($openStartTitlePattern, $summary);
+        $isTentativeTitle = false;
+        $isOpenEndTitle = false;
+        $isOpenStartTitle = false;
+
+        if ($applyTitlePatterns) {
+            // Each of the three patterns is checked and stripped
+            // independently (against the progressively-cleaned summary),
+            // then OR'd into the two directional flags. The three defaults
+            // can never collide with each other (see the
+            // DEFAULT_*_TITLE_PATTERN doc comments), but a custom owner
+            // pattern in principle could match more than one — stripping
+            // sequentially keeps that safe either way.
+            [$isTentativeTitle, $summary] = $this->matchAndStrip($tentativeTitlePattern, $summary);
+            [$isOpenEndTitle, $summary] = $this->matchAndStrip($openEndTitlePattern, $summary);
+            [$isOpenStartTitle, $summary] = $this->matchAndStrip($openStartTitlePattern, $summary);
+        }
 
         return new RawCalendarItem(
             uid: isset($vevent->UID) ? (string) $vevent->UID : bin2hex(random_bytes(8)),

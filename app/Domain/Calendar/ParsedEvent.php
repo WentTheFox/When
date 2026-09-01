@@ -46,10 +46,15 @@ final class ParsedEvent
      * An invalid pattern is treated as "never matches" rather than throwing
      * — event-name settings are free text an owner can mistype, and a typo
      * shouldn't take down availability computation for every viewer.
+     *
+     * Never matches a free-busy-only event, regardless of pattern — its
+     * summary (if any) is a fake generic placeholder like "Busy", not real
+     * title text, so evaluating a DND/nap pattern against it would either
+     * never fire or fire on coincidence rather than intent.
      */
     public function matchesEventNamePattern(?string $pattern): bool
     {
-        if ($pattern === null || $pattern === '' || $this->summary === null) {
+        if ($pattern === null || $pattern === '' || $this->summary === null || $this->isFreeBusyOnly) {
             return false;
         }
 

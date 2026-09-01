@@ -36,7 +36,7 @@ interface Settings {
   week_start: number;
   dnd_event_name: string | null;
   nap_event_name: string | null;
-  calendar_parsing_mode: 'auto' | 'full_detail' | 'free_busy_only';
+  calendar_parsing_mode: 'full_detail' | 'free_busy_only';
   highlight_clause_pattern: string | null;
   activity_clause_pattern: string | null;
   tentative_pattern: string | null;
@@ -480,6 +480,14 @@ async function preview(): Promise<void> {
       detected_mode: data.detected_mode,
       slotCount: data.free.length + data.highlighted.length + data.unavailable.length + data.sleep.length,
     };
+    // Suggest a parsing mode from what the feed actually contains, but only
+    // for a brand-new setup — re-previewing an already-saved URL must never
+    // silently clobber a mode the owner deliberately chose. "mixed" maps to
+    // full_detail, not free_busy_only: that's the only choice that doesn't
+    // drop title matching for the feed's real-titled events.
+    if (!hadSavedCalendarUrl.value) {
+      form.calendar_parsing_mode = data.detected_mode === 'free_busy_only' ? 'free_busy_only' : 'full_detail';
+    }
     previewAvailability.value = {
       free: data.free,
       highlighted: data.highlighted,
@@ -633,13 +641,12 @@ function submit(): void {
     -->
     <BFormGroup label="Parsing mode" label-for="calendar_parsing_mode" class="mb-3">
       <BFormSelect id="calendar_parsing_mode" v-model="form.calendar_parsing_mode">
-        <!-- TODO remove autodetect in favor of setting the right one during import and being able to gate event title processing on it -->
-        <option value="auto">Auto-detect</option>
         <option value="full_detail">Full detail (event titles are used for highlighting)</option>
-        <option value="free_busy_only">Free/busy only (track availability only, ignoring event tiles)</option>
+        <option value="free_busy_only">Free/busy only (track availability only, ignoring event titles)</option>
       </BFormSelect>
       <template #description>
-        Auto-detect looks at your feed once and picks the closest match. Pin it here if it guesses wrong.
+        Previewing your calendar URL above picks one of these for you the first time you set it up, based on what
+        your feed actually contains — change it here any time afterward if it guessed wrong.
       </template>
     </BFormGroup>
 

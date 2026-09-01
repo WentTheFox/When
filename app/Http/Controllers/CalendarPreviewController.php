@@ -33,7 +33,7 @@ class CalendarPreviewController extends Controller
         $data = $request->validate([
             'calendar_url' => ['required', 'url'],
             'timezone' => ['nullable', 'string'],
-            'calendar_parsing_mode' => ['nullable', 'in:full_detail,free_busy_only,auto'],
+            'calendar_parsing_mode' => ['nullable', 'in:full_detail,free_busy_only'],
             'dnd_event_name' => ['nullable', 'string'],
             'nap_event_name' => ['nullable', 'string'],
             'highlight_clause_pattern' => ['nullable', 'string'],
@@ -70,6 +70,8 @@ class CalendarPreviewController extends Controller
 
         $timer->lap('fetch', ['ics_bytes' => strlen($icsBody)]);
 
+        $parsingMode = $data['calendar_parsing_mode'] ?? 'full_detail';
+
         $rawItems = $icsParser->parse(
             $icsBody,
             $rangeStart,
@@ -77,11 +79,11 @@ class CalendarPreviewController extends Controller
             $data['tentative_pattern'] ?? null,
             $data['open_end_pattern'] ?? null,
             $data['open_start_pattern'] ?? null,
+            $parsingMode,
         );
         $detectedMode = $classifier->classify($rawItems);
         $timer->lap('parse_and_classify', ['raw_item_count' => count($rawItems), 'detected_mode' => $detectedMode->value]);
 
-        $parsingMode = $data['calendar_parsing_mode'] ?? 'auto';
         $events = $normalizer->normalize($rawItems, $parsingMode);
         $timer->lap('normalize', ['event_count' => count($events)]);
 

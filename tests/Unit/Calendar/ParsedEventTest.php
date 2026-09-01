@@ -8,13 +8,14 @@ use PHPUnit\Framework\TestCase;
 
 class ParsedEventTest extends TestCase
 {
-    private function event(?string $summary): ParsedEvent
+    private function event(?string $summary, bool $isFreeBusyOnly = false): ParsedEvent
     {
         return new ParsedEvent(
             uid: 'x',
             start: CarbonImmutable::now(),
             end: CarbonImmutable::now()->addHour(),
             summary: $summary,
+            isFreeBusyOnly: $isFreeBusyOnly,
         );
     }
 
@@ -56,5 +57,13 @@ class ParsedEventTest extends TestCase
     {
         // Unbalanced group — invalid PCRE.
         $this->assertFalse($this->event('Sleep')->matchesEventNamePattern('('));
+    }
+
+    public function test_free_busy_only_events_never_match_even_an_exact_summary(): void
+    {
+        // Summary literally equals the pattern — would match if this event
+        // weren't free-busy-only, since that summary is a fake generic
+        // placeholder (e.g. "Busy"), not real title text.
+        $this->assertFalse($this->event('Sleep', isFreeBusyOnly: true)->matchesEventNamePattern('Sleep'));
     }
 }

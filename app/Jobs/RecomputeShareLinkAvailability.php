@@ -123,6 +123,7 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
             $user->tentative_pattern,
             $user->open_end_pattern,
             $user->open_start_pattern,
+            $user->calendar_parsing_mode,
         );
         $timer->lap('parse', ['raw_item_count' => count($rawItems)]);
 

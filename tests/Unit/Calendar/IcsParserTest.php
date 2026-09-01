@@ -73,6 +73,49 @@ class IcsParserTest extends TestCase
         $this->assertFalse($party->tentativeEnd);
     }
 
+    public function test_free_busy_only_mode_skips_title_suffix_patterns_but_not_status_tentative(): void
+    {
+        $items = $this->parser->parse(
+            $this->fixture('full_detail.ics'),
+            CarbonImmutable::parse('2026-06-01', 'UTC'),
+            CarbonImmutable::parse('2026-06-10', 'UTC'),
+            parsingMode: 'free_busy_only',
+        );
+
+        // "(?)" is neither stripped nor treated as tentative when the title
+        // regexes are gated off — this event's summary is fake title text.
+        $maybeLunch = $items[1];
+        $this->assertSame('Maybe lunch (?)', $maybeLunch->summary);
+        $this->assertFalse($maybeLunch->tentativeStart);
+        $this->assertFalse($maybeLunch->tentativeEnd);
+
+        // STATUS:TENTATIVE is a structured ICS field, not title text — still
+        // honored regardless of parsing mode.
+        $standup = $items[2];
+        $this->assertTrue($standup->tentativeStart);
+        $this->assertTrue($standup->tentativeEnd);
+    }
+
+    public function test_free_busy_only_mode_also_gates_the_open_end_and_open_start_suffixes(): void
+    {
+        $items = $this->parser->parse(
+            $this->fixture('open_edges.ics'),
+            CarbonImmutable::parse('2026-06-01', 'UTC'),
+            CarbonImmutable::parse('2026-06-10', 'UTC'),
+            parsingMode: 'free_busy_only',
+        );
+
+        $dinner = $items[0];
+        $this->assertSame('Dinner (-?)', $dinner->summary);
+        $this->assertFalse($dinner->tentativeStart);
+        $this->assertFalse($dinner->tentativeEnd);
+
+        $party = $items[1];
+        $this->assertSame('Party (?-)', $party->summary);
+        $this->assertFalse($party->tentativeStart);
+        $this->assertFalse($party->tentativeEnd);
+    }
+
     public function test_parses_vfreebusy_blocks_and_skips_free_periods(): void
     {
         $items = $this->parser->parse(

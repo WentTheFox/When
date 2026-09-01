@@ -53,7 +53,7 @@ class SettingsCalendarUrlTest extends TestCase
         $response = $this->actingAs($user)->patch('/settings', [
             'timezone' => 'America/New_York',
             'week_start' => 1,
-            'calendar_parsing_mode' => 'auto',
+            'calendar_parsing_mode' => 'full_detail',
         ]);
 
         $response->assertSessionHasNoErrors();
@@ -69,7 +69,7 @@ class SettingsCalendarUrlTest extends TestCase
         $this->actingAs($user)->patch('/settings', [
             'timezone' => 'UTC',
             'week_start' => 1,
-            'calendar_parsing_mode' => 'auto',
+            'calendar_parsing_mode' => 'full_detail',
             'calendar_url' => 'https://example.com/calendar.ics',
             'calendar_url_preview_confirmed' => true,
         ]);
