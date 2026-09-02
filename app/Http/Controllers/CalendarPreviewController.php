@@ -7,6 +7,7 @@ use App\Services\Calendar\CalendarFetcher;
 use App\Services\Calendar\EventNormalizer;
 use App\Services\Calendar\FeedClassifier;
 use App\Services\Calendar\IcsParser;
+use App\Support\Regex;
 use App\Support\StageTimer;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -36,8 +37,10 @@ class CalendarPreviewController extends Controller
             'calendar_parsing_mode' => ['nullable', 'in:full_detail,free_busy_only'],
             'dnd_event_name' => ['nullable', 'string'],
             'nap_event_name' => ['nullable', 'string'],
-            'highlight_clause_pattern' => ['nullable', 'string'],
-            'activity_clause_pattern' => ['nullable', 'string'],
+            'work_event_name' => ['nullable', 'string'],
+            'highlight_clause_pattern' => ['nullable', 'string', Regex::validateSingleCaptureGroup(...)],
+            'highlight_split_pattern' => ['nullable', 'string'],
+            'activity_clause_pattern' => ['nullable', 'string', Regex::validateSingleCaptureGroup(...)],
             'tentative_pattern' => ['nullable', 'string'],
             'open_end_pattern' => ['nullable', 'string'],
             'open_start_pattern' => ['nullable', 'string'],
@@ -100,12 +103,15 @@ class CalendarPreviewController extends Controller
             highlightClausePattern: $data['highlight_clause_pattern'] ?? null,
             activityClausePattern: $data['activity_clause_pattern'] ?? null,
             showActivity: $data['show_activity'] ?? true,
+            workEventName: $data['work_event_name'] ?? null,
+            highlightSplitPattern: $data['highlight_split_pattern'] ?? null,
         );
 
         $timer->lap('compute_availability', [
             'free_count' => count($result->free),
             'highlighted_count' => count($result->highlighted),
             'unavailable_count' => count($result->unavailable),
+            'work_count' => count($result->work),
             'sleep_count' => count($result->sleep),
         ]);
 

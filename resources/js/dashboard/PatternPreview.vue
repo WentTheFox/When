@@ -24,13 +24,24 @@ function tryMatch(pattern: string, subject: string): RegExpExecArray | null {
 }
 
 /**
- * Mirrors HighlightMatcher::matchTokens: comma-split, case-sensitive
- * substring check — returns every configured word that matches (a clause
- * can name more than one person, e.g. "with Charlie, Alice"), not just the
- * first, same as the real backend.
+ * Mirrors HighlightMatcher::matchTokens: split on an owner-configurable
+ * delimiter pattern (falling back to ", " when unset, same as
+ * HighlightMatcher::DEFAULT_SPLIT_PATTERN), case-sensitive substring
+ * check — returns every configured word that matches (a clause can name
+ * more than one person, e.g. "with Charlie, Alice"), not just the first,
+ * same as the real backend. An invalid split pattern fails closed to "the
+ * whole clause is one token" rather than losing the match entirely, same
+ * fail-closed contract as App\Support\Regex::trySplit.
  */
-function matchTokens(tokenStr: string, words: string[]): string[] {
-  const tokens = tokenStr.split(',').map((t) => t.trim()).filter((t) => t !== '');
+function matchTokens(tokenStr: string, words: string[], splitPattern: string): string[] {
+  let rawTokens: string[];
+  try {
+    rawTokens = tokenStr.split(new RegExp(splitPattern || ', ', 'iu'));
+  } catch {
+    rawTokens = [tokenStr];
+  }
+
+  const tokens = rawTokens.map((t) => t.trim()).filter((t) => t !== '');
   const matched: string[] = [];
 
   for (const word of words) {
@@ -46,18 +57,20 @@ const props = defineProps<{
   /**
    * 'match': DND/nap — did it match at all?
    * 'extract': activity clause — what did group 1 capture, verbatim?
-   * 'tokens': highlight clause — split group 1 on commas, does any token contain a configured word (sampleWords)?
+   * 'tokens': highlight clause — split group 1 on the split pattern, does any token contain a configured word (sampleWords)?
    */
   mode: 'match' | 'extract' | 'tokens';
   /** Only used in 'tokens' mode — stand-in for a share link's own configured highlight words. */
   sampleWords?: string[];
+  /** Only used in 'tokens' mode — the owner's highlight_split_pattern (or its default). */
+  splitPattern?: string;
 }>();
 
 const results = computed(() => props.examples.map((title) => {
   const match = tryMatch(props.pattern, title);
 
   if (props.mode === 'tokens') {
-    const words = match?.[1] ? matchTokens(match[1], props.sampleWords ?? []) : [];
+    const words = match?.[1] ? matchTokens(match[1], props.sampleWords ?? [], props.splitPattern ?? '') : [];
     return { title, matched: words.length > 0, captured: words.join(', ') };
   }
 

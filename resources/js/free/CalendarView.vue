@@ -20,16 +20,17 @@ import { addDays, format, subDays } from 'date-fns';
 import { enUS, hu } from 'date-fns/locale';
 import { TZDate } from '@date-fns/tz';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faBan, faCheck, faMoon, faSpinner, faStar } from '@fortawesome/free-solid-svg-icons';
+import { faBan, faBriefcase, faCheck, faMoon, faSpinner, faStar } from '@fortawesome/free-solid-svg-icons';
 import { computed } from 'vue';
 import { currentLocale, trans } from 'laravel-vue-i18n';
-import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, tildeTime } from './nuxt-blocks';
+import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, isTentativeSuffixShown, tildeTime } from './nuxt-blocks';
 import type { DayBlock, FreeSlot, HighlightedSlot, TentativeSlot } from './nuxt-blocks';
 
 const BLOCK_TYPE_CLASS: Record<DayBlock['type'], string> = {
   free: 'wtf-fcal-free-block',
   unavailable: 'wtf-fcal-unavailable-block',
   highlighted: 'wtf-fcal-highlighted-block',
+  work: 'wtf-fcal-work-block',
   sleep: 'wtf-fcal-sleep-block',
 };
 
@@ -37,6 +38,7 @@ const BLOCK_TYPE_ICON = {
   free: faCheck,
   unavailable: faBan,
   highlighted: faStar,
+  work: faBriefcase,
   sleep: faMoon,
 } satisfies Record<DayBlock['type'], object>;
 
@@ -44,6 +46,7 @@ const BLOCK_TYPE_LABEL_KEY: Record<DayBlock['type'], string> = {
   free: 'free.freeLabel',
   unavailable: 'free.unavailableLabel',
   highlighted: 'free.highlightedLabel',
+  work: 'free.workLabel',
   sleep: 'free.sleepLabel',
 };
 
@@ -51,6 +54,7 @@ const BLOCK_TYPE_COLOR_VAR: Record<DayBlock['type'], string> = {
   free: '--wtf-color-free',
   unavailable: '--wtf-color-busy',
   highlighted: '--wtf-color-highlighted',
+  work: '--wtf-color-work',
   sleep: '--wtf-color-sleep',
 };
 
@@ -59,6 +63,7 @@ const props = defineProps<{
   freeSlots: FreeSlot[];
   highlightedSlots: HighlightedSlot[];
   unavailableSlots: TentativeSlot[];
+  workSlots: TentativeSlot[];
   sleepSlots: FreeSlot[];
   pending: boolean;
   hasError: boolean;
@@ -100,7 +105,7 @@ const dayBlocks = computed(() =>
   props.visibleDays.map(day => ({
     day,
     blocks: props.showBlocks
-      ? getBlocksForDay(day, props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone)
+      ? getBlocksForDay(day, props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots)
       : [],
   })),
 );
@@ -138,7 +143,7 @@ function tentativeFadeStyle(day: Date, blocks: DayBlock[], i: number): Record<st
   if (startFuzzy) {
     const prev = i > 0
       ? blocks[i - 1]
-      : getBlocksForDay(subDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone).at(-1);
+      : getBlocksForDay(subDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots).at(-1);
     if (prev) {
       style['--fade-start'] = isTentativeEndDisplay(prev)
         ? `var(${BLOCK_TYPE_COLOR_VAR[block.type]})`
@@ -151,7 +156,7 @@ function tentativeFadeStyle(day: Date, blocks: DayBlock[], i: number): Record<st
   if (endFuzzy) {
     const next = i < blocks.length - 1
       ? blocks[i + 1]
-      : getBlocksForDay(addDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone)[0];
+      : getBlocksForDay(addDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots)[0];
     if (next) style['--fade-end'] = `var(${BLOCK_TYPE_COLOR_VAR[next.type]})`;
   } else {
     style['--fade-end'] = `var(${BLOCK_TYPE_COLOR_VAR[block.type]})`;
@@ -241,7 +246,7 @@ function formatDay(day: Date, fmt: string): string {
                 :style="{ top: `${block.topPct}%`, height: `${block.heightPct}%`, ...tentativeFadeStyle(day, blocks, i) }"
               >
                 <span class="wtf-fcal-block-label">
-                  <strong><FontAwesomeIcon :icon="BLOCK_TYPE_ICON[block.type]" class="wtf-fcal-block-label-icon me-1" />{{ blockLabel(block) }}{{ isTentativeStartDisplay(block) || isTentativeEndDisplay(block) ? $t('free.tentativeSuffix') : '' }}</strong><span class="wtf-fcal-block-label-time">{{ blockTimeText(block) }}</span>
+                  <strong><FontAwesomeIcon :icon="BLOCK_TYPE_ICON[block.type]" class="wtf-fcal-block-label-icon me-1" />{{ blockLabel(block) }}{{ isTentativeSuffixShown(block) ? $t('free.tentativeSuffix') : '' }}</strong><span class="wtf-fcal-block-label-time">{{ blockTimeText(block) }}</span>
                 </span>
               </div>
             </template>

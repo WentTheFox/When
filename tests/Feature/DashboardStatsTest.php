@@ -145,4 +145,52 @@ class DashboardStatsTest extends TestCase
         $response->assertOk();
         $this->assertCount(0, $response->json('highlights'));
     }
+
+    public function test_a_share_link_with_words_but_no_matched_minutes_appears_in_the_no_time_list(): void
+    {
+        $this->mockCalendarResponse($this->icsFixture());
+
+        $user = User::factory()->create([
+            'calendar_url_ciphertext' => Crypt::encryptString('https://example.com/secret.ics'),
+            'timezone' => 'UTC',
+            'calendar_parsing_mode' => 'full_detail',
+        ]);
+
+        $shareLink = ShareLink::factory()->for($user)->create();
+        ShareLinkWord::create([
+            'share_link_id' => $shareLink->id,
+            'word_ciphertext' => Crypt::encryptString('Bob'),
+        ]);
+
+        $response = $this->actingAs($user)->getJson('/dashboard/stats/availability');
+
+        $response->assertOk();
+        $this->assertCount(0, $response->json('highlights'));
+        $noTime = $response->json('highlightsNoTime');
+        $this->assertCount(1, $noTime);
+        $this->assertSame($shareLink->id, $noTime[0]['share_link_id']);
+    }
+
+    public function test_an_archived_share_link_with_words_but_no_matched_minutes_is_excluded_from_the_no_time_list(): void
+    {
+        $this->mockCalendarResponse($this->icsFixture());
+
+        $user = User::factory()->create([
+            'calendar_url_ciphertext' => Crypt::encryptString('https://example.com/secret.ics'),
+            'timezone' => 'UTC',
+            'calendar_parsing_mode' => 'full_detail',
+        ]);
+
+        $shareLink = ShareLink::factory()->for($user)->create(['archived' => true]);
+        ShareLinkWord::create([
+            'share_link_id' => $shareLink->id,
+            'word_ciphertext' => Crypt::encryptString('Bob'),
+        ]);
+
+        $response = $this->actingAs($user)->getJson('/dashboard/stats/availability');
+
+        $response->assertOk();
+        $this->assertCount(0, $response->json('highlights'));
+        $this->assertCount(0, $response->json('highlightsNoTime'));
+    }
 }

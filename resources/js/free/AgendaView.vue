@@ -12,16 +12,17 @@ import { addDays, format, subDays } from 'date-fns';
 import { enUS, hu } from 'date-fns/locale';
 import { TZDate } from '@date-fns/tz';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faBan, faCheck, faMoon, faSpinner, faStar } from '@fortawesome/free-solid-svg-icons';
+import { faBan, faBriefcase, faCheck, faMoon, faSpinner, faStar } from '@fortawesome/free-solid-svg-icons';
 import { computed } from 'vue';
 import { currentLocale, trans } from 'laravel-vue-i18n';
-import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, pctToTime, tildeTime } from './nuxt-blocks';
+import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, isTentativeSuffixShown, pctToTime, tildeTime } from './nuxt-blocks';
 import type { DayBlock, FreeSlot, HighlightedSlot, TentativeSlot } from './nuxt-blocks';
 
 const AGENDA_SLOT_CLASS: Record<DayBlock['type'], string> = {
   free: '',
   unavailable: 'wtf-fagenda-slot-unavailable',
   highlighted: 'wtf-fagenda-slot-highlighted',
+  work: 'wtf-fagenda-slot-work',
   sleep: 'wtf-fagenda-slot-sleep',
 };
 
@@ -29,6 +30,7 @@ const AGENDA_SLOT_ICON = {
   free: faCheck,
   unavailable: faBan,
   highlighted: faStar,
+  work: faBriefcase,
   sleep: faMoon,
 } satisfies Record<DayBlock['type'], object>;
 
@@ -36,6 +38,7 @@ const AGENDA_SLOT_LABEL_KEY: Record<DayBlock['type'], string> = {
   free: 'free.freeLabel',
   unavailable: 'free.unavailableLabel',
   highlighted: 'free.highlightedLabel',
+  work: 'free.workLabel',
   sleep: 'free.sleepLabel',
 };
 
@@ -43,6 +46,7 @@ const AGENDA_SLOT_COLOR_VAR: Record<DayBlock['type'], string> = {
   free: '--wtf-color-free',
   unavailable: '--wtf-color-busy',
   highlighted: '--wtf-color-highlighted',
+  work: '--wtf-color-work',
   sleep: '--wtf-color-sleep',
 };
 
@@ -51,6 +55,7 @@ const props = defineProps<{
   freeSlots: FreeSlot[];
   highlightedSlots: HighlightedSlot[];
   unavailableSlots: TentativeSlot[];
+  workSlots: TentativeSlot[];
   sleepSlots: FreeSlot[];
   pending: boolean;
   hasError: boolean;
@@ -129,7 +134,7 @@ function tentativeFadeStyle(day: Date, slots: DayBlock[], i: number): Record<str
   if (startFuzzy) {
     const prev = i > 0
       ? slots[i - 1]
-      : getBlocksForDay(subDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone).at(-1);
+      : getBlocksForDay(subDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots).at(-1);
     if (prev) style['--fade-start'] = `var(${AGENDA_SLOT_COLOR_VAR[prev.type]})`;
   } else {
     style['--fade-start'] = `var(${AGENDA_SLOT_COLOR_VAR[slot.type]})`;
@@ -138,7 +143,7 @@ function tentativeFadeStyle(day: Date, slots: DayBlock[], i: number): Record<str
   if (endFuzzy) {
     const next = i < slots.length - 1
       ? slots[i + 1]
-      : getBlocksForDay(addDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone)[0];
+      : getBlocksForDay(addDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots)[0];
     if (next) style['--fade-end'] = `var(${AGENDA_SLOT_COLOR_VAR[next.type]})`;
   } else {
     style['--fade-end'] = `var(${AGENDA_SLOT_COLOR_VAR[slot.type]})`;
@@ -151,7 +156,7 @@ const agendaEntries = computed(() =>
   props.days.map(day => {
     const isToday = isDayToday(day);
     const slots = props.showBlocks
-      ? getBlocksForDay(day, props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone)
+      ? getBlocksForDay(day, props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots)
           .map(b => ({
             ...b,
             startTime: b.startTime || pctToTime(b.topPct),
@@ -207,7 +212,7 @@ const agendaEntries = computed(() =>
             :style="{ top: `${currentTimeOffsetPct}%` }"
           />
           <span class="wtf-fagenda-slot-time">{{ slotTimeText(slot) }}</span>
-          <span class="wtf-fagenda-slot-label"><FontAwesomeIcon :icon="AGENDA_SLOT_ICON[slot.type]" class="wtf-fagenda-slot-icon me-1" />{{ slotLabel(slot) }}{{ isTentativeStartDisplay(slot) || isTentativeEndDisplay(slot) ? $t('free.tentativeSuffix') : '' }}</span>
+          <span class="wtf-fagenda-slot-label"><FontAwesomeIcon :icon="AGENDA_SLOT_ICON[slot.type]" class="wtf-fagenda-slot-icon me-1" />{{ slotLabel(slot) }}{{ isTentativeSuffixShown(slot) ? $t('free.tentativeSuffix') : '' }}</span>
         </div>
       </div>
     </div>

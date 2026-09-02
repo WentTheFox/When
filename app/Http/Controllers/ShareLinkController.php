@@ -138,6 +138,7 @@ class ShareLinkController extends Controller
                 'secondary' => $owner->secondary_color_key,
                 'free' => $owner->free_color_key,
                 'busy' => $owner->busy_color_key,
+                'work' => $owner->work_color_key,
                 'sleep' => $owner->sleep_color_key,
                 'highlighted' => $owner->highlight_color_key,
                 'now' => $owner->now_color,

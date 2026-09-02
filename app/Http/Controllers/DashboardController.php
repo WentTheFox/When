@@ -113,7 +113,7 @@ class DashboardController extends Controller
                 $this->buildRow('Past '.self::PAST_DAYS.' days', $result, $events, $user->work_event_name, $past30Start, $todayEnd, self::PAST_DAYS),
             ];
 
-            [$topHighlights, $restHighlights] = $this->computeHighlightLeaderboard(
+            [$topHighlights, $restHighlights, $noTimeHighlights] = $this->computeHighlightLeaderboard(
                 $user, $events, $availabilityService, $weeklyAvailability, $sleepExceptions, $past30Start, $todayEnd,
             );
 
@@ -121,6 +121,7 @@ class DashboardController extends Controller
                 'rows' => $rows,
                 'highlights' => $topHighlights,
                 'highlightsRest' => $restHighlights,
+                'highlightsNoTime' => $noTimeHighlights,
             ]);
         } catch (\Throwable) {
             return response()->json(['error' => 'fetch_failed']);
@@ -191,7 +192,7 @@ class DashboardController extends Controller
      * @param  ParsedEvent[]  $events
      * @param  array<int, array{wake: ?string, sleep: ?string}>  $weeklyAvailability
      * @param  array{start: CarbonImmutable, end: CarbonImmutable}[]  $sleepExceptions
-     * @return array{0: array, 1: array} [top 10, rest]
+     * @return array{0: array, 1: array, 2: array} [top 10 (minutes > 0), rest (minutes > 0), no-time-yet (minutes === 0)]
      */
     private function computeHighlightLeaderboard(
         User $user,
@@ -202,7 +203,8 @@ class DashboardController extends Controller
         CarbonImmutable $rangeStart,
         CarbonImmutable $rangeEnd,
     ): array {
-        $entries = [];
+        $withTime = [];
+        $noTime = [];
 
         $shareLinks = $user->shareLinks()->where('archived', false)->with('connection')->get();
 
@@ -227,27 +229,58 @@ class DashboardController extends Controller
                 rangeStart: $rangeStart,
                 rangeEnd: $rangeEnd,
                 highlightClausePattern: $user->highlight_clause_pattern,
+                highlightSplitPattern: $user->highlight_split_pattern,
             );
 
             $minutes = $this->sumSlotMinutes($linkResult->highlighted, $rangeStart, $rangeEnd);
 
-            if ($minutes <= 0) {
-                continue;
-            }
-
             $connection = $shareLink->connection;
 
-            $entries[] = [
+            $entry = [
                 'share_link_id' => $shareLink->id,
                 'minutes' => $minutes,
                 'connection' => $connection ? ['id' => $connection->id, 'name_ciphertext' => $connection->name_ciphertext] : null,
                 'share_link_label_ciphertext' => $shareLink->label_ciphertext,
+                'events' => $this->matchedSlotsInRange($linkResult->highlighted, $rangeStart, $rangeEnd),
             ];
+
+            if ($minutes > 0) {
+                $withTime[] = $entry;
+            } else {
+                $noTime[] = $entry;
+            }
         }
 
-        usort($entries, fn ($a, $b) => $b['minutes'] <=> $a['minutes']);
+        usort($withTime, fn ($a, $b) => $b['minutes'] <=> $a['minutes']);
 
-        return [array_slice($entries, 0, 10), array_slice($entries, 10)];
+        return [array_slice($withTime, 0, 10), array_slice($withTime, 10), $noTime];
+    }
+
+    /**
+     * Feeds the "highlight events" dialog: every highlighted slot for one
+     * share link within the stats range, sorted chronologically. Unlike the
+     * source app's own dialog — a plain substring match against raw ICS
+     * event titles — this app's highlight matching is clause-based (§ see
+     * HighlightMatcher's own doc comment: "with X"/"Host X"/"Visit X"), so
+     * there's no single raw "event name" to show per match. AvailabilitySlot
+     * already carries everything the /free viewer itself shows for a
+     * highlighted block (activity, visiting/hosting, tentative edges,
+     * matched words) — reusing that same shape here instead of re-deriving
+     * a name keeps this dialog honest about what actually matched.
+     *
+     * @param  AvailabilitySlot[]  $slots
+     * @return array<int, array>
+     */
+    private function matchedSlotsInRange(array $slots, CarbonImmutable $rangeStart, CarbonImmutable $rangeEnd): array
+    {
+        $inRange = array_values(array_filter(
+            $slots,
+            fn (AvailabilitySlot $slot) => $slot->end->gt($rangeStart) && $slot->start->lt($rangeEnd),
+        ));
+
+        usort($inRange, fn (AvailabilitySlot $a, AvailabilitySlot $b) => $a->start <=> $b->start);
+
+        return array_map(fn (AvailabilitySlot $slot) => $slot->toArray(), $inRange);
     }
 
     /** @param  AvailabilitySlot[]  $slots */

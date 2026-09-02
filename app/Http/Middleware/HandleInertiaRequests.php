@@ -70,6 +70,16 @@ class HandleInertiaRequests extends Middleware
                     // hex — see resources/js/free/color-palette.ts.
                     'accentColorKey' => $request->user()->accent_color_key,
                     'secondaryColorKey' => $request->user()->secondary_color_key,
+                    // Same tier/reasoning as accent/secondary above — shared
+                    // globally (not just to Free/Show.vue, which gets its
+                    // own copy of these via FreeController) so any
+                    // dashboard-side widget that visualizes free/busy/sleep
+                    // time can reuse the owner's own /free palette instead
+                    // of inventing a second, unrelated color scheme.
+                    'sleepColorKey' => $request->user()->sleep_color_key,
+                    'busyColorKey' => $request->user()->busy_color_key,
+                    'workColorKey' => $request->user()->work_color_key,
+                    'freeColorKey' => $request->user()->free_color_key,
                 ] : null,
             ],
             'flash' => [

@@ -84,6 +84,10 @@ class ColorPalette
         'busy' => 'charcoal',
         'sleep' => 'purple',
         'highlighted' => 'amber',
+        // Plain blue, distinct from 'blue'/Glaucous (the accent/free
+        // default) — matches the source app's own hardcoded Bootstrap
+        // primary as closely as this palette's curated hues allow.
+        'work' => 'sky',
     ];
 
     public const KEYS = [

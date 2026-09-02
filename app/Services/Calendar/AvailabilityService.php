@@ -46,10 +46,13 @@ class AvailabilityService
         ?string $highlightClausePattern = null,
         ?string $activityClausePattern = null,
         bool $showActivity = true,
+        ?string $workEventName = null,
+        ?string $highlightSplitPattern = null,
     ): AvailabilityResult {
         $napIntervals = [];
         $busyIntervals = [];
         $unavailable = [];
+        $work = [];
         $highlighted = [];
 
         foreach ($events as $event) {
@@ -64,7 +67,16 @@ class AvailabilityService
                 $napIntervals[] = ['start' => $event->start, 'end' => $event->end];
             }
 
-            $highlightMatch = $this->matcher->match($event, $highlightWords, $highlightClausePattern);
+            // Still counted as ordinary busy time above (kept in
+            // $unavailable/$busyIntervals) — this just additionally tags the
+            // same span as "work" so the calendar can render it as its own
+            // category, the same double-bookkeeping AvailabilityResult's own
+            // doc comment already describes for `highlighted`.
+            if ($event->matchesEventNamePattern($workEventName)) {
+                $work[] = ['start' => $event->start, 'end' => $event->end, 'tentativeStart' => $event->tentativeStart, 'tentativeEnd' => $event->tentativeEnd];
+            }
+
+            $highlightMatch = $this->matcher->match($event, $highlightWords, $highlightClausePattern, $highlightSplitPattern);
 
             if ($highlightMatch !== null) {
                 $activity = ($showActivity && $event->summary !== null)
@@ -92,12 +104,16 @@ class AvailabilityService
         $unavailable = $this->subtractSleepFromEvents($unavailable, $sleepIntervals);
         $unavailable = $this->mergeEventSegments($unavailable);
 
+        $work = $this->subtractSleepFromEvents($work, $sleepIntervals);
+        $work = $this->mergeEventSegments($work);
+
         $free = $this->computeFreeRanges($weeklyAvailability, $busyIntervals, $rangeStart, $rangeEnd);
 
         return new AvailabilityResult(
             free: array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end']), $free),
             highlighted: $highlighted,
             unavailable: array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd']), $unavailable),
+            work: array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd']), $work),
             sleep: array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end']), $sleepIntervals),
         );
     }

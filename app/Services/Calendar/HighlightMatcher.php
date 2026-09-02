@@ -11,8 +11,9 @@ use App\Support\Regex;
  * Matching strategy depends on what the feed actually exposes:
  *
  * - full_detail: parse a "with X" / "w/ X" clause (or a "Host X"/"Visit X"
- *   title) out of SUMMARY/DESCRIPTION and check whether any comma-separated
- *   token in X matches a configured word.
+ *   title) out of SUMMARY/DESCRIPTION and check whether any token in X —
+ *   split on DEFAULT_SPLIT_PATTERN, or the owner's own override — matches
+ *   a configured word.
  * - free_busy_only: no real titles exist, so fall back to LOCATION (if
  *   present) — never fabricate a match against a generic "Busy" summary.
  * - mixed: decided per event by {@see ParsedEvent::$isFreeBusyOnly}.
@@ -40,6 +41,20 @@ class HighlightMatcher
      */
     public const DEFAULT_CLAUSE_PATTERN = '\b(?:with|w\/)\s+(.+)$';
 
+    /**
+     * Owner-configurable delimiter (regex fragment, same bare-body
+     * convention as every other pattern here) that splits a matched
+     * clause's captured text into individual names before checking each
+     * one — "with Alice, Bob" needs to become two tokens, "Alice" and
+     * "Bob", not one "Alice, Bob" token that fails to contain either
+     * configured word wholesale. A comma alone (no required space) would
+     * also split "Alice,Bob"; this default requires the space so a plain
+     * name containing a literal comma (rare, but not impossible) isn't
+     * assumed to always be two names — an owner whose calendar app never
+     * puts a space after the comma can just override this to `,\s*`.
+     */
+    public const DEFAULT_SPLIT_PATTERN = ', ';
+
     private const HOST_PATTERN = '^host\s+(.+)$';
 
     private const VISIT_PATTERN = '^visit\s+(.+)$';
@@ -47,24 +62,24 @@ class HighlightMatcher
     /**
      * @param  string[]  $highlightWords  Owner's configured words, already decrypted.
      */
-    public function match(ParsedEvent $event, array $highlightWords, ?string $clausePattern = null): ?HighlightMatch
+    public function match(ParsedEvent $event, array $highlightWords, ?string $clausePattern = null, ?string $splitPattern = null): ?HighlightMatch
     {
         if ($event->isFreeBusyOnly) {
             return $this->matchFreeBusyOnly($event, $highlightWords);
         }
 
-        return $this->matchFullDetail($event, $highlightWords, $clausePattern)
+        return $this->matchFullDetail($event, $highlightWords, $clausePattern, $splitPattern)
             ?? $this->matchFreeBusyOnly($event, $highlightWords);
     }
 
-    private function matchFullDetail(ParsedEvent $event, array $highlightWords, ?string $clausePattern): ?HighlightMatch
+    private function matchFullDetail(ParsedEvent $event, array $highlightWords, ?string $clausePattern, ?string $splitPattern): ?HighlightMatch
     {
         foreach ([$event->summary, $event->description] as $text) {
             if ($text === null) {
                 continue;
             }
 
-            if ($match = $this->matchClauseText($text, $highlightWords, $clausePattern)) {
+            if ($match = $this->matchClauseText($text, $highlightWords, $clausePattern, $splitPattern)) {
                 return $match;
             }
         }
@@ -72,7 +87,7 @@ class HighlightMatcher
         return null;
     }
 
-    private function matchClauseText(string $text, array $highlightWords, ?string $clausePattern): ?HighlightMatch
+    private function matchClauseText(string $text, array $highlightWords, ?string $clausePattern, ?string $splitPattern): ?HighlightMatch
     {
         $pattern = $clausePattern ?: self::DEFAULT_CLAUSE_PATTERN;
 
@@ -81,19 +96,19 @@ class HighlightMatcher
         // An invalid pattern fails closed (no match) rather than throwing —
         // a mistyped custom pattern shouldn't break every viewer's page.
         if (($matches = Regex::tryMatch("\x01".$pattern."\x01iu", $text)) !== null && isset($matches[1])) {
-            if ($words = $this->matchTokens($matches[1], $highlightWords)) {
+            if ($words = $this->matchTokens($matches[1], $highlightWords, $splitPattern)) {
                 return new HighlightMatch($words);
             }
         }
 
         if (($matches = Regex::tryMatch("\x01".self::HOST_PATTERN."\x01iu", $text)) !== null) {
-            if ($words = $this->matchTokens($matches[1], $highlightWords)) {
+            if ($words = $this->matchTokens($matches[1], $highlightWords, $splitPattern)) {
                 return new HighlightMatch($words, visiting: true);
             }
         }
 
         if (($matches = Regex::tryMatch("\x01".self::VISIT_PATTERN."\x01iu", $text)) !== null) {
-            if ($words = $this->matchTokens($matches[1], $highlightWords)) {
+            if ($words = $this->matchTokens($matches[1], $highlightWords, $splitPattern)) {
                 return new HighlightMatch($words, hosting: true);
             }
         }
@@ -102,20 +117,28 @@ class HighlightMatcher
     }
 
     /**
-     * A clause can name more than one person ("with Alice, Bob") — split on
-     * commas and check each token, returning *every* configured word that
-     * matches (not just the first), in the order they're configured. Note
-     * this comparison is a case-sensitive substring check (token *contains*
-     * word), not a case-insensitive exact match — matching the source
-     * app's own (slightly inconsistent, since the clause regex itself is
-     * case-insensitive) behavior deliberately, rather than silently
-     * tightening it.
+     * A clause can name more than one person ("with Alice, Bob") — split
+     * on the owner's configured delimiter (falling back to
+     * DEFAULT_SPLIT_PATTERN) and check each token, returning *every*
+     * configured word that matches (not just the first), in the order
+     * they're configured. Note this comparison is a case-sensitive
+     * substring check (token *contains* word), not a case-insensitive
+     * exact match — matching the source app's own (slightly inconsistent,
+     * since the clause regex itself is case-insensitive) behavior
+     * deliberately, rather than silently tightening it.
      *
      * @return string[]
      */
-    private function matchTokens(string $tokenStr, array $highlightWords): array
+    private function matchTokens(string $tokenStr, array $highlightWords, ?string $splitPattern): array
     {
-        $tokens = array_filter(array_map('trim', explode(',', $tokenStr)), fn ($t) => $t !== '');
+        $pattern = $splitPattern ?: self::DEFAULT_SPLIT_PATTERN;
+
+        // An invalid delimiter pattern fails closed to "one token" (the
+        // whole captured string, untouched) rather than losing the match
+        // entirely — same fail-closed spirit as every other owner-supplied
+        // pattern in this app.
+        $rawTokens = Regex::trySplit("\x01".$pattern."\x01iu", $tokenStr) ?? [$tokenStr];
+        $tokens = array_filter(array_map('trim', $rawTokens), fn ($t) => $t !== '');
         $matched = [];
 
         foreach ($highlightWords as $word) {

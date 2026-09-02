@@ -53,6 +53,7 @@ const props = defineProps<{
     secondary: string | null;
     free: string | null;
     busy: string | null;
+    work: string | null;
     sleep: string | null;
     highlighted: string | null;
     /** Deliberately theme-independent (see dark-theme.css) — a raw hex, not a palette key. */
@@ -73,6 +74,7 @@ const rootStyle = computed(() => {
   const secondary = resolveSwatchHex(props.colors.secondary, 'secondary', theme);
   const free = resolveSwatchHex(props.colors.free, 'free', theme);
   const busy = resolveSwatchHex(props.colors.busy, 'busy', theme);
+  const work = resolveSwatchHex(props.colors.work, 'work', theme);
   const sleep = resolveSwatchHex(props.colors.sleep, 'sleep', theme);
   const highlighted = resolveSwatchHex(props.colors.highlighted, 'highlighted', theme);
   const alpha = BLOCK_ALPHA[theme];
@@ -85,6 +87,8 @@ const rootStyle = computed(() => {
     '--wtf-color-free': hexToRgba(free, alpha.free),
     '--wtf-hue-free': free,
     '--wtf-color-busy': hexToRgba(busy, alpha.busy),
+    '--wtf-color-work': hexToRgba(work, alpha.work),
+    '--wtf-hue-work': work,
     '--wtf-color-sleep': hexToRgba(sleep, alpha.sleep),
     '--wtf-hue-sleep': sleep,
     '--wtf-color-highlighted': hexToRgba(highlighted, alpha.highlighted),
@@ -123,6 +127,7 @@ const availability = ref<AvailabilityResponse>({
   free: [],
   highlighted: [],
   unavailable: [],
+  work: [],
   sleep: [],
 });
 
@@ -478,6 +483,7 @@ onMounted(() => {
                   :free-slots="availability.free"
                   :highlighted-slots="availability.highlighted"
                   :unavailable-slots="availability.unavailable"
+                  :work-slots="availability.work"
                   :sleep-slots="availability.sleep"
                   :pending="showStatus"
                   :has-error="showError"
@@ -493,6 +499,7 @@ onMounted(() => {
                   :free-slots="availability.free"
                   :highlighted-slots="availability.highlighted"
                   :unavailable-slots="availability.unavailable"
+                  :work-slots="availability.work"
                   :sleep-slots="availability.sleep"
                   :pending="showStatus"
                   :has-error="showError"
@@ -510,6 +517,7 @@ onMounted(() => {
                 :free-slots="availability.free"
                 :highlighted-slots="availability.highlighted"
                 :unavailable-slots="availability.unavailable"
+                :work-slots="availability.work"
                 :sleep-slots="availability.sleep"
                 :pending="showStatus"
                 :has-error="showError"

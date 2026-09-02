@@ -150,4 +150,44 @@ class HighlightMatcherTest extends TestCase
         $result = $this->matcher->match($this->event(summary: 'Host Someone Else'), ['Alice']);
         $this->assertNull($result);
     }
+
+    /**
+     * str_contains-based substring matching is permissive enough that
+     * splitting rarely changes whether a single well-formed name matches
+     * — the case where it actually matters is a configured word that
+     * straddles two names' own boundary in the *unsplit* clause. Here
+     * "ia, Bob" is a literal substring of the unsplit "Alicia, Bob", but
+     * isn't a substring of either name once properly split into "Alicia"
+     * and "Bob" — proving the default split pattern is actually being
+     * applied, not just tolerated.
+     */
+    public function test_the_default_split_pattern_prevents_a_cross_boundary_false_match(): void
+    {
+        $result = $this->matcher->match($this->event(summary: 'Dinner with Alicia, Bob'), ['ia, Bob']);
+        $this->assertNull($result);
+    }
+
+    public function test_an_owner_can_override_the_split_pattern_to_a_different_delimiter(): void
+    {
+        $result = $this->matcher->match($this->event(summary: 'Dinner with Alice; Bob'), ['Bob'], null, ';\s*');
+        $this->assertNotNull($result);
+        $this->assertSame(['Bob'], $result->words);
+    }
+
+    /**
+     * An invalid split pattern fails closed to "the whole clause is one
+     * token" rather than losing the match entirely. Reusing the previous
+     * test's cross-boundary word ("ia, Bob" straddling "Alicia"/"Bob")
+     * shows the practical effect of that fallback: with a genuinely broken
+     * split pattern there's no way to correctly tokenize the clause at
+     * all, so the single-token fallback is exactly what lets this
+     * otherwise-nonsensical word match — a deliberate, known-safe
+     * trade-off (never lose the match entirely) rather than a silent bug.
+     */
+    public function test_an_invalid_split_pattern_fails_closed_to_a_single_token(): void
+    {
+        $result = $this->matcher->match($this->event(summary: 'Dinner with Alicia, Bob'), ['ia, Bob'], null, '(unterminated');
+        $this->assertNotNull($result);
+        $this->assertSame(['ia, Bob'], $result->words);
+    }
 }

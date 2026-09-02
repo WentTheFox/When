@@ -55,6 +55,13 @@
     --wtf-color-free: rgba(var(--wtf-accent-rgb), 0.35);
     --wtf-color-busy: rgba(33, 37, 41, 0.3);
     --wtf-color-highlighted: rgba(255, 193, 7, 0.35);
+    /* No reference-app equivalent (work is a new category, not ported) — RGB
+       of ColorPalette::DEFAULT_KEYS's own 'sky' swatch, this slot's default,
+       at the same alpha AvailabilityStats.vue's BLOCK_ALPHA.dark.work uses.
+       Only reachable if an owner's color-key inline override is ever
+       missing entirely; in practice Free/Show.vue's rootStyle/Settings.vue's
+       previewStyleFor always set --wtf-color-work explicitly. */
+    --wtf-color-work: rgba(43, 127, 179, 0.35);
     --wtf-color-sleep: rgba(111, 66, 193, 0.35);
     /* A plain number, not rgba(var(--wtf-accent-rgb), 0.12) — a custom
        property whose OWN value embeds another var() freezes that inner
@@ -104,6 +111,7 @@
     --wtf-color-free: rgba(var(--wtf-accent-rgb), 0.25);
     --wtf-color-busy: rgba(33, 37, 41, 0.2);
     --wtf-color-highlighted: rgba(255, 193, 7, 0.3);
+    --wtf-color-work: rgba(43, 127, 179, 0.3);
     --wtf-color-sleep: rgba(111, 66, 193, 0.3);
     --wtf-fcal-today-alpha: 0.06;
 }
@@ -141,6 +149,7 @@
        resolve against THIS scope's own vars instead. */
     --wtf-fcal-text-free: color-mix(in srgb, var(--wtf-hue-free, var(--wtf-accent)) 65%, var(--wtf-text) 35%);
     --wtf-fcal-text-highlighted: color-mix(in srgb, var(--wtf-hue-highlighted, #ffc107) 65%, var(--wtf-text) 35%);
+    --wtf-fcal-text-work: color-mix(in srgb, var(--wtf-hue-work, #2b7fb3) 65%, var(--wtf-text) 35%);
     --wtf-fcal-text-sleep: color-mix(in srgb, var(--wtf-hue-sleep, #6f42c1) 65%, var(--wtf-text) 35%);
     color: var(--wtf-text);
 }
@@ -155,6 +164,7 @@
     --wtf-fcal-text-unavailable: #0f1112;
     --wtf-fcal-text-free: color-mix(in srgb, var(--wtf-hue-free, var(--wtf-accent)) 65%, var(--wtf-text) 35%);
     --wtf-fcal-text-highlighted: color-mix(in srgb, var(--wtf-hue-highlighted, #ffc107) 65%, var(--wtf-text) 35%);
+    --wtf-fcal-text-work: color-mix(in srgb, var(--wtf-hue-work, #2b7fb3) 65%, var(--wtf-text) 35%);
     --wtf-fcal-text-sleep: color-mix(in srgb, var(--wtf-hue-sleep, #6f42c1) 65%, var(--wtf-text) 35%);
     color: var(--wtf-text);
 }
@@ -180,6 +190,7 @@
 :root {
     --wtf-fcal-text-free: color-mix(in srgb, var(--wtf-hue-free, var(--wtf-accent)) 65%, var(--wtf-text) 35%);
     --wtf-fcal-text-highlighted: color-mix(in srgb, var(--wtf-hue-highlighted, #ffc107) 65%, var(--wtf-text) 35%);
+    --wtf-fcal-text-work: color-mix(in srgb, var(--wtf-hue-work, #2b7fb3) 65%, var(--wtf-text) 35%);
     --wtf-fcal-text-sleep: color-mix(in srgb, var(--wtf-hue-sleep, #6f42c1) 65%, var(--wtf-text) 35%);
 }
 
@@ -730,6 +741,14 @@ hr {
     display: block;
 }
 
+.wtf-fcal-work-block {
+    background-color: var(--wtf-color-work);
+}
+
+.wtf-fcal-work-block .wtf-fcal-block-label {
+    color: var(--wtf-fcal-text-work);
+}
+
 .wtf-fcal-sleep-block {
     background-color: var(--wtf-color-sleep);
 }
@@ -797,6 +816,10 @@ hr {
 
 .wtf-fcal-highlighted-block.wtf-fcal-tentative-block::before {
     --own-color: var(--wtf-color-highlighted);
+}
+
+.wtf-fcal-work-block.wtf-fcal-tentative-block::before {
+    --own-color: var(--wtf-color-work);
 }
 
 .wtf-fcal-sleep-block.wtf-fcal-tentative-block::before {
@@ -973,6 +996,15 @@ hr {
     color: var(--wtf-fcal-text-highlighted);
 }
 
+.wtf-fagenda-slot-work {
+    background-color: var(--wtf-color-work);
+}
+
+.wtf-fagenda-slot-work .wtf-fagenda-slot-time,
+.wtf-fagenda-slot-work .wtf-fagenda-slot-label {
+    color: var(--wtf-fcal-text-work);
+}
+
 .wtf-fagenda-slot-sleep {
     background-color: var(--wtf-color-sleep);
 }
@@ -1024,6 +1056,10 @@ hr {
 
 .wtf-fagenda-slot-highlighted.wtf-fagenda-slot-tentative::before {
     --own-color: var(--wtf-color-highlighted);
+}
+
+.wtf-fagenda-slot-work.wtf-fagenda-slot-tentative::before {
+    --own-color: var(--wtf-color-work);
 }
 
 .wtf-fagenda-slot-sleep.wtf-fagenda-slot-tentative::before {
@@ -1193,6 +1229,11 @@ hr {
     background-color: var(--wtf-color-highlighted);
 }
 
+.wtf-fmonth-avail-block-work {
+    min-height: 0.4rem;
+    background-color: var(--wtf-color-work);
+}
+
 .wtf-fmonth-avail-block-sleep {
     min-height: 0.4rem;
     background-color: var(--wtf-color-sleep);
@@ -1217,6 +1258,10 @@ hr {
 
 .wtf-fmonth-avail-block-highlighted.wtf-fmonth-avail-block-tentative::before {
     --own-color: var(--wtf-color-highlighted);
+}
+
+.wtf-fmonth-avail-block-work.wtf-fmonth-avail-block-tentative::before {
+    --own-color: var(--wtf-color-work);
 }
 
 .wtf-fmonth-avail-block-sleep.wtf-fmonth-avail-block-tentative::before {
@@ -1285,4 +1330,134 @@ hr {
  */
 .tooltip {
     pointer-events: none;
+}
+
+/*
+ * RegexPatternInput.vue's token colors for the "Event title matching
+ * rules" fields on Settings.vue — a real native <input>/<textarea> (its
+ * own .form-control background/border/focus ring stays fully themed via
+ * the .form-control rules above) with its own text painted transparent,
+ * sitting under an absolutely-positioned, pointer-events:none overlay of
+ * the same box that renders the colored, highlighted copy in its place.
+ * Colors are set here, not inline, so both themes get their own tuned
+ * values rather than one compromise hue.
+ */
+:root,
+:root[data-bs-theme="dark"] {
+    --wtf-regex-meta: #ff8fa3;
+    --wtf-regex-escape: #ffa94d;
+    --wtf-regex-group: #74c0fc;
+    /* Deliberately a plain gray, not another hue — a non-capturing group
+       is "just grouping," semantically inert compared to a real capture
+       group (--wtf-regex-group), so it reads as de-emphasized rather than
+       competing for attention with the colors that actually matter. */
+    --wtf-regex-noncap: #adb5bd;
+    --wtf-regex-class: #63e6be;
+}
+
+:root[data-bs-theme="light"] {
+    --wtf-regex-meta: #c2255c;
+    --wtf-regex-escape: #d9480f;
+    --wtf-regex-group: #1864ab;
+    --wtf-regex-noncap: #495057;
+    --wtf-regex-class: #087f5b;
+}
+
+.wtf-regex-editor {
+    position: relative;
+    width: 100%;
+}
+
+.wtf-regex-editor-multiline {
+    height: auto;
+}
+
+/* Both layers share .form-control's box model (padding/border-width/
+   border-radius/font/line-height) so their text lines up pixel-for-pixel
+   — see the header comment above for why there are two stacked elements
+   at all. */
+.wtf-regex-highlight,
+.wtf-regex-native {
+    margin: 0;
+    font-family: var(--bs-font-monospace, monospace);
+    white-space: pre;
+    overflow: hidden;
+    word-wrap: normal;
+}
+
+.wtf-regex-editor-multiline .wtf-regex-highlight,
+.wtf-regex-editor-multiline .wtf-regex-native {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* The overlay: same box as .form-control, but transparent everywhere
+   except the highlighted glyphs themselves, and never the target of a
+   click/drag — the native element underneath handles all real input. */
+.wtf-regex-highlight.form-control {
+    position: absolute;
+    inset: 0;
+    /* Without an explicit stacking order, the native element below — later
+       in the DOM and also positioned (`position: relative`) — paints on
+       top of this absolutely-positioned overlay by default, hiding the
+       colored text completely behind the native input's own opaque
+       .form-control background. z-index above the native element's own
+       (unset/auto) stacking level fixes the paint order; pointer-events:
+       none below means this being visually on top never steals clicks/
+       focus from the native element underneath. */
+    z-index: 1;
+    background-color: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    color: var(--wtf-text);
+    pointer-events: none;
+    user-select: none;
+}
+
+/* Shown instead of real text when the field is blank — the overlay
+   tokenizes and colors the placeholder too (RegexPatternInput.vue's
+   showingPlaceholder), same as a real value, just dimmed to still read as
+   a placeholder rather than actual content. */
+.wtf-regex-highlight.wtf-regex-placeholder {
+    opacity: 0.55;
+}
+
+/* The native element: still fully themed (background/border/focus ring),
+   just with its own glyphs made invisible so only its caret and native
+   text-selection band show — the overlay above supplies the visible
+   text, placeholder included (its own ::placeholder is suppressed below
+   so the two copies never render at once). */
+.wtf-regex-native.form-control {
+    position: relative;
+    color: transparent;
+    caret-color: var(--wtf-text);
+}
+
+.wtf-regex-native.form-control::placeholder {
+    color: transparent;
+}
+
+.wtf-regex-tok-meta {
+    color: var(--wtf-regex-meta);
+    font-weight: 700;
+}
+
+.wtf-regex-tok-escape {
+    color: var(--wtf-regex-escape);
+    font-weight: 700;
+}
+
+.wtf-regex-tok-group {
+    color: var(--wtf-regex-group);
+    font-weight: 700;
+}
+
+.wtf-regex-tok-noncap {
+    color: var(--wtf-regex-noncap);
+    font-weight: 700;
+}
+
+.wtf-regex-tok-class {
+    color: var(--wtf-regex-class);
+    font-weight: 700;
 }

@@ -40,8 +40,18 @@ export function hexToRgbTriplet(hex: string): string {
  * over/under-saturated next to Bootstrap's own theme-native controls.
  */
 export const BLOCK_ALPHA = {
-  dark: { free: 0.35, busy: 0.3, highlighted: 0.35, sleep: 0.35 },
-  light: { free: 0.25, busy: 0.2, highlighted: 0.3, sleep: 0.3 },
+  dark: {
+    free: 0.35, busy: 0.3, highlighted: 0.35, sleep: 0.35,
+    // Matches `highlighted`'s alpha, not `busy`'s — a work block sits on
+    // top of the same busy time it's tagging, so it needs to read as its
+    // own distinct overlay rather than blend into the plain-busy wash
+    // underneath.
+    work: 0.35,
+  },
+  light: {
+    free: 0.25, busy: 0.2, highlighted: 0.3, sleep: 0.3,
+    work: 0.3,
+  },
 } as const;
 
 /**

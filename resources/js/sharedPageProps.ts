@@ -27,6 +27,10 @@ export interface SharedPageProps {
       avatarUrl: string;
       accentColorKey: string | null;
       secondaryColorKey: string | null;
+      sleepColorKey: string | null;
+      busyColorKey: string | null;
+      workColorKey: string | null;
+      freeColorKey: string | null;
     } | null;
   };
   flash: {

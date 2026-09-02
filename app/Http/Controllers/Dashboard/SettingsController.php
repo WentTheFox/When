@@ -7,6 +7,7 @@ use App\Services\Calendar\ActivityExtractor;
 use App\Services\Calendar\HighlightMatcher;
 use App\Services\Calendar\IcsParser;
 use App\Support\ColorPalette;
+use App\Support\Regex;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
@@ -28,20 +29,28 @@ class SettingsController extends Controller
      * Unlike HighlightMatcher::DEFAULT_CLAUSE_PATTERN, these aren't a
      * functional fallback — a blank dnd/nap pattern genuinely matches
      * nothing (App\Domain\Calendar\ParsedEvent::matchesEventNamePattern).
-     * They're just the suggested starting value the settings form
-     * pre-fills for a user who's never set one, named here so that's a
-     * single source of truth instead of a literal baked into the Vue page.
+     * They're just the suggested starting value shown in the settings
+     * form's field description for a user who's never set one (never
+     * pre-filled into the field itself — an untouched, still-blank-in-the-
+     * database setting must never look already active), named here so
+     * that's a single source of truth instead of a literal baked into the
+     * Vue page. Lowercase and `^...$`-anchored (a *whole-title* match, not
+     * the "contains anywhere" default every one of these fields has) so
+     * the suggestion itself doubles as a worked example of anchoring —
+     * see the Vue page's own "What these text-match fields actually do"
+     * crash course.
      */
-    private const SUGGESTED_DND_EVENT_NAME = 'DND';
+    private const SUGGESTED_DND_EVENT_NAME = '^dnd$';
 
-    private const SUGGESTED_NAP_EVENT_NAME = 'Nap';
+    private const SUGGESTED_NAP_EVENT_NAME = '^nap$';
 
     /**
      * Same non-functional-fallback caveat as the dnd/nap suggestions above
      * — a blank pattern matches nothing. Feeds the dashboard time-breakdown
-     * widget's "work" bucket (DashboardController::statsAvailability).
+     * widget's "work" bucket (DashboardController::statsAvailability) and
+     * the /free calendar's own work category.
      */
-    private const SUGGESTED_WORK_EVENT_NAME = 'Work';
+    private const SUGGESTED_WORK_EVENT_NAME = '^work$';
 
     public function edit(Request $request): Response
     {
@@ -56,6 +65,7 @@ class SettingsController extends Controller
                 'work_event_name' => $user->work_event_name,
                 'calendar_parsing_mode' => $user->calendar_parsing_mode,
                 'highlight_clause_pattern' => $user->highlight_clause_pattern,
+                'highlight_split_pattern' => $user->highlight_split_pattern,
                 'activity_clause_pattern' => $user->activity_clause_pattern,
                 'tentative_pattern' => $user->tentative_pattern,
                 'open_end_pattern' => $user->open_end_pattern,
@@ -67,6 +77,7 @@ class SettingsController extends Controller
                 'secondary_color_key' => $user->secondary_color_key,
                 'sleep_color_key' => $user->sleep_color_key,
                 'busy_color_key' => $user->busy_color_key,
+                'work_color_key' => $user->work_color_key,
                 'free_color_key' => $user->free_color_key,
                 'highlight_color_key' => $user->highlight_color_key,
                 'now_color' => $user->now_color,
@@ -77,6 +88,7 @@ class SettingsController extends Controller
                 'napEventName' => self::SUGGESTED_NAP_EVENT_NAME,
                 'workEventName' => self::SUGGESTED_WORK_EVENT_NAME,
                 'highlightClausePattern' => HighlightMatcher::DEFAULT_CLAUSE_PATTERN,
+                'highlightSplitPattern' => HighlightMatcher::DEFAULT_SPLIT_PATTERN,
                 'activityClausePattern' => ActivityExtractor::DEFAULT_PATTERN,
                 'tentativePattern' => IcsParser::DEFAULT_TENTATIVE_TITLE_PATTERN,
                 'openEndPattern' => IcsParser::DEFAULT_OPEN_END_TITLE_PATTERN,
@@ -111,8 +123,9 @@ class SettingsController extends Controller
             'nap_event_name' => ['nullable', 'string', 'max:255'],
             'work_event_name' => ['nullable', 'string', 'max:255'],
             'calendar_parsing_mode' => ['required', 'in:full_detail,free_busy_only'],
-            'highlight_clause_pattern' => ['nullable', 'string'],
-            'activity_clause_pattern' => ['nullable', 'string'],
+            'highlight_clause_pattern' => ['nullable', 'string', Regex::validateSingleCaptureGroup(...)],
+            'highlight_split_pattern' => ['nullable', 'string'],
+            'activity_clause_pattern' => ['nullable', 'string', Regex::validateSingleCaptureGroup(...)],
             'tentative_pattern' => ['nullable', 'string'],
             'open_end_pattern' => ['nullable', 'string'],
             'open_start_pattern' => ['nullable', 'string'],
@@ -122,6 +135,7 @@ class SettingsController extends Controller
             'secondary_color_key' => ['nullable', Rule::in(ColorPalette::KEYS)],
             'sleep_color_key' => ['nullable', Rule::in(ColorPalette::KEYS)],
             'busy_color_key' => ['nullable', Rule::in(ColorPalette::KEYS)],
+            'work_color_key' => ['nullable', Rule::in(ColorPalette::KEYS)],
             'free_color_key' => ['nullable', Rule::in(ColorPalette::KEYS)],
             'highlight_color_key' => ['nullable', Rule::in(ColorPalette::KEYS)],
             'now_color' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
@@ -148,6 +162,7 @@ class SettingsController extends Controller
             'work_event_name' => $data['work_event_name'] ?? null,
             'calendar_parsing_mode' => $data['calendar_parsing_mode'],
             'highlight_clause_pattern' => $data['highlight_clause_pattern'] ?? null,
+            'highlight_split_pattern' => $data['highlight_split_pattern'] ?? null,
             'activity_clause_pattern' => $data['activity_clause_pattern'] ?? null,
             'tentative_pattern' => $data['tentative_pattern'] ?? null,
             'open_end_pattern' => $data['open_end_pattern'] ?? null,
@@ -158,6 +173,7 @@ class SettingsController extends Controller
             'secondary_color_key' => $data['secondary_color_key'] ?? null,
             'sleep_color_key' => $data['sleep_color_key'] ?? null,
             'busy_color_key' => $data['busy_color_key'] ?? null,
+            'work_color_key' => $data['work_color_key'] ?? null,
             'free_color_key' => $data['free_color_key'] ?? null,
             'highlight_color_key' => $data['highlight_color_key'] ?? null,
             'now_color' => $data['now_color'] ?? null,

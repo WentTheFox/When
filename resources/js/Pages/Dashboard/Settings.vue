@@ -2,7 +2,7 @@
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
+import { faEye, faEyeSlash, faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
 import {
   BAlert,
   BBadge,
@@ -12,6 +12,7 @@ import {
   BFormInput,
   BFormSelect,
   BFormTextarea,
+  BInputGroup,
   BTooltip,
 } from 'bootstrap-vue-next';
 import { addDays as addDaysFns, startOfWeek as startOfWeekFns } from 'date-fns';
@@ -19,6 +20,7 @@ import { computed, onUnmounted, ref, watch } from 'vue';
 import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 import { useLiveThemePreview } from '../../dashboard/liveThemePreview';
 import PatternPreview from '../../dashboard/PatternPreview.vue';
+import RegexPatternInput from '../../dashboard/RegexPatternInput.vue';
 import SleepExceptions from '../../dashboard/SleepExceptions.vue';
 import CalendarView from '../../free/CalendarView.vue';
 import { BLOCK_ALPHA, hexToRgba, hexToRgbTriplet, yiqTextColor } from '../../free/color-utils';
@@ -39,6 +41,7 @@ interface Settings {
   work_event_name: string | null;
   calendar_parsing_mode: 'full_detail' | 'free_busy_only';
   highlight_clause_pattern: string | null;
+  highlight_split_pattern: string | null;
   activity_clause_pattern: string | null;
   tentative_pattern: string | null;
   open_end_pattern: string | null;
@@ -50,6 +53,7 @@ interface Settings {
   secondary_color_key: string | null;
   sleep_color_key: string | null;
   busy_color_key: string | null;
+  work_color_key: string | null;
   free_color_key: string | null;
   highlight_color_key: string | null;
   now_color: string | null;
@@ -63,6 +67,7 @@ const props = defineProps<{
     napEventName: string;
     workEventName: string;
     highlightClausePattern: string;
+    highlightSplitPattern: string;
     activityClausePattern: string;
     tentativePattern: string;
     openEndPattern: string;
@@ -92,6 +97,7 @@ const colorFields: { field: keyof Settings; slot: ColorSlot; label: string }[] =
   { field: 'secondary_color_key', slot: 'secondary', label: 'Secondary' },
   { field: 'free_color_key', slot: 'free', label: 'Free' },
   { field: 'busy_color_key', slot: 'busy', label: 'Unavailable' },
+  { field: 'work_color_key', slot: 'work', label: 'Work' },
   { field: 'sleep_color_key', slot: 'sleep', label: 'Sleep' },
   { field: 'highlight_color_key', slot: 'highlighted', label: 'Highlighted' },
 ];
@@ -298,6 +304,11 @@ const exampleAvailability = computed<AvailabilityResponse>(() => {
         };
       })
       .filter((slot) => slot !== null),
+    // No synthetic work-classified event in this mock — the example panel
+    // demonstrates the free/busy/highlighted/sleep shapes, not every
+    // category; an owner sees their real work blocks once they've both set
+    // a work pattern and fetched a real preview below.
+    work: [],
     highlighted: events
       .filter((event) => event.activity)
       .map((event) => {
@@ -336,26 +347,34 @@ const hadSavedCalendarUrl = ref(!!props.calendarUrl);
 const form = useForm({
   timezone: props.settings.timezone,
   week_start: props.settings.week_start,
-  dnd_event_name: props.settings.dnd_event_name ?? props.defaults.dndEventName,
-  nap_event_name: props.settings.nap_event_name ?? props.defaults.napEventName,
-  work_event_name: props.settings.work_event_name ?? props.defaults.workEventName,
+  // None of these seven are pre-filled with their suggested default the
+  // way the color-key fields below are — a color slot always needs *some*
+  // resolved value to render, but a blank pattern here is a real,
+  // functionally distinct state (dnd/nap/work: "genuinely off, matches
+  // nothing"; highlight/tentative/open-end/open-start: "use the built-in
+  // fallback pattern" — see HighlightMatcher::DEFAULT_CLAUSE_PATTERN /
+  // IcsParser's own DEFAULT_*_PATTERN constants). Silently filling the
+  // form with the suggestion made an unsaved, still-blank-in-the-database
+  // setting look already active — the suggestion is shown as a
+  // placeholder instead (every input below already has :placeholder set),
+  // same as activity_clause_pattern already did.
+  dnd_event_name: props.settings.dnd_event_name,
+  nap_event_name: props.settings.nap_event_name,
+  work_event_name: props.settings.work_event_name,
   calendar_parsing_mode: props.settings.calendar_parsing_mode,
-  highlight_clause_pattern: props.settings.highlight_clause_pattern ?? props.defaults.highlightClausePattern,
-  // Deliberately not pre-filled with the suggested default the way
-  // dnd/nap/highlight/tentative are — activity extraction hands viewers
-  // freetext straight out of the owner's own event titles, so it starts
-  // off (blank) rather than opting a new owner in before they've
-  // consciously decided to. See ActivityExtractor's own doc comment.
+  highlight_clause_pattern: props.settings.highlight_clause_pattern,
+  highlight_split_pattern: props.settings.highlight_split_pattern,
   activity_clause_pattern: props.settings.activity_clause_pattern ?? '',
-  tentative_pattern: props.settings.tentative_pattern ?? props.defaults.tentativePattern,
-  open_end_pattern: props.settings.open_end_pattern ?? props.defaults.openEndPattern,
-  open_start_pattern: props.settings.open_start_pattern ?? props.defaults.openStartPattern,
+  tentative_pattern: props.settings.tentative_pattern,
+  open_end_pattern: props.settings.open_end_pattern,
+  open_start_pattern: props.settings.open_start_pattern,
   public_page_title_en: props.settings.public_page_title_en ?? '',
   public_page_title_hu: props.settings.public_page_title_hu ?? '',
   accent_color_key: props.settings.accent_color_key ?? getDefaultSwatchKey('accent'),
   secondary_color_key: props.settings.secondary_color_key ?? getDefaultSwatchKey('secondary'),
   free_color_key: props.settings.free_color_key ?? getDefaultSwatchKey('free'),
   busy_color_key: props.settings.busy_color_key ?? getDefaultSwatchKey('busy'),
+  work_color_key: props.settings.work_color_key ?? getDefaultSwatchKey('work'),
   sleep_color_key: props.settings.sleep_color_key ?? getDefaultSwatchKey('sleep'),
   highlight_color_key: props.settings.highlight_color_key ?? getDefaultSwatchKey('highlighted'),
   now_color: props.settings.now_color ?? '#e5566a',
@@ -391,6 +410,7 @@ onUnmounted(() => {
 
 const previewStatus = ref('');
 const previewing = ref(false);
+const calendarUrlRevealed = ref(false);
 const previewResult = ref<{ detected_mode: string; slotCount: number } | null>(null);
 /** Set once a real preview fetch succeeds — the calendar preview panel below switches from the synthetic example to this actual data. */
 const previewAvailability = ref<AvailabilityResponse | null>(null);
@@ -418,6 +438,7 @@ function previewStyleFor(theme: 'light' | 'dark') {
   const accent = resolveSwatchHex(form.accent_color_key, 'accent', theme);
   const free = resolveSwatchHex(form.free_color_key, 'free', theme);
   const busy = resolveSwatchHex(form.busy_color_key, 'busy', theme);
+  const work = resolveSwatchHex(form.work_color_key, 'work', theme);
   const sleep = resolveSwatchHex(form.sleep_color_key, 'sleep', theme);
   const highlighted = resolveSwatchHex(form.highlight_color_key, 'highlighted', theme);
   const alpha = BLOCK_ALPHA[theme];
@@ -429,6 +450,8 @@ function previewStyleFor(theme: 'light' | 'dark') {
     '--wtf-color-free': hexToRgba(free, alpha.free),
     '--wtf-hue-free': free,
     '--wtf-color-busy': hexToRgba(busy, alpha.busy),
+    '--wtf-color-work': hexToRgba(work, alpha.work),
+    '--wtf-hue-work': work,
     '--wtf-color-sleep': hexToRgba(sleep, alpha.sleep),
     '--wtf-hue-sleep': sleep,
     '--wtf-color-highlighted': hexToRgba(highlighted, alpha.highlighted),
@@ -471,7 +494,9 @@ async function preview(): Promise<void> {
       calendar_parsing_mode: form.calendar_parsing_mode,
       dnd_event_name: form.dnd_event_name,
       nap_event_name: form.nap_event_name,
+      work_event_name: form.work_event_name,
       highlight_clause_pattern: form.highlight_clause_pattern,
+      highlight_split_pattern: form.highlight_split_pattern,
       activity_clause_pattern: form.activity_clause_pattern,
       tentative_pattern: form.tentative_pattern,
       open_end_pattern: form.open_end_pattern,
@@ -495,6 +520,7 @@ async function preview(): Promise<void> {
       free: data.free,
       highlighted: data.highlighted,
       unavailable: data.unavailable,
+      work: data.work,
       sleep: data.sleep,
     };
     calendarUrlForm.calendar_url_preview_confirmed = true;
@@ -572,13 +598,22 @@ function submit(): void {
           <BBadge v-if="hadSavedCalendarUrl" variant="success" class="ms-1">Configured</BBadge>
           <BBadge v-else variant="secondary" class="ms-1">Not set</BBadge>
         </template>
-        <BFormInput
-          id="calendar_url"
-          v-model="calendarUrlForm.calendar_url"
-          type="url"
-          placeholder="https://..."
-          @input="onUrlInput"
-        />
+        <BInputGroup>
+          <BFormInput
+            id="calendar_url"
+            v-model="calendarUrlForm.calendar_url"
+            :type="calendarUrlRevealed ? 'text' : 'password'"
+            placeholder="https://..."
+            @input="onUrlInput"
+          />
+          <BButton
+            variant="outline-secondary"
+            :aria-label="calendarUrlRevealed ? 'Hide calendar URL' : 'Show calendar URL'"
+            @click="calendarUrlRevealed = !calendarUrlRevealed"
+          >
+            <FontAwesomeIcon :icon="calendarUrlRevealed ? faEyeSlash : faEye" />
+          </BButton>
+        </BInputGroup>
         <template #description>
           {{ hadSavedCalendarUrl
             ? "Edit it and preview before saving to replace it."
@@ -621,6 +656,7 @@ function submit(): void {
           :free-slots="previewAvailability.free"
           :highlighted-slots="previewAvailability.highlighted"
           :unavailable-slots="previewAvailability.unavailable"
+          :work-slots="previewAvailability.work"
           :sleep-slots="previewAvailability.sleep"
           :pending="false"
           :has-error="false"
@@ -672,52 +708,221 @@ function submit(): void {
 
   <form @submit.prevent="submit">
     <BCard class="mb-4">
-        <h2 class="h5 mb-3">Do-not-disturb &amp; naps</h2>
+        <h2 class="h5 mb-3">Event title matching rules</h2>
 
         <BAlert :model-value="true" variant="secondary" class="small">
-          <strong>What these text-match fields actually do:</strong> what you type isn't compared
-          for an exact match — it's used as the body of a
-          <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_expressions" target="_blank" rel="noopener">regular expression</a>,
-          tested case-insensitively against <em>anywhere</em> in the event's title (not anchored
-          to the start or the whole string). So a plain word like <code>DND</code> matches a
-          title that merely <em>contains</em> "DND" anywhere — "Team DND block" matches just as
-          much as a title that's only "DND". If you want to match at the very start of the title
-          instead, anchor it yourself with <code>^</code>, e.g. <code>^DND</code>. If what you
-          type isn't valid regex syntax, matching just silently never happens (fails closed)
-          rather than breaking your page. Leave a field blank to turn that feature off entirely.
+          <p class="mb-2">
+            <strong>What these text-match fields actually do:</strong> what you type isn't
+            compared for an exact match — it's used as the body of a
+            <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_expressions" target="_blank" rel="noopener">regular expression</a>,
+            tested case-insensitively against <em>anywhere</em> in the event's title by default.
+            A quick crash course in the handful of regex bits that actually come up on this page:
+          </p>
+          <ul class="mb-2">
+            <li>
+              Each field below is badged with how it actually uses your pattern:
+              <BBadge variant="secondary" class="align-middle">Boolean</BBadge> just tests whether
+              it matches at all (nothing is captured); <BBadge variant="info" text="dark" class="align-middle">Capture</BBadge>
+              requires exactly one real <code>(…)</code> capture group, whose contents are the
+              actual thing used (see the <code>(…)</code>/<code>(?:…)</code> bullets below —
+              this is checked and rejected on save if it's missing or there's more than one);
+              <BBadge variant="warning" text="dark" class="align-middle">Strip</BBadge> matches
+              the whole pattern and removes it from the title a viewer sees, without reading any
+              particular group; <BBadge variant="primary" class="align-middle">Split</BBadge> isn't
+              matched against a title at all — it's a delimiter used to break one field's captured
+              text into individual pieces.
+            </li>
+            <li>
+              Unanchored by default — a plain word like <code>dnd</code> matches a title that
+              merely <em>contains</em> "dnd" anywhere, case-insensitively. "Team DND block"
+              matches just as much as a title that's only "DND".
+            </li>
+            <li>
+              <code>^</code> anchors to the very <em>start</em> of the title — <code>^dnd</code>
+              only matches a title that begins with "dnd".
+            </li>
+            <li>
+              <code>$</code> anchors to the very <em>end</em> of the title — <code>dnd$</code>
+              only matches a title that ends with "dnd".
+            </li>
+            <li>
+              <code>^</code> and <code>$</code> together require the pattern to match the
+              <em>whole</em> title, not just part of it — <code>^dnd$</code> matches a title
+              that's exactly "dnd" (still case-insensitive), but not "Team DND block".
+            </li>
+            <li>
+              <code>(…)</code> groups characters together — mainly to build an alternation like
+              <code>(dnd|do not disturb)</code>, or so <code>?</code>/<code>*</code>/<code>+</code>
+              apply to more than one character at once. Parenthesized text is also "captured",
+              but only the Highlight and Activity fields below actually use a capture group's
+              contents — everywhere else on this page, <code>(…)</code> is just for grouping.
+            </li>
+            <li>
+              <code>(?:…)</code> is the same grouping, just <em>non-capturing</em> — it still
+              lets you write an alternation like <code>(?:dnd|do not disturb)</code> without
+              that group counting as the pattern's capture group. The Highlight and Activity
+              fields below require exactly one real <code>(…)</code> capture group each (the
+              one whose contents actually get used) — reach for <code>(?:…)</code> for any
+              other grouping in those two fields so it doesn't count against that limit.
+            </li>
+          </ul>
+          <p class="mb-2">
+            If what you type isn't valid regex syntax, matching just silently never happens
+            (fails closed) rather than breaking your page. Leave a field blank to turn that
+            feature off entirely.
+          </p>
+          <p class="mb-0">
+            The live previews below run in your browser's own regex engine, just to give you a
+            quick sanity check as you type — the actual matching that decides what a viewer sees
+            always happens server-side, in PHP's regex engine. The two are compatible for
+            everything covered above, but if you reach for more exotic regex syntax, a rare
+            mismatch between the two engines is possible; the server-side result is always the
+            one that counts.
+          </p>
         </BAlert>
 
-        <div class="row">
+        <!--
+          Each field gets its own input+preview row (rather than one column
+          of all 8 inputs stacked above a second column of all 8 previews)
+          so on mobile — where col-md-6 collapses to full width and the two
+          columns stack — a field's own preview appears immediately after
+          it, not after scrolling past every other field first.
+        -->
+        <div class="row mb-3">
           <div class="col-md-6">
-            <BFormGroup label="DND event name/pattern" label-for="dnd_event_name" class="mb-3">
-              <BFormInput id="dnd_event_name" v-model="form.dnd_event_name" type="text" :placeholder="defaults.dndEventName" />
-              <template #description>A match hides the event entirely from viewers (unless a share link bypasses it).</template>
+            <BFormGroup label-for="dnd_event_name" class="mb-0">
+              <template #label>DND event regular expression <BBadge variant="secondary" class="align-middle">Boolean</BBadge></template>
+              <RegexPatternInput id="dnd_event_name" v-model="form.dnd_event_name" />
+              <template #description>A match hides the event entirely from viewers (unless a share link bypasses it). Suggested: <code>{{ defaults.dndEventName }}</code></template>
             </BFormGroup>
+          </div>
+          <div class="col-md-6">
+            <div class="wtf-pattern-preview-panel">
+              <p class="small text-muted mb-1">Live preview — <code>{{ form.dnd_event_name || '(blank, off)' }}</code></p>
+              <PatternPreview
+                :pattern="form.dnd_event_name ?? ''"
+                :examples="['DND', 'Team DND block', 'dnd - focus time', 'Focus time', 'Lunch with Sarah']"
+                mode="match"
+              />
+            </div>
+          </div>
+        </div>
 
-            <BFormGroup label="Nap event name/pattern" label-for="nap_event_name" class="mb-3">
-              <BFormInput id="nap_event_name" v-model="form.nap_event_name" type="text" :placeholder="defaults.napEventName" />
-              <template #description>A match shows the event as sleep instead of busy.</template>
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <BFormGroup label-for="nap_event_name" class="mb-0">
+              <template #label>Nap event regular expression <BBadge variant="secondary" class="align-middle">Boolean</BBadge></template>
+              <RegexPatternInput id="nap_event_name" v-model="form.nap_event_name" />
+              <template #description>A match shows the event as sleep instead of busy. Suggested: <code>{{ defaults.napEventName }}</code></template>
             </BFormGroup>
+          </div>
+          <div class="col-md-6">
+            <div class="wtf-pattern-preview-panel">
+              <p class="small text-muted mb-1">Live preview — <code>{{ form.nap_event_name || '(blank, off)' }}</code></p>
+              <PatternPreview
+                :pattern="form.nap_event_name ?? ''"
+                :examples="['Nap', 'Afternoon nap', 'NAP TIME', 'Sleep', 'Standup meeting']"
+                mode="match"
+              />
+            </div>
+          </div>
+        </div>
 
-            <BFormGroup label="Work event name/pattern" label-for="work_event_name" class="mb-3">
-              <BFormInput id="work_event_name" v-model="form.work_event_name" type="text" :placeholder="defaults.workEventName" />
-              <template #description>A match counts toward the "work" slice of the dashboard's time-breakdown widget.</template>
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <BFormGroup label-for="work_event_name" class="mb-0">
+              <template #label>Work event regular expression <BBadge variant="secondary" class="align-middle">Boolean</BBadge></template>
+              <RegexPatternInput id="work_event_name" v-model="form.work_event_name" />
+              <template #description>A match counts toward the "work" slice of the dashboard's time-breakdown widget and the /free calendar's own work category. Suggested: <code>{{ defaults.workEventName }}</code></template>
             </BFormGroup>
+          </div>
+          <div class="col-md-6">
+            <div class="wtf-pattern-preview-panel">
+              <p class="small text-muted mb-1">Live preview — <code>{{ form.work_event_name || '(blank, off)' }}</code></p>
+              <PatternPreview
+                :pattern="form.work_event_name ?? ''"
+                :examples="['Work', 'Work block', 'WFH', 'Team standup', 'Lunch with Sarah']"
+                mode="match"
+              />
+            </div>
+          </div>
+        </div>
 
-            <BFormGroup label="Highlight clause pattern (advanced)" label-for="highlight_clause_pattern" class="mb-3">
-              <BFormTextarea id="highlight_clause_pattern" v-model="form.highlight_clause_pattern" rows="2" :placeholder="defaults.highlightClausePattern" />
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <BFormGroup label-for="highlight_clause_pattern" class="mb-0">
+              <template #label>Highlight regular expression <BBadge variant="info" text="dark" class="align-middle">Capture</BBadge></template>
+              <RegexPatternInput id="highlight_clause_pattern" v-model="form.highlight_clause_pattern" multiline :rows="2" :placeholder="defaults.highlightClausePattern" />
               <template #description>
                 Same regex-body rules as above, but everything after "with"/"w/" is captured as a
-                whole (to the end of the title), then split on commas — each comma-separated
-                piece is checked as a <em>substring</em> (not a whole-word match, and this
-                comparison is case-<strong>sensitive</strong>) against a share link's own
-                configured highlight words (set per-link, not here). "Dinner with Alice, Bob"
-                checks both "Alice" and "Bob" individually. "Host X" also matches, marking the
-                event as the calendar owner hosting X; "Visit X" marks the owner visiting X.
+                whole (to the end of the title), then split — using the name-split expression
+                below — into individual names, each checked as a <em>substring</em> (not a
+                whole-word match, and this comparison is case-<strong>sensitive</strong>) against
+                a share link's own configured highlight words (set per-link, not here). "Dinner
+                with Alice, Bob" checks both "Alice" and "Bob" individually. "Host X" also
+                matches, marking the event as the calendar owner hosting X; "Visit X" marks the
+                owner visiting X. Leave blank to fall back to the built-in default rather than
+                turning matching off. Default: <code>{{ defaults.highlightClausePattern }}</code>
               </template>
             </BFormGroup>
+          </div>
+          <div class="col-md-6">
+            <div class="wtf-pattern-preview-panel">
+              <p class="small text-muted mb-1">
+                Live preview — <code>{{ form.highlight_clause_pattern || defaults.highlightClausePattern }}</code>
+                <br><span class="text-muted">(against sample configured words "Alice", "Bob")</span>
+              </p>
+              <PatternPreview
+                :pattern="form.highlight_clause_pattern || defaults.highlightClausePattern"
+                :examples="['Dinner with Alice', 'Call w/ Bob', 'Team sync', 'Dinner with Charlie, Alice, Bob', 'Host Alice', 'Visit Bob']"
+                :sample-words="['Alice', 'Bob']"
+                :split-pattern="form.highlight_split_pattern || defaults.highlightSplitPattern"
+                mode="tokens"
+              />
+            </div>
+          </div>
+        </div>
 
-            <BFormGroup label="Activity clause pattern (advanced)" label-for="activity_clause_pattern" class="mb-3">
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <BFormGroup label-for="highlight_split_pattern" class="mb-0">
+              <template #label>Highlight name-split expression <BBadge variant="primary" class="align-middle">Split</BBadge></template>
+              <RegexPatternInput id="highlight_split_pattern" v-model="form.highlight_split_pattern" :placeholder="defaults.highlightSplitPattern" />
+              <template #description>
+                A clause can name more than one person — this splits the Highlight field's own
+                capture (e.g. "Alice, Bob" from "Dinner with Alice, Bob") into individual names
+                before each is checked. The default requires a space after the comma, so
+                "Alice,Bob" (no space) is treated as one name rather than two — override to
+                <code>,\s*</code> if your calendar app never adds that space, or to something
+                else entirely (e.g. <code>;\s*</code>) if you use a different separator. Leave
+                blank to fall back to the built-in default rather than turning splitting off (a
+                clause is always split on <em>something</em>).
+                Default: <code>{{ defaults.highlightSplitPattern }}</code>
+              </template>
+            </BFormGroup>
+          </div>
+          <div class="col-md-6">
+            <div class="wtf-pattern-preview-panel">
+              <p class="small text-muted mb-1">
+                Live preview — splitting <code>"Alicia, Bob"</code> on
+                <code>{{ form.highlight_split_pattern || defaults.highlightSplitPattern }}</code>
+                <br><span class="text-muted">(against sample configured words "Alicia", "Bob", "ia, Bob")</span>
+              </p>
+              <PatternPreview
+                pattern="(.+)"
+                :examples="['Alicia, Bob']"
+                :sample-words="['Alicia', 'Bob', 'ia, Bob']"
+                :split-pattern="form.highlight_split_pattern || defaults.highlightSplitPattern"
+                mode="tokens"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <BFormGroup label-for="activity_clause_pattern" class="mb-0">
+              <template #label>Activity regular expression <BBadge variant="info" text="dark" class="align-middle">Capture</BBadge></template>
               <BAlert variant="warning" :model-value="true" class="small mb-2">
                 <strong>If you set this, the activity itself — not just who an event is with —
                 will be shown, but only to a viewer whose share link is already highlighting that
@@ -726,115 +931,106 @@ function submit(): void {
                 with Alice" is shown only to Alice's own link. Leave it blank (the default) and
                 nothing is ever extracted or shown, no matter how a matched event's title reads.
               </BAlert>
-              <BFormTextarea id="activity_clause_pattern" v-model="form.activity_clause_pattern" rows="2" :placeholder="defaults.activityClausePattern" />
+              <RegexPatternInput id="activity_clause_pattern" v-model="form.activity_clause_pattern" multiline :rows="2" />
               <template #description>
                 A separate pattern from the highlight clause above — its capture group is the
                 freetext <em>before</em> "with"/"w/" (e.g. "Dinner" in "Dinner with Alice"). Only
                 ever applied to an event that already matched a highlight word, and only shown if
                 the individual share link viewing it also has its own "show activity" option on
                 (a link-level toggle, not here). Same regex-body rules as the fields above.
+                Suggested (matches the highlight clause above): <code>{{ defaults.activityClausePattern }}</code>
               </template>
             </BFormGroup>
+          </div>
+          <div class="col-md-6">
+            <div class="wtf-pattern-preview-panel">
+              <p class="small text-muted mb-1">
+                Live preview — <code>{{ form.activity_clause_pattern || '(blank, off)' }}</code>
+              </p>
+              <PatternPreview
+                :pattern="form.activity_clause_pattern"
+                :examples="['Dinner with Alice', 'Call w/ Bob', 'Team sync', 'Coffee then gym with Charlie, Daniel']"
+                mode="extract"
+              />
+            </div>
+          </div>
+        </div>
 
-            <BFormGroup label="Tentative title pattern (advanced)" label-for="tentative_pattern" class="mb-3">
-              <BFormInput id="tentative_pattern" v-model="form.tentative_pattern" type="text" :placeholder="defaults.tentativePattern" />
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <BFormGroup label-for="tentative_pattern" class="mb-0">
+              <template #label>Tentative regular expression <BBadge variant="warning" text="dark" class="align-middle">Strip</BBadge></template>
+              <RegexPatternInput id="tentative_pattern" v-model="form.tentative_pattern" :placeholder="defaults.tentativePattern" />
               <template #description>
                 Same regex-body rules as above. An event whose title matches this (in addition to
                 any calendar-provided "tentative" status) is shown to viewers as tentative — both
                 its start and end are shown as unknown — and the matched text is stripped from the
                 title they see. The default matches a trailing <code>(?)</code>, e.g. "Maybe lunch
                 (?)" &rarr; "Maybe lunch". Leave blank to fall back to that default rather than
-                turning detection off.
-              </template>
-            </BFormGroup>
-
-            <BFormGroup label="Open-end title pattern (advanced)" label-for="open_end_pattern" class="mb-3">
-              <BFormInput id="open_end_pattern" v-model="form.open_end_pattern" type="text" :placeholder="defaults.openEndPattern" />
-              <template #description>
-                For an event that's definitely happening but has no known end time (e.g. it runs
-                until whenever it's over). Same regex-body rules as above; matched text is stripped
-                the same way. The default matches a trailing <code>(-?)</code>, e.g. "Dinner (-?)"
-                &rarr; "Dinner", shown to viewers with a known start and an open end. Leave blank to
-                fall back to that default rather than turning detection off.
-              </template>
-            </BFormGroup>
-
-            <BFormGroup label="Open-start title pattern (advanced)" label-for="open_start_pattern" class="mb-3">
-              <BFormInput id="open_start_pattern" v-model="form.open_start_pattern" type="text" :placeholder="defaults.openStartPattern" />
-              <template #description>
-                Same idea as open-end above, for an event whose start time isn't known but which
-                definitely ends by a known time. The default matches a trailing <code>(?-)</code>,
-                e.g. "Dinner (?-)" &rarr; "Dinner", shown to viewers with an open start and a known
-                end. Leave blank to fall back to that default rather than turning detection off.
+                turning detection off. Default: <code>{{ defaults.tentativePattern }}</code>
               </template>
             </BFormGroup>
           </div>
-
           <div class="col-md-6">
             <div class="wtf-pattern-preview-panel">
-              <p class="small fw-bold mb-2">Live preview against example titles</p>
-
-              <p class="small text-muted mb-1">DND — <code>{{ form.dnd_event_name || '(blank, off)' }}</code></p>
-              <PatternPreview
-                :pattern="form.dnd_event_name"
-                :examples="['DND', 'Team DND block', 'dnd - focus time', 'Focus time', 'Lunch with Sarah']"
-                mode="match"
-              />
-
-              <p class="small text-muted mb-1 mt-3">Nap — <code>{{ form.nap_event_name || '(blank, off)' }}</code></p>
-              <PatternPreview
-                :pattern="form.nap_event_name"
-                :examples="['Nap', 'Afternoon nap', 'NAP TIME', 'Sleep', 'Standup meeting']"
-                mode="match"
-              />
-
-              <p class="small text-muted mb-1 mt-3">Work — <code>{{ form.work_event_name || '(blank, off)' }}</code></p>
-              <PatternPreview
-                :pattern="form.work_event_name"
-                :examples="['Work', 'Work block', 'WFH', 'Team standup', 'Lunch with Sarah']"
-                mode="match"
-              />
-
-              <p class="small text-muted mb-1 mt-3">
-                Highlight clause — <code>{{ form.highlight_clause_pattern || defaults.highlightClausePattern }}</code>
-                <br><span class="text-muted">(against sample configured words "Alice", "Bob")</span>
-              </p>
-              <PatternPreview
-                :pattern="form.highlight_clause_pattern || defaults.highlightClausePattern"
-                :examples="['Dinner with Alice', 'Call w/ Bob', 'Team sync', 'Dinner with Charlie, Alice, Bob', 'Host Alice', 'Visit Bob']"
-                :sample-words="['Alice', 'Bob']"
-                mode="tokens"
-              />
-
-              <p class="small text-muted mb-1 mt-3">
-                Activity clause — <code>{{ form.activity_clause_pattern || '(blank, off)' }}</code>
-              </p>
-              <PatternPreview
-                :pattern="form.activity_clause_pattern"
-                :examples="['Dinner with Alice', 'Call w/ Bob', 'Team sync', 'Coffee with Charlie, then gym']"
-                mode="extract"
-              />
-
-              <p class="small text-muted mb-1 mt-3">
-                Tentative title — <code>{{ form.tentative_pattern || defaults.tentativePattern }}</code>
+              <p class="small text-muted mb-1">
+                Live preview — <code>{{ form.tentative_pattern || defaults.tentativePattern }}</code>
               </p>
               <PatternPreview
                 :pattern="form.tentative_pattern || defaults.tentativePattern"
                 :examples="['Maybe lunch (?)', 'Team standup', 'Coffee with Alice (?)', 'Workshop']"
                 mode="match"
               />
+            </div>
+          </div>
+        </div>
 
-              <p class="small text-muted mb-1 mt-3">
-                Open-end title — <code>{{ form.open_end_pattern || defaults.openEndPattern }}</code>
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <BFormGroup label-for="open_end_pattern" class="mb-0">
+              <template #label>Open-end regular expression <BBadge variant="warning" text="dark" class="align-middle">Strip</BBadge></template>
+              <RegexPatternInput id="open_end_pattern" v-model="form.open_end_pattern" :placeholder="defaults.openEndPattern" />
+              <template #description>
+                For an event that's definitely happening but has no known end time (e.g. it runs
+                until whenever it's over). Same regex-body rules as above; matched text is stripped
+                the same way. The default matches a trailing <code>(-?)</code>, e.g. "Dinner (-?)"
+                &rarr; "Dinner", shown to viewers with a known start and an open end. Leave blank to
+                fall back to that default rather than turning detection off. Default: <code>{{ defaults.openEndPattern }}</code>
+              </template>
+            </BFormGroup>
+          </div>
+          <div class="col-md-6">
+            <div class="wtf-pattern-preview-panel">
+              <p class="small text-muted mb-1">
+                Live preview — <code>{{ form.open_end_pattern || defaults.openEndPattern }}</code>
               </p>
               <PatternPreview
                 :pattern="form.open_end_pattern || defaults.openEndPattern"
                 :examples="['Dinner (-?)', 'Team standup', 'Party (-?)', 'Workshop']"
                 mode="match"
               />
+            </div>
+          </div>
+        </div>
 
-              <p class="small text-muted mb-1 mt-3">
-                Open-start title — <code>{{ form.open_start_pattern || defaults.openStartPattern }}</code>
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <BFormGroup label-for="open_start_pattern" class="mb-0">
+              <template #label>Open-start regular expression <BBadge variant="warning" text="dark" class="align-middle">Strip</BBadge></template>
+              <RegexPatternInput id="open_start_pattern" v-model="form.open_start_pattern" :placeholder="defaults.openStartPattern" />
+              <template #description>
+                Same idea as open-end above, for an event whose start time isn't known but which
+                definitely ends by a known time. The default matches a trailing <code>(?-)</code>,
+                e.g. "Dinner (?-)" &rarr; "Dinner", shown to viewers with an open start and a known
+                end. Leave blank to fall back to that default rather than turning detection off.
+                Default: <code>{{ defaults.openStartPattern }}</code>
+              </template>
+            </BFormGroup>
+          </div>
+          <div class="col-md-6">
+            <div class="wtf-pattern-preview-panel">
+              <p class="small text-muted mb-1">
+                Live preview — <code>{{ form.open_start_pattern || defaults.openStartPattern }}</code>
               </p>
               <PatternPreview
                 :pattern="form.open_start_pattern || defaults.openStartPattern"
@@ -988,6 +1184,7 @@ function submit(): void {
                 :free-slots="(previewAvailability ?? exampleAvailability).free"
                 :highlighted-slots="(previewAvailability ?? exampleAvailability).highlighted"
                 :unavailable-slots="(previewAvailability ?? exampleAvailability).unavailable"
+                :work-slots="(previewAvailability ?? exampleAvailability).work"
                 :sleep-slots="(previewAvailability ?? exampleAvailability).sleep"
                 :pending="false"
                 :has-error="false"

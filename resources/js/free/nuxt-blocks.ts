@@ -34,6 +34,7 @@ export interface AvailabilityResponse {
   free: FreeSlot[];
   highlighted: HighlightedSlot[];
   unavailable: TentativeSlot[];
+  work: TentativeSlot[];
   sleep: FreeSlot[];
 }
 
@@ -42,7 +43,7 @@ export interface DayBlock {
   heightPct: number;
   startTime: string;
   endTime: string;
-  type: 'free' | 'unavailable' | 'highlighted' | 'sleep';
+  type: 'free' | 'unavailable' | 'highlighted' | 'work' | 'sleep';
   tentativeStart?: boolean;
   tentativeEnd?: boolean;
   activity?: string | null;
@@ -126,6 +127,16 @@ export function isTentativeStartDisplay(block: DayBlock): boolean {
 
 export function isTentativeEndDisplay(block: DayBlock): boolean {
   return !!block.tentativeEnd || block.type === 'sleep';
+}
+
+// Same tentative-ness the fade/dashed-border styling above reacts to, minus
+// the sleep-always-fuzzy rule — sleep's dashed edges are a visual "this is
+// inferred, not confirmed" cue only (AvailabilitySlot never actually sets
+// tentativeStart/tentativeEnd for a sleep slot), so appending the literal
+// "(tentative)" text suffix to every sleep block read as a data claim the
+// API was never making. Text suffix uses the raw per-slot flags directly.
+export function isTentativeSuffixShown(block: DayBlock): boolean {
+  return !!block.tentativeStart || !!block.tentativeEnd;
 }
 
 export function pctToTime(pct: number): string {
@@ -265,6 +276,7 @@ export function getBlocksForDay(
   unavailableSlots: TentativeSlot[],
   sleepSlots: FreeSlot[],
   timezone: string,
+  workSlots: TentativeSlot[] = [],
 ): DayBlock[] {
   const tzDay = new TZDate(day, timezone);
   const y = tzDay.getFullYear();
@@ -280,6 +292,7 @@ export function getBlocksForDay(
   const freeBlocks = mergeOverlappingBlocks(slotsToBlocks(freeSlots, 'free', dayStartTs, dayEndTs, dayMs, timezone));
   const unavailableBlocks = mergeOverlappingBlocks(slotsToBlocks(unavailableSlots, 'unavailable', dayStartTs, dayEndTs, dayMs, timezone));
   const highlightedBlocks = mergeOverlappingBlocks(slotsToBlocks(highlightedSlots, 'highlighted', dayStartTs, dayEndTs, dayMs, timezone));
+  const workBlocks = mergeOverlappingBlocks(slotsToBlocks(workSlots, 'work', dayStartTs, dayEndTs, dayMs, timezone));
   // Sleep ranges fill a gap that's absent from both `free` and `unavailable` rather
   // than overlapping either, so they're their own top-level blocks, not an overlay.
   const sleepBlocks = mergeOverlappingBlocks(slotsToBlocks(sleepSlots, 'sleep', dayStartTs, dayEndTs, dayMs, timezone));
@@ -290,7 +303,18 @@ export function getBlocksForDay(
   // Splitting can itself produce duplicate fragments (e.g. an `unavailable` entry
   // whose range exactly matches the highlighted overlay collapses entirely into
   // a copy of that overlay), so merge once more after splitting.
-  const baseBlocks = mergeOverlappingBlocks(splitBlocks);
+  let baseBlocks = mergeOverlappingBlocks(splitBlocks);
+
+  // Work is a second, lower-priority overlay on top of whatever's left after
+  // highlighted has already carved out its own portion — an already-
+  // `highlighted` fragment is left alone rather than re-split (a highlighted
+  // person's event stays highlighted even during the owner's own work
+  // hours; work only ever claims plain unavailable/free time).
+  if (workBlocks.length > 0) {
+    baseBlocks = mergeOverlappingBlocks(
+      baseBlocks.flatMap(b => (b.type === 'highlighted' ? [b] : splitByOverlay(b, workBlocks))),
+    );
+  }
 
   return [...baseBlocks, ...sleepBlocks].sort((a, b) => a.topPct - b.topPct);
 }
