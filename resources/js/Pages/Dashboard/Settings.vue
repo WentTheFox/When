@@ -36,6 +36,7 @@ interface Settings {
   week_start: number;
   dnd_event_name: string | null;
   nap_event_name: string | null;
+  work_event_name: string | null;
   calendar_parsing_mode: 'full_detail' | 'free_busy_only';
   highlight_clause_pattern: string | null;
   activity_clause_pattern: string | null;
@@ -60,6 +61,7 @@ const props = defineProps<{
   defaults: {
     dndEventName: string;
     napEventName: string;
+    workEventName: string;
     highlightClausePattern: string;
     activityClausePattern: string;
     tentativePattern: string;
@@ -336,6 +338,7 @@ const form = useForm({
   week_start: props.settings.week_start,
   dnd_event_name: props.settings.dnd_event_name ?? props.defaults.dndEventName,
   nap_event_name: props.settings.nap_event_name ?? props.defaults.napEventName,
+  work_event_name: props.settings.work_event_name ?? props.defaults.workEventName,
   calendar_parsing_mode: props.settings.calendar_parsing_mode,
   highlight_clause_pattern: props.settings.highlight_clause_pattern ?? props.defaults.highlightClausePattern,
   // Deliberately not pre-filled with the suggested default the way
@@ -696,6 +699,11 @@ function submit(): void {
               <template #description>A match shows the event as sleep instead of busy.</template>
             </BFormGroup>
 
+            <BFormGroup label="Work event name/pattern" label-for="work_event_name" class="mb-3">
+              <BFormInput id="work_event_name" v-model="form.work_event_name" type="text" :placeholder="defaults.workEventName" />
+              <template #description>A match counts toward the "work" slice of the dashboard's time-breakdown widget.</template>
+            </BFormGroup>
+
             <BFormGroup label="Highlight clause pattern (advanced)" label-for="highlight_clause_pattern" class="mb-3">
               <BFormTextarea id="highlight_clause_pattern" v-model="form.highlight_clause_pattern" rows="2" :placeholder="defaults.highlightClausePattern" />
               <template #description>
@@ -777,6 +785,13 @@ function submit(): void {
               <PatternPreview
                 :pattern="form.nap_event_name"
                 :examples="['Nap', 'Afternoon nap', 'NAP TIME', 'Sleep', 'Standup meeting']"
+                mode="match"
+              />
+
+              <p class="small text-muted mb-1 mt-3">Work — <code>{{ form.work_event_name || '(blank, off)' }}</code></p>
+              <PatternPreview
+                :pattern="form.work_event_name"
+                :examples="['Work', 'Work block', 'WFH', 'Team standup', 'Lunch with Sarah']"
                 mode="match"
               />
 

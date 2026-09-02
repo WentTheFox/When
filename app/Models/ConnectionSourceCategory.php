@@ -15,6 +15,7 @@ class ConnectionSourceCategory extends Model
         'id',
         'user_id',
         'name_ciphertext',
+        'color_key',
     ];
 
     public function user(): BelongsTo

@@ -36,6 +36,13 @@ class SettingsController extends Controller
 
     private const SUGGESTED_NAP_EVENT_NAME = 'Nap';
 
+    /**
+     * Same non-functional-fallback caveat as the dnd/nap suggestions above
+     * — a blank pattern matches nothing. Feeds the dashboard time-breakdown
+     * widget's "work" bucket (DashboardController::statsAvailability).
+     */
+    private const SUGGESTED_WORK_EVENT_NAME = 'Work';
+
     public function edit(Request $request): Response
     {
         $user = $request->user();
@@ -46,6 +53,7 @@ class SettingsController extends Controller
                 'week_start' => $user->week_start,
                 'dnd_event_name' => $user->dnd_event_name,
                 'nap_event_name' => $user->nap_event_name,
+                'work_event_name' => $user->work_event_name,
                 'calendar_parsing_mode' => $user->calendar_parsing_mode,
                 'highlight_clause_pattern' => $user->highlight_clause_pattern,
                 'activity_clause_pattern' => $user->activity_clause_pattern,
@@ -67,6 +75,7 @@ class SettingsController extends Controller
             'defaults' => [
                 'dndEventName' => self::SUGGESTED_DND_EVENT_NAME,
                 'napEventName' => self::SUGGESTED_NAP_EVENT_NAME,
+                'workEventName' => self::SUGGESTED_WORK_EVENT_NAME,
                 'highlightClausePattern' => HighlightMatcher::DEFAULT_CLAUSE_PATTERN,
                 'activityClausePattern' => ActivityExtractor::DEFAULT_PATTERN,
                 'tentativePattern' => IcsParser::DEFAULT_TENTATIVE_TITLE_PATTERN,
@@ -100,6 +109,7 @@ class SettingsController extends Controller
             'week_start' => ['required', 'integer', 'between:0,6'],
             'dnd_event_name' => ['nullable', 'string', 'max:255'],
             'nap_event_name' => ['nullable', 'string', 'max:255'],
+            'work_event_name' => ['nullable', 'string', 'max:255'],
             'calendar_parsing_mode' => ['required', 'in:full_detail,free_busy_only'],
             'highlight_clause_pattern' => ['nullable', 'string'],
             'activity_clause_pattern' => ['nullable', 'string'],
@@ -135,6 +145,7 @@ class SettingsController extends Controller
             'week_start' => $data['week_start'],
             'dnd_event_name' => $data['dnd_event_name'] ?? null,
             'nap_event_name' => $data['nap_event_name'] ?? null,
+            'work_event_name' => $data['work_event_name'] ?? null,
             'calendar_parsing_mode' => $data['calendar_parsing_mode'],
             'highlight_clause_pattern' => $data['highlight_clause_pattern'] ?? null,
             'activity_clause_pattern' => $data['activity_clause_pattern'] ?? null,

@@ -9,6 +9,7 @@ use App\Http\Controllers\Dashboard\AccountController;
 use App\Http\Controllers\Dashboard\ConnectionAttributeDefinitionController;
 use App\Http\Controllers\Dashboard\ConnectionController;
 use App\Http\Controllers\Dashboard\ConnectionEdgeController;
+use App\Http\Controllers\Dashboard\ConnectionsGraphController;
 use App\Http\Controllers\Dashboard\ConnectionSourceCategoryController;
 use App\Http\Controllers\Dashboard\ConnectionSourceController;
 use App\Http\Controllers\Dashboard\SettingsController;
@@ -76,6 +77,8 @@ Route::middleware('auth')->group(function () {
         ->name('account.migrate-verifier');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard/stats/availability', [DashboardController::class, 'statsAvailability'])
+        ->name('dashboard.stats.availability');
 
     Route::get('/dashboard/account', [AccountController::class, 'edit'])->name('dashboard.account');
     Route::patch('/dashboard/account/name', [AccountController::class, 'updateName'])
@@ -133,6 +136,8 @@ Route::middleware('auth')->group(function () {
         ->name('dashboard.connections');
     Route::get('/dashboard/connections/search-index', [ConnectionController::class, 'searchIndex'])
         ->name('dashboard.connections.search-index');
+    Route::get('/dashboard/connections/graph', ConnectionsGraphController::class)
+        ->name('dashboard.connections.graph');
     Route::post('/dashboard/connections', [ConnectionController::class, 'store'])
         ->name('dashboard.connections.store');
     Route::patch('/dashboard/connections/{connection}', [ConnectionController::class, 'update'])

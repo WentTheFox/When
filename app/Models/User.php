@@ -32,6 +32,7 @@ class User extends Authenticatable
         'week_start',
         'dnd_event_name',
         'nap_event_name',
+        'work_event_name',
         'availability_settings',
         'calendar_parsing_mode',
         'highlight_clause_pattern',

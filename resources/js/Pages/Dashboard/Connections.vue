@@ -5,6 +5,7 @@ import { BButton, BCard, BFormGroup, BFormInput, BFormSelect, BFormTextarea } fr
 import { computed, nextTick, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../../crypto';
 import AttributesPanel from '../../dashboard/AttributesPanel.vue';
+import CategoriesPanel from '../../dashboard/CategoriesPanel.vue';
 import ConnectionCard, { type ConnectionRow } from '../../dashboard/ConnectionCard.vue';
 import SourcesPanel from '../../dashboard/SourcesPanel.vue';
 import VaultGate from '../../dashboard/VaultGate.vue';
@@ -14,12 +15,14 @@ import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 defineOptions({ layout: DashboardLayout });
 
 interface SourceRow { id: string; category_id: string | null; name_ciphertext: string }
+interface CategoryRow { id: string; color_key: string | null; name_ciphertext: string }
 interface DefinitionRow { id: string; label_ciphertext: string; type: string; options_ciphertext: string | null }
 interface EdgeRow { id: string; from_connection_id: string; to_connection_id: string; label_ciphertext: string | null }
 
 const props = defineProps<{
   connections: ConnectionRow[];
   sources: SourceRow[];
+  categories: CategoryRow[];
   attributeDefinitions: DefinitionRow[];
   edges: EdgeRow[];
 }>();
@@ -28,6 +31,7 @@ const { createRecordKey, getRecordKey, vaultUnlocked } = useVault();
 
 const connections = ref<ConnectionRow[]>(props.connections);
 const sources = ref<{ id: string; category_id: string | null; label: string }[]>([]);
+const categories = ref<{ id: string; color_key: string | null; label: string }[]>([]);
 const definitions = ref<{ id: string; label: string; type: string; options: string[] }[]>([]);
 const edges = ref<{ id: string; from_connection_id: string; to_connection_id: string; label: string }[]>([]);
 
@@ -79,6 +83,19 @@ watch(vaultUnlocked, async (unlocked) => {
         id: source.id,
         category_id: source.category_id,
         label: await decryptString(key, source.name_ciphertext),
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  for (const category of props.categories) {
+    try {
+      const key = await getRecordKey(category.id);
+      categories.value.push({
+        id: category.id,
+        color_key: category.color_key,
+        label: await decryptString(key, category.name_ciphertext),
       });
     } catch (error) {
       console.error(error);
@@ -217,14 +234,18 @@ async function addSource(name: string): Promise<void> {
   }
 }
 
-async function updateSource(id: string, name: string): Promise<void> {
+async function updateSource(id: string, name: string, categoryId: string | null): Promise<void> {
   try {
     const key = await getRecordKey(id);
     await axios.patch(`/dashboard/connection-sources/${id}`, {
       name_ciphertext: await encryptString(key, name),
+      category_id: categoryId,
     });
     const source = sources.value.find((s) => s.id === id);
-    if (source) source.label = name;
+    if (source) {
+      source.label = name;
+      source.category_id = categoryId;
+    }
   } catch (error) {
     console.error(error);
   }
@@ -234,6 +255,46 @@ async function removeSource(id: string): Promise<void> {
   try {
     await axios.delete(`/dashboard/connection-sources/${id}`);
     sources.value = sources.value.filter((s) => s.id !== id);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+async function addCategory(name: string): Promise<void> {
+  try {
+    const id = crypto.randomUUID();
+    const key = await createRecordKey(id);
+    await axios.post('/dashboard/connection-source-categories', {
+      id,
+      name_ciphertext: await encryptString(key, name),
+    });
+    categories.value.push({ id, color_key: null, label: name });
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+async function updateCategory(id: string, name: string, colorKey: string | null): Promise<void> {
+  try {
+    const key = await getRecordKey(id);
+    await axios.patch(`/dashboard/connection-source-categories/${id}`, {
+      name_ciphertext: await encryptString(key, name),
+      color_key: colorKey,
+    });
+    const category = categories.value.find((c) => c.id === id);
+    if (category) {
+      category.label = name;
+      category.color_key = colorKey;
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+async function removeCategory(id: string): Promise<void> {
+  try {
+    await axios.delete(`/dashboard/connection-source-categories/${id}`);
+    categories.value = categories.value.filter((c) => c.id !== id);
   } catch (error) {
     console.error(error);
   }
@@ -369,7 +430,9 @@ async function removeEdge(id: string): Promise<void> {
       </div>
     </BCard>
 
-    <SourcesPanel :sources="sources" @add="addSource" @update="updateSource" @remove="removeSource" />
+    <SourcesPanel :sources="sources" :categories="categories" @add="addSource" @update="updateSource" @remove="removeSource" />
+
+    <CategoriesPanel :categories="categories" @add="addCategory" @update="updateCategory" @remove="removeCategory" />
 
     <AttributesPanel :definitions="definitions" @add="addDefinition" @remove="removeDefinition" />
   </VaultGate>
