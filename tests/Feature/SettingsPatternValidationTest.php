@@ -110,7 +110,7 @@ class SettingsPatternValidationTest extends TestCase
 
         $response = $this->actingAs($user)->patch('/settings', [
             ...$this->baseSettings(),
-            'dnd_event_name' => 'no groups, two (parens)(here) even',
+            'dnd_event_pattern' => 'no groups, two (parens)(here) even',
         ]);
 
         $response->assertSessionHasNoErrors();

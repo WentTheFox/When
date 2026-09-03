@@ -75,7 +75,7 @@ class DashboardStatsTest extends TestCase
         $user = User::factory()->create([
             'calendar_url_ciphertext' => Crypt::encryptString('https://example.com/secret.ics'),
             'timezone' => 'UTC',
-            'work_event_name' => 'Work',
+            'work_event_pattern' => 'Work',
             'calendar_parsing_mode' => 'full_detail',
         ]);
 

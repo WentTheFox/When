@@ -1,4 +1,6 @@
 import type { ColorSlot, ColorSwatch } from './free/color-palette';
+import type { IconOption, IconSlot } from './free/icon-palette';
+import type { NowColorPreset } from './free/now-color-presets';
 
 /**
  * Every prop HandleInertiaRequests::share() sends on every request. Pass
@@ -20,6 +22,14 @@ export interface SharedPageProps {
   colorPalette: {
     swatches: ColorSwatch[];
     defaults: Record<ColorSlot, string>;
+  };
+  iconPalette: {
+    icons: IconOption[];
+    defaults: Record<IconSlot, string>;
+  };
+  nowColorPresets: {
+    presets: NowColorPreset[];
+    defaultKey: string;
   };
   auth: {
     user: {

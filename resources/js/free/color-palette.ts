@@ -1,13 +1,14 @@
 /**
  * The client-side handle onto the app's fixed, curated color palette — not
  * a free-form hex picker, and not a hardcoded copy of the hex values
- * either. app/Support/ColorPalette.php is the single source of truth; this
- * module just holds whatever it sent down as the `colorPalette` shared
- * Inertia prop (see HandleInertiaRequests::share()), seeded once at boot by
- * setColorPalette() (see app.ts). The server never accepts a hex back from
- * the client for these slots — only a KEY (SettingsController validates
- * every *_color_key against ColorPalette::KEYS) — so there's no path by
- * which the client could ever need to invent or mutate a swatch's hex.
+ * either. app/Support/ColorSwatchKey.php is the single source of truth;
+ * this module just holds whatever it sent down as the `colorPalette`
+ * shared Inertia prop (see HandleInertiaRequests::share()), seeded once at
+ * boot by setColorPalette() (see app.ts). The server never accepts a hex
+ * back from the client for these slots — only a KEY (SettingsController
+ * validates every *_color_key with Rule::enum(ColorSwatchKey::class)) —
+ * so there's no path by which the client could ever need to invent or
+ * mutate a swatch's hex.
  */
 export interface ColorSwatch {
   key: string;

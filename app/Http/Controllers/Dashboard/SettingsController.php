@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Services\Calendar\ActivityExtractor;
 use App\Services\Calendar\HighlightMatcher;
 use App\Services\Calendar\IcsParser;
-use App\Support\ColorPalette;
+use App\Support\ColorSwatchKey;
+use App\Support\IconKey;
+use App\Support\NowColorPresetKey;
 use App\Support\Regex;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -40,9 +42,9 @@ class SettingsController extends Controller
      * see the Vue page's own "What these text-match fields actually do"
      * crash course.
      */
-    private const SUGGESTED_DND_EVENT_NAME = '^dnd$';
+    private const SUGGESTED_DND_EVENT_PATTERN = '^dnd$';
 
-    private const SUGGESTED_NAP_EVENT_NAME = '^nap$';
+    private const SUGGESTED_NAP_EVENT_PATTERN = '^nap$';
 
     /**
      * Same non-functional-fallback caveat as the dnd/nap suggestions above
@@ -50,7 +52,7 @@ class SettingsController extends Controller
      * widget's "work" bucket (DashboardController::statsAvailability) and
      * the /free calendar's own work category.
      */
-    private const SUGGESTED_WORK_EVENT_NAME = '^work$';
+    private const SUGGESTED_WORK_EVENT_PATTERN = '^work$';
 
     public function edit(Request $request): Response
     {
@@ -60,9 +62,9 @@ class SettingsController extends Controller
             'settings' => [
                 'timezone' => $user->timezone,
                 'week_start' => $user->week_start,
-                'dnd_event_name' => $user->dnd_event_name,
-                'nap_event_name' => $user->nap_event_name,
-                'work_event_name' => $user->work_event_name,
+                'dnd_event_pattern' => $user->dnd_event_pattern,
+                'nap_event_pattern' => $user->nap_event_pattern,
+                'work_event_pattern' => $user->work_event_pattern,
                 'calendar_parsing_mode' => $user->calendar_parsing_mode,
                 'highlight_clause_pattern' => $user->highlight_clause_pattern,
                 'highlight_split_pattern' => $user->highlight_split_pattern,
@@ -80,13 +82,18 @@ class SettingsController extends Controller
                 'work_color_key' => $user->work_color_key,
                 'free_color_key' => $user->free_color_key,
                 'highlight_color_key' => $user->highlight_color_key,
-                'now_color' => $user->now_color,
+                'free_icon_key' => $user->free_icon_key,
+                'busy_icon_key' => $user->busy_icon_key,
+                'work_icon_key' => $user->work_icon_key,
+                'sleep_icon_key' => $user->sleep_icon_key,
+                'highlight_icon_key' => $user->highlight_icon_key,
+                'now_color_key' => $user->now_color_key,
                 'availability' => $user->availability_settings ?? [],
             ],
             'defaults' => [
-                'dndEventName' => self::SUGGESTED_DND_EVENT_NAME,
-                'napEventName' => self::SUGGESTED_NAP_EVENT_NAME,
-                'workEventName' => self::SUGGESTED_WORK_EVENT_NAME,
+                'dndEventPattern' => self::SUGGESTED_DND_EVENT_PATTERN,
+                'napEventPattern' => self::SUGGESTED_NAP_EVENT_PATTERN,
+                'workEventPattern' => self::SUGGESTED_WORK_EVENT_PATTERN,
                 'highlightClausePattern' => HighlightMatcher::DEFAULT_CLAUSE_PATTERN,
                 'highlightSplitPattern' => HighlightMatcher::DEFAULT_SPLIT_PATTERN,
                 'activityClausePattern' => ActivityExtractor::DEFAULT_PATTERN,
@@ -119,26 +126,31 @@ class SettingsController extends Controller
         $data = $request->validate([
             'timezone' => ['required', 'timezone'],
             'week_start' => ['required', 'integer', 'between:0,6'],
-            'dnd_event_name' => ['nullable', 'string', 'max:255'],
-            'nap_event_name' => ['nullable', 'string', 'max:255'],
-            'work_event_name' => ['nullable', 'string', 'max:255'],
+            'dnd_event_pattern' => ['nullable', 'string', 'max:255', Regex::validateCompiles(...)],
+            'nap_event_pattern' => ['nullable', 'string', 'max:255', Regex::validateCompiles(...)],
+            'work_event_pattern' => ['nullable', 'string', 'max:255', Regex::validateCompiles(...)],
             'calendar_parsing_mode' => ['required', 'in:full_detail,free_busy_only'],
-            'highlight_clause_pattern' => ['nullable', 'string', Regex::validateSingleCaptureGroup(...)],
-            'highlight_split_pattern' => ['nullable', 'string'],
-            'activity_clause_pattern' => ['nullable', 'string', Regex::validateSingleCaptureGroup(...)],
-            'tentative_pattern' => ['nullable', 'string'],
-            'open_end_pattern' => ['nullable', 'string'],
-            'open_start_pattern' => ['nullable', 'string'],
+            'highlight_clause_pattern' => ['nullable', 'string', 'max:500', Regex::validateSingleCaptureGroup(...)],
+            'highlight_split_pattern' => ['nullable', 'string', 'max:255', Regex::validateCompiles(...)],
+            'activity_clause_pattern' => ['nullable', 'string', 'max:500', Regex::validateSingleCaptureGroup(...)],
+            'tentative_pattern' => ['nullable', 'string', 'max:500', Regex::validateCompiles(...)],
+            'open_end_pattern' => ['nullable', 'string', 'max:500', Regex::validateCompiles(...)],
+            'open_start_pattern' => ['nullable', 'string', 'max:500', Regex::validateCompiles(...)],
             'public_page_title_en' => ['nullable', 'string', 'max:255'],
             'public_page_title_hu' => ['nullable', 'string', 'max:255'],
-            'accent_color_key' => ['nullable', Rule::in(ColorPalette::KEYS)],
-            'secondary_color_key' => ['nullable', Rule::in(ColorPalette::KEYS)],
-            'sleep_color_key' => ['nullable', Rule::in(ColorPalette::KEYS)],
-            'busy_color_key' => ['nullable', Rule::in(ColorPalette::KEYS)],
-            'work_color_key' => ['nullable', Rule::in(ColorPalette::KEYS)],
-            'free_color_key' => ['nullable', Rule::in(ColorPalette::KEYS)],
-            'highlight_color_key' => ['nullable', Rule::in(ColorPalette::KEYS)],
-            'now_color' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'accent_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
+            'secondary_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
+            'sleep_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
+            'busy_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
+            'work_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
+            'free_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
+            'highlight_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
+            'free_icon_key' => ['nullable', Rule::enum(IconKey::class)],
+            'busy_icon_key' => ['nullable', Rule::enum(IconKey::class)],
+            'work_icon_key' => ['nullable', Rule::enum(IconKey::class)],
+            'sleep_icon_key' => ['nullable', Rule::enum(IconKey::class)],
+            'highlight_icon_key' => ['nullable', Rule::enum(IconKey::class)],
+            'now_color_key' => ['nullable', Rule::enum(NowColorPresetKey::class)],
             'availability' => ['nullable', 'array'],
             'availability.*.wake' => ['nullable', 'string'],
             'availability.*.sleep' => ['nullable', 'string'],
@@ -157,9 +169,9 @@ class SettingsController extends Controller
         $user->fill([
             'timezone' => $data['timezone'],
             'week_start' => $data['week_start'],
-            'dnd_event_name' => $data['dnd_event_name'] ?? null,
-            'nap_event_name' => $data['nap_event_name'] ?? null,
-            'work_event_name' => $data['work_event_name'] ?? null,
+            'dnd_event_pattern' => $data['dnd_event_pattern'] ?? null,
+            'nap_event_pattern' => $data['nap_event_pattern'] ?? null,
+            'work_event_pattern' => $data['work_event_pattern'] ?? null,
             'calendar_parsing_mode' => $data['calendar_parsing_mode'],
             'highlight_clause_pattern' => $data['highlight_clause_pattern'] ?? null,
             'highlight_split_pattern' => $data['highlight_split_pattern'] ?? null,
@@ -176,7 +188,12 @@ class SettingsController extends Controller
             'work_color_key' => $data['work_color_key'] ?? null,
             'free_color_key' => $data['free_color_key'] ?? null,
             'highlight_color_key' => $data['highlight_color_key'] ?? null,
-            'now_color' => $data['now_color'] ?? null,
+            'free_icon_key' => $data['free_icon_key'] ?? null,
+            'busy_icon_key' => $data['busy_icon_key'] ?? null,
+            'work_icon_key' => $data['work_icon_key'] ?? null,
+            'sleep_icon_key' => $data['sleep_icon_key'] ?? null,
+            'highlight_icon_key' => $data['highlight_icon_key'] ?? null,
+            'now_color_key' => $data['now_color_key'] ?? null,
             'availability_settings' => $availability,
         ])->save();
 

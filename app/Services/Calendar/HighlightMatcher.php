@@ -47,13 +47,15 @@ class HighlightMatcher
      * clause's captured text into individual names before checking each
      * one — "with Alice, Bob" needs to become two tokens, "Alice" and
      * "Bob", not one "Alice, Bob" token that fails to contain either
-     * configured word wholesale. A comma alone (no required space) would
-     * also split "Alice,Bob"; this default requires the space so a plain
-     * name containing a literal comma (rare, but not impossible) isn't
-     * assumed to always be two names — an owner whose calendar app never
-     * puts a space after the comma can just override this to `,\s*`.
+     * configured word wholesale. A character class matching any one of
+     * comma, ampersand, or slash — "Alice, Bob", "Alice & Bob", and
+     * "Alice/Bob" all split the same way, every resulting token trimmed
+     * afterward (see matchTokens()) so spacing around whichever character
+     * was used never matters either. An owner using a different separator
+     * entirely (e.g. semicolons) can override this to something like
+     * `;\s*`.
      */
-    public const DEFAULT_SPLIT_PATTERN = ', ';
+    public const DEFAULT_SPLIT_PATTERN = '[,&/]';
 
     private const HOST_PATTERN = '^host\s+(.+)$';
 

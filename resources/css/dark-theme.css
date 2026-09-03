@@ -75,10 +75,14 @@
        .wtf-fcal-day-column.is-today build the rgba() itself sidesteps it. */
     --wtf-fcal-today-alpha: 0.12;
     /* The current-time line/dot on the week/month views — owner-customizable
-       like the block colors above, theme-independent (same red in both
-       themes unless overridden) since it's a fixed accent marker, not a
-       hue that needs a light/dark variant. */
-    --wtf-color-now: #e5566a;
+       like the block colors above, picked from NowColorPresetKey's own
+       curated (loud/saturated, kept out of the normal block palette)
+       preset list rather than a free-form hex, with its own light/dark
+       pair per preset just like ColorSwatchKey. This bare fallback matches
+       NowColorPresetKey::default()->dark() — only reachable if an inline
+       override is ever somehow missing entirely (every real page sets
+       --wtf-color-now inline via resolveNowColorHex()). */
+    --wtf-color-now: #ff0000;
 
     /* Pre-auth header (below) — deliberately theme-independent (not
        redeclared in the light block), same as the reference /free page's
@@ -1317,6 +1321,45 @@ hr {
 }
 
 /*
+ * Settings.vue's icon picker (see icon-palette.ts) — same shared-grid
+ * layout as .wtf-swatch-grid above, reused verbatim; only the button
+ * itself differs (a square glyph tile instead of a light/dark split
+ * circle, since an icon has no theme-pair the way a color swatch does).
+ */
+.wtf-icon-swatch-btn {
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.375rem;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    background: var(--wtf-bg-elevated);
+    color: var(--wtf-text);
+    /* Same transparent-border-seam avoidance as .wtf-swatch-btn above. */
+    box-shadow: 0 0 0 1px var(--wtf-border);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.wtf-icon-swatch-btn:hover {
+    transform: scale(1.1);
+}
+
+/* --wtf-icon-active-color is set inline per button (Settings.vue's
+   activeIconColor) to that icon GROUP's own configured color (free/busy/
+   work/sleep/highlighted) — not a single generic accent — so a selected
+   sleep icon tints purple, a selected work icon tints blue, etc., matching
+   whatever that same block type's own color picker (just above this one)
+   is currently set to. Falls back to --wtf-accent only if that variable
+   were ever somehow unset. */
+.wtf-icon-swatch-btn-active {
+    box-shadow: 0 0 0 2px var(--wtf-icon-active-color, var(--wtf-accent));
+    color: var(--wtf-icon-active-color, var(--wtf-accent));
+}
+
+/*
  * bootstrap-vue-next's v-b-tooltip directive already defaults to
  * `noninteractive` (its own prop name for "can't be clicked/focused as
  * its own element"), but that alone doesn't stop the rendered bubble from
@@ -1366,16 +1409,20 @@ hr {
 .wtf-regex-editor {
     position: relative;
     width: 100%;
-}
-
-.wtf-regex-editor-multiline {
-    height: auto;
+    /* Deliberately NOT overflow:hidden — a native textarea resized wider
+       than this wrapper (via its own resize: horizontal handle) needs to
+       visibly overflow it rather than being clipped; the overlay above it
+       is sized in pixels to match (RegexPatternInput.vue's
+       ResizeObserver), independent of this wrapper's own declared width. */
 }
 
 /* Both layers share .form-control's box model (padding/border-width/
    border-radius/font/line-height) so their text lines up pixel-for-pixel
    — see the header comment above for why there are two stacked elements
-   at all. */
+   at all. Every field is forced single-line (RegexPatternInput.vue strips
+   any \n on input) — white-space: pre never wraps, so a pattern longer
+   than the visible box scrolls horizontally (synced between the two
+   layers by syncScroll) instead of wrapping to a second line. */
 .wtf-regex-highlight,
 .wtf-regex-native {
     margin: 0;
@@ -1383,12 +1430,18 @@ hr {
     white-space: pre;
     overflow: hidden;
     word-wrap: normal;
+    resize: none;
 }
 
-.wtf-regex-editor-multiline .wtf-regex-highlight,
-.wtf-regex-editor-multiline .wtf-regex-native {
-    white-space: pre-wrap;
-    word-wrap: break-word;
+/* Only the native element gets a resize handle — an owner drags it wider
+   to see a long pattern in full; RegexPatternInput.vue's ResizeObserver
+   is what keeps the overlay matched to whatever size that resize leaves
+   it at. Height intentionally stays fixed (rows="1" plus no vertical
+   resize) since content is always exactly one line — a taller box
+   wouldn't reveal more of it. */
+.wtf-regex-native.form-control {
+    resize: horizontal;
+    min-width: 100%;
 }
 
 /* The overlay: same box as .form-control, but transparent everywhere
@@ -1396,7 +1449,8 @@ hr {
    click/drag — the native element underneath handles all real input. */
 .wtf-regex-highlight.form-control {
     position: absolute;
-    inset: 0;
+    top: 0;
+    left: 0;
     /* Without an explicit stacking order, the native element below — later
        in the DOM and also positioned (`position: relative`) — paints on
        top of this absolutely-positioned overlay by default, hiding the
@@ -1435,6 +1489,39 @@ hr {
 
 .wtf-regex-native.form-control::placeholder {
     color: transparent;
+}
+
+/* Read-only Suggested/Default `<code>` spans (RegexHighlightedCode.vue) —
+   same wtf-regex-tok-* palette as the live editor overlay above, but
+   Bootstrap's own `code` color (a fixed pink, regardless of theme) has to
+   be overridden first or it'd fight with every un-tokenized plain-text
+   character in the pattern. */
+.wtf-regex-highlighted-code {
+    color: var(--wtf-text);
+}
+
+/* Settings.vue's badge legend (the "Boolean"/"Capture"/"Flag"/"Split"
+   definitions in the Event title matching rules crash course) — a real
+   <dl> since it's genuinely defining each badge term, laid out as a
+   compact term/definition pair rather than the browser's own default
+   (each dt/dd stacked as its own full-width block, with a large
+   indent on dd) which read as far more vertical space than four short
+   definitions need. */
+.wtf-badge-legend {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 0.75rem;
+    row-gap: 0.35rem;
+    align-items: baseline;
+}
+
+.wtf-badge-legend dt {
+    grid-column: 1;
+}
+
+.wtf-badge-legend dd {
+    grid-column: 2;
+    margin: 0;
 }
 
 .wtf-regex-tok-meta {

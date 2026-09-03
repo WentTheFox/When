@@ -12,7 +12,8 @@ import { addDays, format, subDays } from 'date-fns';
 import { enUS, hu } from 'date-fns/locale';
 import { TZDate } from '@date-fns/tz';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faBan, faBriefcase, faCheck, faMoon, faSpinner, faStar } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner } from '@fortawesome/free-solid-svg-icons';
+import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import { computed } from 'vue';
 import { currentLocale, trans } from 'laravel-vue-i18n';
 import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, isTentativeSuffixShown, pctToTime, tildeTime } from './nuxt-blocks';
@@ -25,14 +26,6 @@ const AGENDA_SLOT_CLASS: Record<DayBlock['type'], string> = {
   work: 'wtf-fagenda-slot-work',
   sleep: 'wtf-fagenda-slot-sleep',
 };
-
-const AGENDA_SLOT_ICON = {
-  free: faCheck,
-  unavailable: faBan,
-  highlighted: faStar,
-  work: faBriefcase,
-  sleep: faMoon,
-} satisfies Record<DayBlock['type'], object>;
 
 const AGENDA_SLOT_LABEL_KEY: Record<DayBlock['type'], string> = {
   free: 'free.freeLabel',
@@ -57,6 +50,8 @@ const props = defineProps<{
   unavailableSlots: TentativeSlot[];
   workSlots: TentativeSlot[];
   sleepSlots: FreeSlot[];
+  /** Owner-customizable per block type — already resolved to real FA icons by Free/Show.vue's resolvedIcons (icon-palette.ts). */
+  icons: { free: IconDefinition; busy: IconDefinition; work: IconDefinition; sleep: IconDefinition; highlighted: IconDefinition };
   pending: boolean;
   hasError: boolean;
   timezone: string;
@@ -64,6 +59,15 @@ const props = defineProps<{
   showCurrentTime: boolean;
   currentTimePct: number;
 }>();
+
+// Same DayBlock-type-vs-icon-slot-name mismatch as CalendarView.vue.
+const slotTypeIcon = computed<Record<DayBlock['type'], IconDefinition>>(() => ({
+  free: props.icons.free,
+  unavailable: props.icons.busy,
+  highlighted: props.icons.highlighted,
+  work: props.icons.work,
+  sleep: props.icons.sleep,
+}));
 
 const dateFnsLocale = computed(() => currentLocale.value === 'hu' ? hu : enUS);
 
@@ -212,7 +216,7 @@ const agendaEntries = computed(() =>
             :style="{ top: `${currentTimeOffsetPct}%` }"
           />
           <span class="wtf-fagenda-slot-time">{{ slotTimeText(slot) }}</span>
-          <span class="wtf-fagenda-slot-label"><FontAwesomeIcon :icon="AGENDA_SLOT_ICON[slot.type]" class="wtf-fagenda-slot-icon me-1" />{{ slotLabel(slot) }}{{ isTentativeSuffixShown(slot) ? $t('free.tentativeSuffix') : '' }}</span>
+          <span class="wtf-fagenda-slot-label"><FontAwesomeIcon :icon="slotTypeIcon[slot.type]" class="wtf-fagenda-slot-icon me-1" />{{ slotLabel(slot) }}{{ isTentativeSuffixShown(slot) ? $t('free.tentativeSuffix') : '' }}</span>
         </div>
       </div>
     </div>

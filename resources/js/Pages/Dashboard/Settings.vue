@@ -20,12 +20,16 @@ import { computed, onUnmounted, ref, watch } from 'vue';
 import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 import { useLiveThemePreview } from '../../dashboard/liveThemePreview';
 import PatternPreview from '../../dashboard/PatternPreview.vue';
+import RegexHighlightedCode from '../../dashboard/RegexHighlightedCode.vue';
 import RegexPatternInput from '../../dashboard/RegexPatternInput.vue';
 import SleepExceptions from '../../dashboard/SleepExceptions.vue';
 import CalendarView from '../../free/CalendarView.vue';
 import { BLOCK_ALPHA, hexToRgba, hexToRgbTriplet, yiqTextColor } from '../../free/color-utils';
 import { getColorPalette, getDefaultSwatchKey, resolveSwatchHex } from '../../free/color-palette';
 import type { ColorSlot } from '../../free/color-palette';
+import { faIconFor, getDefaultIconKey, getIconPalette, resolveIcon } from '../../free/icon-palette';
+import type { IconSlot } from '../../free/icon-palette';
+import { getDefaultNowColorKey, getNowColorPresets, resolveNowColorHex } from '../../free/now-color-presets';
 import { useResolvedTheme } from '../../composables/useTheme';
 import type { AvailabilityResponse } from '../../free/nuxt-blocks';
 import type { SharedPageProps } from '../../sharedPageProps';
@@ -36,9 +40,9 @@ interface Settings {
   timezone: string;
   /** 0=Sunday..6=Saturday, date-fns' own weekStartsOn convention. */
   week_start: number;
-  dnd_event_name: string | null;
-  nap_event_name: string | null;
-  work_event_name: string | null;
+  dnd_event_pattern: string | null;
+  nap_event_pattern: string | null;
+  work_event_pattern: string | null;
   calendar_parsing_mode: 'full_detail' | 'free_busy_only';
   highlight_clause_pattern: string | null;
   highlight_split_pattern: string | null;
@@ -56,16 +60,21 @@ interface Settings {
   work_color_key: string | null;
   free_color_key: string | null;
   highlight_color_key: string | null;
-  now_color: string | null;
+  free_icon_key: string | null;
+  busy_icon_key: string | null;
+  work_icon_key: string | null;
+  sleep_icon_key: string | null;
+  highlight_icon_key: string | null;
+  now_color_key: string | null;
   availability: Record<number, { wake: string | null; sleep: string | null }>;
 }
 
 const props = defineProps<{
   settings: Settings;
   defaults: {
-    dndEventName: string;
-    napEventName: string;
-    workEventName: string;
+    dndEventPattern: string;
+    napEventPattern: string;
+    workEventPattern: string;
     highlightClausePattern: string;
     highlightSplitPattern: string;
     activityClausePattern: string;
@@ -89,8 +98,9 @@ const weekStartOptions = days.map((label, value) => ({ value, label }));
  * previewing and badly in the other (e.g. a light pastel free-block color
  * picked in light mode nearly disappears against dark mode's own dark
  * background); every swatch instead has its own hand-picked light AND dark
- * hex. "Current time" isn't here — it's deliberately theme-independent
- * (see dark-theme.css) and stays a plain hex picker.
+ * hex. "Current time" isn't here — it picks from its own, separate
+ * curated list (NowColorPresetKey via now-color-presets.ts), rendered
+ * below via the same swatch-grid pattern.
  */
 const colorFields: { field: keyof Settings; slot: ColorSlot; label: string }[] = [
   { field: 'accent_color_key', slot: 'accent', label: 'Accent' },
@@ -103,6 +113,36 @@ const colorFields: { field: keyof Settings; slot: ColorSlot; label: string }[] =
 ];
 
 const colorPalette = getColorPalette();
+
+/**
+ * Same curated-KEY-not-arbitrary-value idea as colorFields above, for the
+ * icon each of the five block types renders on /free — see IconPalette's
+ * own doc comment for why the actual FA icon lookup lives client-side
+ * only. No accent/secondary equivalents: those aren't block types with
+ * their own icon. `colorField` ties each icon slot back to that same
+ * slot's own color-key field above — the selected icon in each group is
+ * tinted with that group's own configured color (activeIconColor below),
+ * not a single generic accent, so the icon picker visually matches the
+ * color picker for the same block type right above it.
+ */
+const iconFields: { field: keyof Settings; slot: IconSlot; colorField: keyof Settings; label: string }[] = [
+  { field: 'free_icon_key', slot: 'free', colorField: 'free_color_key', label: 'Free' },
+  { field: 'busy_icon_key', slot: 'busy', colorField: 'busy_color_key', label: 'Unavailable' },
+  { field: 'work_icon_key', slot: 'work', colorField: 'work_color_key', label: 'Work' },
+  { field: 'sleep_icon_key', slot: 'sleep', colorField: 'sleep_color_key', label: 'Sleep' },
+  { field: 'highlight_icon_key', slot: 'highlighted', colorField: 'highlight_color_key', label: 'Highlighted' },
+];
+
+const iconPalette = getIconPalette();
+
+const nowColorPresets = getNowColorPresets();
+
+/** Resolved against the settings page's own live theme — same as every other color-key resolution on this page (previewStyleLive etc.). */
+function activeIconColor(iconField: (typeof iconFields)[number]): string {
+  const colorKey = (form as unknown as Record<string, string>)[iconField.colorField];
+
+  return resolveSwatchHex(colorKey, iconField.slot, resolvedTheme.value);
+}
 
 /**
  * One shared tooltip for every swatch across every color-slot group,
@@ -155,6 +195,23 @@ const exampleVisibleDays = computed(() => {
   return Array.from({ length: 7 }, (_, i) => exampleWeekDatesMonFirst[(startIdx + i) % 7]!);
 });
 /**
+ * The color-slot preview's own 3-day window (see colorPreviewVisibleDays
+ * below) — yesterday/today/tomorrow, centered on the real current day
+ * rather than whichever 3 days happen to fall first for the owner's
+ * configured week_start. The color preview's whole point is judging how
+ * the current-time indicator reads against a chosen color, so the visible
+ * window has to actually contain today regardless of what day of the week
+ * it is; a week_start-first slice would miss it entirely on, say, a
+ * Thursday with week_start=Monday. The made-up events themselves stay
+ * exactly where exampleWeekDatesMonFirst already pins them (Monday's
+ * "Lunch with Alice" is always Monday's event) — only which 3 real
+ * calendar days get displayed shifts here, not the events.
+ */
+const colorPreviewExampleDays = computed(() => {
+  const today = exampleWeekDatesMonFirst[(exampleDay.getDay() + 6) % 7]!;
+  return [-1, 0, 1].map((offset) => new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + offset)));
+});
+/**
  * Live-updates as the Wake & sleep times table is edited (see
  * form.availability below), mirroring AvailabilityService's own
  * dayWindow()/computeSleepBlocks() logic client-side: a day contributes a
@@ -181,7 +238,12 @@ const exampleAvailability = computed<AvailabilityResponse>(() => {
 
   /** Mirrors AvailabilityService::dayWindow — null means "fully awake all day". */
   function dayWindowMinutes(dayOffset: number): { wakeMin: number; sleepMin: number } | null {
-    const dow = exampleWeekDatesMonFirst[dayOffset % 7]!.getUTCDay();
+    // JS's `%` doesn't wrap negative operands the way Python's does
+    // (-1 % 7 === -1, not 6) — dayOffset now legitimately goes negative
+    // (see RANGE_START_DAY below, for the "yesterday" the color preview
+    // needs when today is a Monday), so this has to wrap it into 0..6 by
+    // hand rather than relying on a bare `% 7`.
+    const dow = exampleWeekDatesMonFirst[((dayOffset % 7) + 7) % 7]!.getUTCDay();
     const config = form.availability[dow];
     if (!config?.wake || !config?.sleep) return null;
 
@@ -215,14 +277,14 @@ const exampleAvailability = computed<AvailabilityResponse>(() => {
   // into the tail of the unavailable block instead of the two meeting
   // cleanly — the reported "gap in the second day after the unavailable
   // block".
-  const events: { day: number; start: number; end: number; tentativeStart?: boolean; tentativeEnd?: boolean; activity?: string; highlightWords?: string[] }[] = [
+  const events: { day: number; start: number; end: number; tentativeStart?: boolean; tentativeEnd?: boolean; activity?: string; highlightWords?: string[]; work?: boolean }[] = [
     { day: 0, start: 12 * 60, end: 14 * 60, activity: 'Lunch', highlightWords: ['Alice'] }, // Mon: Lunch with Alice
     { day: 1, start: 9 * 60, end: 11 * 60 + 30 }, // Tue: Team meeting
     { day: 2, start: 14 * 60, end: 16 * 60, tentativeStart: true, tentativeEnd: true }, // Wed: Maybe call
-    { day: 3, start: 10 * 60, end: 12 * 60, tentativeStart: true, tentativeEnd: true, activity: 'Coffee', highlightWords: ['Bob'] }, // Thu: Coffee with Bob
-    { day: 4, start: 13 * 60, end: 17 * 60 }, // Fri: Workshop
-    { day: 5, start: 18 * 60, end: 20 * 60, tentativeEnd: true, activity: 'Dinner', highlightWords: ['Alice'] }, // Sat: Dinner with Alice, open end
-    { day: 6, start: 15 * 60, end: 17 * 60, tentativeStart: true }, // Sun: open start
+    { day: 3, start: 10 * 60, end: 12 * 60, tentativeStart: true, tentativeEnd: true, activity: 'Coffee', highlightWords: ['Bob'] }, // Thu: Coffee with Bob (fully tentative + highlighted)
+    { day: 4, start: 13 * 60, end: 17 * 60, work: true }, // Fri: Workshop (work)
+    { day: 5, start: 18 * 60, end: 20 * 60, tentativeEnd: true, activity: 'Dinner', highlightWords: ['Alice'] }, // Sat: Dinner with Alice, open end + highlighted
+    { day: 6, start: 15 * 60, end: 17 * 60, tentativeStart: true, activity: 'Call', highlightWords: ['Charlie'] }, // Sun: Call with Charlie, open start + highlighted
   ];
 
   /** This event's [start, end], clamped to its own day's wake/sleep window — null if the window clips it away entirely (e.g. it falls fully inside a since-configured sleep period). */
@@ -235,7 +297,19 @@ const exampleAvailability = computed<AvailabilityResponse>(() => {
     return end > start ? [start, end] : null;
   }
 
-  const free = Array.from({ length: 7 }, (_, day) => {
+  // Events only ever cover day 0..6 (Mon..Sun), but the computed range now
+  // reaches one day earlier (day -1, i.e. the Sunday before this Monday —
+  // reachable as "yesterday" by colorPreviewExampleDays above whenever
+  // today is itself a Monday) and one day later (day 7, next Monday, kept
+  // from the range this already had for the sleep wraparound below) than
+  // that. Both ends are simply eventless — day -1/day 7 render as fully
+  // free/asleep per that day's own window, same as any other day with no
+  // events on it.
+  const RANGE_START_DAY = -1;
+  const RANGE_END_DAY = 8; // exclusive
+
+  const free = Array.from({ length: RANGE_END_DAY - RANGE_START_DAY }, (_, i) => {
+    const day = RANGE_START_DAY + i;
     const win = dayWindowMinutes(day);
     const windowStart = win ? win.wakeMin : 0;
     const windowEnd = win ? win.sleepMin : 1440;
@@ -255,11 +329,10 @@ const exampleAvailability = computed<AvailabilityResponse>(() => {
     return segments;
   }).flat();
 
-  // Sleep: awake windows per day-offset (0-7, matching the existing
-  // wraparound-into-"day 7" need so day 6's late hours still get a block),
-  // merged, then inverted across the whole span — same shape as
-  // AvailabilityService::computeSleepBlocks.
-  const awakeWindows = Array.from({ length: 8 }, (_, day) => {
+  // Sleep: awake windows per day-offset, merged, then inverted across the
+  // whole span — same shape as AvailabilityService::computeSleepBlocks.
+  const awakeWindows = Array.from({ length: RANGE_END_DAY - RANGE_START_DAY }, (_, i) => {
+    const day = RANGE_START_DAY + i;
     const win = dayWindowMinutes(day);
     return win
       ? { start: day * 1440 + win.wakeMin, end: day * 1440 + win.sleepMin }
@@ -277,12 +350,12 @@ const exampleAvailability = computed<AvailabilityResponse>(() => {
   }
 
   const sleep: { start: string; end: string }[] = [];
-  let cursor = 0;
+  let cursor = RANGE_START_DAY * 1440;
   for (const window of mergedAwake) {
     if (window.start > cursor) sleep.push({ start: atAbsMinutes(cursor), end: atAbsMinutes(window.start) });
     cursor = Math.max(cursor, window.end);
   }
-  if (cursor < 8 * 1440) sleep.push({ start: atAbsMinutes(cursor), end: atAbsMinutes(8 * 1440) });
+  if (cursor < RANGE_END_DAY * 1440) sleep.push({ start: atAbsMinutes(cursor), end: atAbsMinutes(RANGE_END_DAY * 1440) });
 
   return {
     free,
@@ -304,11 +377,22 @@ const exampleAvailability = computed<AvailabilityResponse>(() => {
         };
       })
       .filter((slot) => slot !== null),
-    // No synthetic work-classified event in this mock — the example panel
-    // demonstrates the free/busy/highlighted/sleep shapes, not every
-    // category; an owner sees their real work blocks once they've both set
-    // a work pattern and fetched a real preview below.
-    work: [],
+    // Same double-bookkeeping as `highlighted` above — a work event is
+    // still busy time too (already double-listed in `unavailable`), this
+    // is just the overlay tag on top of it.
+    work: events
+      .filter((event) => event.work)
+      .map((event) => {
+        const clipped = clippedEventMinutes(event);
+        if (!clipped) return null;
+        return {
+          start: atAbsMinutes(event.day * 1440 + clipped[0]),
+          end: atAbsMinutes(event.day * 1440 + clipped[1]),
+          tentative_start: event.tentativeStart,
+          tentative_end: event.tentativeEnd,
+        };
+      })
+      .filter((slot) => slot !== null),
     highlighted: events
       .filter((event) => event.activity)
       .map((event) => {
@@ -358,9 +442,9 @@ const form = useForm({
   // setting look already active — the suggestion is shown as a
   // placeholder instead (every input below already has :placeholder set),
   // same as activity_clause_pattern already did.
-  dnd_event_name: props.settings.dnd_event_name,
-  nap_event_name: props.settings.nap_event_name,
-  work_event_name: props.settings.work_event_name,
+  dnd_event_pattern: props.settings.dnd_event_pattern,
+  nap_event_pattern: props.settings.nap_event_pattern,
+  work_event_pattern: props.settings.work_event_pattern,
   calendar_parsing_mode: props.settings.calendar_parsing_mode,
   highlight_clause_pattern: props.settings.highlight_clause_pattern,
   highlight_split_pattern: props.settings.highlight_split_pattern,
@@ -377,7 +461,12 @@ const form = useForm({
   work_color_key: props.settings.work_color_key ?? getDefaultSwatchKey('work'),
   sleep_color_key: props.settings.sleep_color_key ?? getDefaultSwatchKey('sleep'),
   highlight_color_key: props.settings.highlight_color_key ?? getDefaultSwatchKey('highlighted'),
-  now_color: props.settings.now_color ?? '#e5566a',
+  free_icon_key: props.settings.free_icon_key ?? getDefaultIconKey('free'),
+  busy_icon_key: props.settings.busy_icon_key ?? getDefaultIconKey('busy'),
+  work_icon_key: props.settings.work_icon_key ?? getDefaultIconKey('work'),
+  sleep_icon_key: props.settings.sleep_icon_key ?? getDefaultIconKey('sleep'),
+  highlight_icon_key: props.settings.highlight_icon_key ?? getDefaultIconKey('highlighted'),
+  now_color_key: props.settings.now_color_key ?? getDefaultNowColorKey(),
   availability: days.map((_, i) => ({
     wake: props.settings.availability[i]?.wake ?? '',
     sleep: props.settings.availability[i]?.sleep ?? '',
@@ -418,8 +507,18 @@ const previewDays = computed(() => {
   const weekStart = startOfWeekFns(new Date(), { weekStartsOn: form.week_start as 0 | 1 | 2 | 3 | 4 | 5 | 6 });
   return Array.from({ length: 7 }, (_, i) => addDaysFns(weekStart, i));
 });
-/** The light/dark dual color-slot preview only shows the first 3 days — plenty to judge how the colors read, and two side-by-side 7-day calendars would be cramped at half page width each. */
-const colorPreviewVisibleDays = computed(() => (previewAvailability.value ? previewDays.value : exampleVisibleDays.value).slice(0, 3));
+/**
+ * The light/dark dual color-slot preview only shows 3 days — plenty to
+ * judge how the colors read, and two side-by-side 7-day calendars would be
+ * cramped at half page width each. The synthetic-example branch centers
+ * on today (colorPreviewExampleDays) so the current-time indicator is
+ * always visible regardless of what day of the week it is; the real-
+ * fetched-preview branch still takes the first 3 days of the week instead
+ * — CalendarPreviewController's own computed range starts at today and
+ * only goes forward, so there's no "yesterday" data to center on there
+ * even if this centered the same way.
+ */
+const colorPreviewVisibleDays = computed(() => (previewAvailability.value ? previewDays.value.slice(0, 3) : colorPreviewExampleDays.value));
 /** Wake & sleep times table row order — same weekday indices (0=Sun..6=Sat) as form.availability, just walked starting from week_start instead of always Sunday. */
 const orderedDayIndices = computed(() => Array.from({ length: 7 }, (_, i) => (form.week_start + i) % 7));
 const currentTimePct = (() => {
@@ -456,7 +555,7 @@ function previewStyleFor(theme: 'light' | 'dark') {
     '--wtf-hue-sleep': sleep,
     '--wtf-color-highlighted': hexToRgba(highlighted, alpha.highlighted),
     '--wtf-hue-highlighted': highlighted,
-    '--wtf-color-now': form.now_color,
+    '--wtf-color-now': resolveNowColorHex(form.now_color_key, theme),
   };
 }
 
@@ -471,6 +570,15 @@ const previewStyleDark = computed(() => previewStyleFor('dark'));
 const previewStyleLive = computed(() => previewStyleFor(resolvedTheme.value));
 const previewSecondaryColorLight = computed(() => resolveSwatchHex(form.secondary_color_key, 'secondary', 'light'));
 const previewSecondaryColorDark = computed(() => resolveSwatchHex(form.secondary_color_key, 'secondary', 'dark'));
+
+/** Fed to both preview CalendarView instances below — icons aren't theme-reactive (see icon-palette.ts), so this is a single computed, not a light/dark pair. */
+const formIcons = computed(() => ({
+  free: resolveIcon(form.free_icon_key, 'free'),
+  busy: resolveIcon(form.busy_icon_key, 'busy'),
+  work: resolveIcon(form.work_icon_key, 'work'),
+  sleep: resolveIcon(form.sleep_icon_key, 'sleep'),
+  highlighted: resolveIcon(form.highlight_icon_key, 'highlighted'),
+}));
 
 function onUrlInput(): void {
   calendarUrlForm.calendar_url_preview_confirmed = false;
@@ -492,9 +600,9 @@ async function preview(): Promise<void> {
       calendar_url: calendarUrlForm.calendar_url,
       timezone: form.timezone,
       calendar_parsing_mode: form.calendar_parsing_mode,
-      dnd_event_name: form.dnd_event_name,
-      nap_event_name: form.nap_event_name,
-      work_event_name: form.work_event_name,
+      dnd_event_pattern: form.dnd_event_pattern,
+      nap_event_pattern: form.nap_event_pattern,
+      work_event_pattern: form.work_event_pattern,
       highlight_clause_pattern: form.highlight_clause_pattern,
       highlight_split_pattern: form.highlight_split_pattern,
       activity_clause_pattern: form.activity_clause_pattern,
@@ -559,19 +667,55 @@ function saveCalendarUrl(): void {
   });
 }
 
-function resetColor(field: keyof Settings, value: string): void {
+/** Also used by the "Use" button next to each pattern field's suggested/default value (below) — putting that value straight into the field is the same operation as resetting a color to a literal. */
+function setFormField(field: keyof Settings, value: string): void {
   (form as unknown as Record<string, string>)[field] = value;
 }
 
-function resetAvailability(): void {
+/** Genuinely clears every day to blank — distinct from the "Reset" button next to it, which restores the last-saved/loaded values instead of wiping them. */
+function clearAvailability(): void {
   form.availability = days.map(() => ({ wake: '', sleep: '' }));
 }
+
+/**
+ * Field lists for each section's own "Reset" button — form.reset(...) only
+ * reverts the fields named, not the other two sections' worth that happen
+ * to share this same useForm() instance, since a "Reset" clicked in one
+ * card resetting an owner's still-unsaved edits in a completely different
+ * card would be a nasty surprise. The set reverted here is exactly the
+ * fields collected by submit()'s own payload for that card — see the
+ * template below for which BFormGroups belong to which card.
+ */
+const EVENT_MATCHING_FIELDS = [
+  'dnd_event_pattern', 'nap_event_pattern', 'work_event_pattern',
+  'highlight_clause_pattern', 'highlight_split_pattern', 'activity_clause_pattern',
+  'tentative_pattern', 'open_end_pattern', 'open_start_pattern',
+] as const;
+const PUBLIC_PAGE_FIELDS = [
+  'public_page_title_en', 'public_page_title_hu',
+  'accent_color_key', 'secondary_color_key', 'free_color_key', 'busy_color_key', 'work_color_key', 'sleep_color_key', 'highlight_color_key',
+  'free_icon_key', 'busy_icon_key', 'work_icon_key', 'sleep_icon_key', 'highlight_icon_key',
+  'now_color_key',
+] as const;
 
 function submit(): void {
   form.transform((data) => ({
     ...data,
     availability: Object.fromEntries(data.availability.map((day, i) => [i, day])),
-  })).patch('/settings', { preserveScroll: true });
+  })).patch('/settings', {
+    preserveScroll: true,
+    // Updates form's own "reset to" baseline to the values just saved —
+    // without this, every section's Reset button would always revert to
+    // whatever was on the page at the very first load, never to a save
+    // made sometime after that.
+    onSuccess: () => form.defaults(),
+  });
+}
+
+/** Mirrors onUrlInput's own cleanup — form.reset() sets calendar_url programmatically, which doesn't fire the native @input event onUrlInput is normally bound to. */
+function resetCalendarUrl(): void {
+  calendarUrlForm.reset();
+  onUrlInput();
 }
 </script>
 
@@ -638,6 +782,7 @@ function submit(): void {
       >
         Save calendar URL
       </BButton>
+      <BButton variant="outline-secondary" class="ms-2" @click="resetCalendarUrl">Reset</BButton>
       <span v-if="calendarUrlJustSaved" class="small text-success ms-2">Saved</span>
       <span v-else class="small text-muted ms-2">{{ previewStatus }}</span>
 
@@ -658,6 +803,7 @@ function submit(): void {
           :unavailable-slots="previewAvailability.unavailable"
           :work-slots="previewAvailability.work"
           :sleep-slots="previewAvailability.sleep"
+          :icons="formIcons"
           :pending="false"
           :has-error="false"
           :has-any-free-time="true"
@@ -718,20 +864,30 @@ function submit(): void {
             tested case-insensitively against <em>anywhere</em> in the event's title by default.
             A quick crash course in the handful of regex bits that actually come up on this page:
           </p>
+          <p class="mb-1">Each field below is badged with how it actually uses your pattern:</p>
+          <dl class="wtf-badge-legend mb-2">
+            <dt><BBadge variant="secondary" class="align-middle">Boolean</BBadge></dt>
+            <dd>Just tests whether it matches at all — nothing is captured.</dd>
+            <dt><BBadge variant="info" text="dark" class="align-middle">Capture</BBadge></dt>
+            <dd>
+              Requires exactly one real <code>(…)</code> capture group, whose contents are the
+              actual thing used (see the <code>(…)</code>/<code>(?:…)</code> bullets below — this
+              is checked and rejected on save if it's missing or there's more than one).
+            </dd>
+            <dt><BBadge variant="warning" text="dark" class="align-middle">Flag</BBadge></dt>
+            <dd>
+              Also a boolean match (no group read), but with two side effects together: it marks
+              the event tentative at that edge (start/end/both, depending on the field)
+              <em>and</em> removes the matched marker text from the title used for pattern
+              matching.
+            </dd>
+            <dt><BBadge variant="primary" class="align-middle">Split</BBadge></dt>
+            <dd>
+              Isn't matched against a title at all — it's a delimiter used to break one field's
+              captured text into individual pieces.
+            </dd>
+          </dl>
           <ul class="mb-2">
-            <li>
-              Each field below is badged with how it actually uses your pattern:
-              <BBadge variant="secondary" class="align-middle">Boolean</BBadge> just tests whether
-              it matches at all (nothing is captured); <BBadge variant="info" text="dark" class="align-middle">Capture</BBadge>
-              requires exactly one real <code>(…)</code> capture group, whose contents are the
-              actual thing used (see the <code>(…)</code>/<code>(?:…)</code> bullets below —
-              this is checked and rejected on save if it's missing or there's more than one);
-              <BBadge variant="warning" text="dark" class="align-middle">Strip</BBadge> matches
-              the whole pattern and removes it from the title a viewer sees, without reading any
-              particular group; <BBadge variant="primary" class="align-middle">Split</BBadge> isn't
-              matched against a title at all — it's a delimiter used to break one field's captured
-              text into individual pieces.
-            </li>
             <li>
               Unanchored by default — a plain word like <code>dnd</code> matches a title that
               merely <em>contains</em> "dnd" anywhere, case-insensitively. "Team DND block"
@@ -765,6 +921,49 @@ function submit(): void {
               one whose contents actually get used) — reach for <code>(?:…)</code> for any
               other grouping in those two fields so it doesn't count against that limit.
             </li>
+            <li>
+              <code>[…]</code> is a character class — it matches any <em>one</em> of the
+              characters listed inside, not the sequence as a whole. <code>[,&amp;/]</code> (the
+              Highlight name-split expression's own default, below) matches a single comma,
+              ampersand, <em>or</em> slash — not that whole three-character string.
+              <code>-</code> inside a class builds a <em>range</em> (<code>[a-z]</code> is every
+              lowercase letter) rather than meaning a literal hyphen — if you actually want a
+              literal <code>-</code> in a class and aren't sure whether it'll be read as a range,
+              put it right at the start or the end of the class (e.g. <code>[,&amp;/-]</code>),
+              where it can't form one.
+            </li>
+            <li>
+              <code>?</code>, <code>*</code>, and <code>+</code> repeat whatever came right
+              before them — a single character, or a whole <code>(…)</code>/<code>(?:…)</code>
+              group — but as a fixed shorthand rather than a chosen count: <code>?</code> means
+              "zero or one" (optional), <code>*</code> means "zero or more", and <code>+</code>
+              means "one or more". <code>colou?r</code> matches both "color" and "colour";
+              <code>lo+l</code> matches "lol", "lool", "loool", and so on, but not "ll".
+            </li>
+            <li>
+              <code>{n}</code>, <code>{n,}</code>, and <code>{n,m}</code> also repeat whatever came
+              right before them the same way, but for an exact or bounded count you choose instead
+              of one of those three fixed shorthands: exactly <code>n</code> times, <code>n</code>
+              or more times, or between <code>n</code> and <code>m</code> times. <code>a{2,4}</code>
+              matches "aa", "aaa", or "aaaa", but not a single "a" or five of them.
+            </li>
+            <li>
+              <code>.</code> matches <em>any single character</em> (except a newline) — not a
+              literal period the way it looks. <code>a.c</code> matches "abc", "a c", "a-c", and so
+              on, just as much as "a.c". If you actually want a literal period, escape it:
+              <code>a\.c</code> matches only "a.c".
+            </li>
+            <li>
+              <code>\</code> in front of any of the metacharacters above (<code>\.</code>,
+              <code>\?</code>, <code>\[</code>, <code>\]</code>, <code>\{</code>, <code>\}</code>,
+              <code>\(</code>, <code>\)</code>, <code>\\</code>, etc.) strips that character's
+              special meaning so it matches only itself — the pattern editors above color these
+              as plain text, since that's really all they are. The same <code>\</code> in front of
+              a letter usually means the opposite — it <em>adds</em> special meaning instead
+              (<code>\d</code> any digit, <code>\w</code> any letter/digit/underscore,
+              <code>\s</code> any whitespace) — those get their own color above since they're a
+              genuinely different kind of match, not just an escaped literal.
+            </li>
           </ul>
           <p class="mb-2">
             If what you type isn't valid regex syntax, matching just silently never happens
@@ -790,17 +989,21 @@ function submit(): void {
         -->
         <div class="row mb-3">
           <div class="col-md-6">
-            <BFormGroup label-for="dnd_event_name" class="mb-0">
+            <BFormGroup label-for="dnd_event_pattern" class="mb-0">
               <template #label>DND event regular expression <BBadge variant="secondary" class="align-middle">Boolean</BBadge></template>
-              <RegexPatternInput id="dnd_event_name" v-model="form.dnd_event_name" />
-              <template #description>A match hides the event entirely from viewers (unless a share link bypasses it). Suggested: <code>{{ defaults.dndEventName }}</code></template>
+              <RegexPatternInput id="dnd_event_pattern" v-model="form.dnd_event_pattern" />
+              <template #description>
+                A match hides the event entirely from viewers (unless a share link bypasses it).
+                Suggested: <RegexHighlightedCode :pattern="defaults.dndEventPattern" />
+                <BButton variant="link" size="sm" class="p-0 align-baseline" @click="setFormField('dnd_event_pattern', defaults.dndEventPattern)">Use</BButton>
+              </template>
             </BFormGroup>
           </div>
           <div class="col-md-6">
             <div class="wtf-pattern-preview-panel">
-              <p class="small text-muted mb-1">Live preview — <code>{{ form.dnd_event_name || '(blank, off)' }}</code></p>
+              <p class="small text-muted mb-1">Live preview — <code>{{ form.dnd_event_pattern || '(blank, off)' }}</code></p>
               <PatternPreview
-                :pattern="form.dnd_event_name ?? ''"
+                :pattern="form.dnd_event_pattern ?? ''"
                 :examples="['DND', 'Team DND block', 'dnd - focus time', 'Focus time', 'Lunch with Sarah']"
                 mode="match"
               />
@@ -810,17 +1013,21 @@ function submit(): void {
 
         <div class="row mb-3">
           <div class="col-md-6">
-            <BFormGroup label-for="nap_event_name" class="mb-0">
+            <BFormGroup label-for="nap_event_pattern" class="mb-0">
               <template #label>Nap event regular expression <BBadge variant="secondary" class="align-middle">Boolean</BBadge></template>
-              <RegexPatternInput id="nap_event_name" v-model="form.nap_event_name" />
-              <template #description>A match shows the event as sleep instead of busy. Suggested: <code>{{ defaults.napEventName }}</code></template>
+              <RegexPatternInput id="nap_event_pattern" v-model="form.nap_event_pattern" />
+              <template #description>
+                A match shows the event as sleep instead of busy.
+                Suggested: <RegexHighlightedCode :pattern="defaults.napEventPattern" />
+                <BButton variant="link" size="sm" class="p-0 align-baseline" @click="setFormField('nap_event_pattern', defaults.napEventPattern)">Use</BButton>
+              </template>
             </BFormGroup>
           </div>
           <div class="col-md-6">
             <div class="wtf-pattern-preview-panel">
-              <p class="small text-muted mb-1">Live preview — <code>{{ form.nap_event_name || '(blank, off)' }}</code></p>
+              <p class="small text-muted mb-1">Live preview — <code>{{ form.nap_event_pattern || '(blank, off)' }}</code></p>
               <PatternPreview
-                :pattern="form.nap_event_name ?? ''"
+                :pattern="form.nap_event_pattern ?? ''"
                 :examples="['Nap', 'Afternoon nap', 'NAP TIME', 'Sleep', 'Standup meeting']"
                 mode="match"
               />
@@ -830,17 +1037,22 @@ function submit(): void {
 
         <div class="row mb-3">
           <div class="col-md-6">
-            <BFormGroup label-for="work_event_name" class="mb-0">
+            <BFormGroup label-for="work_event_pattern" class="mb-0">
               <template #label>Work event regular expression <BBadge variant="secondary" class="align-middle">Boolean</BBadge></template>
-              <RegexPatternInput id="work_event_name" v-model="form.work_event_name" />
-              <template #description>A match counts toward the "work" slice of the dashboard's time-breakdown widget and the /free calendar's own work category. Suggested: <code>{{ defaults.workEventName }}</code></template>
+              <RegexPatternInput id="work_event_pattern" v-model="form.work_event_pattern" />
+              <template #description>
+                A match counts toward the "work" slice of the dashboard's time-breakdown widget and
+                the /free calendar's own work category.
+                Suggested: <RegexHighlightedCode :pattern="defaults.workEventPattern" />
+                <BButton variant="link" size="sm" class="p-0 align-baseline" @click="setFormField('work_event_pattern', defaults.workEventPattern)">Use</BButton>
+              </template>
             </BFormGroup>
           </div>
           <div class="col-md-6">
             <div class="wtf-pattern-preview-panel">
-              <p class="small text-muted mb-1">Live preview — <code>{{ form.work_event_name || '(blank, off)' }}</code></p>
+              <p class="small text-muted mb-1">Live preview — <code>{{ form.work_event_pattern || '(blank, off)' }}</code></p>
               <PatternPreview
-                :pattern="form.work_event_name ?? ''"
+                :pattern="form.work_event_pattern ?? ''"
                 :examples="['Work', 'Work block', 'WFH', 'Team standup', 'Lunch with Sarah']"
                 mode="match"
               />
@@ -852,7 +1064,7 @@ function submit(): void {
           <div class="col-md-6">
             <BFormGroup label-for="highlight_clause_pattern" class="mb-0">
               <template #label>Highlight regular expression <BBadge variant="info" text="dark" class="align-middle">Capture</BBadge></template>
-              <RegexPatternInput id="highlight_clause_pattern" v-model="form.highlight_clause_pattern" multiline :rows="2" :placeholder="defaults.highlightClausePattern" />
+              <RegexPatternInput id="highlight_clause_pattern" v-model="form.highlight_clause_pattern" :placeholder="defaults.highlightClausePattern" />
               <template #description>
                 Same regex-body rules as above, but everything after "with"/"w/" is captured as a
                 whole (to the end of the title), then split — using the name-split expression
@@ -862,7 +1074,9 @@ function submit(): void {
                 with Alice, Bob" checks both "Alice" and "Bob" individually. "Host X" also
                 matches, marking the event as the calendar owner hosting X; "Visit X" marks the
                 owner visiting X. Leave blank to fall back to the built-in default rather than
-                turning matching off. Default: <code>{{ defaults.highlightClausePattern }}</code>
+                turning matching off.
+                Default: <RegexHighlightedCode :pattern="defaults.highlightClausePattern" />
+                <BButton variant="link" size="sm" class="p-0 align-baseline" @click="setFormField('highlight_clause_pattern', defaults.highlightClausePattern)">Use</BButton>
               </template>
             </BFormGroup>
           </div>
@@ -891,29 +1105,31 @@ function submit(): void {
               <template #description>
                 A clause can name more than one person — this splits the Highlight field's own
                 capture (e.g. "Alice, Bob" from "Dinner with Alice, Bob") into individual names
-                before each is checked. The default requires a space after the comma, so
-                "Alice,Bob" (no space) is treated as one name rather than two — override to
-                <code>,\s*</code> if your calendar app never adds that space, or to something
-                else entirely (e.g. <code>;\s*</code>) if you use a different separator. Leave
-                blank to fall back to the built-in default rather than turning splitting off (a
-                clause is always split on <em>something</em>).
-                Default: <code>{{ defaults.highlightSplitPattern }}</code>
+                before each is checked. Each resulting piece is always trimmed of surrounding
+                whitespace, so the default (comma, ampersand, or slash — "Alice, Bob", "Alice &amp;
+                Bob", and "Alice/Bob" all split the same way) doesn't care about spacing around
+                whichever one shows up — override this only if you use a different separator
+                entirely (e.g. <code>;\s*</code>). Leave blank to fall back to the built-in
+                default rather than turning splitting off (a clause is always split on
+                <em>something</em>).
+                Default: <RegexHighlightedCode :pattern="defaults.highlightSplitPattern" />
+                <BButton variant="link" size="sm" class="p-0 align-baseline" @click="setFormField('highlight_split_pattern', defaults.highlightSplitPattern)">Use</BButton>
               </template>
             </BFormGroup>
           </div>
           <div class="col-md-6">
             <div class="wtf-pattern-preview-panel">
               <p class="small text-muted mb-1">
-                Live preview — splitting <code>"Alicia, Bob"</code> on
+                Live preview — splitting on
                 <code>{{ form.highlight_split_pattern || defaults.highlightSplitPattern }}</code>
-                <br><span class="text-muted">(against sample configured words "Alicia", "Bob", "ia, Bob")</span>
+                <br><span class="text-muted">(bolded pieces match one of the sample configured words "Alicia", "Bob", "Damien", "George", "ia, Bob")</span>
               </p>
               <PatternPreview
                 pattern="(.+)"
-                :examples="['Alicia, Bob']"
-                :sample-words="['Alicia', 'Bob', 'ia, Bob']"
+                :examples="['Alicia, Bob', 'Cleo/Damien/Ed', 'Frank & George']"
+                :sample-words="['Alicia', 'Bob', 'Damien', 'George', 'ia, Bob']"
                 :split-pattern="form.highlight_split_pattern || defaults.highlightSplitPattern"
-                mode="tokens"
+                mode="split"
               />
             </div>
           </div>
@@ -931,14 +1147,16 @@ function submit(): void {
                 with Alice" is shown only to Alice's own link. Leave it blank (the default) and
                 nothing is ever extracted or shown, no matter how a matched event's title reads.
               </BAlert>
-              <RegexPatternInput id="activity_clause_pattern" v-model="form.activity_clause_pattern" multiline :rows="2" />
+              <RegexPatternInput id="activity_clause_pattern" v-model="form.activity_clause_pattern" />
               <template #description>
                 A separate pattern from the highlight clause above — its capture group is the
                 freetext <em>before</em> "with"/"w/" (e.g. "Dinner" in "Dinner with Alice"). Only
                 ever applied to an event that already matched a highlight word, and only shown if
                 the individual share link viewing it also has its own "show activity" option on
                 (a link-level toggle, not here). Same regex-body rules as the fields above.
-                Suggested (matches the highlight clause above): <code>{{ defaults.activityClausePattern }}</code>
+                Suggested (matches the highlight clause above):
+                <RegexHighlightedCode :pattern="defaults.activityClausePattern" />
+                <BButton variant="link" size="sm" class="p-0 align-baseline" @click="setFormField('activity_clause_pattern', defaults.activityClausePattern)">Use</BButton>
               </template>
             </BFormGroup>
           </div>
@@ -959,15 +1177,17 @@ function submit(): void {
         <div class="row mb-3">
           <div class="col-md-6">
             <BFormGroup label-for="tentative_pattern" class="mb-0">
-              <template #label>Tentative regular expression <BBadge variant="warning" text="dark" class="align-middle">Strip</BBadge></template>
+              <template #label>Tentative regular expression <BBadge variant="warning" text="dark" class="align-middle">Flag</BBadge></template>
               <RegexPatternInput id="tentative_pattern" v-model="form.tentative_pattern" :placeholder="defaults.tentativePattern" />
               <template #description>
                 Same regex-body rules as above. An event whose title matches this (in addition to
                 any calendar-provided "tentative" status) is shown to viewers as tentative — both
                 its start and end are shown as unknown — and the matched text is stripped from the
-                title they see. The default matches a trailing <code>(?)</code>, e.g. "Maybe lunch
-                (?)" &rarr; "Maybe lunch". Leave blank to fall back to that default rather than
-                turning detection off. Default: <code>{{ defaults.tentativePattern }}</code>
+                title used for pattern matching. The default matches a trailing <code>(?)</code>,
+                e.g. "Maybe lunch (?)" &rarr; "Maybe lunch". Leave blank to fall back to that
+                default rather than turning detection off.
+                Default: <RegexHighlightedCode :pattern="defaults.tentativePattern" />
+                <BButton variant="link" size="sm" class="p-0 align-baseline" @click="setFormField('tentative_pattern', defaults.tentativePattern)">Use</BButton>
               </template>
             </BFormGroup>
           </div>
@@ -988,14 +1208,16 @@ function submit(): void {
         <div class="row mb-3">
           <div class="col-md-6">
             <BFormGroup label-for="open_end_pattern" class="mb-0">
-              <template #label>Open-end regular expression <BBadge variant="warning" text="dark" class="align-middle">Strip</BBadge></template>
+              <template #label>Open-end regular expression <BBadge variant="warning" text="dark" class="align-middle">Flag</BBadge></template>
               <RegexPatternInput id="open_end_pattern" v-model="form.open_end_pattern" :placeholder="defaults.openEndPattern" />
               <template #description>
                 For an event that's definitely happening but has no known end time (e.g. it runs
                 until whenever it's over). Same regex-body rules as above; matched text is stripped
                 the same way. The default matches a trailing <code>(-?)</code>, e.g. "Dinner (-?)"
                 &rarr; "Dinner", shown to viewers with a known start and an open end. Leave blank to
-                fall back to that default rather than turning detection off. Default: <code>{{ defaults.openEndPattern }}</code>
+                fall back to that default rather than turning detection off.
+                Default: <RegexHighlightedCode :pattern="defaults.openEndPattern" />
+                <BButton variant="link" size="sm" class="p-0 align-baseline" @click="setFormField('open_end_pattern', defaults.openEndPattern)">Use</BButton>
               </template>
             </BFormGroup>
           </div>
@@ -1016,14 +1238,15 @@ function submit(): void {
         <div class="row mb-3">
           <div class="col-md-6">
             <BFormGroup label-for="open_start_pattern" class="mb-0">
-              <template #label>Open-start regular expression <BBadge variant="warning" text="dark" class="align-middle">Strip</BBadge></template>
+              <template #label>Open-start regular expression <BBadge variant="warning" text="dark" class="align-middle">Flag</BBadge></template>
               <RegexPatternInput id="open_start_pattern" v-model="form.open_start_pattern" :placeholder="defaults.openStartPattern" />
               <template #description>
                 Same idea as open-end above, for an event whose start time isn't known but which
                 definitely ends by a known time. The default matches a trailing <code>(?-)</code>,
                 e.g. "Dinner (?-)" &rarr; "Dinner", shown to viewers with an open start and a known
                 end. Leave blank to fall back to that default rather than turning detection off.
-                Default: <code>{{ defaults.openStartPattern }}</code>
+                Default: <RegexHighlightedCode :pattern="defaults.openStartPattern" />
+                <BButton variant="link" size="sm" class="p-0 align-baseline" @click="setFormField('open_start_pattern', defaults.openStartPattern)">Use</BButton>
               </template>
             </BFormGroup>
           </div>
@@ -1043,6 +1266,7 @@ function submit(): void {
 
       <template #footer>
         <BButton type="submit" variant="primary" :disabled="form.processing">Save settings</BButton>
+        <BButton variant="outline-secondary" class="ms-2" @click="form.reset(...EVENT_MATCHING_FIELDS)">Reset</BButton>
       </template>
     </BCard>
   </form>
@@ -1068,7 +1292,8 @@ function submit(): void {
 
       <template #footer>
         <BButton type="submit" variant="primary" :disabled="form.processing">Save settings</BButton>
-        <BButton variant="outline-secondary" class="ms-2" @click="resetAvailability">Reset</BButton>
+        <BButton variant="outline-secondary" class="ms-2" @click="form.reset('availability')">Reset</BButton>
+        <BButton variant="outline-secondary" class="ms-2" @click="clearAvailability">Clear all</BButton>
       </template>
     </BCard>
   </form>
@@ -1134,15 +1359,57 @@ function submit(): void {
           </div>
           <div class="col-md-4 col-6 mb-3">
             <BFormGroup label="Current time">
-              <div class="input-group">
-                <BFormInput v-model="form.now_color" type="color" />
-                <BButton variant="outline-secondary" size="sm" @click="resetColor('now_color', '#e5566a')">
-                  Reset
-                </BButton>
+              <div class="wtf-swatch-grid">
+                <button
+                  v-for="preset in nowColorPresets"
+                  :key="preset.key"
+                  type="button"
+                  class="wtf-swatch-btn"
+                  :class="{ 'wtf-swatch-btn-active': form.now_color_key === preset.key }"
+                  :style="{ '--wtf-swatch-light': preset.light, '--wtf-swatch-dark': preset.dark }"
+                  :aria-pressed="form.now_color_key === preset.key"
+                  @click="form.now_color_key = preset.key"
+                  @mouseenter="showSwatchTooltip($event, preset.label)"
+                  @mouseleave="hideSwatchTooltip"
+                  @focus="showSwatchTooltip($event, preset.label)"
+                  @blur="hideSwatchTooltip"
+                >
+                  <span class="visually-hidden">{{ preset.label }}</span>
+                </button>
               </div>
               <template #description>
-                Same in both themes — it's a fixed marker color, not tied to a theme's own palette.
+                Deliberately loud, saturated colors kept out of the normal block-color palette
+                above, so the current-time line never blends into a same-colored event block. Only
+                these presets are available — not a free-form color, so there's no risk of picking
+                one that reads badly against one of the themes.
               </template>
+            </BFormGroup>
+          </div>
+        </div>
+
+        <h3 class="h6 mb-3">Icons</h3>
+        <div class="row">
+          <div v-for="iconField in iconFields" :key="iconField.field" class="col-md-4 col-6 mb-3">
+            <BFormGroup :label="iconField.label">
+              <div class="wtf-swatch-grid">
+                <button
+                  v-for="icon in iconPalette"
+                  :key="icon.key"
+                  type="button"
+                  class="wtf-icon-swatch-btn"
+                  :class="{ 'wtf-icon-swatch-btn-active': (form as unknown as Record<string, string>)[iconField.field] === icon.key }"
+                  :style="{ '--wtf-icon-active-color': activeIconColor(iconField) }"
+                  :aria-pressed="(form as unknown as Record<string, string>)[iconField.field] === icon.key"
+                  @click="(form as unknown as Record<string, string>)[iconField.field] = icon.key"
+                  @mouseenter="showSwatchTooltip($event, icon.label)"
+                  @mouseleave="hideSwatchTooltip"
+                  @focus="showSwatchTooltip($event, icon.label)"
+                  @blur="hideSwatchTooltip"
+                >
+                  <FontAwesomeIcon v-if="faIconFor(icon.key)" :icon="faIconFor(icon.key)!" />
+                  <span class="visually-hidden">{{ icon.label }}</span>
+                </button>
+              </div>
             </BFormGroup>
           </div>
         </div>
@@ -1186,6 +1453,7 @@ function submit(): void {
                 :unavailable-slots="(previewAvailability ?? exampleAvailability).unavailable"
                 :work-slots="(previewAvailability ?? exampleAvailability).work"
                 :sleep-slots="(previewAvailability ?? exampleAvailability).sleep"
+                :icons="formIcons"
                 :pending="false"
                 :has-error="false"
                 :has-any-free-time="true"
@@ -1200,6 +1468,7 @@ function submit(): void {
 
       <template #footer>
         <BButton type="submit" variant="primary" :disabled="form.processing">Save public page</BButton>
+        <BButton variant="outline-secondary" class="ms-2" @click="form.reset(...PUBLIC_PAGE_FIELDS)">Reset</BButton>
       </template>
     </BCard>
   </form>

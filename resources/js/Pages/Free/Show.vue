@@ -35,8 +35,10 @@ import AgendaView from '../../free/AgendaView.vue';
 import MonthView from '../../free/MonthView.vue';
 import { BLOCK_ALPHA, hexToRgba, hexToRgbTriplet, yiqTextColor } from '../../free/color-utils';
 import { resolveSwatchHex } from '../../free/color-palette';
+import { resolveIcon } from '../../free/icon-palette';
 import { useResolvedTheme } from '../../composables/useTheme';
 import { rememberInviteCode } from '../../composables/useInviteCode';
+import { resolveNowColorHex } from '../../free/now-color-presets';
 import type { AvailabilityResponse } from '../../free/nuxt-blocks';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 
@@ -56,8 +58,14 @@ const props = defineProps<{
     work: string | null;
     sleep: string | null;
     highlighted: string | null;
-    /** Deliberately theme-independent (see dark-theme.css) — a raw hex, not a palette key. */
     now: string | null;
+  };
+  icons: {
+    free: string | null;
+    busy: string | null;
+    work: string | null;
+    sleep: string | null;
+    highlighted: string | null;
   };
 }>();
 
@@ -93,9 +101,20 @@ const rootStyle = computed(() => {
     '--wtf-hue-sleep': sleep,
     '--wtf-color-highlighted': hexToRgba(highlighted, alpha.highlighted),
     '--wtf-hue-highlighted': highlighted,
-    ...(props.colors.now ? { '--wtf-color-now': props.colors.now } : {}),
+    '--wtf-color-now': resolveNowColorHex(props.colors.now, theme),
   };
 });
+
+// Icon shape doesn't vary by theme (only the block's own text color does,
+// already handled by rootStyle above) — a flat, non-theme-reactive
+// resolution, unlike rootStyle's color computed.
+const resolvedIcons = computed(() => ({
+  free: resolveIcon(props.icons.free, 'free'),
+  busy: resolveIcon(props.icons.busy, 'busy'),
+  work: resolveIcon(props.icons.work, 'work'),
+  sleep: resolveIcon(props.icons.sleep, 'sleep'),
+  highlighted: resolveIcon(props.icons.highlighted, 'highlighted'),
+}));
 
 class LinkExpiredError extends Error {
 }
@@ -485,6 +504,7 @@ onMounted(() => {
                   :unavailable-slots="availability.unavailable"
                   :work-slots="availability.work"
                   :sleep-slots="availability.sleep"
+                  :icons="resolvedIcons"
                   :pending="showStatus"
                   :has-error="showError"
                   :has-any-free-time="hasAnyFreeTime"
@@ -519,6 +539,7 @@ onMounted(() => {
                 :unavailable-slots="availability.unavailable"
                 :work-slots="availability.work"
                 :sleep-slots="availability.sleep"
+                :icons="resolvedIcons"
                 :pending="showStatus"
                 :has-error="showError"
                 :timezone="timezone"

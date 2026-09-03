@@ -1,6 +1,6 @@
 <?php
 
-use App\Support\ColorPalette;
+use App\Support\ColorSwatchKey;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +13,7 @@ return new class extends Migration
      * columns: an owner picking any arbitrary hex meant a color chosen
      * while previewing one theme often read badly on the other. Each of
      * these six slots now stores a KEY into the app's own curated palette
-     * (see App\Support\ColorPalette / resources/js/free/color-palette.ts),
+     * (see App\Support\ColorSwatchKey / resources/js/free/color-palette.ts),
      * which already has a hand-picked light AND dark hex per entry — no
      * more storing a hex here at all. now_color is untouched: it was
      * always theme-independent, never part of this problem.
@@ -40,7 +40,7 @@ return new class extends Migration
             $table->string('highlight_color_key', 20)->nullable();
         });
 
-        $keys = "'".implode("', '", ColorPalette::KEYS)."'";
+        $keys = "'".implode("', '", array_column(ColorSwatchKey::cases(), 'value'))."'";
 
         DB::statement(
             'ALTER TABLE users ADD CONSTRAINT users_color_keys_check CHECK ('.

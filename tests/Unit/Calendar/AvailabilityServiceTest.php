@@ -62,8 +62,8 @@ class AvailabilityServiceTest extends TestCase
         array $events = [],
         array $weeklyAvailability = [],
         array $sleepExceptions = [],
-        ?string $dndEventName = null,
-        ?string $napEventName = null,
+        ?string $dndEventPattern = null,
+        ?string $napEventPattern = null,
         array $highlightWords = [],
         bool $bypassDnd = false,
         bool $showActivity = true,
@@ -73,8 +73,8 @@ class AvailabilityServiceTest extends TestCase
             $events,
             $weeklyAvailability ?: array_fill(0, 7, ['wake' => null, 'sleep' => null]),
             $sleepExceptions,
-            $dndEventName,
-            $napEventName,
+            $dndEventPattern,
+            $napEventPattern,
             $highlightWords,
             $bypassDnd,
             $this->rangeStart,
@@ -131,7 +131,7 @@ class AvailabilityServiceTest extends TestCase
     {
         $result = $this->compute(
             events: [$this->event('nap-1', '2026-06-03 14:00', '2026-06-03 15:00', 'Afternoon Nap')],
-            napEventName: 'Afternoon Nap',
+            napEventPattern: 'Afternoon Nap',
         );
 
         $napSleep = array_values(array_filter(
@@ -150,7 +150,7 @@ class AvailabilityServiceTest extends TestCase
     {
         $result = $this->compute(
             events: [$this->event('dnd-1', '2026-06-03 09:00', '2026-06-03 10:00', 'Therapy')],
-            dndEventName: 'Therapy',
+            dndEventPattern: 'Therapy',
         );
 
         $this->assertEmpty($result->unavailable);
@@ -169,7 +169,7 @@ class AvailabilityServiceTest extends TestCase
     {
         $result = $this->compute(
             events: [$this->event('dnd-1', '2026-06-03 09:00', '2026-06-03 10:00', 'Therapy', isFreeBusyOnly: true)],
-            dndEventName: 'Therapy',
+            dndEventPattern: 'Therapy',
         );
 
         // Not excluded — the generic "Therapy" text is a coincidence, not a
@@ -182,7 +182,7 @@ class AvailabilityServiceTest extends TestCase
     {
         $result = $this->compute(
             events: [$this->event('dnd-1', '2026-06-03 09:00', '2026-06-03 10:00', 'Therapy')],
-            dndEventName: 'Therapy',
+            dndEventPattern: 'Therapy',
             bypassDnd: true,
         );
 

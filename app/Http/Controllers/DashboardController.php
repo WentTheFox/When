@@ -99,8 +99,8 @@ class DashboardController extends Controller
                 events: $events,
                 weeklyAvailability: $weeklyAvailability,
                 sleepExceptions: $sleepExceptions,
-                dndEventName: $user->dnd_event_name,
-                napEventName: $user->nap_event_name,
+                dndEventPattern: $user->dnd_event_pattern,
+                napEventPattern: $user->nap_event_pattern,
                 highlightWords: [],
                 bypassDnd: false,
                 rangeStart: $rangeStart,
@@ -108,9 +108,9 @@ class DashboardController extends Controller
             );
 
             $rows = [
-                $this->buildRow('Today', $result, $events, $user->work_event_name, $todayStart, $todayEnd, 1),
-                $this->buildRow('This week', $result, $events, $user->work_event_name, $weekStart, $weekStart->addDays(7), 7),
-                $this->buildRow('Past '.self::PAST_DAYS.' days', $result, $events, $user->work_event_name, $past30Start, $todayEnd, self::PAST_DAYS),
+                $this->buildRow('Today', $result, $events, $user->work_event_pattern, $todayStart, $todayEnd, 1),
+                $this->buildRow('This week', $result, $events, $user->work_event_pattern, $weekStart, $weekStart->addDays(7), 7),
+                $this->buildRow('Past '.self::PAST_DAYS.' days', $result, $events, $user->work_event_pattern, $past30Start, $todayEnd, self::PAST_DAYS),
             ];
 
             [$topHighlights, $restHighlights, $noTimeHighlights] = $this->computeHighlightLeaderboard(
@@ -135,7 +135,7 @@ class DashboardController extends Controller
         string $title,
         AvailabilityResult $result,
         array $events,
-        ?string $workEventName,
+        ?string $workEventPattern,
         CarbonImmutable $bucketStart,
         CarbonImmutable $bucketEnd,
         int $days,
@@ -143,7 +143,7 @@ class DashboardController extends Controller
         $totalMin = $days * 1440;
         $sleepMin = $this->sumSlotMinutes($result->sleep, $bucketStart, $bucketEnd);
         $freeMin = $this->sumSlotMinutes($result->free, $bucketStart, $bucketEnd);
-        $workMin = $this->sumEventMinutes($events, $workEventName, $bucketStart, $bucketEnd);
+        $workMin = $this->sumEventMinutes($events, $workEventPattern, $bucketStart, $bucketEnd);
         $windowMin = max(0, $totalMin - $sleepMin);
 
         if ($windowMin === 0) {
@@ -222,8 +222,8 @@ class DashboardController extends Controller
                 events: $events,
                 weeklyAvailability: $weeklyAvailability,
                 sleepExceptions: $sleepExceptions,
-                dndEventName: $user->dnd_event_name,
-                napEventName: $user->nap_event_name,
+                dndEventPattern: $user->dnd_event_pattern,
+                napEventPattern: $user->nap_event_pattern,
                 highlightWords: $words,
                 bypassDnd: $shareLink->bypass_dnd,
                 rangeStart: $rangeStart,

@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Palette key only (validated against App\Support\ColorPalette::KEYS by
+     * Palette key only (validated against App\Support\ColorSwatchKey by
      * ConnectionSourceCategoryController), same pattern as every other
      * owner-selectable color in this app — never a raw hex. Powers the
      * dashboard connections-graph widget's source node coloring.

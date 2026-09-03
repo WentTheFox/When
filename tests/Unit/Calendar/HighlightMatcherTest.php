@@ -167,6 +167,20 @@ class HighlightMatcherTest extends TestCase
         $this->assertNull($result);
     }
 
+    public function test_the_default_split_pattern_also_splits_on_an_ampersand(): void
+    {
+        $result = $this->matcher->match($this->event(summary: 'Dinner with Alice & Bob'), ['Bob']);
+        $this->assertNotNull($result);
+        $this->assertSame(['Bob'], $result->words);
+    }
+
+    public function test_the_default_split_pattern_also_splits_on_a_slash(): void
+    {
+        $result = $this->matcher->match($this->event(summary: 'Dinner with Alice/Bob'), ['Bob']);
+        $this->assertNotNull($result);
+        $this->assertSame(['Bob'], $result->words);
+    }
+
     public function test_an_owner_can_override_the_split_pattern_to_a_different_delimiter(): void
     {
         $result = $this->matcher->match($this->event(summary: 'Dinner with Alice; Bob'), ['Bob'], null, ';\s*');

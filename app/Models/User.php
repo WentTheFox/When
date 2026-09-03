@@ -30,9 +30,9 @@ class User extends Authenticatable
         'key_ring_ciphertext',
         'timezone',
         'week_start',
-        'dnd_event_name',
-        'nap_event_name',
-        'work_event_name',
+        'dnd_event_pattern',
+        'nap_event_pattern',
+        'work_event_pattern',
         'availability_settings',
         'calendar_parsing_mode',
         'highlight_clause_pattern',
@@ -50,7 +50,12 @@ class User extends Authenticatable
         'work_color_key',
         'free_color_key',
         'highlight_color_key',
-        'now_color',
+        'free_icon_key',
+        'busy_icon_key',
+        'work_icon_key',
+        'sleep_icon_key',
+        'highlight_icon_key',
+        'now_color_key',
     ];
 
     /**

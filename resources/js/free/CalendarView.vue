@@ -20,7 +20,8 @@ import { addDays, format, subDays } from 'date-fns';
 import { enUS, hu } from 'date-fns/locale';
 import { TZDate } from '@date-fns/tz';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faBan, faBriefcase, faCheck, faMoon, faSpinner, faStar } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner } from '@fortawesome/free-solid-svg-icons';
+import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import { computed } from 'vue';
 import { currentLocale, trans } from 'laravel-vue-i18n';
 import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, isTentativeSuffixShown, tildeTime } from './nuxt-blocks';
@@ -33,14 +34,6 @@ const BLOCK_TYPE_CLASS: Record<DayBlock['type'], string> = {
   work: 'wtf-fcal-work-block',
   sleep: 'wtf-fcal-sleep-block',
 };
-
-const BLOCK_TYPE_ICON = {
-  free: faCheck,
-  unavailable: faBan,
-  highlighted: faStar,
-  work: faBriefcase,
-  sleep: faMoon,
-} satisfies Record<DayBlock['type'], object>;
 
 const BLOCK_TYPE_LABEL_KEY: Record<DayBlock['type'], string> = {
   free: 'free.freeLabel',
@@ -65,6 +58,8 @@ const props = defineProps<{
   unavailableSlots: TentativeSlot[];
   workSlots: TentativeSlot[];
   sleepSlots: FreeSlot[];
+  /** Owner-customizable per block type — already resolved to real FA icons by Free/Show.vue's resolvedIcons (icon-palette.ts). */
+  icons: { free: IconDefinition; busy: IconDefinition; work: IconDefinition; sleep: IconDefinition; highlighted: IconDefinition };
   pending: boolean;
   hasError: boolean;
   hasAnyFreeTime: boolean;
@@ -73,6 +68,18 @@ const props = defineProps<{
   showCurrentTime: boolean;
   currentTimePct: number;
 }>();
+
+// DayBlock's own type names ('unavailable') don't quite match the
+// icons prop's slot names ('busy') — see nuxt-blocks.ts vs
+// icon-palette.ts's IconSlot for why (unavailable/busy naming has
+// always been split between the wire shape and the owner-facing slot).
+const blockTypeIcon = computed<Record<DayBlock['type'], IconDefinition>>(() => ({
+  free: props.icons.free,
+  unavailable: props.icons.busy,
+  highlighted: props.icons.highlighted,
+  work: props.icons.work,
+  sleep: props.icons.sleep,
+}));
 
 const dateFnsLocale = computed(() => currentLocale.value === 'hu' ? hu : enUS);
 
@@ -246,7 +253,7 @@ function formatDay(day: Date, fmt: string): string {
                 :style="{ top: `${block.topPct}%`, height: `${block.heightPct}%`, ...tentativeFadeStyle(day, blocks, i) }"
               >
                 <span class="wtf-fcal-block-label">
-                  <strong><FontAwesomeIcon :icon="BLOCK_TYPE_ICON[block.type]" class="wtf-fcal-block-label-icon me-1" />{{ blockLabel(block) }}{{ isTentativeSuffixShown(block) ? $t('free.tentativeSuffix') : '' }}</strong><span class="wtf-fcal-block-label-time">{{ blockTimeText(block) }}</span>
+                  <strong><FontAwesomeIcon :icon="blockTypeIcon[block.type]" class="wtf-fcal-block-label-icon me-1" />{{ blockLabel(block) }}{{ isTentativeSuffixShown(block) ? $t('free.tentativeSuffix') : '' }}</strong><span class="wtf-fcal-block-label-time">{{ blockTimeText(block) }}</span>
                 </span>
               </div>
             </template>

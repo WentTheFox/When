@@ -4,6 +4,8 @@ namespace App\Http\Middleware;
 
 use App\Models\User;
 use App\Support\ColorPalette;
+use App\Support\IconPalette;
+use App\Support\NowColorPresetKey;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -46,7 +48,7 @@ class HandleInertiaRequests extends Middleware
             // controller having to remember to pass it.
             'isFirstUser' => User::isFirstUser(),
             // The client only ever sends a KEY back (SettingsController
-            // validates every *_color_key against ColorPalette::KEYS) —
+            // validates every *_color_key with Rule::enum(ColorSwatchKey::class)) —
             // never a hex. This is the one and only place the actual
             // light/dark hex values are defined; the frontend resolves
             // keys to hex purely from this shared prop (seeded once at
@@ -55,6 +57,23 @@ class HandleInertiaRequests extends Middleware
             'colorPalette' => [
                 'swatches' => ColorPalette::forFrontend(),
                 'defaults' => ColorPalette::DEFAULT_KEYS,
+            ],
+            // Same "server hands down the curated list + default keys,
+            // frontend resolves keys to render values" split as
+            // colorPalette above — see IconPalette's own doc comment for
+            // why the actual key -> FontAwesome-icon mapping deliberately
+            // lives only in resources/js/free/icon-palette.ts, never here.
+            'iconPalette' => [
+                'icons' => IconPalette::forFrontend(),
+                'defaults' => IconPalette::DEFAULT_KEYS,
+            ],
+            // Same KEY-not-render-value split as colorPalette/iconPalette
+            // above — SettingsController validates now_color_key with
+            // Rule::enum(NowColorPresetKey::class), the frontend resolves
+            // it to a light/dark hex from this shared prop.
+            'nowColorPresets' => [
+                'presets' => NowColorPresetKey::forFrontend(),
+                'defaultKey' => NowColorPresetKey::default()->value,
             ],
             'auth' => [
                 'user' => $request->user() ? [

@@ -5,6 +5,8 @@ import { createApp, h, type DefineComponent } from 'vue';
 import './bootstrap';
 import './icons';
 import { setColorPalette } from './free/color-palette';
+import { setIconPalette } from './free/icon-palette';
+import { setNowColorPresets } from './free/now-color-presets';
 
 // bootstrap-vue-next ships components, not CSS — resources/css/app.css's own
 // bootstrap/dist/css/bootstrap.min.css import still supplies all the actual
@@ -34,6 +36,22 @@ createInertiaApp({
       | undefined;
     if (colorPalette) {
       setColorPalette(colorPalette.swatches, colorPalette.defaults);
+    }
+
+    // Same seed-once-at-boot reasoning as colorPalette above.
+    const iconPalette = props.initialPage.props.iconPalette as
+      { icons: Parameters<typeof setIconPalette>[0]; defaults: Parameters<typeof setIconPalette>[1] }
+      | undefined;
+    if (iconPalette) {
+      setIconPalette(iconPalette.icons, iconPalette.defaults);
+    }
+
+    // Same seed-once-at-boot reasoning as colorPalette above.
+    const nowColorPresets = props.initialPage.props.nowColorPresets as
+      { presets: Parameters<typeof setNowColorPresets>[0]; defaultKey: string }
+      | undefined;
+    if (nowColorPresets) {
+      setNowColorPresets(nowColorPresets.presets, nowColorPresets.defaultKey);
     }
 
     // The initial page's own `locale` prop (e.g. /hu/free/{token} sends

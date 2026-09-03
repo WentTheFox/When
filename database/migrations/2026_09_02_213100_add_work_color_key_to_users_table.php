@@ -1,6 +1,6 @@
 <?php
 
-use App\Support\ColorPalette;
+use App\Support\ColorSwatchKey;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +27,7 @@ return new class extends Migration
 
         DB::statement('ALTER TABLE users DROP CONSTRAINT users_color_keys_check');
 
-        $keys = "'".implode("', '", ColorPalette::KEYS)."'";
+        $keys = "'".implode("', '", array_column(ColorSwatchKey::cases(), 'value'))."'";
 
         DB::statement(
             'ALTER TABLE users ADD CONSTRAINT users_color_keys_check CHECK ('.
@@ -46,7 +46,7 @@ return new class extends Migration
     {
         DB::statement('ALTER TABLE users DROP CONSTRAINT users_color_keys_check');
 
-        $keys = "'".implode("', '", ColorPalette::KEYS)."'";
+        $keys = "'".implode("', '", array_column(ColorSwatchKey::cases(), 'value'))."'";
 
         DB::statement(
             'ALTER TABLE users ADD CONSTRAINT users_color_keys_check CHECK ('.

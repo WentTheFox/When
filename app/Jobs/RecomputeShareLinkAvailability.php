@@ -158,8 +158,8 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
             events: $events,
             weeklyAvailability: $weeklyAvailability,
             sleepExceptions: $sleepExceptions,
-            dndEventName: $user->dnd_event_name,
-            napEventName: $user->nap_event_name,
+            dndEventPattern: $user->dnd_event_pattern,
+            napEventPattern: $user->nap_event_pattern,
             highlightWords: $highlightWords,
             bypassDnd: $shareLink->bypass_dnd,
             rangeStart: $rangeStart,
@@ -167,7 +167,7 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
             highlightClausePattern: $user->highlight_clause_pattern,
             activityClausePattern: $user->activity_clause_pattern,
             showActivity: $shareLink->show_activity,
-            workEventName: $user->work_event_name,
+            workEventPattern: $user->work_event_pattern,
             highlightSplitPattern: $user->highlight_split_pattern,
         );
 

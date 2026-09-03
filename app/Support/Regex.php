@@ -3,24 +3,68 @@
 namespace App\Support;
 
 /**
- * Owner-supplied regex (DND/nap event-name patterns, custom highlight
- * clause pattern — §5.1) must never be able to break availability
- * computation for every viewer just because it's malformed. `@preg_match`
- * alone isn't enough here: PHPUnit's error handler ignores the `@`
- * suppression operator when converting warnings to test failures, so an
- * invalid pattern in a caller under test still surfaces as a warning even
- * though the application-level behavior (fail closed, no match) is
- * correct. This swallows the warning at the source instead.
+ * Owner-supplied regex (DND/nap/work event-name patterns, highlight/
+ * activity clause patterns, tentative/open-end/open-start patterns) must
+ * never be able to break availability computation for every viewer just
+ * because it's malformed — or hang a shared Horizon worker because it's
+ * catastrophically slow. `@preg_match` alone isn't enough for the first
+ * part: PHPUnit's error handler ignores the `@` suppression operator when
+ * converting warnings to test failures, so an invalid pattern in a caller
+ * under test still surfaces as a warning even though the application-
+ * level behavior (fail closed, no match) is correct. This swallows the
+ * warning at the source instead. See withBoundedBacktracking() below for
+ * the second part (ReDoS mitigation).
  */
 class Regex
 {
-    /** Returns the match groups on success, or null if the pattern is invalid or didn't match. */
+    /**
+     * ReDoS mitigation: an owner-supplied pattern with catastrophic
+     * backtracking (e.g. `(a+)+$` against a long non-matching subject)
+     * would otherwise tie up a PCRE call for however long the engine lets
+     * it run — PHP's own `set_time_limit` is no help here since PCRE
+     * doesn't yield back to PHP mid-match. `pcre.backtrack_limit`/
+     * `pcre.recursion_limit` are the actual knobs PCRE itself checks, so
+     * every call below temporarily lowers them (well under PHP's own
+     * defaults of 1,000,000 / 100,000) for just the one preg_* call, then
+     * restores whatever was configured process-wide. Hitting either limit
+     * makes preg_match/preg_split return `false` exactly like a malformed
+     * pattern does — which every method here already treats as "didn't
+     * match" (fail closed), so no caller needs to know the difference.
+     * Subjects here are always a single event title (short, not owner-
+     * controlled length beyond what an ICS feed sends) matched against a
+     * short, hand-written pattern — legitimate use has no real reason to
+     * come anywhere close to even these, let alone PHP's own defaults
+     * (1,000,000 / 100,000), so both are set two orders of magnitude
+     * below that instead of just one.
+     */
+    private const PCRE_BACKTRACK_LIMIT = '10000';
+
+    private const PCRE_RECURSION_LIMIT = '1000';
+
+    /** @param callable(): mixed $callback */
+    private static function withBoundedBacktracking(callable $callback): mixed
+    {
+        $previousBacktrackLimit = ini_set('pcre.backtrack_limit', self::PCRE_BACKTRACK_LIMIT);
+        $previousRecursionLimit = ini_set('pcre.recursion_limit', self::PCRE_RECURSION_LIMIT);
+
+        try {
+            return $callback();
+        } finally {
+            ini_set('pcre.backtrack_limit', $previousBacktrackLimit);
+            ini_set('pcre.recursion_limit', $previousRecursionLimit);
+        }
+    }
+
+    /** Returns the match groups on success, or null if the pattern is invalid, didn't match, or hit the backtracking limit above. */
     public static function tryMatch(string $pattern, string $subject): ?array
     {
         set_error_handler(static fn () => true);
+        $matches = [];
 
         try {
-            $result = @preg_match($pattern, $subject, $matches);
+            $result = self::withBoundedBacktracking(static function () use ($pattern, $subject, &$matches) {
+                return @preg_match($pattern, $subject, $matches);
+            });
         } finally {
             restore_error_handler();
         }
@@ -43,7 +87,7 @@ class Regex
         set_error_handler(static fn () => true);
 
         try {
-            $result = @preg_split($pattern, $subject);
+            $result = self::withBoundedBacktracking(static fn () => @preg_split($pattern, $subject));
         } finally {
             restore_error_handler();
         }
@@ -80,9 +124,12 @@ class Regex
     public static function countCaptureGroups(string $pattern): ?int
     {
         set_error_handler(static fn () => true);
+        $matches = [];
 
         try {
-            $result = @preg_match("\x01(?:{$pattern})|\x01iu", '', $matches, PREG_UNMATCHED_AS_NULL);
+            $result = self::withBoundedBacktracking(static function () use ($pattern, &$matches) {
+                return @preg_match("\x01(?:{$pattern})|\x01iu", '', $matches, PREG_UNMATCHED_AS_NULL);
+            });
         } finally {
             restore_error_handler();
         }
@@ -100,6 +147,60 @@ class Regex
         $numericKeys = array_filter(array_keys($matches), 'is_int');
 
         return count($numericKeys) - 1;
+    }
+
+    /**
+     * True if the pattern *compiles* under PCRE — says nothing about
+     * whether it matches anything. Wrapped with the same `\x01…\x01iu`
+     * delimiter/flags every real caller actually uses (ParsedEvent::
+     * matchesEventNamePattern, IcsParser's tentative/open-end/open-start
+     * matching, HighlightMatcher::matchTokens's preg_split) so a pattern
+     * that's only invalid once those flags are added (vanishingly rare,
+     * but possible) is still caught here rather than only at first real
+     * use.
+     */
+    public static function compiles(string $pattern): bool
+    {
+        set_error_handler(static fn () => true);
+
+        try {
+            $result = self::withBoundedBacktracking(static fn () => @preg_match("\x01".$pattern."\x01iu", ''));
+        } finally {
+            restore_error_handler();
+        }
+
+        return $result !== false;
+    }
+
+    /**
+     * Laravel inline-closure-rule signature — pass this directly in a
+     * `validate()` rules array for any owner-supplied pattern field that
+     * doesn't already get validateSingleCaptureGroup below (that one
+     * already rejects a non-compiling pattern via countCaptureGroups
+     * returning null, so don't double up on a field that has it).
+     *
+     * Every one of these bare-fragment pattern fields is designed to fail
+     * closed at match time if it doesn't compile (ParsedEvent::
+     * matchesEventNamePattern, IcsParser's tentative/open-end/open-start
+     * stripping, HighlightMatcher::matchTokens's split) — deliberately, so
+     * a typo can never take down availability computation for every
+     * viewer. But "silently never does anything" is a bad experience for
+     * the *owner* saving the typo in the first place, with no indication
+     * anything is wrong until they notice DND/nap/etc. just isn't working.
+     * This catches that at save time instead, while match time keeps its
+     * own independent fail-closed behavior as a second line of defense
+     * (e.g. against a pattern that was valid under one PHP/PCRE version
+     * and not another after an upgrade).
+     */
+    public static function validateCompiles(string $attribute, mixed $value, \Closure $fail): void
+    {
+        if ($value === null || $value === '') {
+            return;
+        }
+
+        if (! self::compiles($value)) {
+            $fail('The :attribute is not a valid regular expression.');
+        }
     }
 
     /**

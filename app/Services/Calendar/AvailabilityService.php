@@ -37,8 +37,8 @@ class AvailabilityService
         array $events,
         array $weeklyAvailability,
         array $sleepExceptions,
-        ?string $dndEventName,
-        ?string $napEventName,
+        ?string $dndEventPattern,
+        ?string $napEventPattern,
         array $highlightWords,
         bool $bypassDnd,
         CarbonImmutable $rangeStart,
@@ -46,7 +46,7 @@ class AvailabilityService
         ?string $highlightClausePattern = null,
         ?string $activityClausePattern = null,
         bool $showActivity = true,
-        ?string $workEventName = null,
+        ?string $workEventPattern = null,
         ?string $highlightSplitPattern = null,
     ): AvailabilityResult {
         $napIntervals = [];
@@ -56,14 +56,14 @@ class AvailabilityService
         $highlighted = [];
 
         foreach ($events as $event) {
-            if ($event->matchesEventNamePattern($dndEventName) && ! $bypassDnd) {
+            if ($event->matchesEventNamePattern($dndEventPattern) && ! $bypassDnd) {
                 continue;
             }
 
             $busyIntervals[] = ['start' => $event->start, 'end' => $event->end];
             $unavailable[] = ['start' => $event->start, 'end' => $event->end, 'tentativeStart' => $event->tentativeStart, 'tentativeEnd' => $event->tentativeEnd];
 
-            if ($event->matchesEventNamePattern($napEventName)) {
+            if ($event->matchesEventNamePattern($napEventPattern)) {
                 $napIntervals[] = ['start' => $event->start, 'end' => $event->end];
             }
 
@@ -72,7 +72,7 @@ class AvailabilityService
             // same span as "work" so the calendar can render it as its own
             // category, the same double-bookkeeping AvailabilityResult's own
             // doc comment already describes for `highlighted`.
-            if ($event->matchesEventNamePattern($workEventName)) {
+            if ($event->matchesEventNamePattern($workEventPattern)) {
                 $work[] = ['start' => $event->start, 'end' => $event->end, 'tentativeStart' => $event->tentativeStart, 'tentativeEnd' => $event->tentativeEnd];
             }
 
