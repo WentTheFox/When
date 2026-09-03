@@ -16,12 +16,35 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
  */
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { BButton } from 'bootstrap-vue-next';
+import { computed, ref, watch } from 'vue';
 import type { SharedPageProps } from '../sharedPageProps';
 import BrandMark from './BrandMark.vue';
+import HeaderBar from './HeaderBar.vue';
 import LanguageSwitcher from './LanguageSwitcher.vue';
 import ThemeToggle from './ThemeToggle.vue';
 
 const page = usePage<SharedPageProps>();
+
+// Owned here (not local to HeaderBar) so it can be reset on navigation —
+// otherwise following a link from the mobile menu would leave the panel
+// stuck open over the next page.
+const collapseOpen = ref(false);
+watch(() => page.url, () => {
+  collapseOpen.value = false;
+});
+
+// Only /free/{token} has locale-prefixed counterparts (one per
+// App\Support\Locales::codes() entry — see routes/web.php's own comment)
+// — every other page in the app is English-only, so LanguageSwitcher
+// renders nothing anywhere else rather than linking somewhere that
+// doesn't exist. This is SiteHeader's own concern, not
+// LanguageSwitcher's — Errors/Maintenance.vue always shows its copy,
+// on whatever URL happens to be up.
+const LOCALE_PATH_RE = /^\/([a-z]{2})\/free\//;
+const isFreePage = computed(() => (
+  window.location.pathname.startsWith('/free/') || LOCALE_PATH_RE.test(window.location.pathname)
+));
+const currentLocaleCode = computed(() => window.location.pathname.match(LOCALE_PATH_RE)?.[1] ?? 'en');
 
 function logout(): void {
   router.post('/logout');
@@ -29,10 +52,29 @@ function logout(): void {
 </script>
 
 <template>
-  <nav class="navbar navbar-expand navbar-dark sticky-top wtf-brand-header">
-    <div class="container">
-      <BrandMark :app-name="page.props.appName" :href="page.props.auth?.user ? '/dashboard' : '/'" />
+  <HeaderBar v-model:open="collapseOpen">
+    <BrandMark :app-name="page.props.appName" :href="page.props.auth?.user ? '/dashboard' : '/'" />
 
+    <!--
+      One flex group, not several loose children — .navbar > .container
+      is justify-content: space-between, so these would otherwise spread
+      evenly across the whole bar instead of sitting together on the
+      right, next to the hamburger toggle HeaderBar renders after this
+      slot. Stays visible at every width — only the nav-link/account
+      content below (the #collapsible slot) collapses on mobile.
+    -->
+    <div class="d-flex align-items-center ms-auto">
+      <LanguageSwitcher
+        v-if="isFreePage"
+        :locales="page.props.locales"
+        :model-value="currentLocaleCode"
+        class="me-2"
+      />
+
+      <ThemeToggle />
+    </div>
+
+    <template #collapsible>
       <div v-if="!page.props.auth?.user" class="navbar-nav me-auto">
         <Link class="nav-item nav-link" :class="{ active: page.url === '/login' }" href="/login">Log in</Link>
         <Link
@@ -71,33 +113,20 @@ function logout(): void {
         <Link class="nav-item nav-link" :class="{ active: page.url.startsWith('/invites') }" href="/invites">Invites</Link>
       </div>
 
-      <!--
-        One flex group, not several loose children — .navbar > .container
-        is justify-content: space-between, so with no .me-auto nav-links
-        div (logged in, none rendered above) these would otherwise spread
-        evenly across the whole bar instead of sitting together on the
-        right.
-      -->
-      <div class="d-flex align-items-center ms-auto">
-        <LanguageSwitcher class="me-2" />
-
-        <ThemeToggle />
-
-        <template v-if="page.props.auth?.user">
-          <Link href="/dashboard/account" class="d-flex align-items-center text-decoration-none ms-3 me-3" style="color: var(--app-header-text);">
-            <img
-              v-if="page.props.auth.user.avatarUrl"
-              :src="page.props.auth.user.avatarUrl"
-              alt=""
-              class="rounded-circle me-2"
-              width="28"
-              height="28"
-            >
-            <span>{{ page.props.auth.user.name }}</span>
-          </Link>
-          <BButton variant="outline-secondary" size="sm" @click="logout"><FontAwesomeIcon :icon="faDoorOpen"/></BButton>
-        </template>
+      <div v-if="page.props.auth?.user" class="d-flex align-items-center flex-wrap ms-lg-auto">
+        <Link href="/dashboard/account" class="d-flex align-items-center text-decoration-none my-2 my-lg-0 ms-lg-3 me-3" style="color: var(--app-header-text);">
+          <img
+            v-if="page.props.auth.user.avatarUrl"
+            :src="page.props.auth.user.avatarUrl"
+            alt=""
+            class="rounded-circle me-2"
+            width="28"
+            height="28"
+          >
+          <span>{{ page.props.auth.user.name }}</span>
+        </Link>
+        <BButton variant="outline-secondary" size="sm" @click="logout"><FontAwesomeIcon :icon="faDoorOpen"/></BButton>
       </div>
-    </div>
-  </nav>
+    </template>
+  </HeaderBar>
 </template>

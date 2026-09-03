@@ -5,21 +5,30 @@
  * target, so it never receives the usual shared props (auth, colorPalette,
  * appName from HandleInertiaRequests, ...) since that middleware hasn't run
  * yet at that point in the request lifecycle. Everything this page needs is
- * passed explicitly by that callback instead, and it deliberately avoids
- * SiteHeader/SiteFooter/PublicLayout for the same reason — those read
- * shared props (and isFirstUser is a DB query besides, unwise to depend on
- * while the app might be mid-migration). Its own header only reuses
- * BrandMark.vue (logo + app name) and the .wtf-brand-header styling
- * SiteHeader.vue also uses — not SiteHeader itself, since its nav
- * links/auth state have nowhere meaningful to go while the app is down.
+ * passed explicitly by that callback instead. Uses PublicLayout directly
+ * (not the usual `defineOptions({ layout: PublicLayout })` — that form
+ * can't forward a prop that changes after the initial render, and `dir`
+ * needs to react to the language switcher below) with its `header` slot
+ * overridden: SiteHeader (PublicLayout's default header) reads
+ * `auth`/`isFirstUser` off SharedPageProps, neither of which this page
+ * sends, and would render its full nav-link set, which has nowhere
+ * meaningful to go while the app is down. Only BrandMark.vue (logo + app
+ * name) is reused there instead. PublicLayout's default footer
+ * (SiteFooter) is otherwise left as-is, except its "create your own
+ * account" invite CTA and "About this project" link — same reasoning as
+ * the missing nav links, /register and /about are both intercepted by
+ * maintenance mode too — suppressed via `show-invite-cta`/
+ * `show-about-link`.
  */
-import { faLanguage, faRotate } from '@fortawesome/free-solid-svg-icons';
+import { faRotate } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { Head } from '@inertiajs/vue3';
-import { BButton, BCard, BDropdown, BDropdownDivider, BDropdownItem } from 'bootstrap-vue-next';
-import { loadLanguageAsync } from 'laravel-vue-i18n';
+import { BButton, BCard } from 'bootstrap-vue-next';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import BrandMark from '../../Components/BrandMark.vue';
+import HeaderBar from '../../Components/HeaderBar.vue';
+import LanguageSwitcher from '../../Components/LanguageSwitcher.vue';
+import PublicLayout from '../../Layouts/PublicLayout.vue';
 import { useTheme } from '../../composables/useTheme';
 
 const props = defineProps<{
@@ -28,75 +37,17 @@ const props = defineProps<{
   locales: { code: string; native: string }[];
 }>();
 
-// Unlike LanguageSwitcher.vue (which navigates to a locale-prefixed URL —
-// /free/{token} has a real per-locale route to land on), maintenance mode
-// intercepts every route, so there's nowhere else for this page to
-// navigate to: switching stays on whatever URL it's already showing and
-// just swaps the loaded lang/{code}.json client-side instead. Mirrors
-// App\Support\Locales::RTL (ar, he) — no shared-props channel exists here
-// to read that from the server, and it's a two-entry list unlikely to
-// change without this file needing a look anyway.
+// LanguageSwitcher's `navigate: false` mode (maintenance mode intercepts
+// every route, so unlike /free/{token} there's nowhere else to navigate
+// to — see that component's own doc comment) reports the switch back via
+// v-model instead. Mirrors App\Support\Locales::RTL (ar, he) — no
+// shared-props channel exists here to read that from the server, and it's
+// a two-entry list unlikely to change without this file needing a look
+// anyway.
 const RTL_CODES = new Set(['ar', 'he']);
 
 const activeLocale = ref(props.locale);
-const switching = ref(false);
-
-const currentLocale = computed(() => (
-  props.locales.find((l) => l.code === activeLocale.value) ?? props.locales[0]
-));
 const textDirection = computed(() => (RTL_CODES.has(activeLocale.value) ? 'rtl' : 'ltr'));
-
-// Locales::NAMES's own order (English first, then roughly by region) is
-// meant for LanguageSwitcher.vue/LocalizedTextInput.vue's very different
-// context (a page whose language IS one of these, or a form authoring
-// content in a specific one) — a visitor stuck on a down page has no
-// locale of their own to prioritize from, so a flat alphabetical-by-native-
-// name list is easier to scan than either English-first or an arbitrary
-// region grouping.
-const sortedLocales = computed(() => (
-  [...props.locales].sort((a, b) => a.native.localeCompare(b.native))
-));
-
-// navigator.languages is ranked by the browser's own preference order
-// (Accept-Language) — surface whichever of our locales it actually knows
-// about at the top, in that same order, ahead of the alphabetical rest.
-// No divider (and no reordering at all) when it's unavailable or matches
-// nothing — an empty "likely wanted" group would just be a stray divider
-// sitting above the exact same full list.
-const preferredLocales = computed(() => {
-  const languages = typeof navigator === 'undefined' ? [] : (navigator.languages ?? []);
-  const seen = new Set<string>();
-  const matched: { code: string; native: string }[] = [];
-  for (const tag of languages) {
-    const base = tag.split('-')[0].toLowerCase();
-    const match = props.locales.find((l) => l.code === base);
-    if (match && !seen.has(match.code)) {
-      seen.add(match.code);
-      matched.push(match);
-    }
-  }
-  return matched;
-});
-
-const otherLocales = computed(() => {
-  const preferredCodes = new Set(preferredLocales.value.map((l) => l.code));
-  return sortedLocales.value.filter((l) => !preferredCodes.has(l.code));
-});
-
-async function switchLocale(code: string): Promise<void> {
-  if (code === activeLocale.value || switching.value) {
-    return;
-  }
-  switching.value = true;
-  try {
-    await loadLanguageAsync(code);
-    activeLocale.value = code;
-  } catch (e) {
-    console.error(e);
-  } finally {
-    switching.value = false;
-  }
-}
 
 // Purely client-side (cookie + prefers-color-scheme), no shared props or
 // DB access needed — same composable every other page uses.
@@ -175,72 +126,29 @@ onUnmounted(() => {
 <template>
   <Head :title="$t('maintenance.title')" />
 
-  <div class="wtf-maintenance-backdrop" :dir="textDirection">
-    <nav class="navbar navbar-expand navbar-dark sticky-top wtf-brand-header">
-      <div class="container">
+  <PublicLayout :dir="textDirection" :show-invite-cta="false" :show-about-link="false">
+    <template #header>
+      <HeaderBar hide-toggle>
         <BrandMark :app-name="props.appName" href="/" />
 
         <div class="d-flex align-items-center ms-auto">
-          <BDropdown variant="link" no-caret size="sm">
-            <template #button-content>
-              <FontAwesomeIcon :icon="faLanguage" class="me-1" />{{ currentLocale?.native }}
-            </template>
-            <BDropdownItem
-              v-for="l in preferredLocales"
-              :key="l.code"
-              :active="l.code === activeLocale"
-              :disabled="l.code === activeLocale"
-              @click="switchLocale(l.code)"
-            >
-              {{ l.native }}
-            </BDropdownItem>
-            <BDropdownDivider v-if="preferredLocales.length > 0" />
-            <BDropdownItem
-              v-for="l in otherLocales"
-              :key="l.code"
-              :active="l.code === activeLocale"
-              :disabled="l.code === activeLocale"
-              @click="switchLocale(l.code)"
-            >
-              {{ l.native }}
-            </BDropdownItem>
-          </BDropdown>
+          <LanguageSwitcher v-model="activeLocale" :locales="props.locales" :navigate="false" />
         </div>
-      </div>
-    </nav>
+      </HeaderBar>
+    </template>
 
-    <div class="wtf-maintenance-content container py-5">
-      <div class="row justify-content-center w-100">
-        <div class="col-12 col-sm-8 col-md-6 col-lg-5">
-          <BCard class="text-center shadow-sm">
-            <h1 class="h4">{{ $t('maintenance.heading') }}</h1>
-            <p class="text-body-secondary">{{ $t('maintenance.body') }}</p>
+    <BCard class="text-center shadow-sm">
+      <h1 class="h4">{{ $t('maintenance.heading') }}</h1>
+      <p class="text-body-secondary">{{ $t('maintenance.body') }}</p>
 
-            <p class="text-body-secondary small mb-3">
-              {{ checking ? $t('maintenance.checking') : $t('maintenance.retryingIn', { seconds: String(retrySeconds) }) }}
-            </p>
+      <p class="text-body-secondary small mb-3">
+        {{ checking ? $t('maintenance.checking') : $t('maintenance.retryingIn', { seconds: String(retrySeconds) }) }}
+      </p>
 
-            <BButton variant="primary" :disabled="checking" @click="manualRetry">
-              <FontAwesomeIcon :icon="faRotate" :spin="checking" class="me-2" />
-              {{ $t('maintenance.retryButton') }}
-            </BButton>
-          </BCard>
-        </div>
-      </div>
-    </div>
-  </div>
+      <BButton variant="primary" :disabled="checking" @click="manualRetry">
+        <FontAwesomeIcon :icon="faRotate" :spin="checking" class="me-2" />
+        {{ $t('maintenance.retryButton') }}
+      </BButton>
+    </BCard>
+  </PublicLayout>
 </template>
-
-<style scoped>
-.wtf-maintenance-backdrop {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.wtf-maintenance-content {
-  flex: 1;
-  display: flex;
-  align-items: center;
-}
-</style>

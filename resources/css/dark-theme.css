@@ -306,10 +306,47 @@
 
 .wtf-brand-header .btn-link {
     color: var(--app-header-text);
+    /* ThemeToggle.vue renders as a bare icon with no nav-link/btn padding
+       surviving the cascade here (computed padding is 0) — too small a
+       tap target on mobile otherwise, so pad it out like the toggler
+       button next to it. */
+    padding: 0.625rem 0.7rem;
 }
 
 .wtf-brand-header .btn-link:hover:not(:disabled) {
     color: var(--app-header-text-hover);
+}
+
+/* Bootstrap's default .navbar-toggler-icon is a fixed dark SVG data-URI
+   (assumes a light toggler background) — invisible against the header's
+   own accent backdrop in both themes, so repaint it using the same
+   theme-independent --app-header-text token as the rest of this header. */
+.wtf-brand-header .navbar-toggler {
+    color: var(--app-header-text);
+    border-color: var(--app-header-text);
+}
+
+.wtf-brand-header .navbar-toggler-icon {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255, 255, 255, 0.92)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+/* The collapsed panel drops open below the sticky header, over page
+   content — without its own background it would be transparent and show
+   that content bleeding through behind the open mobile menu. */
+.wtf-brand-header .navbar-collapse {
+    background: linear-gradient(var(--app-header-overlay), var(--app-header-overlay)), rgba(var(--app-accent-rgb), 0.9);
+}
+
+@media (max-width: 991.98px) {
+    .wtf-brand-header .navbar-collapse {
+        margin-top: 0.75rem;
+        padding-bottom: 0.75rem;
+    }
+
+    .wtf-brand-header .navbar-nav .nav-link {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
 }
 
 .wtf-backdrop {
