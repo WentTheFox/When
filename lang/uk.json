@@ -29,5 +29,11 @@
     "free.loadFailed": "Не вдалося завантажити цей календар зараз. Будь ласка, спробуй пізніше.",
     "free.linkExpiredTitle": "Термін Дії Посилання Закінчився",
     "free.linkExpiredBody": "Термін дії цього посилання на календар закінчився або воно більше не дійсне.",
-    "free.defaultTitle": "Мій Вільний Час"
+    "free.defaultTitle": "Мій Вільний Час",
+    "maintenance.title": "Технічні роботи",
+    "maintenance.heading": "Ми скоро повернемось",
+    "maintenance.body": "Сайт тимчасово недоступний через технічні роботи. Дякуємо за терпіння.",
+    "maintenance.retryingIn": "Автоматична повторна спроба через :seconds с",
+    "maintenance.retryButton": "Спробувати ще раз",
+    "maintenance.checking": "Перевірка…"
 }

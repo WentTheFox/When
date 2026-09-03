@@ -29,5 +29,11 @@
     "free.loadFailed": "Det gick inte att läsa in den här kalendern just nu. Försök igen senare.",
     "free.linkExpiredTitle": "Länken Har Gått Ut",
     "free.linkExpiredBody": "Den här kalenderlänken har gått ut eller är inte längre giltig.",
-    "free.defaultTitle": "Min Lediga Tid"
+    "free.defaultTitle": "Min Lediga Tid",
+    "maintenance.title": "Underhåll pågår",
+    "maintenance.heading": "Vi är strax tillbaka",
+    "maintenance.body": "Den här webbplatsen är tillfälligt nere för underhåll. Tack för ditt tålamod.",
+    "maintenance.retryingIn": "Automatiskt nytt försök om :seconds s",
+    "maintenance.retryButton": "Försök igen",
+    "maintenance.checking": "Kontrollerar…"
 }

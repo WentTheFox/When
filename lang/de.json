@@ -29,5 +29,11 @@
     "free.loadFailed": "Dieser Kalender konnte gerade nicht geladen werden. Bitte versuche es später erneut.",
     "free.linkExpiredTitle": "Link abgelaufen",
     "free.linkExpiredBody": "Dieser Kalenderlink ist abgelaufen oder nicht mehr gültig.",
-    "free.defaultTitle": "Meine Freizeit"
+    "free.defaultTitle": "Meine Freizeit",
+    "maintenance.title": "Wartungsarbeiten",
+    "maintenance.heading": "Wir sind gleich zurück",
+    "maintenance.body": "Diese Seite ist vorübergehend wegen Wartungsarbeiten nicht erreichbar. Vielen Dank für deine Geduld.",
+    "maintenance.retryingIn": "Automatischer Versuch in :seconds s",
+    "maintenance.retryButton": "Erneut versuchen",
+    "maintenance.checking": "Wird geprüft…"
 }

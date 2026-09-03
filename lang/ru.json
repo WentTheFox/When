@@ -29,5 +29,11 @@
     "free.loadFailed": "Не удалось загрузить этот календарь сейчас. Пожалуйста, попробуй позже.",
     "free.linkExpiredTitle": "Срок Действия Ссылки Истёк",
     "free.linkExpiredBody": "Срок действия этой ссылки на календарь истёк или она больше недействительна.",
-    "free.defaultTitle": "Моё Свободное Время"
+    "free.defaultTitle": "Моё Свободное Время",
+    "maintenance.title": "Технические работы",
+    "maintenance.heading": "Мы скоро вернёмся",
+    "maintenance.body": "Сайт временно недоступен из-за технических работ. Спасибо за терпение.",
+    "maintenance.retryingIn": "Автоматическая повторная попытка через :seconds с",
+    "maintenance.retryButton": "Повторить",
+    "maintenance.checking": "Проверка…"
 }

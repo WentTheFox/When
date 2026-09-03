@@ -29,5 +29,11 @@
     "free.loadFailed": "No se pudo cargar este calendario en este momento. Inténtalo de nuevo más tarde.",
     "free.linkExpiredTitle": "Enlace Caducado",
     "free.linkExpiredBody": "Este enlace de calendario ha caducado o ya no es válido.",
-    "free.defaultTitle": "Mi Tiempo Libre"
+    "free.defaultTitle": "Mi Tiempo Libre",
+    "maintenance.title": "En mantenimiento",
+    "maintenance.heading": "Volveremos enseguida",
+    "maintenance.body": "Este sitio está temporalmente fuera de servicio por mantenimiento. Gracias por tu paciencia.",
+    "maintenance.retryingIn": "Reintento automático en :seconds s",
+    "maintenance.retryButton": "Reintentar",
+    "maintenance.checking": "Comprobando…"
 }

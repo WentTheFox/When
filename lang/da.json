@@ -29,5 +29,11 @@
     "free.loadFailed": "Denne kalender kunne ikke indlæses lige nu. Prøv igen senere.",
     "free.linkExpiredTitle": "Link Udløbet",
     "free.linkExpiredBody": "Dette kalenderlink er udløbet eller er ikke længere gyldigt.",
-    "free.defaultTitle": "Min Fritid"
+    "free.defaultTitle": "Min Fritid",
+    "maintenance.title": "Vedligeholdelse",
+    "maintenance.heading": "Vi er straks tilbage",
+    "maintenance.body": "Denne side er midlertidigt nede på grund af vedligeholdelse. Tak for din tålmodighed.",
+    "maintenance.retryingIn": "Automatisk nyt forsøg om :seconds s",
+    "maintenance.retryButton": "Prøv igen",
+    "maintenance.checking": "Kontrollerer…"
 }

@@ -489,6 +489,24 @@ a {
     box-shadow: 0 0 0 0.2rem rgba(var(--app-accent-rgb), 0.5);
 }
 
+/*
+ * Bootstrap's disabled state doesn't derive from .btn-primary's own
+ * background/border/color above — it's a separate --bs-btn-disabled-*
+ * trio baked into the precompiled CSS at ITS OWN default blue (#0d6efd),
+ * untouched by the overrides above. Left alone, clicking the button while
+ * it's briefly disabled (e.g. a submitting/loading state) visibly swaps
+ * the accent color for stock Bootstrap blue for as long as :disabled
+ * applies. Repaint the same way, opacity included (Bootstrap's own
+ * disabled opacity, ~0.65 baked into --bs-btn-disabled-opacity, still
+ * applies from the base .btn:disabled rule).
+ */
+.btn-primary:disabled,
+.btn-primary.disabled {
+    background-color: var(--app-accent);
+    border-color: var(--app-accent);
+    color: var(--app-accent-text);
+}
+
 .text-primary {
     color: var(--app-accent) !important;
 }

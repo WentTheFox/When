@@ -29,5 +29,11 @@
     "free.loadFailed": "Bu takvim şu anda yüklenemedi. Lütfen daha sonra tekrar deneyin.",
     "free.linkExpiredTitle": "Bağlantının Süresi Doldu",
     "free.linkExpiredBody": "Bu takvim bağlantısının süresi doldu veya artık geçerli değil.",
-    "free.defaultTitle": "Boş Zamanım"
+    "free.defaultTitle": "Boş Zamanım",
+    "maintenance.title": "Bakımda",
+    "maintenance.heading": "Hemen döneceğiz",
+    "maintenance.body": "Bu site bakım nedeniyle geçici olarak çevrimdışı. Sabrınız için teşekkürler.",
+    "maintenance.retryingIn": ":seconds sn içinde otomatik olarak yeniden denenecek",
+    "maintenance.retryButton": "Tekrar dene",
+    "maintenance.checking": "Kontrol ediliyor…"
 }

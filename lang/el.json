@@ -29,5 +29,11 @@
     "free.loadFailed": "Δεν ήταν δυνατή η φόρτωση αυτού του ημερολογίου αυτήν τη στιγμή. Δοκίμασε ξανά αργότερα.",
     "free.linkExpiredTitle": "Ο Σύνδεσμος Έληξε",
     "free.linkExpiredBody": "Αυτός ο σύνδεσμος ημερολογίου έχει λήξει ή δεν είναι πλέον έγκυρος.",
-    "free.defaultTitle": "Ο Ελεύθερος Χρόνος Μου"
+    "free.defaultTitle": "Ο Ελεύθερος Χρόνος Μου",
+    "maintenance.title": "Συντήρηση",
+    "maintenance.heading": "Επιστρέφουμε αμέσως",
+    "maintenance.body": "Αυτός ο ιστότοπος είναι προσωρινά εκτός λειτουργίας λόγω συντήρησης. Ευχαριστούμε για την υπομονή σας.",
+    "maintenance.retryingIn": "Αυτόματη νέα προσπάθεια σε :seconds δ",
+    "maintenance.retryButton": "Δοκιμάστε ξανά",
+    "maintenance.checking": "Έλεγχος…"
 }

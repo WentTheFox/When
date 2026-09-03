@@ -29,5 +29,11 @@
     "free.loadFailed": "לא ניתן היה לטעון את לוח השנה הזה כרגע. אנא נסה שוב מאוחר יותר.",
     "free.linkExpiredTitle": "הקישור פג תוקף",
     "free.linkExpiredBody": "קישור לוח השנה הזה פג תוקף או שאינו תקף עוד.",
-    "free.defaultTitle": "הזמן הפנוי שלי"
+    "free.defaultTitle": "הזמן הפנוי שלי",
+    "maintenance.title": "תחזוקה באתר",
+    "maintenance.heading": "נחזור עוד רגע",
+    "maintenance.body": "האתר אינו זמין באופן זמני עקב תחזוקה. תודה על הסבלנות.",
+    "maintenance.retryingIn": "ניסיון חוזר אוטומטי בעוד :seconds שנ׳",
+    "maintenance.retryButton": "נסה שוב",
+    "maintenance.checking": "בודק…"
 }

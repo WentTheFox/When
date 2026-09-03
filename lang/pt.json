@@ -29,5 +29,11 @@
     "free.loadFailed": "Não foi possível carregar este calendário agora. Tenta novamente mais tarde.",
     "free.linkExpiredTitle": "Link Expirado",
     "free.linkExpiredBody": "Este link de calendário expirou ou já não é válido.",
-    "free.defaultTitle": "Meu Tempo Livre"
+    "free.defaultTitle": "Meu Tempo Livre",
+    "maintenance.title": "Em manutenção",
+    "maintenance.heading": "Voltamos já",
+    "maintenance.body": "Este site está temporariamente offline para manutenção. Obrigado pela paciência.",
+    "maintenance.retryingIn": "Nova tentativa automática em :seconds s",
+    "maintenance.retryButton": "Tentar novamente",
+    "maintenance.checking": "Verificando…"
 }

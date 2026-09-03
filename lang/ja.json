@@ -29,5 +29,11 @@
     "free.loadFailed": "現在このカレンダーを読み込めませんでした。しばらくしてからもう一度お試しください。",
     "free.linkExpiredTitle": "リンクの有効期限切れ",
     "free.linkExpiredBody": "このカレンダーリンクは期限切れか、無効になっています。",
-    "free.defaultTitle": "私の空き時間"
+    "free.defaultTitle": "私の空き時間",
+    "maintenance.title": "メンテナンス中",
+    "maintenance.heading": "まもなく復旧します",
+    "maintenance.body": "このサイトは現在、メンテナンスのため一時的に利用できません。しばらくお待ちください。",
+    "maintenance.retryingIn": ":seconds 秒後に自動的に再試行します",
+    "maintenance.retryButton": "再試行",
+    "maintenance.checking": "確認中…"
 }

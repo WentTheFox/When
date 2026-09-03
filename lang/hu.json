@@ -29,5 +29,11 @@
     "free.loadFailed": "Jelenleg nem sikerült betölteni ezt a naptárt. Kérjük, próbáld újra később.",
     "free.linkExpiredTitle": "Lejárt Link",
     "free.linkExpiredBody": "Ez a naptárlink lejárt vagy már nem érvényes.",
-    "free.defaultTitle": "Szabadidőm"
+    "free.defaultTitle": "Szabadidőm",
+    "maintenance.title": "Karbantartás",
+    "maintenance.heading": "Mindjárt visszatérünk",
+    "maintenance.body": "Az oldal jelenleg karbantartás miatt nem elérhető. Köszönjük a türelmet.",
+    "maintenance.retryingIn": "Automatikus újrapróbálkozás :seconds mp múlva",
+    "maintenance.retryButton": "Próbáld újra",
+    "maintenance.checking": "Ellenőrzés…"
 }

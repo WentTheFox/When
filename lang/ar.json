@@ -29,5 +29,11 @@
     "free.loadFailed": "تعذّر تحميل هذا التقويم الآن. يرجى المحاولة لاحقًا.",
     "free.linkExpiredTitle": "انتهت صلاحية الرابط",
     "free.linkExpiredBody": "انتهت صلاحية رابط التقويم هذا أو لم يعد صالحًا.",
-    "free.defaultTitle": "وقتي الحر"
+    "free.defaultTitle": "وقتي الحر",
+    "maintenance.title": "الموقع تحت الصيانة",
+    "maintenance.heading": "سنعود سريعًا",
+    "maintenance.body": "هذا الموقع غير متاح مؤقتًا بسبب الصيانة. شكرًا لصبرك.",
+    "maintenance.retryingIn": "إعادة المحاولة تلقائيًا خلال :seconds ث",
+    "maintenance.retryButton": "إعادة المحاولة",
+    "maintenance.checking": "جارٍ التحقق…"
 }

@@ -29,5 +29,11 @@
     "free.loadFailed": "Tätä kalenteria ei voitu ladata juuri nyt. Yritä myöhemmin uudelleen.",
     "free.linkExpiredTitle": "Linkki Vanhentunut",
     "free.linkExpiredBody": "Tämä kalenterilinkki on vanhentunut tai ei ole enää voimassa.",
-    "free.defaultTitle": "Vapaa-aikani"
+    "free.defaultTitle": "Vapaa-aikani",
+    "maintenance.title": "Huoltokatko",
+    "maintenance.heading": "Palaamme pian",
+    "maintenance.body": "Sivusto on tilapäisesti pois käytöstä huollon vuoksi. Kiitos kärsivällisyydestäsi.",
+    "maintenance.retryingIn": "Automaattinen uusi yritys :seconds s kuluttua",
+    "maintenance.retryButton": "Yritä uudelleen",
+    "maintenance.checking": "Tarkistetaan…"
 }

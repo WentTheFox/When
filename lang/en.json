@@ -29,5 +29,11 @@
     "free.loadFailed": "Could not load this calendar right now. Please try again later.",
     "free.linkExpiredTitle": "Link Expired",
     "free.linkExpiredBody": "This calendar link has expired or is no longer valid.",
-    "free.defaultTitle": "My Free Time"
+    "free.defaultTitle": "My Free Time",
+    "maintenance.title": "Down for Maintenance",
+    "maintenance.heading": "We'll be right back",
+    "maintenance.body": "This site is temporarily offline for maintenance. Thanks for your patience.",
+    "maintenance.retryingIn": "Retrying automatically in :seconds s",
+    "maintenance.retryButton": "Try again",
+    "maintenance.checking": "Checking…"
 }

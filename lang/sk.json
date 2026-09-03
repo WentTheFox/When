@@ -29,5 +29,11 @@
     "free.loadFailed": "Tento kalendár sa teraz nepodarilo načítať. Skús to prosím neskôr znova.",
     "free.linkExpiredTitle": "Odkaz Vypršal",
     "free.linkExpiredBody": "Tento odkaz na kalendár vypršal alebo už nie je platný.",
-    "free.defaultTitle": "Môj Voľný Čas"
+    "free.defaultTitle": "Môj Voľný Čas",
+    "maintenance.title": "Prebieha údržba",
+    "maintenance.heading": "Hneď sme späť",
+    "maintenance.body": "Táto stránka je dočasne nedostupná kvôli údržbe. Ďakujeme za trpezlivosť.",
+    "maintenance.retryingIn": "Automatické opakovanie o :seconds s",
+    "maintenance.retryButton": "Skúsiť znova",
+    "maintenance.checking": "Kontrolujem…"
 }

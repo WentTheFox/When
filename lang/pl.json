@@ -29,5 +29,11 @@
     "free.loadFailed": "Nie udało się teraz załadować tego kalendarza. Spróbuj ponownie później.",
     "free.linkExpiredTitle": "Link Wygasł",
     "free.linkExpiredBody": "Ten link kalendarza wygasł lub nie jest już ważny.",
-    "free.defaultTitle": "Mój Wolny Czas"
+    "free.defaultTitle": "Mój Wolny Czas",
+    "maintenance.title": "Przerwa techniczna",
+    "maintenance.heading": "Zaraz wracamy",
+    "maintenance.body": "Strona jest tymczasowo niedostępna z powodu przerwy technicznej. Dziękujemy za cierpliwość.",
+    "maintenance.retryingIn": "Automatyczna ponowna próba za :seconds s",
+    "maintenance.retryButton": "Spróbuj ponownie",
+    "maintenance.checking": "Sprawdzanie…"
 }

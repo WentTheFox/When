@@ -29,5 +29,11 @@
     "free.loadFailed": "Deze agenda kon nu niet worden geladen. Probeer het later opnieuw.",
     "free.linkExpiredTitle": "Link Verlopen",
     "free.linkExpiredBody": "Deze agendalink is verlopen of niet meer geldig.",
-    "free.defaultTitle": "Mijn Vrije Tijd"
+    "free.defaultTitle": "Mijn Vrije Tijd",
+    "maintenance.title": "Onderhoud",
+    "maintenance.heading": "We zijn zo terug",
+    "maintenance.body": "Deze site is tijdelijk offline voor onderhoud. Bedankt voor je geduld.",
+    "maintenance.retryingIn": "Automatische nieuwe poging over :seconds s",
+    "maintenance.retryButton": "Opnieuw proberen",
+    "maintenance.checking": "Controleren…"
 }

@@ -29,5 +29,11 @@
     "free.loadFailed": "目前无法加载此日历。请稍后再试。",
     "free.linkExpiredTitle": "链接已过期",
     "free.linkExpiredBody": "此日历链接已过期或不再有效。",
-    "free.defaultTitle": "我的空闲时间"
+    "free.defaultTitle": "我的空闲时间",
+    "maintenance.title": "维护中",
+    "maintenance.heading": "我们马上回来",
+    "maintenance.body": "本站因维护暂时下线，感谢您的耐心等待。",
+    "maintenance.retryingIn": ":seconds 秒后自动重试",
+    "maintenance.retryButton": "重试",
+    "maintenance.checking": "检查中…"
 }

@@ -29,5 +29,11 @@
     "free.loadFailed": "Acest calendar nu a putut fi încărcat acum. Te rugăm să încerci din nou mai târziu.",
     "free.linkExpiredTitle": "Link Expirat",
     "free.linkExpiredBody": "Acest link de calendar a expirat sau nu mai este valid.",
-    "free.defaultTitle": "Timpul Meu Liber"
+    "free.defaultTitle": "Timpul Meu Liber",
+    "maintenance.title": "Mentenanță",
+    "maintenance.heading": "Revenim imediat",
+    "maintenance.body": "Acest site este temporar offline pentru mentenanță. Îți mulțumim pentru răbdare.",
+    "maintenance.retryingIn": "Reîncercare automată în :seconds s",
+    "maintenance.retryButton": "Încearcă din nou",
+    "maintenance.checking": "Se verifică…"
 }
