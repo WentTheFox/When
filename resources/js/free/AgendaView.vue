@@ -18,6 +18,7 @@ import { computed } from 'vue';
 import { currentLocale, trans } from 'laravel-vue-i18n';
 import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, isTentativeSuffixShown, pctToTime, tildeTime } from './nuxt-blocks';
 import type { DayBlock, FreeSlot, HighlightedSlot, TentativeSlot } from './nuxt-blocks';
+import { resolveLocalizedText } from './localizedText';
 
 const AGENDA_SLOT_CLASS: Record<DayBlock['type'], string> = {
   free: '',
@@ -77,7 +78,11 @@ const slotTypeIcon = computed<Record<DayBlock['type'], IconDefinition>>(() => ({
 const dateFnsLocale = computed(() => currentLocale.value === 'hu' ? hu : enUS);
 
 function slotLabel(slot: DayBlock): string {
-  if (slot.type === 'highlighted' && slot.activity) return slot.activity;
+  if (slot.type === 'highlighted') {
+    const roleLabel = resolveLocalizedText(slot.activityLabel, currentLocale.value);
+    if (roleLabel) return roleLabel;
+    if (slot.activity) return slot.activity;
+  }
   return trans(AGENDA_SLOT_LABEL_KEY[slot.type]);
 }
 

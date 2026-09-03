@@ -6,6 +6,7 @@ use App\Models\Invite;
 use App\Models\ShareLink;
 use App\Models\User;
 use App\Services\InviteService;
+use App\Support\LocalizedText;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
@@ -88,21 +89,20 @@ class ShareLinkController extends Controller
 
     /**
      * By this point $locale is already fully resolved (show()'s cookie/
-     * Accept-Language redirect above has already run) — this only picks
-     * between the owner's two title overrides. Falling back to the other
-     * locale's title (if set) beats falling straight to the generic
-     * default.
+     * Accept-Language redirect above has already run) — LocalizedText::
+     * resolve() picks the owner's own override for $locale, falling back
+     * to their 'default' entry (see App\Support\LocalizedText) rather
+     * than straight to the generic computed default below.
      */
     private function resolveTitle(User $owner, string $locale): string
     {
-        $primary = $locale === 'hu' ? $owner->public_page_title_hu : $owner->public_page_title_en;
-        $secondary = $locale === 'hu' ? $owner->public_page_title_en : $owner->public_page_title_hu;
+        $resolved = LocalizedText::resolve($owner->public_page_title, $locale);
 
         // No hardcoded "My Free Time" branding — owners can override the
         // page heading entirely; the default is computed here rather than
         // baked into the frontend so the fallback text itself stays
         // server-controlled.
-        return $primary ?? $secondary ?? "{$owner->name}'s Free Time";
+        return $resolved ?? "{$owner->name}'s Free Time";
     }
 
     private function render(ShareLink $shareLink, string $token, string $locale): InertiaResponse

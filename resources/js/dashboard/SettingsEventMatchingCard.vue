@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /** Settings.vue's "Event title matching rules" card — dnd/nap/work/school event-name patterns plus the highlight/activity/tentative/open-end/open-start regex fields, all part of the shared `form` Settings.vue owns and saves via its own submit(). */
 import { BAlert, BBadge, BButton, BCard, BFormGroup } from 'bootstrap-vue-next';
+import ActivityRoles from './ActivityRoles.vue';
 import PatternPreview from './PatternPreview.vue';
 import RegexHighlightedCode from './RegexHighlightedCode.vue';
 import RegexPatternInput from './RegexPatternInput.vue';
@@ -10,6 +11,7 @@ import type { SettingsForm } from '../Pages/Dashboard/Settings.vue';
 const props = defineProps<{
   form: SettingsForm;
   defaults: SettingsDefaults;
+  activityRoles: { id: string; pattern: string; label: Record<string, string>; sort_order: number }[];
   submit: () => void;
 }>();
 
@@ -288,10 +290,11 @@ const EVENT_MATCHING_FIELDS = [
                 below — into individual names, each checked as a <em>substring</em> (not a
                 whole-word match, and this comparison is case-<strong>sensitive</strong>) against
                 a share link's own configured highlight words (set per-link, not here). "Dinner
-                with Alice, Bob" checks both "Alice" and "Bob" individually. "Host X" also
-                matches, marking the event as the calendar owner hosting X; "Visit X" marks the
-                owner visiting X. Leave blank to fall back to the built-in default rather than
-                turning matching off.
+                with Alice, Bob" checks both "Alice" and "Bob" individually. Any pattern
+                configured under "Activity roles" below also matches independently of this field
+                (e.g. the classic "Host X"/"Visit X" convention, now just two example roles you
+                can edit or remove) — see that section for details. Leave blank to fall back to
+                the built-in default rather than turning matching off.
                 Default: <RegexHighlightedCode :pattern="defaults.highlightClausePattern" />
                 <BButton variant="link" size="sm" class="p-0 align-baseline ms-1" @click="setFormField('highlight_clause_pattern', defaults.highlightClausePattern)">Use default</BButton>
               </template>
@@ -305,7 +308,7 @@ const EVENT_MATCHING_FIELDS = [
               </p>
               <PatternPreview
                 :pattern="form.highlight_clause_pattern || defaults.highlightClausePattern"
-                :examples="['Dinner with Alice', 'Call w/ Bob', 'Team sync', 'Dinner with Charlie, Alice, Bob', 'Host Alice', 'Visit Bob']"
+                :examples="['Dinner with Alice', 'Call w/ Bob', 'Team sync', 'Dinner with Charlie, Alice, Bob']"
                 :sample-words="['Alice', 'Bob']"
                 :split-pattern="form.highlight_split_pattern || defaults.highlightSplitPattern"
                 mode="tokens"
@@ -349,6 +352,8 @@ const EVENT_MATCHING_FIELDS = [
             </div>
           </div>
         </div>
+
+        <ActivityRoles :initial="activityRoles" />
 
         <div class="row mb-3">
           <div class="col-md-6">

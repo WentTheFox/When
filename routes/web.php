@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\TwoFactorController;
 use App\Http\Controllers\CalendarPreviewController;
 use App\Http\Controllers\Dashboard\AccountController;
+use App\Http\Controllers\Dashboard\ActivityRoleController;
 use App\Http\Controllers\Dashboard\ConnectionAttributeDefinitionController;
 use App\Http\Controllers\Dashboard\ConnectionController;
 use App\Http\Controllers\Dashboard\ConnectionEdgeController;
@@ -116,6 +117,13 @@ Route::middleware('auth')->group(function () {
         ->name('sleep-exceptions.store');
     Route::delete('/settings/sleep-exceptions/{sleepException}', [SleepExceptionController::class, 'destroy'])
         ->name('sleep-exceptions.destroy');
+
+    Route::post('/settings/activity-roles', [ActivityRoleController::class, 'store'])
+        ->name('activity-roles.store');
+    Route::patch('/settings/activity-roles/{activityRole}', [ActivityRoleController::class, 'update'])
+        ->name('activity-roles.update');
+    Route::delete('/settings/activity-roles/{activityRole}', [ActivityRoleController::class, 'destroy'])
+        ->name('activity-roles.destroy');
 
     Route::get('/dashboard/share-links', [ShareLinkManagementController::class, 'index'])
         ->name('dashboard.share-links');

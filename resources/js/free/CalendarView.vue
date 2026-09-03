@@ -26,6 +26,7 @@ import { computed } from 'vue';
 import { currentLocale, trans } from 'laravel-vue-i18n';
 import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, isTentativeSuffixShown, tildeTime } from './nuxt-blocks';
 import type { DayBlock, FreeSlot, HighlightedSlot, TentativeSlot } from './nuxt-blocks';
+import { resolveLocalizedText } from './localizedText';
 
 const BLOCK_TYPE_CLASS: Record<DayBlock['type'], string> = {
   free: 'wtf-fcal-free-block',
@@ -89,7 +90,14 @@ const blockTypeIcon = computed<Record<DayBlock['type'], IconDefinition>>(() => (
 const dateFnsLocale = computed(() => currentLocale.value === 'hu' ? hu : enUS);
 
 function blockLabel(block: DayBlock): string {
-  if (block.type === 'highlighted' && block.activity) return block.activity;
+  if (block.type === 'highlighted') {
+    // A matched ActivityRole's own localized label takes precedence over
+    // the raw, unlocalized freetext activity_clause_pattern extracted —
+    // see AvailabilityService::compute()'s own doc comment.
+    const roleLabel = resolveLocalizedText(block.activityLabel, currentLocale.value);
+    if (roleLabel) return roleLabel;
+    if (block.activity) return block.activity;
+  }
   return trans(BLOCK_TYPE_LABEL_KEY[block.type]);
 }
 

@@ -36,8 +36,11 @@ import axios from 'axios';
 import { BModal, BProgress, BProgressBar } from 'bootstrap-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import { usePage } from '@inertiajs/vue3';
+import { currentLocale } from 'laravel-vue-i18n';
 import { useResolvedTheme } from '../composables/useTheme';
 import { resolveSwatchHex } from '../free/color-palette';
+import { resolveLocalizedText } from '../free/localizedText';
+import type { LocalizedText } from '../free/localizedText';
 import type { SharedPageProps } from '../sharedPageProps';
 import { decryptString } from '../crypto';
 import { useVault } from './useVault';
@@ -68,8 +71,7 @@ interface HighlightSlot {
   tentative_start: boolean;
   tentative_end: boolean;
   activity: string | null;
-  visiting: boolean;
-  hosting: boolean;
+  activity_label: LocalizedText | null;
   highlight_words: string[];
 }
 
@@ -271,9 +273,7 @@ onMounted(async () => {
               {{ fmtSlotTime(slot.end) }}{{ slot.tentative_end ? '?' : '' }}
             </td>
             <td class="small">
-              {{ slot.activity ?? slot.highlight_words.join(', ') }}
-              <span v-if="slot.visiting" class="badge bg-info text-dark ms-1">Visiting</span>
-              <span v-if="slot.hosting" class="badge bg-info text-dark ms-1">Hosting</span>
+              {{ resolveLocalizedText(slot.activity_label, currentLocale) ?? slot.activity ?? slot.highlight_words.join(', ') }}
               <span v-if="slot.tentative_start || slot.tentative_end" class="badge bg-secondary ms-1">Tentative</span>
             </td>
           </tr>

@@ -14,10 +14,8 @@ class ShareLinkLocaleTest extends TestCase
 
     public function test_free_path_renders_the_english_title_and_locale(): void
     {
-        $owner = User::factory()->create([
-            'public_page_title_en' => 'English Title',
-            'public_page_title_hu' => 'Magyar Cím',
-        ]);
+        $owner = User::factory()->create();
+        $owner->setLocalizedField('public_page_title', ['default' => 'English Title', 'hu' => 'Magyar Cim']);
         $shareLink = ShareLink::factory()->for($owner)->create();
 
         $this->get("/free/{$shareLink->id}")
@@ -29,10 +27,8 @@ class ShareLinkLocaleTest extends TestCase
 
     public function test_hu_free_path_renders_the_hungarian_title_and_locale(): void
     {
-        $owner = User::factory()->create([
-            'public_page_title_en' => 'English Title',
-            'public_page_title_hu' => 'Magyar Cím',
-        ]);
+        $owner = User::factory()->create();
+        $owner->setLocalizedField('public_page_title', ['default' => 'English Title', 'hu' => 'Magyar Cim']);
         $shareLink = ShareLink::factory()->for($owner)->create();
 
         // A stored locale cookie, not a bare request — ShareLinkController
@@ -44,16 +40,14 @@ class ShareLinkLocaleTest extends TestCase
             ->get("/hu/free/{$shareLink->id}")
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->where('pageTitle', 'Magyar Cím')
+                ->where('pageTitle', 'Magyar Cim')
                 ->where('locale', 'hu'));
     }
 
     public function test_hu_free_path_falls_back_to_the_english_title_when_hungarian_is_unset(): void
     {
-        $owner = User::factory()->create([
-            'public_page_title_en' => 'English Title',
-            'public_page_title_hu' => null,
-        ]);
+        $owner = User::factory()->create();
+        $owner->setLocalizedField('public_page_title', ['default' => 'English Title']);
         $shareLink = ShareLink::factory()->for($owner)->create();
 
         $this->withCookie('wtf-locale', 'hu')

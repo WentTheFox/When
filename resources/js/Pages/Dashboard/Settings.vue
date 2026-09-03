@@ -48,6 +48,7 @@ const props = defineProps<{
   timezones: string[];
   calendarUrl: string | null;
   sleepExceptions: { id: string; start_date: string; end_date: string; label_ciphertext: string | null }[];
+  activityRoles: { id: string; pattern: string; label: Record<string, string>; sort_order: number }[];
 }>();
 
 const page = usePage<SharedPageProps>();
@@ -78,8 +79,7 @@ const form = useForm({
   tentative_pattern: props.settings.tentative_pattern,
   open_end_pattern: props.settings.open_end_pattern,
   open_start_pattern: props.settings.open_start_pattern,
-  public_page_title_en: props.settings.public_page_title_en ?? '',
-  public_page_title_hu: props.settings.public_page_title_hu ?? '',
+  public_page_title: props.settings.public_page_title ?? {},
   accent_color_key: props.settings.accent_color_key ?? getDefaultSwatchKey('accent'),
   secondary_color_key: props.settings.secondary_color_key ?? getDefaultSwatchKey('secondary'),
   free_color_key: props.settings.free_color_key ?? getDefaultSwatchKey('free'),
@@ -165,7 +165,7 @@ function submit(): void {
   <BAlert :model-value="!!page.props.flash?.status" variant="success">{{ page.props.flash?.status }}</BAlert>
 
   <SettingsCalendarCard v-model:preview-availability="previewAvailability" :form="form" :calendar-url="calendarUrl" :timezones="timezones" />
-  <SettingsEventMatchingCard :form="form" :defaults="defaults" :submit="submit" />
+  <SettingsEventMatchingCard :form="form" :defaults="defaults" :activity-roles="activityRoles" :submit="submit" />
   <SettingsWakeSleepCard :form="form" :sleep-exceptions="sleepExceptions" :submit="submit" />
   <SettingsPublicPageCard :form="form" :name="settings.name" :preview-availability="previewAvailability" :submit="submit" />
 </template>

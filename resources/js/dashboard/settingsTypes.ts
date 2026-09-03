@@ -20,8 +20,7 @@ export interface Settings {
   tentative_pattern: string | null;
   open_end_pattern: string | null;
   open_start_pattern: string | null;
-  public_page_title_en: string | null;
-  public_page_title_hu: string | null;
+  public_page_title: Record<string, string> | null;
   name: string;
   accent_color_key: string | null;
   secondary_color_key: string | null;

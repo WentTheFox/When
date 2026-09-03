@@ -11,6 +11,7 @@
 import { format, parseISO } from 'date-fns';
 import { TZDate } from '@date-fns/tz';
 import { huFromSuffix } from './hu-time-suffix';
+import type { LocalizedText } from './localizedText';
 
 export interface FreeSlot {
   start: string;
@@ -23,9 +24,10 @@ export interface TentativeSlot extends FreeSlot {
 }
 
 export interface HighlightedSlot extends TentativeSlot {
+  /** Raw, unlocalized freetext preceding "with X"/"w/ X" (e.g. "Dinner") — shown as-is when activity_label below isn't set. See ActivityExtractor. */
   activity?: string | null;
-  visiting?: boolean;
-  hosting?: boolean;
+  /** The owner's own configured, localized label for this event's matched ActivityRole (e.g. "Visiting"/"Hosting", or any other role an owner defined) — takes precedence over `activity` above when set. Resolve with resolveLocalizedText(). */
+  activity_label?: LocalizedText | null;
   /** Every configured highlight word that matched — a clause can name more than one person (e.g. "with Alice, Bob"). */
   highlight_words?: string[];
 }
@@ -48,8 +50,7 @@ export interface DayBlock {
   tentativeStart?: boolean;
   tentativeEnd?: boolean;
   activity?: string | null;
-  visiting?: boolean;
-  hosting?: boolean;
+  activityLabel?: LocalizedText | null;
   highlightWords?: string[];
 }
 
@@ -185,8 +186,7 @@ function slotsToBlocks(
       tentativeStart: slot.tentative_start,
       tentativeEnd: slot.tentative_end,
       activity: slot.activity,
-      visiting: slot.visiting,
-      hosting: slot.hosting,
+      activityLabel: slot.activity_label,
       highlightWords: slot.highlight_words,
     }];
   });

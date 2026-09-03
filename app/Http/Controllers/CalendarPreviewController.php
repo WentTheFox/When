@@ -109,6 +109,12 @@ class CalendarPreviewController extends Controller
             workEventPattern: $data['work_event_pattern'] ?? null,
             highlightSplitPattern: $data['highlight_split_pattern'] ?? null,
             schoolEventPattern: $data['school_event_pattern'] ?? null,
+            // Not part of the request body — activity_roles are each
+            // saved immediately through their own endpoint (like sleep
+            // exceptions), so the owner's already-saved list is what this
+            // preview should reflect, same as every other already-saved
+            // setting this endpoint doesn't re-accept as an override.
+            activityRoles: $request->user()->activityRoles->map(fn ($r) => ['pattern' => $r->pattern, 'label' => $r->label])->all(),
         );
 
         $timer->lap('compute_availability', [

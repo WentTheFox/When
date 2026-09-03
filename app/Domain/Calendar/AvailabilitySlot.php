@@ -20,12 +20,10 @@ final class AvailabilitySlot
         public readonly bool $tentativeStart = false,
         /** End time is unknown/approximate (source title ended in "(-?)", or fully-tentative "(?)"/STATUS:TENTATIVE). Only ever true within highlighted/unavailable — free/sleep never carry this. */
         public readonly bool $tentativeEnd = false,
-        /** Freetext preceding "with X"/"w/ X" (e.g. "Dinner"). Only ever set within highlighted. Null unless share_links.show_activity is on for this link. See ActivityExtractor. */
+        /** Freetext preceding "with X"/"w/ X" (e.g. "Dinner"), raw and unlocalized. Only ever set within highlighted. Null unless share_links.show_activity is on for this link, or activityLabel below already covers this event. See ActivityExtractor. */
         public readonly ?string $activity = null,
-        /** True when the event title was "Host <token>" — the token is visiting the calendar owner. Only ever set within highlighted. */
-        public readonly bool $visiting = false,
-        /** True when the event title was "Visit <token>" — the calendar owner is visiting the token. Only ever set within highlighted. */
-        public readonly bool $hosting = false,
+        /** The owner's own configured, localized label for this event's matched activity_role (e.g. "Visiting"/"Hosting", or any other role an owner defined) — see App\Support\LocalizedText. Takes precedence over `activity` above when both are present (see AvailabilityService::compute). Only ever set within highlighted. */
+        public readonly ?array $activityLabel = null,
         /** Every configured highlight word that matched (a clause can name more than one person). Only ever set within highlighted. */
         public readonly array $highlightWords = [],
     ) {}
@@ -38,8 +36,7 @@ final class AvailabilitySlot
             'tentative_start' => $this->tentativeStart,
             'tentative_end' => $this->tentativeEnd,
             'activity' => $this->activity,
-            'visiting' => $this->visiting,
-            'hosting' => $this->hosting,
+            'activity_label' => $this->activityLabel,
             'highlight_words' => $this->highlightWords,
         ];
     }

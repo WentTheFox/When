@@ -49,6 +49,7 @@ class AvailabilityService
         ?string $workEventPattern = null,
         ?string $highlightSplitPattern = null,
         ?string $schoolEventPattern = null,
+        array $activityRoles = [],
     ): AvailabilityResult {
         $napIntervals = [];
         $busyIntervals = [];
@@ -83,9 +84,15 @@ class AvailabilityService
                 $school[] = ['start' => $event->start, 'end' => $event->end, 'tentativeStart' => $event->tentativeStart, 'tentativeEnd' => $event->tentativeEnd];
             }
 
-            $highlightMatch = $this->matcher->match($event, $highlightWords, $highlightClausePattern, $highlightSplitPattern);
+            $highlightMatch = $this->matcher->match($event, $highlightWords, $highlightClausePattern, $highlightSplitPattern, $activityRoles);
 
             if ($highlightMatch !== null) {
+                // Raw freetext extraction still runs independently of
+                // whether a role matched — activityLabel (below) takes
+                // precedence over it once both reach the client, but the
+                // raw text stays available as the fallback for a viewer
+                // whose locale genuinely has neither a role-label nor
+                // (obviously) a translation of the owner's own freetext.
                 $activity = ($showActivity && $event->summary !== null)
                     ? $this->activityExtractor->extract($event->summary, $activityClausePattern)
                     : null;
@@ -96,8 +103,7 @@ class AvailabilityService
                     tentativeStart: $event->tentativeStart,
                     tentativeEnd: $event->tentativeEnd,
                     activity: $activity,
-                    visiting: $highlightMatch->visiting,
-                    hosting: $highlightMatch->hosting,
+                    activityLabel: $highlightMatch->activityLabel,
                     highlightWords: $highlightMatch->words,
                 );
             }

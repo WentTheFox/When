@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasLocalizedFields;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\Crypt;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasUuids, Notifiable;
+    use HasFactory, HasLocalizedFields, HasUuids, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -42,8 +43,6 @@ class User extends Authenticatable
         'tentative_pattern',
         'open_end_pattern',
         'open_start_pattern',
-        'public_page_title_en',
-        'public_page_title_hu',
         'accent_color_key',
         'secondary_color_key',
         'sleep_color_key',
@@ -183,9 +182,24 @@ class User extends Authenticatable
         return "https://www.gravatar.com/avatar/{$hash}?s={$size}&d=mp";
     }
 
+    /** @return array<string, string>|null */
+    public function getPublicPageTitleAttribute(): ?array
+    {
+        return $this->getLocalizedField('public_page_title');
+    }
+
     public function sleepExceptions(): HasMany
     {
         return $this->hasMany(SleepException::class);
+    }
+
+    public function activityRoles(): HasMany
+    {
+        // Eager-loads each role's own localizedTexts whenever this
+        // relation itself is loaded — every real caller immediately
+        // reads ->label (ActivityRole::getLabelAttribute()) right after,
+        // so this avoids an N+1 query per role.
+        return $this->hasMany(ActivityRole::class)->with('localizedTexts')->orderBy('sort_order');
     }
 
     public function shareLinks(): HasMany

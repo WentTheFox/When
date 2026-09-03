@@ -68,6 +68,7 @@ class AvailabilityServiceTest extends TestCase
         bool $bypassDnd = false,
         bool $showActivity = true,
         ?string $activityClausePattern = null,
+        array $activityRoles = [],
     ): AvailabilityResult {
         return $this->service->compute(
             $events,
@@ -81,6 +82,7 @@ class AvailabilityServiceTest extends TestCase
             $this->rangeEnd,
             activityClausePattern: $activityClausePattern,
             showActivity: $showActivity,
+            activityRoles: $activityRoles,
         );
     }
 
@@ -383,16 +385,22 @@ class AvailabilityServiceTest extends TestCase
         $this->assertNull($result->highlighted[0]->activity);
     }
 
-    public function test_a_host_prefixed_event_is_highlighted_with_visiting_set(): void
+    public function test_a_host_prefixed_event_is_highlighted_with_the_configured_role_label(): void
     {
+        // Host/Visit aren't hardcoded (App\Models\ActivityRole) — the
+        // caller has to pass its own $activityRoles list now, same as
+        // every real caller does (AvailabilityService::compute()).
         $result = $this->compute(
             events: [$this->event('c1', '2026-06-03 12:00', '2026-06-03 13:00', 'Host Alice')],
             highlightWords: ['Alice'],
+            activityRoles: [
+                ['pattern' => '^host\s+(.+)$', 'label' => ['default' => 'Visiting']],
+                ['pattern' => '^visit\s+(.+)$', 'label' => ['default' => 'Hosting']],
+            ],
         );
 
         $this->assertSame(['Alice'], $result->highlighted[0]->highlightWords);
-        $this->assertTrue($result->highlighted[0]->visiting);
-        $this->assertFalse($result->highlighted[0]->hosting);
+        $this->assertSame(['default' => 'Visiting'], $result->highlighted[0]->activityLabel);
     }
 
     public function test_full_detail_event_with_no_matching_clause_is_plain_unavailable(): void

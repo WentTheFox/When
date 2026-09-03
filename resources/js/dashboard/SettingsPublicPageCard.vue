@@ -13,7 +13,9 @@ import { faIconFor, iconsForSlot, resolveIcon } from '../free/icon-palette';
 import type { IconSlot } from '../free/icon-palette';
 import { getNowColorPresets, resolveNowColorHex } from '../free/now-color-presets';
 import { useResolvedTheme } from '../composables/useTheme';
+import { resolveLocalizedText } from '../free/localizedText';
 import type { AvailabilityResponse } from '../free/nuxt-blocks';
+import LocalizedTextInput from './LocalizedTextInput.vue';
 import type { Settings } from './settingsTypes';
 import type { SettingsForm } from '../Pages/Dashboard/Settings.vue';
 
@@ -423,7 +425,7 @@ const formIcons = computed(() => ({
 
 /** This card's own "Reset" button field list — form.reset(...) only reverts the fields named, not the other cards' worth that happen to share this same useForm() instance. */
 const PUBLIC_PAGE_FIELDS = [
-  'public_page_title_en', 'public_page_title_hu',
+  'public_page_title',
   'accent_color_key', 'secondary_color_key', 'free_color_key', 'busy_color_key', 'work_color_key', 'school_color_key', 'sleep_color_key', 'highlight_color_key',
   'free_icon_key', 'busy_icon_key', 'work_icon_key', 'school_icon_key', 'sleep_icon_key', 'highlight_icon_key',
   'now_color_key',
@@ -441,29 +443,18 @@ const PUBLIC_PAGE_FIELDS = [
 
         <div class="row">
           <div class="col-md-6">
-            <BFormGroup label="Page title (English)" label-for="public_page_title_en" class="mb-3">
-              <BFormInput
-                id="public_page_title_en"
-                v-model="form.public_page_title_en"
-                type="text"
-                :placeholder="`${name}'s Free Time`"
-              />
-            </BFormGroup>
-          </div>
-          <div class="col-md-6">
-            <BFormGroup label="Page title (Hungarian)" label-for="public_page_title_hu" class="mb-3">
-              <BFormInput
-                id="public_page_title_hu"
-                v-model="form.public_page_title_hu"
-                type="text"
-                :placeholder="`${name}'s Free Time`"
-              />
-              <template #description>
-                Shown instead of the English title on the Hungarian version of your link — swap
-                <code>/free/</code> for <code>/hu/free/</code> in the URL. Leave blank to fall back to
-                the English title above.
-              </template>
-            </BFormGroup>
+            <LocalizedTextInput
+              v-model="form.public_page_title"
+              id="public_page_title"
+              label="Page title"
+              :default-placeholder="`${name}'s Free Time`"
+            />
+            <p class="small text-muted mt-n2">
+              The default is shown on every locale (e.g. <code>/free/</code>) without its own
+              "Add language" override — add one (e.g. <code>hu</code> for <code>/hu/free/</code>)
+              only for a locale you want a genuinely different title on. Leave the default blank
+              to fall back to "{{ name }}'s Free Time".
+            </p>
           </div>
         </div>
 
@@ -567,7 +558,7 @@ const PUBLIC_PAGE_FIELDS = [
                 <FontAwesomeIcon :icon="theme === 'dark' ? faMoon : faSun" class="me-1" />{{ theme === 'dark' ? 'Dark theme' : 'Light theme' }}
               </p>
               <p class="small fw-bold mb-1">
-                {{ form.public_page_title_en || `${name}'s Free Time` }}
+                {{ resolveLocalizedText(form.public_page_title, 'default') || `${name}'s Free Time` }}
               </p>
               <p class="small mb-2" :style="{ color: theme === 'dark' ? previewSecondaryColorDark : previewSecondaryColorLight }">
                 <template v-if="previewAvailability">

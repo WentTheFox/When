@@ -243,10 +243,10 @@ onUnmounted(() => resizeObserver?.disconnect());
     </div>
   </div>
   <BButton
-    v-if="linesText !== defaultLinesText"
     variant="link"
     size="sm"
     class="p-0 align-baseline mt-1"
+    :disabled="linesText === defaultLinesText"
     @click="linesText = defaultLinesText"
   >
     Reset examples

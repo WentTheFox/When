@@ -84,8 +84,7 @@ class SettingsController extends Controller
                 'tentative_pattern' => $user->tentative_pattern,
                 'open_end_pattern' => $user->open_end_pattern,
                 'open_start_pattern' => $user->open_start_pattern,
-                'public_page_title_en' => $user->public_page_title_en,
-                'public_page_title_hu' => $user->public_page_title_hu,
+                'public_page_title' => $user->public_page_title,
                 'name' => $user->name,
                 'accent_color_key' => $user->accent_color_key,
                 'secondary_color_key' => $user->secondary_color_key,
@@ -133,6 +132,12 @@ class SettingsController extends Controller
                 'end_date' => $e->end_date->toDateString(),
                 'label_ciphertext' => $e->label_ciphertext,
             ]),
+            'activityRoles' => $user->activityRoles->map(fn ($r) => [
+                'id' => $r->id,
+                'pattern' => $r->pattern,
+                'label' => $r->label,
+                'sort_order' => $r->sort_order,
+            ]),
         ]);
     }
 
@@ -152,8 +157,13 @@ class SettingsController extends Controller
             'tentative_pattern' => ['nullable', 'string', 'max:500', Regex::validateCompiles(...)],
             'open_end_pattern' => ['nullable', 'string', 'max:500', Regex::validateCompiles(...)],
             'open_start_pattern' => ['nullable', 'string', 'max:500', Regex::validateCompiles(...)],
-            'public_page_title_en' => ['nullable', 'string', 'max:255'],
-            'public_page_title_hu' => ['nullable', 'string', 'max:255'],
+            // App\Support\LocalizedText — 'default' stays optional here
+            // (unlike ActivityRole's own label), since a blank title
+            // already falls back to a computed "{name}'s Free Time" (see
+            // ShareLinkController::resolveTitle).
+            'public_page_title' => ['nullable', 'array'],
+            'public_page_title.default' => ['nullable', 'string', 'max:255'],
+            'public_page_title.*' => ['nullable', 'string', 'max:255'],
             'accent_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
             'secondary_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
             'sleep_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
@@ -198,8 +208,6 @@ class SettingsController extends Controller
             'tentative_pattern' => $data['tentative_pattern'] ?? null,
             'open_end_pattern' => $data['open_end_pattern'] ?? null,
             'open_start_pattern' => $data['open_start_pattern'] ?? null,
-            'public_page_title_en' => $data['public_page_title_en'] ?? null,
-            'public_page_title_hu' => $data['public_page_title_hu'] ?? null,
             'accent_color_key' => $data['accent_color_key'] ?? null,
             'secondary_color_key' => $data['secondary_color_key'] ?? null,
             'sleep_color_key' => $data['sleep_color_key'] ?? null,
@@ -217,6 +225,10 @@ class SettingsController extends Controller
             'now_color_key' => $data['now_color_key'] ?? null,
             'availability_settings' => $availability,
         ])->save();
+
+        // Not mass-assignable (see App\Models\Concerns\HasLocalizedFields)
+        // — saved via its own call, same as calendar_url_ciphertext.
+        $user->setLocalizedField('public_page_title', $data['public_page_title'] ?? null);
 
         return back()->with('status', 'Settings saved.');
     }
