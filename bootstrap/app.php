@@ -49,7 +49,6 @@ return Application::configure(basePath: dirname(__DIR__))
             return Inertia::render('Errors/Maintenance', [
                 'appName' => config('app.name'),
                 'locale' => $locale,
-                'textDirection' => in_array($locale, Locales::RTL, true) ? 'rtl' : 'ltr',
                 'locales' => Locales::forFrontend(),
             ])
                 ->rootView('maintenance')

@@ -14,6 +14,7 @@ import { faLanguage, faRotate } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { Head } from '@inertiajs/vue3';
 import { BButton, BCard, BDropdown, BDropdownItem } from 'bootstrap-vue-next';
+import { loadLanguageAsync } from 'laravel-vue-i18n';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import logoUrl from '../../../img/When.svg';
 import { useTheme } from '../../composables/useTheme';
@@ -21,27 +22,40 @@ import { useTheme } from '../../composables/useTheme';
 const props = defineProps<{
   appName: string;
   locale: string;
-  textDirection: 'ltr' | 'rtl';
   locales: { code: string; native: string }[];
 }>();
 
-// Unlike LanguageSwitcher.vue (which only ever runs on /free/{token} and
-// rewrites that fixed path shape), this page can be showing for literally
-// any URL — maintenance mode intercepts every route — so there's no
-// "/free/" segment to anchor on. Reuses the same locale-prefix convention
-// instead (props.locale is exactly what bootstrap/app.php derived from the
-// URL's first segment), just stripping/prepending whichever prefix that
-// was. A plain full-navigation <a>, not an Inertia visit: the whole point
-// is picking up the new lang/{code}.json at boot (app.ts's initialLocale),
-// which only happens on a fresh page load.
-const currentLocale = computed(() => (
-  props.locales.find((l) => l.code === props.locale) ?? props.locales[0]
-));
+// Unlike LanguageSwitcher.vue (which navigates to a locale-prefixed URL —
+// /free/{token} has a real per-locale route to land on), maintenance mode
+// intercepts every route, so there's nowhere else for this page to
+// navigate to: switching stays on whatever URL it's already showing and
+// just swaps the loaded lang/{code}.json client-side instead. Mirrors
+// App\Support\Locales::RTL (ar, he) — no shared-props channel exists here
+// to read that from the server, and it's a two-entry list unlikely to
+// change without this file needing a look anyway.
+const RTL_CODES = new Set(['ar', 'he']);
 
-function hrefFor(code: string): string {
-  const { pathname, search, hash } = window.location;
-  const rest = props.locale === 'en' ? pathname : (pathname.replace(`/${props.locale}`, '') || '/');
-  return (code === 'en' ? rest : `/${code}${rest}`) + search + hash;
+const activeLocale = ref(props.locale);
+const switching = ref(false);
+
+const currentLocale = computed(() => (
+  props.locales.find((l) => l.code === activeLocale.value) ?? props.locales[0]
+));
+const textDirection = computed(() => (RTL_CODES.has(activeLocale.value) ? 'rtl' : 'ltr'));
+
+async function switchLocale(code: string): Promise<void> {
+  if (code === activeLocale.value || switching.value) {
+    return;
+  }
+  switching.value = true;
+  try {
+    await loadLanguageAsync(code);
+    activeLocale.value = code;
+  } catch (e) {
+    console.error(e);
+  } finally {
+    switching.value = false;
+  }
 }
 
 // Purely client-side (cookie + prefers-color-scheme), no shared props or
@@ -121,7 +135,7 @@ onUnmounted(() => {
 <template>
   <Head :title="$t('maintenance.title')" />
 
-  <div class="wtf-maintenance-backdrop" :dir="props.textDirection">
+  <div class="wtf-maintenance-backdrop" :dir="textDirection">
     <div class="container py-5">
       <div class="row justify-content-center">
         <div class="col-12 col-sm-8 col-md-6 col-lg-5">
@@ -133,9 +147,9 @@ onUnmounted(() => {
               <BDropdownItem
                 v-for="l in props.locales"
                 :key="l.code"
-                :href="hrefFor(l.code)"
-                :active="l.code === props.locale"
-                :disabled="l.code === props.locale"
+                :active="l.code === activeLocale"
+                :disabled="l.code === activeLocale"
+                @click="switchLocale(l.code)"
               >
                 {{ l.native }}
               </BDropdownItem>
