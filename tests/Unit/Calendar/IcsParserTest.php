@@ -23,10 +23,14 @@ class IcsParserTest extends TestCase
 
     public function test_parses_full_detail_events_including_tentative_signals(): void
     {
+        // A blank tentative pattern is genuinely off now (see
+        // IcsParser::matchAndStrip's own doc comment) — the default constant
+        // has to be passed explicitly to exercise its own "(?)" convention.
         $items = $this->parser->parse(
             $this->fixture('full_detail.ics'),
             CarbonImmutable::parse('2026-06-01', 'UTC'),
             CarbonImmutable::parse('2026-06-10', 'UTC'),
+            tentativeTitlePattern: IcsParser::DEFAULT_TENTATIVE_TITLE_PATTERN,
         );
 
         $this->assertCount(3, $items);
@@ -50,12 +54,37 @@ class IcsParserTest extends TestCase
         $this->assertTrue($standup->tentativeEnd);
     }
 
+    public function test_a_blank_tentative_pattern_turns_title_detection_off_entirely(): void
+    {
+        // No tentativeTitlePattern passed at all — null, same as an owner
+        // who's never set one. "(?)" is neither stripped nor treated as
+        // tentative; only the structured STATUS:TENTATIVE signal survives.
+        $items = $this->parser->parse(
+            $this->fixture('full_detail.ics'),
+            CarbonImmutable::parse('2026-06-01', 'UTC'),
+            CarbonImmutable::parse('2026-06-10', 'UTC'),
+        );
+
+        $maybeLunch = $items[1];
+        $this->assertSame('Maybe lunch (?)', $maybeLunch->summary);
+        $this->assertFalse($maybeLunch->tentativeStart);
+        $this->assertFalse($maybeLunch->tentativeEnd);
+
+        $standup = $items[2];
+        $this->assertTrue($standup->tentativeStart);
+        $this->assertTrue($standup->tentativeEnd);
+    }
+
     public function test_open_end_and_open_start_title_suffixes_set_only_one_edge(): void
     {
+        // Same "blank is genuinely off now" reasoning as the tentative test
+        // above — both default constants passed explicitly.
         $items = $this->parser->parse(
             $this->fixture('open_edges.ics'),
             CarbonImmutable::parse('2026-06-01', 'UTC'),
             CarbonImmutable::parse('2026-06-10', 'UTC'),
+            openEndTitlePattern: IcsParser::DEFAULT_OPEN_END_TITLE_PATTERN,
+            openStartTitlePattern: IcsParser::DEFAULT_OPEN_START_TITLE_PATTERN,
         );
 
         $this->assertCount(2, $items);
@@ -73,12 +102,32 @@ class IcsParserTest extends TestCase
         $this->assertFalse($party->tentativeEnd);
     }
 
+    public function test_blank_open_end_and_open_start_patterns_turn_title_detection_off_entirely(): void
+    {
+        $items = $this->parser->parse(
+            $this->fixture('open_edges.ics'),
+            CarbonImmutable::parse('2026-06-01', 'UTC'),
+            CarbonImmutable::parse('2026-06-10', 'UTC'),
+        );
+
+        $dinner = $items[0];
+        $this->assertSame('Dinner (-?)', $dinner->summary);
+        $this->assertFalse($dinner->tentativeStart);
+        $this->assertFalse($dinner->tentativeEnd);
+
+        $party = $items[1];
+        $this->assertSame('Party (?-)', $party->summary);
+        $this->assertFalse($party->tentativeStart);
+        $this->assertFalse($party->tentativeEnd);
+    }
+
     public function test_free_busy_only_mode_skips_title_suffix_patterns_but_not_status_tentative(): void
     {
         $items = $this->parser->parse(
             $this->fixture('full_detail.ics'),
             CarbonImmutable::parse('2026-06-01', 'UTC'),
             CarbonImmutable::parse('2026-06-10', 'UTC'),
+            tentativeTitlePattern: IcsParser::DEFAULT_TENTATIVE_TITLE_PATTERN,
             parsingMode: 'free_busy_only',
         );
 
@@ -102,6 +151,8 @@ class IcsParserTest extends TestCase
             $this->fixture('open_edges.ics'),
             CarbonImmutable::parse('2026-06-01', 'UTC'),
             CarbonImmutable::parse('2026-06-10', 'UTC'),
+            openEndTitlePattern: IcsParser::DEFAULT_OPEN_END_TITLE_PATTERN,
+            openStartTitlePattern: IcsParser::DEFAULT_OPEN_START_TITLE_PATTERN,
             parsingMode: 'free_busy_only',
         );
 
@@ -170,12 +221,12 @@ class IcsParserTest extends TestCase
 
     public function test_a_custom_tentative_title_pattern_overrides_the_default(): void
     {
-        // With the default pattern, "(?)" is stripped/detected but a
-        // "[tentative]" suffix (this owner's own convention) is not.
+        // Starting from the default pattern, "(?)" is stripped/detected.
         $items = $this->parser->parse(
             $this->fixture('full_detail.ics'),
             CarbonImmutable::parse('2026-06-01', 'UTC'),
             CarbonImmutable::parse('2026-06-10', 'UTC'),
+            tentativeTitlePattern: IcsParser::DEFAULT_TENTATIVE_TITLE_PATTERN,
         );
         $coffee = $items[0];
         $this->assertSame('Coffee with Alice', $coffee->summary);
@@ -203,12 +254,12 @@ class IcsParserTest extends TestCase
 
     public function test_a_custom_open_end_pattern_overrides_the_default(): void
     {
-        // With the default pattern, "(-?)" is stripped/detected but a
-        // "[open]" suffix (this owner's own convention) is not.
+        // Starting from the default pattern, "(-?)" is stripped/detected.
         $items = $this->parser->parse(
             $this->fixture('open_edges.ics'),
             CarbonImmutable::parse('2026-06-01', 'UTC'),
             CarbonImmutable::parse('2026-06-10', 'UTC'),
+            openEndTitlePattern: IcsParser::DEFAULT_OPEN_END_TITLE_PATTERN,
         );
         $dinner = $items[0];
         $this->assertSame('Dinner', $dinner->summary);

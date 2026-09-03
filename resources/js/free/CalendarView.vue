@@ -32,6 +32,7 @@ const BLOCK_TYPE_CLASS: Record<DayBlock['type'], string> = {
   unavailable: 'wtf-fcal-unavailable-block',
   highlighted: 'wtf-fcal-highlighted-block',
   work: 'wtf-fcal-work-block',
+  school: 'wtf-fcal-school-block',
   sleep: 'wtf-fcal-sleep-block',
 };
 
@@ -40,6 +41,7 @@ const BLOCK_TYPE_LABEL_KEY: Record<DayBlock['type'], string> = {
   unavailable: 'free.unavailableLabel',
   highlighted: 'free.highlightedLabel',
   work: 'free.workLabel',
+  school: 'free.schoolLabel',
   sleep: 'free.sleepLabel',
 };
 
@@ -48,6 +50,7 @@ const BLOCK_TYPE_COLOR_VAR: Record<DayBlock['type'], string> = {
   unavailable: '--wtf-color-busy',
   highlighted: '--wtf-color-highlighted',
   work: '--wtf-color-work',
+  school: '--wtf-color-school',
   sleep: '--wtf-color-sleep',
 };
 
@@ -57,9 +60,10 @@ const props = defineProps<{
   highlightedSlots: HighlightedSlot[];
   unavailableSlots: TentativeSlot[];
   workSlots: TentativeSlot[];
+  schoolSlots: TentativeSlot[];
   sleepSlots: FreeSlot[];
   /** Owner-customizable per block type — already resolved to real FA icons by Free/Show.vue's resolvedIcons (icon-palette.ts). */
-  icons: { free: IconDefinition; busy: IconDefinition; work: IconDefinition; sleep: IconDefinition; highlighted: IconDefinition };
+  icons: { free: IconDefinition; busy: IconDefinition; work: IconDefinition; school: IconDefinition; sleep: IconDefinition; highlighted: IconDefinition };
   pending: boolean;
   hasError: boolean;
   hasAnyFreeTime: boolean;
@@ -78,6 +82,7 @@ const blockTypeIcon = computed<Record<DayBlock['type'], IconDefinition>>(() => (
   unavailable: props.icons.busy,
   highlighted: props.icons.highlighted,
   work: props.icons.work,
+  school: props.icons.school,
   sleep: props.icons.sleep,
 }));
 
@@ -112,7 +117,7 @@ const dayBlocks = computed(() =>
   props.visibleDays.map(day => ({
     day,
     blocks: props.showBlocks
-      ? getBlocksForDay(day, props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots)
+      ? getBlocksForDay(day, props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots, props.schoolSlots)
       : [],
   })),
 );
@@ -150,7 +155,7 @@ function tentativeFadeStyle(day: Date, blocks: DayBlock[], i: number): Record<st
   if (startFuzzy) {
     const prev = i > 0
       ? blocks[i - 1]
-      : getBlocksForDay(subDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots).at(-1);
+      : getBlocksForDay(subDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots, props.schoolSlots).at(-1);
     if (prev) {
       style['--fade-start'] = isTentativeEndDisplay(prev)
         ? `var(${BLOCK_TYPE_COLOR_VAR[block.type]})`
@@ -163,7 +168,7 @@ function tentativeFadeStyle(day: Date, blocks: DayBlock[], i: number): Record<st
   if (endFuzzy) {
     const next = i < blocks.length - 1
       ? blocks[i + 1]
-      : getBlocksForDay(addDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots)[0];
+      : getBlocksForDay(addDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots, props.schoolSlots)[0];
     if (next) style['--fade-end'] = `var(${BLOCK_TYPE_COLOR_VAR[next.type]})`;
   } else {
     style['--fade-end'] = `var(${BLOCK_TYPE_COLOR_VAR[block.type]})`;

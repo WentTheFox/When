@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Calendar\ActivityExtractor;
 use App\Services\Calendar\HighlightMatcher;
 use App\Services\Calendar\IcsParser;
+use App\Support\CalendarParsingMode;
 use App\Support\ColorSwatchKey;
 use App\Support\IconKey;
 use App\Support\NowColorPresetKey;
@@ -54,6 +55,16 @@ class SettingsController extends Controller
      */
     private const SUGGESTED_WORK_EVENT_PATTERN = '^work$';
 
+    /**
+     * Same non-functional-fallback caveat as dnd/nap/work above. Not
+     * anchored to the whole title like those three, deliberately —
+     * "school" or "class" showing up anywhere in a title (a room number
+     * or teacher's name tacked on, say) should still count, the same
+     * "contains anywhere" default every other event-name/pattern field on
+     * this page already has.
+     */
+    private const SUGGESTED_SCHOOL_EVENT_PATTERN = '(school|class)';
+
     public function edit(Request $request): Response
     {
         $user = $request->user();
@@ -65,6 +76,7 @@ class SettingsController extends Controller
                 'dnd_event_pattern' => $user->dnd_event_pattern,
                 'nap_event_pattern' => $user->nap_event_pattern,
                 'work_event_pattern' => $user->work_event_pattern,
+                'school_event_pattern' => $user->school_event_pattern,
                 'calendar_parsing_mode' => $user->calendar_parsing_mode,
                 'highlight_clause_pattern' => $user->highlight_clause_pattern,
                 'highlight_split_pattern' => $user->highlight_split_pattern,
@@ -80,11 +92,13 @@ class SettingsController extends Controller
                 'sleep_color_key' => $user->sleep_color_key,
                 'busy_color_key' => $user->busy_color_key,
                 'work_color_key' => $user->work_color_key,
+                'school_color_key' => $user->school_color_key,
                 'free_color_key' => $user->free_color_key,
                 'highlight_color_key' => $user->highlight_color_key,
                 'free_icon_key' => $user->free_icon_key,
                 'busy_icon_key' => $user->busy_icon_key,
                 'work_icon_key' => $user->work_icon_key,
+                'school_icon_key' => $user->school_icon_key,
                 'sleep_icon_key' => $user->sleep_icon_key,
                 'highlight_icon_key' => $user->highlight_icon_key,
                 'now_color_key' => $user->now_color_key,
@@ -94,6 +108,7 @@ class SettingsController extends Controller
                 'dndEventPattern' => self::SUGGESTED_DND_EVENT_PATTERN,
                 'napEventPattern' => self::SUGGESTED_NAP_EVENT_PATTERN,
                 'workEventPattern' => self::SUGGESTED_WORK_EVENT_PATTERN,
+                'schoolEventPattern' => self::SUGGESTED_SCHOOL_EVENT_PATTERN,
                 'highlightClausePattern' => HighlightMatcher::DEFAULT_CLAUSE_PATTERN,
                 'highlightSplitPattern' => HighlightMatcher::DEFAULT_SPLIT_PATTERN,
                 'activityClausePattern' => ActivityExtractor::DEFAULT_PATTERN,
@@ -129,7 +144,8 @@ class SettingsController extends Controller
             'dnd_event_pattern' => ['nullable', 'string', 'max:255', Regex::validateCompiles(...)],
             'nap_event_pattern' => ['nullable', 'string', 'max:255', Regex::validateCompiles(...)],
             'work_event_pattern' => ['nullable', 'string', 'max:255', Regex::validateCompiles(...)],
-            'calendar_parsing_mode' => ['required', 'in:full_detail,free_busy_only'],
+            'school_event_pattern' => ['nullable', 'string', 'max:255', Regex::validateCompiles(...)],
+            'calendar_parsing_mode' => ['required', Rule::enum(CalendarParsingMode::class)],
             'highlight_clause_pattern' => ['nullable', 'string', 'max:500', Regex::validateSingleCaptureGroup(...)],
             'highlight_split_pattern' => ['nullable', 'string', 'max:255', Regex::validateCompiles(...)],
             'activity_clause_pattern' => ['nullable', 'string', 'max:500', Regex::validateSingleCaptureGroup(...)],
@@ -143,11 +159,13 @@ class SettingsController extends Controller
             'sleep_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
             'busy_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
             'work_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
+            'school_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
             'free_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
             'highlight_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
             'free_icon_key' => ['nullable', Rule::enum(IconKey::class)],
             'busy_icon_key' => ['nullable', Rule::enum(IconKey::class)],
             'work_icon_key' => ['nullable', Rule::enum(IconKey::class)],
+            'school_icon_key' => ['nullable', Rule::enum(IconKey::class)],
             'sleep_icon_key' => ['nullable', Rule::enum(IconKey::class)],
             'highlight_icon_key' => ['nullable', Rule::enum(IconKey::class)],
             'now_color_key' => ['nullable', Rule::enum(NowColorPresetKey::class)],
@@ -172,6 +190,7 @@ class SettingsController extends Controller
             'dnd_event_pattern' => $data['dnd_event_pattern'] ?? null,
             'nap_event_pattern' => $data['nap_event_pattern'] ?? null,
             'work_event_pattern' => $data['work_event_pattern'] ?? null,
+            'school_event_pattern' => $data['school_event_pattern'] ?? null,
             'calendar_parsing_mode' => $data['calendar_parsing_mode'],
             'highlight_clause_pattern' => $data['highlight_clause_pattern'] ?? null,
             'highlight_split_pattern' => $data['highlight_split_pattern'] ?? null,
@@ -186,11 +205,13 @@ class SettingsController extends Controller
             'sleep_color_key' => $data['sleep_color_key'] ?? null,
             'busy_color_key' => $data['busy_color_key'] ?? null,
             'work_color_key' => $data['work_color_key'] ?? null,
+            'school_color_key' => $data['school_color_key'] ?? null,
             'free_color_key' => $data['free_color_key'] ?? null,
             'highlight_color_key' => $data['highlight_color_key'] ?? null,
             'free_icon_key' => $data['free_icon_key'] ?? null,
             'busy_icon_key' => $data['busy_icon_key'] ?? null,
             'work_icon_key' => $data['work_icon_key'] ?? null,
+            'school_icon_key' => $data['school_icon_key'] ?? null,
             'sleep_icon_key' => $data['sleep_icon_key'] ?? null,
             'highlight_icon_key' => $data['highlight_icon_key'] ?? null,
             'now_color_key' => $data['now_color_key'] ?? null,

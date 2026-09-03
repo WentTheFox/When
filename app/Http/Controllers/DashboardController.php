@@ -108,9 +108,9 @@ class DashboardController extends Controller
             );
 
             $rows = [
-                $this->buildRow('Today', $result, $events, $user->work_event_pattern, $todayStart, $todayEnd, 1),
-                $this->buildRow('This week', $result, $events, $user->work_event_pattern, $weekStart, $weekStart->addDays(7), 7),
-                $this->buildRow('Past '.self::PAST_DAYS.' days', $result, $events, $user->work_event_pattern, $past30Start, $todayEnd, self::PAST_DAYS),
+                $this->buildRow('Today', $result, $events, $user->work_event_pattern, $user->school_event_pattern, $todayStart, $todayEnd, 1),
+                $this->buildRow('This week', $result, $events, $user->work_event_pattern, $user->school_event_pattern, $weekStart, $weekStart->addDays(7), 7),
+                $this->buildRow('Past '.self::PAST_DAYS.' days', $result, $events, $user->work_event_pattern, $user->school_event_pattern, $past30Start, $todayEnd, self::PAST_DAYS),
             ];
 
             [$topHighlights, $restHighlights, $noTimeHighlights] = $this->computeHighlightLeaderboard(
@@ -136,6 +136,7 @@ class DashboardController extends Controller
         AvailabilityResult $result,
         array $events,
         ?string $workEventPattern,
+        ?string $schoolEventPattern,
         CarbonImmutable $bucketStart,
         CarbonImmutable $bucketEnd,
         int $days,
@@ -144,6 +145,7 @@ class DashboardController extends Controller
         $sleepMin = $this->sumSlotMinutes($result->sleep, $bucketStart, $bucketEnd);
         $freeMin = $this->sumSlotMinutes($result->free, $bucketStart, $bucketEnd);
         $workMin = $this->sumEventMinutes($events, $workEventPattern, $bucketStart, $bucketEnd);
+        $schoolMin = $this->sumEventMinutes($events, $schoolEventPattern, $bucketStart, $bucketEnd);
         $windowMin = max(0, $totalMin - $sleepMin);
 
         if ($windowMin === 0) {
@@ -152,12 +154,13 @@ class DashboardController extends Controller
                 'notAvail' => true,
                 'sleepLabel' => '24:00', 'sleepPct' => 100, 'sleepBarPct' => 100,
                 'workLabel' => null, 'workPct' => 0, 'workBarPct' => 0,
+                'schoolLabel' => null, 'schoolPct' => 0, 'schoolBarPct' => 0,
                 'busyLabel' => null, 'busyPct' => 0, 'busyBarPct' => 0,
                 'freeLabel' => null, 'freePct' => null,
             ];
         }
 
-        $busyMin = max(0, $windowMin - $freeMin - $workMin);
+        $busyMin = max(0, $windowMin - $freeMin - $workMin - $schoolMin);
         $hhmm = fn (int $m) => sprintf('%d:%02d', intdiv($m, 60), $m % 60);
 
         return [
@@ -169,6 +172,9 @@ class DashboardController extends Controller
             'workLabel' => $hhmm($workMin),
             'workPct' => min(100, (int) round($workMin / $windowMin * 100)),
             'workBarPct' => (int) round($workMin / $totalMin * 100),
+            'schoolLabel' => $hhmm($schoolMin),
+            'schoolPct' => min(100, (int) round($schoolMin / $windowMin * 100)),
+            'schoolBarPct' => (int) round($schoolMin / $totalMin * 100),
             'busyLabel' => $hhmm($busyMin),
             'busyPct' => min(100, (int) round($busyMin / $windowMin * 100)),
             'busyBarPct' => (int) round($busyMin / $totalMin * 100),

@@ -46,22 +46,25 @@
        yiqTextColor() wherever an owner's accent choice sets this alongside
        --wtf-accent; this default matches the default accent hex above. */
     --wtf-accent-text: #fff;
-    /* Matches the reference /free page's own dark-theme block colors
-       exactly (FreeCalendarView.module.scss's @include dark-theme block:
-       $block-color=$favourite-color at 0.35, $dark=#212529 at 0.3,
-       $warning=#ffc107 and $purple=#6f42c1 both at 0.35) — checked against
-       a live screenshot, not approximated; these are meant to read as a
-       subtle wash over the page background, not a near-opaque fill. */
+    /* free/busy/sleep still match the reference /free page's own dark-theme
+       block colors exactly (FreeCalendarView.module.scss's @include
+       dark-theme block: $block-color=$favourite-color at 0.35,
+       $dark=#212529 at 0.3, $purple=#6f42c1 at 0.35) — checked against a
+       live screenshot, not approximated; these are meant to read as a
+       subtle wash over the page background, not a near-opaque fill.
+       highlighted/work/school instead track ColorPalette::DEFAULT_KEYS's
+       own current default swatch for that slot (Gold/Brown/Green) at the
+       same alpha, now that these defaults deliberately diverge from the
+       reference app's own original amber/sky (school has no reference-app
+       equivalent at all — it's a new category, not ported). Every one of
+       these six is only reachable if an owner's color-key inline override
+       is ever missing entirely; in practice Free/Show.vue's rootStyle/
+       Settings.vue's previewStyleFor always set --wtf-color-* explicitly. */
     --wtf-color-free: rgba(var(--wtf-accent-rgb), 0.35);
     --wtf-color-busy: rgba(33, 37, 41, 0.3);
-    --wtf-color-highlighted: rgba(255, 193, 7, 0.35);
-    /* No reference-app equivalent (work is a new category, not ported) — RGB
-       of ColorPalette::DEFAULT_KEYS's own 'sky' swatch, this slot's default,
-       at the same alpha AvailabilityStats.vue's BLOCK_ALPHA.dark.work uses.
-       Only reachable if an owner's color-key inline override is ever
-       missing entirely; in practice Free/Show.vue's rootStyle/Settings.vue's
-       previewStyleFor always set --wtf-color-work explicitly. */
-    --wtf-color-work: rgba(43, 127, 179, 0.35);
+    --wtf-color-highlighted: rgba(255, 214, 10, 0.35);
+    --wtf-color-work: rgba(139, 94, 52, 0.35);
+    --wtf-color-school: rgba(47, 158, 68, 0.35);
     --wtf-color-sleep: rgba(111, 66, 193, 0.35);
     /* A plain number, not rgba(var(--wtf-accent-rgb), 0.12) — a custom
        property whose OWN value embeds another var() freezes that inner
@@ -109,13 +112,14 @@
     --wtf-accent: #6181b6;
     --wtf-accent-rgb: 97, 129, 182;
     --wtf-accent-text: #fff;
-    /* Same source as the dark-theme block above, but the base (non-dark-
-       theme) values: $block-color at 0.25, $dark at 0.2, $warning at 0.3,
-       $purple at 0.3. */
+    /* Same source/reasoning as the dark-theme block above, but the base
+       (non-dark-theme) alphas: $block-color at 0.25, $dark at 0.2,
+       $purple at 0.3, highlighted/work/school at 0.3. */
     --wtf-color-free: rgba(var(--wtf-accent-rgb), 0.25);
     --wtf-color-busy: rgba(33, 37, 41, 0.2);
-    --wtf-color-highlighted: rgba(255, 193, 7, 0.3);
-    --wtf-color-work: rgba(43, 127, 179, 0.3);
+    --wtf-color-highlighted: rgba(255, 214, 10, 0.3);
+    --wtf-color-work: rgba(139, 94, 52, 0.3);
+    --wtf-color-school: rgba(47, 158, 68, 0.3);
     --wtf-color-sleep: rgba(111, 66, 193, 0.3);
     --wtf-fcal-today-alpha: 0.06;
 }
@@ -152,8 +156,9 @@
        formula here, with the same --wtf-hue-* fallback, forces it to
        resolve against THIS scope's own vars instead. */
     --wtf-fcal-text-free: color-mix(in srgb, var(--wtf-hue-free, var(--wtf-accent)) 65%, var(--wtf-text) 35%);
-    --wtf-fcal-text-highlighted: color-mix(in srgb, var(--wtf-hue-highlighted, #ffc107) 65%, var(--wtf-text) 35%);
-    --wtf-fcal-text-work: color-mix(in srgb, var(--wtf-hue-work, #2b7fb3) 65%, var(--wtf-text) 35%);
+    --wtf-fcal-text-highlighted: color-mix(in srgb, var(--wtf-hue-highlighted, #ffd60a) 65%, var(--wtf-text) 35%);
+    --wtf-fcal-text-work: color-mix(in srgb, var(--wtf-hue-work, #8b5e34) 65%, var(--wtf-text) 35%);
+    --wtf-fcal-text-school: color-mix(in srgb, var(--wtf-hue-school, #2f9e44) 65%, var(--wtf-text) 35%);
     --wtf-fcal-text-sleep: color-mix(in srgb, var(--wtf-hue-sleep, #6f42c1) 65%, var(--wtf-text) 35%);
     color: var(--wtf-text);
 }
@@ -167,8 +172,9 @@
     --wtf-fcal-today-alpha: 0.06;
     --wtf-fcal-text-unavailable: #0f1112;
     --wtf-fcal-text-free: color-mix(in srgb, var(--wtf-hue-free, var(--wtf-accent)) 65%, var(--wtf-text) 35%);
-    --wtf-fcal-text-highlighted: color-mix(in srgb, var(--wtf-hue-highlighted, #ffc107) 65%, var(--wtf-text) 35%);
-    --wtf-fcal-text-work: color-mix(in srgb, var(--wtf-hue-work, #2b7fb3) 65%, var(--wtf-text) 35%);
+    --wtf-fcal-text-highlighted: color-mix(in srgb, var(--wtf-hue-highlighted, #ffd60a) 65%, var(--wtf-text) 35%);
+    --wtf-fcal-text-work: color-mix(in srgb, var(--wtf-hue-work, #8b5e34) 65%, var(--wtf-text) 35%);
+    --wtf-fcal-text-school: color-mix(in srgb, var(--wtf-hue-school, #2f9e44) 65%, var(--wtf-text) 35%);
     --wtf-fcal-text-sleep: color-mix(in srgb, var(--wtf-hue-sleep, #6f42c1) 65%, var(--wtf-text) 35%);
     color: var(--wtf-text);
 }
@@ -193,8 +199,9 @@
  */
 :root {
     --wtf-fcal-text-free: color-mix(in srgb, var(--wtf-hue-free, var(--wtf-accent)) 65%, var(--wtf-text) 35%);
-    --wtf-fcal-text-highlighted: color-mix(in srgb, var(--wtf-hue-highlighted, #ffc107) 65%, var(--wtf-text) 35%);
-    --wtf-fcal-text-work: color-mix(in srgb, var(--wtf-hue-work, #2b7fb3) 65%, var(--wtf-text) 35%);
+    --wtf-fcal-text-highlighted: color-mix(in srgb, var(--wtf-hue-highlighted, #ffd60a) 65%, var(--wtf-text) 35%);
+    --wtf-fcal-text-work: color-mix(in srgb, var(--wtf-hue-work, #8b5e34) 65%, var(--wtf-text) 35%);
+    --wtf-fcal-text-school: color-mix(in srgb, var(--wtf-hue-school, #2f9e44) 65%, var(--wtf-text) 35%);
     --wtf-fcal-text-sleep: color-mix(in srgb, var(--wtf-hue-sleep, #6f42c1) 65%, var(--wtf-text) 35%);
 }
 
@@ -753,6 +760,14 @@ hr {
     color: var(--wtf-fcal-text-work);
 }
 
+.wtf-fcal-school-block {
+    background-color: var(--wtf-color-school);
+}
+
+.wtf-fcal-school-block .wtf-fcal-block-label {
+    color: var(--wtf-fcal-text-school);
+}
+
 .wtf-fcal-sleep-block {
     background-color: var(--wtf-color-sleep);
 }
@@ -824,6 +839,10 @@ hr {
 
 .wtf-fcal-work-block.wtf-fcal-tentative-block::before {
     --own-color: var(--wtf-color-work);
+}
+
+.wtf-fcal-school-block.wtf-fcal-tentative-block::before {
+    --own-color: var(--wtf-color-school);
 }
 
 .wtf-fcal-sleep-block.wtf-fcal-tentative-block::before {
@@ -1009,6 +1028,15 @@ hr {
     color: var(--wtf-fcal-text-work);
 }
 
+.wtf-fagenda-slot-school {
+    background-color: var(--wtf-color-school);
+}
+
+.wtf-fagenda-slot-school .wtf-fagenda-slot-time,
+.wtf-fagenda-slot-school .wtf-fagenda-slot-label {
+    color: var(--wtf-fcal-text-school);
+}
+
 .wtf-fagenda-slot-sleep {
     background-color: var(--wtf-color-sleep);
 }
@@ -1064,6 +1092,10 @@ hr {
 
 .wtf-fagenda-slot-work.wtf-fagenda-slot-tentative::before {
     --own-color: var(--wtf-color-work);
+}
+
+.wtf-fagenda-slot-school.wtf-fagenda-slot-tentative::before {
+    --own-color: var(--wtf-color-school);
 }
 
 .wtf-fagenda-slot-sleep.wtf-fagenda-slot-tentative::before {
@@ -1238,6 +1270,11 @@ hr {
     background-color: var(--wtf-color-work);
 }
 
+.wtf-fmonth-avail-block-school {
+    min-height: 0.4rem;
+    background-color: var(--wtf-color-school);
+}
+
 .wtf-fmonth-avail-block-sleep {
     min-height: 0.4rem;
     background-color: var(--wtf-color-sleep);
@@ -1266,6 +1303,10 @@ hr {
 
 .wtf-fmonth-avail-block-work.wtf-fmonth-avail-block-tentative::before {
     --own-color: var(--wtf-color-work);
+}
+
+.wtf-fmonth-avail-block-school.wtf-fmonth-avail-block-tentative::before {
+    --own-color: var(--wtf-color-school);
 }
 
 .wtf-fmonth-avail-block-sleep.wtf-fmonth-avail-block-tentative::before {
@@ -1396,6 +1437,14 @@ hr {
        competing for attention with the colors that actually matter. */
     --wtf-regex-noncap: #adb5bd;
     --wtf-regex-class: #63e6be;
+    /* PatternPreview.vue's match/no-match gutter icon — a dedicated,
+       theme-tuned pair rather than Bootstrap's own .text-success (a fixed
+       dark green regardless of theme, too low-contrast against a near-
+       black background) or .text-muted (its dark-theme value is a fairly
+       high-alpha near-white, which reads as "still basically normal text
+       color" rather than clearly dimmed). */
+    --wtf-preview-match: #51cf66;
+    --wtf-preview-no-match: #6c757d;
 }
 
 :root[data-bs-theme="light"] {
@@ -1404,6 +1453,8 @@ hr {
     --wtf-regex-group: #1864ab;
     --wtf-regex-noncap: #495057;
     --wtf-regex-class: #087f5b;
+    --wtf-preview-match: #2b8a3e;
+    --wtf-preview-no-match: #adb5bd;
 }
 
 .wtf-regex-editor {
@@ -1547,4 +1598,93 @@ hr {
 .wtf-regex-tok-class {
     color: var(--wtf-regex-class);
     font-weight: 700;
+}
+
+/*
+ * PatternPreview.vue's editable multi-line example list — same overlay-
+ * on-top-of-a-real-textarea trick as .wtf-regex-highlight/.wtf-regex-
+ * native above, just multi-line (white-space: pre still means no
+ * wrapping, so a source line always maps to exactly one visual row in
+ * both layers — see that file's own header comment) and with a leading
+ * match/no-match icon gutter that sits outside the overlay entirely
+ * rather than inside its text.
+ */
+.wtf-pattern-preview {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.wtf-pattern-preview-gutter {
+    display: flex;
+    flex-direction: column;
+    padding-top: 0.375rem;
+    font-family: var(--bs-font-monospace, monospace);
+    line-height: 1.5;
+    flex-shrink: 0;
+}
+
+.wtf-pattern-preview-gutter-row {
+    height: 1.5em;
+}
+
+.wtf-pattern-preview-icon-match {
+    color: var(--wtf-preview-match);
+}
+
+.wtf-pattern-preview-icon-no-match {
+    color: var(--wtf-preview-no-match);
+}
+
+.wtf-pattern-preview-editor {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.wtf-pattern-preview-highlight,
+.wtf-pattern-preview-native {
+    margin: 0;
+    font-family: var(--bs-font-monospace, monospace);
+    white-space: pre;
+    overflow: auto;
+    word-wrap: normal;
+    width: 100%;
+}
+
+.wtf-pattern-preview-native {
+    position: relative;
+    resize: vertical;
+    color: transparent;
+    caret-color: var(--wtf-text);
+    min-height: 100%;
+}
+
+.wtf-pattern-preview-highlight {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    background-color: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    color: var(--wtf-text);
+    pointer-events: none;
+    user-select: none;
+    resize: none;
+}
+
+.wtf-match-hit {
+    color: var(--wtf-regex-escape);
+    font-weight: 700;
+    /* Color alone shouldn't be the only signal that a span is meaningfully
+       highlighted (colorblind accessibility) — an underline carries the
+       same information independent of hue. */
+    text-decoration: underline;
+}
+
+.wtf-match-capture {
+    color: var(--wtf-accent);
+    font-weight: 700;
+    text-decoration: underline;
 }

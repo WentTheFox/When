@@ -16,47 +16,84 @@
  */
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
+  faAppleWhole,
   faBan,
+  faBatteryEmpty,
+  faBatteryFull,
+  faBatteryHalf,
+  faBatteryQuarter,
+  faBatteryThreeQuarters,
   faBed,
   faBell,
+  faBookAtlas,
+  faBookBookmark,
   faBookOpen,
+  faBrain,
   faBriefcase,
   faBuilding,
+  faBuildingColumns,
   faCalendarCheck,
   faCalendarXmark,
+  faCampground,
   faCar,
+  faCaravan,
   faChartLine,
   faCheck,
+  faCircleCheck,
   faCircleExclamation,
+  faCircleXmark,
+  faCity,
   faClock,
   faCloudMoon,
   faCoffee,
+  faComputer,
+  faDoorClosed,
+  faDoorOpen,
   faDumbbell,
   faFlag,
+  faFlask,
   faGamepad,
   faGift,
+  faHandshake,
   faHeart,
   faHouse,
+  faIndustry,
   faLaptop,
   faLock,
+  faMicroscope,
   faMoon,
   faMusic,
   faPaw,
+  faPeopleGroup,
   faPlane,
+  faPoop,
+  faSchool,
+  faScroll,
+  faSignal,
+  faSquareRootVariable,
   faStar,
   faSun,
+  faTent,
   faThumbsUp,
+  faToggleOff,
+  faToggleOn,
+  faTrailer,
+  faTree,
+  faUserTie,
   faUsers,
   faUtensils,
+  faWarehouse,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 
 export interface IconOption {
   key: string;
   label: string;
+  /** Which of the six block-type slots this icon is a sensible fit for — see IconKey::categories()'s own doc comment. */
+  categories: IconSlot[];
 }
 
-export type IconSlot = 'free' | 'busy' | 'work' | 'sleep' | 'highlighted';
+export type IconSlot = 'free' | 'busy' | 'work' | 'school' | 'sleep' | 'highlighted';
 
 /** This app's own key -> the actual FA icon it currently renders as. Keep in sync with App\Support\IconKey's cases (same key set, one entry each). */
 const ICON_KEY_TO_FA: Record<string, IconDefinition> = {
@@ -93,6 +130,46 @@ const ICON_KEY_TO_FA: Record<string, IconDefinition> = {
   paw: faPaw,
   'thumbs-up': faThumbsUp,
   flag: faFlag,
+  city: faCity,
+  industry: faIndustry,
+  warehouse: faWarehouse,
+  'building-columns': faBuildingColumns,
+  'user-tie': faUserTie,
+  handshake: faHandshake,
+  'people-group': faPeopleGroup,
+  'door-open': faDoorOpen,
+  'door-closed': faDoorClosed,
+  'toggle-on': faToggleOn,
+  'toggle-off': faToggleOff,
+  signal: faSignal,
+  'circle-check': faCircleCheck,
+  'circle-xmark': faCircleXmark,
+  poop: faPoop,
+  'battery-full': faBatteryFull,
+  'battery-three-quarters': faBatteryThreeQuarters,
+  'battery-half': faBatteryHalf,
+  'battery-quarter': faBatteryQuarter,
+  'battery-empty': faBatteryEmpty,
+  caravan: faCaravan,
+  trailer: faTrailer,
+  tent: faTent,
+  campground: faCampground,
+  tree: faTree,
+  books: faBookBookmark,
+  apple: faAppleWhole,
+  school: faSchool,
+  brain: faBrain,
+  math: faSquareRootVariable,
+  chemistry: faFlask,
+  science: faMicroscope,
+  history: faScroll,
+  // The other faBook* variants (bible/dead/journal-whills/medical/quran/
+  // reader/skull/tanakh) don't read as any of this app's own school
+  // subjects the way an atlas reads as geography — kept as their more
+  // subject-specific icons (flask/microscope/√x/scroll) instead of
+  // forcing a book-shaped icon onto every subject just for consistency.
+  geography: faBookAtlas,
+  computer: faComputer,
 };
 
 let icons: IconOption[] = [];
@@ -100,6 +177,7 @@ let defaultKeys: Record<IconSlot, string> = {
   free: '',
   busy: '',
   work: '',
+  school: '',
   sleep: '',
   highlighted: '',
 };
@@ -112,6 +190,11 @@ export function setIconPalette(list: IconOption[], defaults: Record<IconSlot, st
 
 export function getIconPalette(): IconOption[] {
   return icons;
+}
+
+/** The subset of the full palette that's actually a sensible fit for one slot — see IconOption.categories/IconKey::categories()'s own doc comment. Settings.vue's picker uses this instead of the full list so e.g. "dumbbell" never shows up as an option for "sleep". */
+export function iconsForSlot(slot: IconSlot): IconOption[] {
+  return icons.filter((icon) => icon.categories.includes(slot));
 }
 
 export function getDefaultIconKey(slot: IconSlot): string {

@@ -56,6 +56,7 @@ const props = defineProps<{
     free: string | null;
     busy: string | null;
     work: string | null;
+    school: string | null;
     sleep: string | null;
     highlighted: string | null;
     now: string | null;
@@ -64,6 +65,7 @@ const props = defineProps<{
     free: string | null;
     busy: string | null;
     work: string | null;
+    school: string | null;
     sleep: string | null;
     highlighted: string | null;
   };
@@ -83,6 +85,7 @@ const rootStyle = computed(() => {
   const free = resolveSwatchHex(props.colors.free, 'free', theme);
   const busy = resolveSwatchHex(props.colors.busy, 'busy', theme);
   const work = resolveSwatchHex(props.colors.work, 'work', theme);
+  const school = resolveSwatchHex(props.colors.school, 'school', theme);
   const sleep = resolveSwatchHex(props.colors.sleep, 'sleep', theme);
   const highlighted = resolveSwatchHex(props.colors.highlighted, 'highlighted', theme);
   const alpha = BLOCK_ALPHA[theme];
@@ -97,6 +100,8 @@ const rootStyle = computed(() => {
     '--wtf-color-busy': hexToRgba(busy, alpha.busy),
     '--wtf-color-work': hexToRgba(work, alpha.work),
     '--wtf-hue-work': work,
+    '--wtf-color-school': hexToRgba(school, alpha.school),
+    '--wtf-hue-school': school,
     '--wtf-color-sleep': hexToRgba(sleep, alpha.sleep),
     '--wtf-hue-sleep': sleep,
     '--wtf-color-highlighted': hexToRgba(highlighted, alpha.highlighted),
@@ -112,6 +117,7 @@ const resolvedIcons = computed(() => ({
   free: resolveIcon(props.icons.free, 'free'),
   busy: resolveIcon(props.icons.busy, 'busy'),
   work: resolveIcon(props.icons.work, 'work'),
+  school: resolveIcon(props.icons.school, 'school'),
   sleep: resolveIcon(props.icons.sleep, 'sleep'),
   highlighted: resolveIcon(props.icons.highlighted, 'highlighted'),
 }));
@@ -147,6 +153,7 @@ const availability = ref<AvailabilityResponse>({
   highlighted: [],
   unavailable: [],
   work: [],
+  school: [],
   sleep: [],
 });
 
@@ -503,6 +510,7 @@ onMounted(() => {
                   :highlighted-slots="availability.highlighted"
                   :unavailable-slots="availability.unavailable"
                   :work-slots="availability.work"
+                  :school-slots="availability.school"
                   :sleep-slots="availability.sleep"
                   :icons="resolvedIcons"
                   :pending="showStatus"
@@ -520,6 +528,7 @@ onMounted(() => {
                   :highlighted-slots="availability.highlighted"
                   :unavailable-slots="availability.unavailable"
                   :work-slots="availability.work"
+                  :school-slots="availability.school"
                   :sleep-slots="availability.sleep"
                   :pending="showStatus"
                   :has-error="showError"
@@ -538,6 +547,7 @@ onMounted(() => {
                 :highlighted-slots="availability.highlighted"
                 :unavailable-slots="availability.unavailable"
                 :work-slots="availability.work"
+                :school-slots="availability.school"
                 :sleep-slots="availability.sleep"
                 :icons="resolvedIcons"
                 :pending="showStatus"

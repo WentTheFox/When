@@ -48,11 +48,13 @@ class AvailabilityService
         bool $showActivity = true,
         ?string $workEventPattern = null,
         ?string $highlightSplitPattern = null,
+        ?string $schoolEventPattern = null,
     ): AvailabilityResult {
         $napIntervals = [];
         $busyIntervals = [];
         $unavailable = [];
         $work = [];
+        $school = [];
         $highlighted = [];
 
         foreach ($events as $event) {
@@ -74,6 +76,11 @@ class AvailabilityService
             // doc comment already describes for `highlighted`.
             if ($event->matchesEventNamePattern($workEventPattern)) {
                 $work[] = ['start' => $event->start, 'end' => $event->end, 'tentativeStart' => $event->tentativeStart, 'tentativeEnd' => $event->tentativeEnd];
+            }
+
+            // Same double-bookkeeping as work above.
+            if ($event->matchesEventNamePattern($schoolEventPattern)) {
+                $school[] = ['start' => $event->start, 'end' => $event->end, 'tentativeStart' => $event->tentativeStart, 'tentativeEnd' => $event->tentativeEnd];
             }
 
             $highlightMatch = $this->matcher->match($event, $highlightWords, $highlightClausePattern, $highlightSplitPattern);
@@ -107,6 +114,9 @@ class AvailabilityService
         $work = $this->subtractSleepFromEvents($work, $sleepIntervals);
         $work = $this->mergeEventSegments($work);
 
+        $school = $this->subtractSleepFromEvents($school, $sleepIntervals);
+        $school = $this->mergeEventSegments($school);
+
         $free = $this->computeFreeRanges($weeklyAvailability, $busyIntervals, $rangeStart, $rangeEnd);
 
         return new AvailabilityResult(
@@ -114,6 +124,7 @@ class AvailabilityService
             highlighted: $highlighted,
             unavailable: array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd']), $unavailable),
             work: array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd']), $work),
+            school: array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd']), $school),
             sleep: array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end']), $sleepIntervals),
         );
     }

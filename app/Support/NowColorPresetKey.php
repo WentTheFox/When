@@ -41,6 +41,19 @@ enum NowColorPresetKey: string
     case Blue = 'blue';
     case Magenta = 'magenta';
 
+    // Red/yellow/lime/cyan/blue/magenta above are six of the eight
+    // corners of the RGB cube (each channel fully on or off) — orange
+    // is the one preset that isn't a pure corner, kept anyway since it's
+    // a genuinely useful hue on its own. Monochrome is the remaining two
+    // corners (#000000 and #ffffff) collapsed into a single preset
+    // instead of two separate ones, since a flat black or flat white
+    // would each be invisible against half the themes on its own —
+    // light()/dark() below swap which one it actually renders as, so
+    // this preset is always "black on light theme, white on dark theme"
+    // rather than needing the owner to also flip presets by hand when
+    // they change theme.
+    case Monochrome = 'monochrome';
+
     public function label(): string
     {
         return match ($this) {
@@ -51,6 +64,7 @@ enum NowColorPresetKey: string
             self::Cyan => 'Cyan',
             self::Blue => 'Blue',
             self::Magenta => 'Magenta',
+            self::Monochrome => 'White/Black',
         };
     }
 
@@ -65,6 +79,7 @@ enum NowColorPresetKey: string
             self::Cyan => '#00838f',
             self::Blue => '#0000ff',
             self::Magenta => '#ff00ff',
+            self::Monochrome => '#000000',
         };
     }
 
@@ -79,6 +94,7 @@ enum NowColorPresetKey: string
             self::Cyan => '#00ffff',
             self::Blue => '#4d79ff',
             self::Magenta => '#ff00ff',
+            self::Monochrome => '#ffffff',
         };
     }
 
@@ -87,12 +103,21 @@ enum NowColorPresetKey: string
         return self::Red;
     }
 
-    /** Shape consumed by resources/js/free/now-color-presets.ts's setNowColorPresets() — an ordered {key, label, light, dark}[]. */
+    /**
+     * Shape consumed by resources/js/free/now-color-presets.ts's
+     * setNowColorPresets() — an ordered {key, label, light, dark}[],
+     * sorted by hue (via light()) with Monochrome (0 saturation) pushed
+     * to the end — same ColorMath::sortKey() treatment as ColorSwatchKey.
+     */
     public static function forFrontend(): array
     {
+        $cases = self::cases();
+
+        usort($cases, fn (self $a, self $b) => ColorMath::sortKey($a->light()) <=> ColorMath::sortKey($b->light()));
+
         return array_map(
             fn (self $case) => ['key' => $case->value, 'label' => $case->label(), 'light' => $case->light(), 'dark' => $case->dark()],
-            self::cases(),
+            $cases,
         );
     }
 }

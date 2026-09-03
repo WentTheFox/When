@@ -49,6 +49,7 @@ const resolvedTheme = useResolvedTheme();
 const sleepColor = computed(() => resolveSwatchHex(page.props.auth.user?.sleepColorKey, 'sleep', resolvedTheme.value));
 const busyColor = computed(() => resolveSwatchHex(page.props.auth.user?.busyColorKey, 'busy', resolvedTheme.value));
 const workColor = computed(() => resolveSwatchHex(page.props.auth.user?.workColorKey, 'work', resolvedTheme.value));
+const schoolColor = computed(() => resolveSwatchHex(page.props.auth.user?.schoolColorKey, 'school', resolvedTheme.value));
 const freeColor = computed(() => resolveSwatchHex(page.props.auth.user?.freeColorKey, 'free', resolvedTheme.value));
 
 interface AvailRow {
@@ -56,6 +57,7 @@ interface AvailRow {
   notAvail: boolean;
   sleepLabel: string; sleepPct: number; sleepBarPct: number;
   workLabel: string | null; workPct: number; workBarPct: number;
+  schoolLabel: string | null; schoolPct: number; schoolBarPct: number;
   busyLabel: string | null; busyPct: number; busyBarPct: number;
   freeLabel: string | null; freePct: number | null;
 }
@@ -200,6 +202,7 @@ onMounted(async () => {
         <span v-else>
           <span v-if="row.sleepPct > 0" :style="{ color: sleepColor }">{{ index > 0 ? `${row.sleepPct}%` : row.sleepLabel }} sleep</span>
           <span v-if="row.workPct > 0" class="ms-2" :style="{ color: workColor }">{{ index > 0 ? `${row.workPct}%` : row.workLabel }} work</span>
+          <span v-if="row.schoolPct > 0" class="ms-2" :style="{ color: schoolColor }">{{ index > 0 ? `${row.schoolPct}%` : row.schoolLabel }} school</span>
           <span v-if="row.busyPct > 0" class="ms-2" :style="{ color: busyColor }">{{ index > 0 ? `${row.busyPct}%` : row.busyLabel }} busy</span>
           <span v-if="row.freePct !== null" class="ms-2" :style="{ color: freeColor }">{{ index > 0 ? `${row.freePct}%` : row.freeLabel }} free</span>
         </span>
@@ -207,6 +210,7 @@ onMounted(async () => {
       <BProgress style="height:8px">
         <BProgressBar v-if="row.sleepBarPct > 0" :value="row.sleepBarPct" :style="{ backgroundColor: sleepColor }" />
         <BProgressBar v-if="row.workBarPct > 0" :value="row.workBarPct" :style="{ backgroundColor: workColor }" />
+        <BProgressBar v-if="row.schoolBarPct > 0" :value="row.schoolBarPct" :style="{ backgroundColor: schoolColor }" />
         <BProgressBar v-if="row.busyBarPct > 0" :value="row.busyBarPct" :style="{ backgroundColor: busyColor }" />
       </BProgress>
     </div>

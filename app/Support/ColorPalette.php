@@ -25,11 +25,17 @@ class ColorPalette
         // actually tuned against.
         'busy' => ColorSwatchKey::Charcoal->value,
         'sleep' => ColorSwatchKey::Purple->value,
-        'highlighted' => ColorSwatchKey::Amber->value,
-        // Plain blue, distinct from Blue/Glaucous (the accent/free
-        // default) — matches the source app's own hardcoded Bootstrap
-        // primary as closely as this palette's curated hues allow.
-        'work' => ColorSwatchKey::Sky->value,
+        // Gold, not Amber — a highlighted event is meant to visually pop
+        // more than the rest of the calendar, and gold reads as more
+        // purely "attention-grabbing yellow" than Amber's warmer,
+        // more subdued orange-yellow lean.
+        'highlighted' => ColorSwatchKey::Gold->value,
+        // Brown — the color most commonly associated with "work" in
+        // everyday use (desks, wood, coffee).
+        'work' => ColorSwatchKey::Brown->value,
+        // Green — a common school/education association (chalkboards,
+        // classic school-supply green).
+        'school' => ColorSwatchKey::Green->value,
     ];
 
     /** Shape consumed by resources/js/free/color-palette.ts's setColorPalette(). */

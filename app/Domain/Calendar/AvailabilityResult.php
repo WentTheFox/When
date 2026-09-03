@@ -8,11 +8,11 @@ namespace App\Domain\Calendar;
  * can legitimately overlap each other — an event that's both busy AND
  * matches a highlight word appears in both `unavailable` and `highlighted`
  * for the same span, and `free`/`sleep` windows are computed independently
- * per-day rather than as "whatever's left over." `work` is the same kind of
- * overlay as `highlighted`: an event matching the owner's work-event
- * pattern still counts as ordinary busy time (present in `unavailable`
- * too), just additionally tagged so the calendar can render it as its own
- * category — not a fifth mutually-exclusive bucket. Reconciling those
+ * per-day rather than as "whatever's left over." `work`/`school` are the
+ * same kind of overlay as `highlighted`: an event matching the owner's
+ * work/school-event pattern still counts as ordinary busy time (present in
+ * `unavailable` too), just additionally tagged so the calendar can render
+ * it as its own category — not a mutually-exclusive bucket. Reconciling those
  * overlaps into a single non-overlapping visual layout (carving the
  * highlighted/work portions out of unavailable/free, letting a tentative
  * slot's fade blend into its rendered neighbor) is deliberately a
@@ -27,6 +27,7 @@ final class AvailabilityResult
      * @param  AvailabilitySlot[]  $highlighted
      * @param  AvailabilitySlot[]  $unavailable
      * @param  AvailabilitySlot[]  $work
+     * @param  AvailabilitySlot[]  $school
      * @param  AvailabilitySlot[]  $sleep
      */
     public function __construct(
@@ -34,6 +35,7 @@ final class AvailabilityResult
         public readonly array $highlighted,
         public readonly array $unavailable,
         public readonly array $work,
+        public readonly array $school,
         public readonly array $sleep,
     ) {}
 
@@ -44,6 +46,7 @@ final class AvailabilityResult
             'highlighted' => array_map(fn (AvailabilitySlot $s) => $s->toArray(), $this->highlighted),
             'unavailable' => array_map(fn (AvailabilitySlot $s) => $s->toArray(), $this->unavailable),
             'work' => array_map(fn (AvailabilitySlot $s) => $s->toArray(), $this->work),
+            'school' => array_map(fn (AvailabilitySlot $s) => $s->toArray(), $this->school),
             'sleep' => array_map(fn (AvailabilitySlot $s) => $s->toArray(), $this->sleep),
         ];
     }

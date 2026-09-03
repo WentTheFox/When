@@ -35,6 +35,7 @@ export interface AvailabilityResponse {
   highlighted: HighlightedSlot[];
   unavailable: TentativeSlot[];
   work: TentativeSlot[];
+  school: TentativeSlot[];
   sleep: FreeSlot[];
 }
 
@@ -43,7 +44,7 @@ export interface DayBlock {
   heightPct: number;
   startTime: string;
   endTime: string;
-  type: 'free' | 'unavailable' | 'highlighted' | 'work' | 'sleep';
+  type: 'free' | 'unavailable' | 'highlighted' | 'work' | 'school' | 'sleep';
   tentativeStart?: boolean;
   tentativeEnd?: boolean;
   activity?: string | null;
@@ -277,6 +278,7 @@ export function getBlocksForDay(
   sleepSlots: FreeSlot[],
   timezone: string,
   workSlots: TentativeSlot[] = [],
+  schoolSlots: TentativeSlot[] = [],
 ): DayBlock[] {
   const tzDay = new TZDate(day, timezone);
   const y = tzDay.getFullYear();
@@ -293,6 +295,7 @@ export function getBlocksForDay(
   const unavailableBlocks = mergeOverlappingBlocks(slotsToBlocks(unavailableSlots, 'unavailable', dayStartTs, dayEndTs, dayMs, timezone));
   const highlightedBlocks = mergeOverlappingBlocks(slotsToBlocks(highlightedSlots, 'highlighted', dayStartTs, dayEndTs, dayMs, timezone));
   const workBlocks = mergeOverlappingBlocks(slotsToBlocks(workSlots, 'work', dayStartTs, dayEndTs, dayMs, timezone));
+  const schoolBlocks = mergeOverlappingBlocks(slotsToBlocks(schoolSlots, 'school', dayStartTs, dayEndTs, dayMs, timezone));
   // Sleep ranges fill a gap that's absent from both `free` and `unavailable` rather
   // than overlapping either, so they're their own top-level blocks, not an overlay.
   const sleepBlocks = mergeOverlappingBlocks(slotsToBlocks(sleepSlots, 'sleep', dayStartTs, dayEndTs, dayMs, timezone));
@@ -313,6 +316,18 @@ export function getBlocksForDay(
   if (workBlocks.length > 0) {
     baseBlocks = mergeOverlappingBlocks(
       baseBlocks.flatMap(b => (b.type === 'highlighted' ? [b] : splitByOverlay(b, workBlocks))),
+    );
+  }
+
+  // Same lower-priority-overlay treatment as work, applied after it —
+  // leaves an already-highlighted OR already-work fragment alone rather
+  // than re-splitting it (an event that's both work and school-matching
+  // renders as whichever overlay claimed it first; there's no real-world
+  // reason to expect one to take precedence over the other, so first-
+  // applied-wins is as good a rule as any).
+  if (schoolBlocks.length > 0) {
+    baseBlocks = mergeOverlappingBlocks(
+      baseBlocks.flatMap(b => (b.type === 'highlighted' || b.type === 'work' ? [b] : splitByOverlay(b, schoolBlocks))),
     );
   }
 

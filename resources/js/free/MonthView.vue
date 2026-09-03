@@ -21,6 +21,7 @@ const AVAIL_BLOCK_CLASS: Record<DayBlock['type'], string> = {
   unavailable: 'wtf-fmonth-avail-block-unavail',
   highlighted: 'wtf-fmonth-avail-block-highlighted',
   work: 'wtf-fmonth-avail-block-work',
+  school: 'wtf-fmonth-avail-block-school',
   sleep: 'wtf-fmonth-avail-block-sleep',
 };
 
@@ -29,6 +30,7 @@ const AVAIL_BLOCK_COLOR_VAR: Record<DayBlock['type'], string> = {
   unavailable: '--wtf-color-busy',
   highlighted: '--wtf-color-highlighted',
   work: '--wtf-color-work',
+  school: '--wtf-color-school',
   sleep: '--wtf-color-sleep',
 };
 
@@ -38,6 +40,7 @@ const props = defineProps<{
   highlightedSlots: HighlightedSlot[];
   unavailableSlots: TentativeSlot[];
   workSlots: TentativeSlot[];
+  schoolSlots: TentativeSlot[];
   sleepSlots: FreeSlot[];
   pending: boolean;
   hasError: boolean;
@@ -144,7 +147,7 @@ const dayStatuses = computed(() => {
 
   return paddedDays.value.map((day): DayStatus => {
     const blocks = props.showBlocks
-      ? getBlocksForDay(day, props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots)
+      ? getBlocksForDay(day, props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots, props.schoolSlots)
       : [];
     const isToday = isDayToday(day);
     let currentBlockIndex = -1;
@@ -192,7 +195,7 @@ function tentativeFadeStyle(cell: DayStatus, i: number): Record<string, string> 
   if (startFuzzy) {
     const prev = i > 0
       ? blocks[i - 1]
-      : getBlocksForDay(subDays(cell.day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots).at(-1);
+      : getBlocksForDay(subDays(cell.day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots, props.schoolSlots).at(-1);
     if (prev) style['--fade-start'] = `var(${AVAIL_BLOCK_COLOR_VAR[prev.type]})`;
   } else {
     style['--fade-start'] = `var(${AVAIL_BLOCK_COLOR_VAR[block.type]})`;
@@ -201,7 +204,7 @@ function tentativeFadeStyle(cell: DayStatus, i: number): Record<string, string> 
   if (endFuzzy) {
     const next = i < blocks.length - 1
       ? blocks[i + 1]
-      : getBlocksForDay(addDays(cell.day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots)[0];
+      : getBlocksForDay(addDays(cell.day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots, props.schoolSlots)[0];
     if (next) style['--fade-end'] = `var(${AVAIL_BLOCK_COLOR_VAR[next.type]})`;
   } else {
     style['--fade-end'] = `var(${AVAIL_BLOCK_COLOR_VAR[block.type]})`;

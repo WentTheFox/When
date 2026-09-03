@@ -17,7 +17,7 @@ export interface ColorSwatch {
   dark: string;
 }
 
-export type ColorSlot = 'accent' | 'secondary' | 'free' | 'busy' | 'work' | 'sleep' | 'highlighted';
+export type ColorSlot = 'accent' | 'secondary' | 'free' | 'busy' | 'work' | 'school' | 'sleep' | 'highlighted';
 
 let palette: ColorSwatch[] = [];
 let defaultKeys: Record<ColorSlot, string> = {
@@ -26,6 +26,7 @@ let defaultKeys: Record<ColorSlot, string> = {
   free: '',
   busy: '',
   work: '',
+  school: '',
   sleep: '',
   highlighted: '',
 };

@@ -169,6 +169,7 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
             showActivity: $shareLink->show_activity,
             workEventPattern: $user->work_event_pattern,
             highlightSplitPattern: $user->highlight_split_pattern,
+            schoolEventPattern: $user->school_event_pattern,
         );
 
         $timer->lap('compute_availability', [
@@ -176,6 +177,7 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
             'highlighted_count' => count($result->highlighted),
             'unavailable_count' => count($result->unavailable),
             'work_count' => count($result->work),
+            'school_count' => count($result->school),
             'sleep_count' => count($result->sleep),
         ]);
 

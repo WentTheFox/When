@@ -28,6 +28,11 @@ namespace App\Support;
  * (circular hue mean, averaged saturation/lightness) — cornflower,
  * violet, magenta, rose, orange, lime, jade, sky. The 2 original grays
  * (slate/silver) become a 5-step ramp (charcoal/slate/steel/silver/fog).
+ * Brown is the one swatch that isn't part of that systematic hue-wheel
+ * generation — added on its own afterwards purely because it's the color
+ * most commonly associated with "work" in everyday use (desks, wood,
+ * coffee) and nothing in the generated 21 actually reads as brown rather
+ * than orange/amber.
  *
  * Every swatch is WCAG-AA verified (>=4.5:1), not just eyeballed: each hex
  * is checked as it's ACTUALLY rendered — color-mix(in srgb, hue 65%,
@@ -51,6 +56,12 @@ enum ColorSwatchKey: string
     case Red = 'red';
     case Orange = 'orange';
     case Amber = 'amber';
+    // Distinct from Amber — a brighter, more saturated yellow-gold rather
+    // than amber's more orange lean. Added as the default "highlighted"
+    // color: a highlighted event is meant to visually pop more than the
+    // rest of the calendar, and gold reads as more purely "attention-
+    // grabbing yellow" than amber's warmer, more subdued orange-yellow.
+    case Gold = 'gold';
     case Lime = 'lime';
     case Green = 'green';
     case Jade = 'jade';
@@ -73,6 +84,7 @@ enum ColorSwatchKey: string
     case Steel = 'steel';
     case Silver = 'silver';
     case Fog = 'fog';
+    case Brown = 'brown';
 
     public function label(): string
     {
@@ -80,6 +92,7 @@ enum ColorSwatchKey: string
             self::Red => 'Red',
             self::Orange => 'Orange',
             self::Amber => 'Amber',
+            self::Gold => 'Gold',
             self::Lime => 'Lime',
             self::Green => 'Green',
             self::Jade => 'Jade',
@@ -98,6 +111,7 @@ enum ColorSwatchKey: string
             self::Steel => 'Steel',
             self::Silver => 'Silver',
             self::Fog => 'Fog',
+            self::Brown => 'Brown',
         };
     }
 
@@ -107,6 +121,7 @@ enum ColorSwatchKey: string
             self::Red => '#e03131',
             self::Orange => '#ee5212',
             self::Amber => '#f08c00',
+            self::Gold => '#b58900',
             self::Lime => '#72ab17',
             self::Green => '#2f9e44',
             self::Jade => '#1c9d72',
@@ -125,6 +140,7 @@ enum ColorSwatchKey: string
             self::Steel => '#495057',
             self::Silver => '#6c757d',
             self::Fog => '#939aa1',
+            self::Brown => '#8b5e34',
         };
     }
 
@@ -134,6 +150,7 @@ enum ColorSwatchKey: string
             self::Red => '#ff8787',
             self::Orange => '#ff8c47',
             self::Amber => '#ffc107',
+            self::Gold => '#ffd60a',
             self::Lime => '#9aea3b',
             self::Green => '#69db7c',
             self::Jade => '#67e2b6',
@@ -152,15 +169,26 @@ enum ColorSwatchKey: string
             self::Steel => '#ced4da',
             self::Silver => '#dee2e6',
             self::Fog => '#e9ecef',
+            self::Brown => '#d9a066',
         };
     }
 
-    /** Shape consumed by resources/js/free/color-palette.ts's setColorPalette() — an ordered {key, label, light, dark}[]. */
+    /**
+     * Shape consumed by resources/js/free/color-palette.ts's
+     * setColorPalette() — an ordered {key, label, light, dark}[], sorted
+     * by hue (via light()) with every grayscale swatch (charcoal/slate/
+     * steel/silver/fog) pushed to the end regardless of where it falls in
+     * the enum's own declaration order — see ColorMath::sortKey().
+     */
     public static function forFrontend(): array
     {
+        $cases = self::cases();
+
+        usort($cases, fn (self $a, self $b) => ColorMath::sortKey($a->light()) <=> ColorMath::sortKey($b->light()));
+
         return array_map(
             fn (self $case) => ['key' => $case->value, 'label' => $case->label(), 'light' => $case->light(), 'dark' => $case->dark()],
-            self::cases(),
+            $cases,
         );
     }
 }

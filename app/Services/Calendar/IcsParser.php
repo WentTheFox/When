@@ -27,11 +27,15 @@ class IcsParser
     /**
      * Regex fragment (no delimiters — same convention as DND/nap/highlight/
      * activity patterns), matched case-insensitively, unanchored except for
-     * its own trailing $. Owner-customizable via users.tentative_pattern;
-     * this is just the fallback when that's null. A plain literal like
-     * "(?)" still works as-is; owners whose own convention differs (e.g. a
-     * trailing "[tentative]") can override it the same way as any other
-     * pattern here.
+     * its own trailing $. Owner-customizable via users.tentative_pattern —
+     * blank genuinely turns tentative-title detection off entirely (same
+     * "blank is a real off state" convention as dnd/nap/work/school), it is
+     * NOT silently substituted as a fallback default the way it used to be;
+     * this constant is only ever surfaced to the owner as a *suggested*
+     * starting value (SettingsController's own doc comment), never applied
+     * behind their back. A plain literal like "(?)" still works as-is;
+     * owners whose own convention differs (e.g. a trailing "[tentative]")
+     * can set it explicitly the same way as any other pattern here.
      */
     public const DEFAULT_TENTATIVE_TITLE_PATTERN = '\(\?\)\s*$';
 
@@ -40,14 +44,15 @@ class IcsParser
      * Sets only $tentativeEnd, unlike DEFAULT_TENTATIVE_TITLE_PATTERN which
      * sets both. Chosen so it never collides with the "(?)" pattern above:
      * that one requires "(", "?", ")" immediately consecutive at the end,
-     * which "(-?)"'s trailing "-?)" never produces.
+     * which "(-?)"'s trailing "-?)" never produces. Same suggested-only,
+     * never-auto-applied treatment as DEFAULT_TENTATIVE_TITLE_PATTERN.
      */
     public const DEFAULT_OPEN_END_TITLE_PATTERN = '\(-\?\)\s*$';
 
     /**
      * Confirmed event, start time unknown/open-ended — e.g. "Dinner (?-)".
      * Sets only $tentativeStart. Same non-collision reasoning as
-     * DEFAULT_OPEN_END_TITLE_PATTERN.
+     * DEFAULT_OPEN_END_TITLE_PATTERN, and same suggested-only treatment.
      */
     public const DEFAULT_OPEN_START_TITLE_PATTERN = '\(\?-\)\s*$';
 
@@ -86,14 +91,10 @@ class IcsParser
 
         $items = [];
 
-        $pattern = $tentativeTitlePattern ?: self::DEFAULT_TENTATIVE_TITLE_PATTERN;
-        $openEndPattern = $openEndTitlePattern ?: self::DEFAULT_OPEN_END_TITLE_PATTERN;
-        $openStartPattern = $openStartTitlePattern ?: self::DEFAULT_OPEN_START_TITLE_PATTERN;
-
         $applyTitlePatterns = $parsingMode !== 'free_busy_only';
 
         foreach ($expandedCalendar->select('VEVENT') as $vevent) {
-            $item = $this->parseVEvent($vevent, $pattern, $openEndPattern, $openStartPattern, $applyTitlePatterns);
+            $item = $this->parseVEvent($vevent, $tentativeTitlePattern, $openEndTitlePattern, $openStartTitlePattern, $applyTitlePatterns);
 
             if ($item !== null && $item->end > $rangeStart && $item->start < $rangeEnd) {
                 $items[] = $item;
@@ -113,9 +114,9 @@ class IcsParser
 
     private function parseVEvent(
         Component $vevent,
-        string $tentativeTitlePattern,
-        string $openEndTitlePattern,
-        string $openStartTitlePattern,
+        ?string $tentativeTitlePattern,
+        ?string $openEndTitlePattern,
+        ?string $openStartTitlePattern,
         bool $applyTitlePatterns,
     ): ?RawCalendarItem {
         if (! isset($vevent->DTSTART)) {
@@ -169,12 +170,20 @@ class IcsParser
      * any printable character freely. An invalid pattern fails closed (no
      * match) rather than throwing.
      *
+     * A null/blank $pattern means the feature is genuinely off (see the
+     * DEFAULT_*_TITLE_PATTERN doc comments) — this must be checked before
+     * ever building $delimitedPattern, not left to fail closed the way an
+     * actually-invalid pattern does: an *empty* regex body between two
+     * `\x01` delimiters is syntactically valid PCRE that trivially matches
+     * a zero-length string at the current position, so it would otherwise
+     * report every summary as "matched" instead of skipping the check.
+     *
      * @return array{0: bool, 1: ?string} [matched, cleaned summary]
      */
-    private function matchAndStrip(string $pattern, ?string $summary): array
+    private function matchAndStrip(?string $pattern, ?string $summary): array
     {
-        if ($summary === null) {
-            return [false, null];
+        if ($pattern === null || $pattern === '' || $summary === null) {
+            return [false, $summary];
         }
 
         $delimitedPattern = "\x01".$pattern."\x01iu";

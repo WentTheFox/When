@@ -47,10 +47,14 @@ export const BLOCK_ALPHA = {
     // own distinct overlay rather than blend into the plain-busy wash
     // underneath.
     work: 0.35,
+    // Same reasoning as work above — an overlay on top of busy/free time,
+    // needs to read as its own distinct layer.
+    school: 0.35,
   },
   light: {
     free: 0.25, busy: 0.2, highlighted: 0.3, sleep: 0.3,
     work: 0.3,
+    school: 0.3,
   },
 } as const;
 

@@ -24,6 +24,7 @@ const AGENDA_SLOT_CLASS: Record<DayBlock['type'], string> = {
   unavailable: 'wtf-fagenda-slot-unavailable',
   highlighted: 'wtf-fagenda-slot-highlighted',
   work: 'wtf-fagenda-slot-work',
+  school: 'wtf-fagenda-slot-school',
   sleep: 'wtf-fagenda-slot-sleep',
 };
 
@@ -32,6 +33,7 @@ const AGENDA_SLOT_LABEL_KEY: Record<DayBlock['type'], string> = {
   unavailable: 'free.unavailableLabel',
   highlighted: 'free.highlightedLabel',
   work: 'free.workLabel',
+  school: 'free.schoolLabel',
   sleep: 'free.sleepLabel',
 };
 
@@ -40,6 +42,7 @@ const AGENDA_SLOT_COLOR_VAR: Record<DayBlock['type'], string> = {
   unavailable: '--wtf-color-busy',
   highlighted: '--wtf-color-highlighted',
   work: '--wtf-color-work',
+  school: '--wtf-color-school',
   sleep: '--wtf-color-sleep',
 };
 
@@ -49,9 +52,10 @@ const props = defineProps<{
   highlightedSlots: HighlightedSlot[];
   unavailableSlots: TentativeSlot[];
   workSlots: TentativeSlot[];
+  schoolSlots: TentativeSlot[];
   sleepSlots: FreeSlot[];
   /** Owner-customizable per block type — already resolved to real FA icons by Free/Show.vue's resolvedIcons (icon-palette.ts). */
-  icons: { free: IconDefinition; busy: IconDefinition; work: IconDefinition; sleep: IconDefinition; highlighted: IconDefinition };
+  icons: { free: IconDefinition; busy: IconDefinition; work: IconDefinition; school: IconDefinition; sleep: IconDefinition; highlighted: IconDefinition };
   pending: boolean;
   hasError: boolean;
   timezone: string;
@@ -66,6 +70,7 @@ const slotTypeIcon = computed<Record<DayBlock['type'], IconDefinition>>(() => ({
   unavailable: props.icons.busy,
   highlighted: props.icons.highlighted,
   work: props.icons.work,
+  school: props.icons.school,
   sleep: props.icons.sleep,
 }));
 
@@ -138,7 +143,7 @@ function tentativeFadeStyle(day: Date, slots: DayBlock[], i: number): Record<str
   if (startFuzzy) {
     const prev = i > 0
       ? slots[i - 1]
-      : getBlocksForDay(subDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots).at(-1);
+      : getBlocksForDay(subDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots, props.schoolSlots).at(-1);
     if (prev) style['--fade-start'] = `var(${AGENDA_SLOT_COLOR_VAR[prev.type]})`;
   } else {
     style['--fade-start'] = `var(${AGENDA_SLOT_COLOR_VAR[slot.type]})`;
@@ -147,7 +152,7 @@ function tentativeFadeStyle(day: Date, slots: DayBlock[], i: number): Record<str
   if (endFuzzy) {
     const next = i < slots.length - 1
       ? slots[i + 1]
-      : getBlocksForDay(addDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots)[0];
+      : getBlocksForDay(addDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots, props.schoolSlots)[0];
     if (next) style['--fade-end'] = `var(${AGENDA_SLOT_COLOR_VAR[next.type]})`;
   } else {
     style['--fade-end'] = `var(${AGENDA_SLOT_COLOR_VAR[slot.type]})`;
@@ -160,7 +165,7 @@ const agendaEntries = computed(() =>
   props.days.map(day => {
     const isToday = isDayToday(day);
     const slots = props.showBlocks
-      ? getBlocksForDay(day, props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots)
+      ? getBlocksForDay(day, props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots, props.schoolSlots)
           .map(b => ({
             ...b,
             startTime: b.startTime || pctToTime(b.topPct),

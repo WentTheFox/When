@@ -7,11 +7,13 @@ use App\Services\Calendar\CalendarFetcher;
 use App\Services\Calendar\EventNormalizer;
 use App\Services\Calendar\FeedClassifier;
 use App\Services\Calendar\IcsParser;
+use App\Support\CalendarParsingMode;
 use App\Support\Regex;
 use App\Support\StageTimer;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * §5.2: lets an owner see exactly what a viewer would see BEFORE saving
@@ -34,10 +36,11 @@ class CalendarPreviewController extends Controller
         $data = $request->validate([
             'calendar_url' => ['required', 'url'],
             'timezone' => ['nullable', 'string'],
-            'calendar_parsing_mode' => ['nullable', 'in:full_detail,free_busy_only'],
+            'calendar_parsing_mode' => ['nullable', Rule::enum(CalendarParsingMode::class)],
             'dnd_event_pattern' => ['nullable', 'string'],
             'nap_event_pattern' => ['nullable', 'string'],
             'work_event_pattern' => ['nullable', 'string'],
+            'school_event_pattern' => ['nullable', 'string'],
             'highlight_clause_pattern' => ['nullable', 'string', Regex::validateSingleCaptureGroup(...)],
             'highlight_split_pattern' => ['nullable', 'string'],
             'activity_clause_pattern' => ['nullable', 'string', Regex::validateSingleCaptureGroup(...)],
@@ -105,6 +108,7 @@ class CalendarPreviewController extends Controller
             showActivity: $data['show_activity'] ?? true,
             workEventPattern: $data['work_event_pattern'] ?? null,
             highlightSplitPattern: $data['highlight_split_pattern'] ?? null,
+            schoolEventPattern: $data['school_event_pattern'] ?? null,
         );
 
         $timer->lap('compute_availability', [
@@ -112,6 +116,7 @@ class CalendarPreviewController extends Controller
             'highlighted_count' => count($result->highlighted),
             'unavailable_count' => count($result->unavailable),
             'work_count' => count($result->work),
+            'school_count' => count($result->school),
             'sleep_count' => count($result->sleep),
         ]);
 

@@ -40,6 +40,7 @@ export interface SharedPageProps {
       sleepColorKey: string | null;
       busyColorKey: string | null;
       workColorKey: string | null;
+      schoolColorKey: string | null;
       freeColorKey: string | null;
     } | null;
   };
