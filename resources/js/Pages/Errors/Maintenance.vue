@@ -8,7 +8,10 @@
  * passed explicitly by that callback instead, and it deliberately avoids
  * SiteHeader/SiteFooter/PublicLayout for the same reason — those read
  * shared props (and isFirstUser is a DB query besides, unwise to depend on
- * while the app might be mid-migration).
+ * while the app might be mid-migration). Its own header only reuses
+ * BrandMark.vue (logo + app name) and the .wtf-brand-header styling
+ * SiteHeader.vue also uses — not SiteHeader itself, since its nav
+ * links/auth state have nowhere meaningful to go while the app is down.
  */
 import { faLanguage, faRotate } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
@@ -16,7 +19,7 @@ import { Head } from '@inertiajs/vue3';
 import { BButton, BCard, BDropdown, BDropdownItem } from 'bootstrap-vue-next';
 import { loadLanguageAsync } from 'laravel-vue-i18n';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import logoUrl from '../../../img/When.svg';
+import BrandMark from '../../Components/BrandMark.vue';
 import { useTheme } from '../../composables/useTheme';
 
 const props = defineProps<{
@@ -136,31 +139,32 @@ onUnmounted(() => {
   <Head :title="$t('maintenance.title')" />
 
   <div class="wtf-maintenance-backdrop" :dir="textDirection">
-    <div class="container py-5">
-      <div class="row justify-content-center">
+    <nav class="navbar navbar-expand navbar-dark sticky-top wtf-brand-header">
+      <div class="container">
+        <BrandMark :app-name="props.appName" href="/" />
+
+        <div class="d-flex align-items-center ms-auto">
+          <BDropdown variant="link" no-caret size="sm">
+            <template #button-content>
+              <FontAwesomeIcon :icon="faLanguage" class="me-1" />{{ currentLocale?.native }}
+            </template>
+            <BDropdownItem
+              v-for="l in props.locales"
+              :key="l.code"
+              :active="l.code === activeLocale"
+              :disabled="l.code === activeLocale"
+              @click="switchLocale(l.code)"
+            >
+              {{ l.native }}
+            </BDropdownItem>
+          </BDropdown>
+        </div>
+      </div>
+    </nav>
+
+    <div class="wtf-maintenance-content container py-5">
+      <div class="row justify-content-center w-100">
         <div class="col-12 col-sm-8 col-md-6 col-lg-5">
-          <div class="d-flex justify-content-end mb-2">
-            <BDropdown variant="link" toggle-class="text-body-secondary" no-caret size="sm">
-              <template #button-content>
-                <FontAwesomeIcon :icon="faLanguage" class="me-1" />{{ currentLocale?.native }}
-              </template>
-              <BDropdownItem
-                v-for="l in props.locales"
-                :key="l.code"
-                :active="l.code === activeLocale"
-                :disabled="l.code === activeLocale"
-                @click="switchLocale(l.code)"
-              >
-                {{ l.native }}
-              </BDropdownItem>
-            </BDropdown>
-          </div>
-
-          <div class="text-center mb-4">
-            <img :src="logoUrl" alt="" width="40" height="40" class="mb-2">
-            <div class="fs-5 fw-semibold">{{ props.appName }}</div>
-          </div>
-
           <BCard class="text-center shadow-sm">
             <h1 class="h4">{{ $t('maintenance.heading') }}</h1>
             <p class="text-body-secondary">{{ $t('maintenance.body') }}</p>
@@ -183,6 +187,12 @@ onUnmounted(() => {
 <style scoped>
 .wtf-maintenance-backdrop {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.wtf-maintenance-content {
+  flex: 1;
   display: flex;
   align-items: center;
 }

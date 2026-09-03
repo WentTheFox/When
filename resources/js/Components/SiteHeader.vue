@@ -17,15 +17,9 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { BButton } from 'bootstrap-vue-next';
 import type { SharedPageProps } from '../sharedPageProps';
+import BrandMark from './BrandMark.vue';
 import LanguageSwitcher from './LanguageSwitcher.vue';
 import ThemeToggle from './ThemeToggle.vue';
-// Imported (not a plain /public path) so Vite fingerprints it — unlike
-// public/favicon.svg (referenced directly from app.blade.php's <head>,
-// which isn't part of the Vite-built bundle and follows the ordinary
-// browser convention of a fixed, unversioned favicon URL), this one
-// renders from inside the app bundle itself and should get cache-busted
-// like every other asset the bundle references.
-import logoUrl from '../../img/When.svg';
 
 const page = usePage<SharedPageProps>();
 
@@ -37,10 +31,7 @@ function logout(): void {
 <template>
   <nav class="navbar navbar-expand navbar-dark sticky-top wtf-brand-header">
     <div class="container">
-      <Link class="navbar-brand" :href="page.props.auth?.user ? '/dashboard' : '/'">
-        <img :src="logoUrl" alt="" width="28" height="28" class="d-inline-block align-text-top me-2">
-        {{ page.props.appName }}
-      </Link>
+      <BrandMark :app-name="page.props.appName" :href="page.props.auth?.user ? '/dashboard' : '/'" />
 
       <div v-if="!page.props.auth?.user" class="navbar-nav me-auto">
         <Link class="nav-item nav-link" :class="{ active: page.url === '/login' }" href="/login">Log in</Link>
