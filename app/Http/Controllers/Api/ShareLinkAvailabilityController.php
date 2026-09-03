@@ -7,7 +7,6 @@ use App\Jobs\RecomputeShareLinkAvailability;
 use App\Models\ShareLink;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -39,14 +38,14 @@ class ShareLinkAvailabilityController extends Controller
 
     /**
      * Plain string token, not Eloquent route-model-binding — same reasoning
-     * as ShareLinkController::show: a legacy token (§0.5) isn't a model key,
-     * so implicit binding (which only ever looks up by `id`) would 404 on
-     * every migrated link.
+     * as ShareLinkController::show: looked up by highlight_token (every
+     * share link gets one at creation — see
+     * ShareLinkManagementController::store()), not by `id`, so implicit
+     * binding (which only ever looks up by `id`) would 404 on every link.
      */
     public function show(string $token): JsonResponse
     {
-        $shareLink = Str::isUuid($token) ? ShareLink::find($token) : null;
-        $shareLink ??= ShareLink::where('legacy_token', $token)->first();
+        $shareLink = ShareLink::where('highlight_token', $token)->first();
 
         if ($shareLink === null) {
             abort(Response::HTTP_NOT_FOUND);

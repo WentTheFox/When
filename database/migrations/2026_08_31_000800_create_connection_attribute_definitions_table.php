@@ -28,8 +28,8 @@ return new class extends Migration
         });
 
         DB::statement(
-            "ALTER TABLE connection_attribute_definitions ADD CONSTRAINT ".
-            "connection_attribute_definitions_type_check ".
+            'ALTER TABLE connection_attribute_definitions ADD CONSTRAINT '.
+            'connection_attribute_definitions_type_check '.
             "CHECK (type IN ('text', 'date', 'number', 'url', 'email', 'phone'))"
         );
     }

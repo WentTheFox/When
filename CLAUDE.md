@@ -77,8 +77,7 @@ ordinary password). See `resources/js/crypto/argon2.ts`.
   reintroduce it as "the correct way" — the explicit generic is the one that works. Update
   `SharedPageProps` itself if `HandleInertiaRequests::share()`'s shape changes.
 - `pnpm build` — Vite build; must succeed before any deploy.
-- `php artisan test` — full suite, currently 177 tests. Run before committing anything
-  backend-touching.
+- `php artisan test` — full suite. Run before committing anything backend-touching.
 - `./vendor/bin/pint --dirty` — **only ever run this scoped to your own changed files**
   if there's any chance another session/process is concurrently editing the repo;
   running it unscoped across the whole working tree will reformat and stage changes in
@@ -104,46 +103,6 @@ service). The production directory (`/var/www/WhenTheFox`), Postgres database
 (`whenthefox`), and DB role (`whenthefox_app`) were deliberately left un-renamed —
 renaming a live directory/database carries real downtime/breakage risk for no
 user-visible benefit, so don't "fix" these to match unless asked.
-
-## Operator CLI
-
-Artisan commands meant for whoever operates the deployment, on the machine hosting it —
-**not** owner-facing (owners use the dashboard; there's no owner-facing API-token CLI).
-Every command that touches Connections CRM data (`_ciphertext` columns) respects the
-same E2EE boundary the browser does: it prompts for the owner's vault passphrase
-interactively (never a CLI argument, never logged), derives the vault key locally with
-the same Argon2id profile the browser's WebCrypto uses (`app/Services/Crypto/
-Argon2id.php`, proven byte-for-byte compatible with `resources/js/crypto/argon2.ts`),
-and encrypts/decrypts every record from this process's own memory before it ever
-touches the database — the server process never holds a passphrase or vault key beyond
-a single command's own lifetime.
-
-- **`wtf:connections:reimport {email} {connections} {highlights}`** — **the** way to load
-  a source-app export: one-shot wipe-and-rebuild. Deletes *all* of the owner's
-  connections/sources/categories/attribute definitions/share links (DB cascades handle
-  every join/child table), then imports `{connections}` (the source app's
-  `ConnectionsController::exportConnections()` download) followed by `{highlights}` (its
-  `DashboardController::exportHighlights()` download) onto that now-empty slate. A "just
-  start over" command by design, not an incremental one — re-running it with a
-  corrected or freshly re-exported pair of files is always safe, since there's nothing
-  left over to duplicate against. Confirms before deleting anything (`--force` to skip).
-  Prompts for the vault passphrase twice (it delegates to the two hidden commands below,
-  each unlocking the vault independently).
-- **`wtf:connections:import`** / **`wtf:import-legacy-share-links`** — the two commands
-  `wtf:connections:reimport` delegates to; hidden from `artisan list` since running
-  either alone against already-imported data duplicates it (see their own doc comments
-  for exact file shapes) — use `wtf:connections:reimport` instead. Still directly
-  callable by name, `wtf:connections:import` in particular for its other JSON/CSV shape
-  (a flat contact list, unrelated to the source-app export pair).
-- **`wtf:connections:list {email}`** — lists an owner's connections as `id` + decrypted
-  name. Mainly useful to get an id for `wtf:connections:edit`, since names are
-  encrypted and can't otherwise be searched from the CLI.
-- **`wtf:connections:add {email}`** — interactively adds one connection: prompts for
-  name (required), notes, a source name (created if it doesn't already exist), and a
-  value for each of the owner's existing custom attribute definitions (blank to skip).
-- **`wtf:connections:edit {email} {id}`** — interactively edits one connection (get its
-  `id` from `wtf:connections:list`). A blank prompt keeps that field's current value; a
-  blank attribute prompt removes that attribute's value if it had one.
 
 ## Gotchas already paid for — don't rediscover these
 

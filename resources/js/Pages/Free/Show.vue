@@ -27,7 +27,7 @@ import {
 } from 'date-fns';
 import { currentLocale, loadLanguageAsync, trans } from 'laravel-vue-i18n';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { decryptString, DecryptionFailedError, deriveLegacyShareLinkKey } from '../../crypto';
+import { decryptString, DecryptionFailedError, deriveHighlightTokenKey } from '../../crypto';
 import SiteFooter from '../../Components/SiteFooter.vue';
 import SiteHeader from '../../Components/SiteHeader.vue';
 import CalendarView from '../../free/CalendarView.vue';
@@ -43,11 +43,14 @@ import type { AvailabilityResponse } from '../../free/nuxt-blocks';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 
 const props = defineProps<{
-  token: string;
-  inviteCode: string;
-  ownerName: string;
-  pageTitle: string;
+  token: string | null;
+  /** False for a bare /free visit or a token that doesn't resolve to any share link — see ShareLinkController::render()'s doc comment. */
+  linkFound: boolean;
+  inviteCode: string | null;
+  ownerName: string | null;
+  pageTitle: string | null;
   locale: string;
+  textDirection: 'ltr' | 'rtl';
   /** 0=Sunday..6=Saturday, owner-configurable (Settings), default Monday. */
   weekStart: number;
   colors: {
@@ -74,7 +77,7 @@ const props = defineProps<{
 // Runs before SiteFooter's own setup (child components mount after this
 // component's setup body finishes), so its "Create your own calendar" link
 // already sees this on this very page, not just after navigating away.
-rememberInviteCode(props.inviteCode);
+if (props.inviteCode) rememberInviteCode(props.inviteCode);
 
 const resolvedTheme = useResolvedTheme();
 
@@ -338,14 +341,19 @@ function getTimezoneOffsetMinutes(date: Date, timeZone: string): number {
 
 // ── Decryption ───────────────────────────────────────────────────────
 
-/** Every share link's key derives deterministically from its own URL token — see LegacyShareLinkKey. */
+/**
+ * Every share link's key derives deterministically from its own URL token
+ * — see HighlightTokenKey. Only ever called when linkFound is true (see
+ * boot()'s early return above), so token is guaranteed non-null here even
+ * though its prop type stays nullable for the no-link-found case.
+ */
 function resolveContentKey(): Promise<CryptoKey> {
-  return deriveLegacyShareLinkKey(props.token);
+  return deriveHighlightTokenKey(props.token!);
 }
 
 async function fetchWithPolling(): Promise<ApiResponse> {
   for (; ;) {
-    const res = await fetch(`/api/share/${encodeURIComponent(props.token)}`, {
+    const res = await fetch(`/api/share/${encodeURIComponent(props.token!)}`, {
       headers: { Accept: 'application/json' },
     });
 
@@ -375,6 +383,16 @@ async function fetchWithPolling(): Promise<ApiResponse> {
 // ── Bootstrap ────────────────────────────────────────────────────────
 
 async function boot(): Promise<void> {
+  // No share link to fetch at all (a bare /free visit, or a token that
+  // never resolved — see ShareLinkController::render()'s doc comment) —
+  // show the expired state directly rather than round-tripping to
+  // /api/share/{token}, which would only ever 404 for a token this app
+  // never even looked up.
+  if (!props.linkFound) {
+    showExpired.value = true;
+    return;
+  }
+
   showCalendar.value = true;
   showStatus.value = true;
   statusText.value = trans('free.loading');
@@ -427,22 +445,24 @@ onMounted(() => {
 </script>
 
 <template>
-  <Head :title="pageTitle" />
+  <Head :title="pageTitle ?? $t('free.linkExpiredTitle')" />
 
-  <div class="wtf-backdrop" :style="rootStyle">
+  <div class="wtf-backdrop" :style="rootStyle" :dir="textDirection">
     <SiteHeader />
 
     <div class="wtf-page-content container py-4">
       <div class="card mx-auto" style="max-width: 60rem;">
         <div class="card-body p-4">
-          <h1 class="mb-1 text-center">{{ pageTitle }}</h1>
-          <p class="small text-center text-muted mt-n2 mb-3">
-            {{ $t('free.timezoneLocalNote') }}
-            <span v-if="timezoneOffsetNote">&bull; {{ timezoneOffsetNote }}</span>
-          </p>
-          <p  class="small text-center text-warning mb-3">
-        <FontAwesomeIcon :icon="faLock" class="me-2" />{{ $t('free.personalizedWarning') }}
-          </p>
+          <template v-if="linkFound">
+            <h1 class="mb-1 text-center">{{ pageTitle }}</h1>
+            <p class="small text-center text-muted mt-n2 mb-3">
+              {{ $t('free.timezoneLocalNote') }}
+              <span v-if="timezoneOffsetNote">&bull; {{ timezoneOffsetNote }}</span>
+            </p>
+            <p  class="small text-center text-warning mb-3">
+          <FontAwesomeIcon :icon="faLock" class="me-2" />{{ $t('free.personalizedWarning') }}
+            </p>
+          </template>
 
           <div v-if="showExpired" class="text-center py-5">
             <h2 class="h4 mb-3">{{ $t('free.linkExpiredTitle') }}</h2>

@@ -17,7 +17,7 @@
  * module names), and all rendering logic are otherwise unchanged.
  */
 import { addDays, format, subDays } from 'date-fns';
-import { enUS, hu } from 'date-fns/locale';
+import { resolveDateFnsLocale } from './dateFnsLocale';
 import { TZDate } from '@date-fns/tz';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
@@ -87,7 +87,7 @@ const blockTypeIcon = computed<Record<DayBlock['type'], IconDefinition>>(() => (
   sleep: props.icons.sleep,
 }));
 
-const dateFnsLocale = computed(() => currentLocale.value === 'hu' ? hu : enUS);
+const dateFnsLocale = computed(() => resolveDateFnsLocale(currentLocale.value));
 
 function blockLabel(block: DayBlock): string {
   if (block.type === 'highlighted') {

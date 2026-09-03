@@ -15,7 +15,7 @@ class FeedClassifierTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->classifier = new FeedClassifier();
+        $this->classifier = new FeedClassifier;
     }
 
     private function item(string $componentType, ?string $summary): RawCalendarItem

@@ -39,7 +39,7 @@ return new class extends Migration
         });
 
         DB::statement(
-            "ALTER TABLE share_links ADD CONSTRAINT share_links_key_protection_check ".
+            'ALTER TABLE share_links ADD CONSTRAINT share_links_key_protection_check '.
             "CHECK (key_protection IN ('fragment', 'passphrase'))"
         );
     }

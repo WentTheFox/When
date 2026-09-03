@@ -24,14 +24,14 @@ return new class extends Migration
         });
 
         DB::statement(
-            "ALTER TABLE users ADD CONSTRAINT users_public_page_colors_format_check CHECK (".
+            'ALTER TABLE users ADD CONSTRAINT users_public_page_colors_format_check CHECK ('.
             "(accent_color IS NULL OR accent_color ~ '^#[0-9a-fA-F]{6}$') AND ".
             "(secondary_color IS NULL OR secondary_color ~ '^#[0-9a-fA-F]{6}$') AND ".
             "(sleep_color IS NULL OR sleep_color ~ '^#[0-9a-fA-F]{6}$') AND ".
             "(busy_color IS NULL OR busy_color ~ '^#[0-9a-fA-F]{6}$') AND ".
             "(free_color IS NULL OR free_color ~ '^#[0-9a-fA-F]{6}$') AND ".
             "(highlight_color IS NULL OR highlight_color ~ '^#[0-9a-fA-F]{6}$')".
-            ")"
+            ')'
         );
     }
 

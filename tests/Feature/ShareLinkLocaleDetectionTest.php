@@ -16,8 +16,8 @@ class ShareLinkLocaleDetectionTest extends TestCase
         $shareLink = ShareLink::factory()->for(User::factory())->create();
 
         $this->withHeaders(['Accept-Language' => 'hu,en;q=0.5'])
-            ->get("/free/{$shareLink->id}?at=2026-01-01")
-            ->assertRedirect("/hu/free/{$shareLink->id}?at=2026-01-01")
+            ->get("/free/{$shareLink->highlight_token}?at=2026-01-01")
+            ->assertRedirect("/hu/free/{$shareLink->highlight_token}?at=2026-01-01")
             ->assertCookie('wtf-locale', 'hu');
     }
 
@@ -30,7 +30,7 @@ class ShareLinkLocaleDetectionTest extends TestCase
         // manual language switch) that a mismatched browser language must
         // never silently override.
         $this->withHeaders(['Accept-Language' => 'en-US,en;q=0.5'])
-            ->get("/hu/free/{$shareLink->id}")
+            ->get("/hu/free/{$shareLink->highlight_token}")
             ->assertOk()
             ->assertCookie('wtf-locale', 'hu');
     }
@@ -43,7 +43,7 @@ class ShareLinkLocaleDetectionTest extends TestCase
         // (cookie) — e.g. from LanguageSwitcher.vue — always wins.
         $this->withCookie('wtf-locale', 'en')
             ->withHeaders(['Accept-Language' => 'hu,en;q=0.5'])
-            ->get("/free/{$shareLink->id}")
+            ->get("/free/{$shareLink->highlight_token}")
             ->assertOk();
     }
 
@@ -55,7 +55,7 @@ class ShareLinkLocaleDetectionTest extends TestCase
         // cookie preference from an earlier visit — still must not demote
         // an explicit /hu visit.
         $this->withCookie('wtf-locale', 'en')
-            ->get("/hu/free/{$shareLink->id}")
+            ->get("/hu/free/{$shareLink->highlight_token}")
             ->assertOk()
             ->assertCookie('wtf-locale', 'hu');
     }
@@ -65,7 +65,7 @@ class ShareLinkLocaleDetectionTest extends TestCase
         $shareLink = ShareLink::factory()->for(User::factory())->create();
 
         $this->withHeaders(['Accept-Language' => 'hu,en;q=0.5'])
-            ->get("/hu/free/{$shareLink->id}")
+            ->get("/hu/free/{$shareLink->highlight_token}")
             ->assertOk()
             ->assertCookie('wtf-locale', 'hu');
     }

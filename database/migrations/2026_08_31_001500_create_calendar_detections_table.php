@@ -23,7 +23,7 @@ return new class extends Migration
         });
 
         DB::statement(
-            "ALTER TABLE calendar_detections ADD CONSTRAINT calendar_detections_mode_check ".
+            'ALTER TABLE calendar_detections ADD CONSTRAINT calendar_detections_mode_check '.
             "CHECK (detected_mode IN ('full_detail', 'free_busy_only', 'mixed'))"
         );
     }

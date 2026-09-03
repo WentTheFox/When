@@ -20,7 +20,7 @@ class ShareLink extends Model
         'archived',
         'bypass_dnd',
         'show_activity',
-        'legacy_token',
+        'highlight_token',
     ];
 
     protected function casts(): array
@@ -35,6 +35,26 @@ class ShareLink extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Every share link's public identifier — used as both its /free URL
+     * segment and (via App\Services\Crypto\HighlightTokenKey) its content
+     * key derivation. Same generation method as the old app's own
+     * CalendarHighlightToken::generateToken(): 32 random bytes, base64url
+     * encoded (`+`/`/` swapped for `-`/`_`, `=` padding stripped), retried
+     * until the result happens to contain no `-`/`_` at all — i.e. until
+     * it's alphanumeric-only, nothing to escape in a URL path segment.
+     * Plus one addition of our own: also retried on a token collision,
+     * since the old app had no equivalent uniqueness constraint to satisfy.
+     */
+    public static function generateHighlightToken(): string
+    {
+        do {
+            $token = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+        } while (str_contains($token, '-') || str_contains($token, '_') || static::where('highlight_token', $token)->exists());
+
+        return $token;
     }
 
     public function words(): HasMany

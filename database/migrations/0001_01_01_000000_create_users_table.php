@@ -50,7 +50,7 @@ return new class extends Migration
         });
 
         DB::statement(
-            "ALTER TABLE users ADD CONSTRAINT users_calendar_parsing_mode_check ".
+            'ALTER TABLE users ADD CONSTRAINT users_calendar_parsing_mode_check '.
             "CHECK (calendar_parsing_mode IN ('full_detail', 'free_busy_only', 'auto'))"
         );
 

@@ -12,7 +12,7 @@ use App\Services\Calendar\EventNormalizer;
 use App\Services\Calendar\FeedClassifier;
 use App\Services\Calendar\IcsParser;
 use App\Services\Crypto\AesGcm;
-use App\Services\Crypto\LegacyShareLinkKey;
+use App\Services\Crypto\HighlightTokenKey;
 use App\Support\StageTimer;
 use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
@@ -184,7 +184,7 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
         ]);
 
         $resultJson = json_encode($result->toArray());
-        $contentKey = LegacyShareLinkKey::derive($shareLink->legacy_token ?? $shareLink->id);
+        $contentKey = HighlightTokenKey::derive($shareLink->highlight_token ?? $shareLink->id);
 
         $ciphertext = AesGcm::encrypt($contentKey, $resultJson);
 

@@ -2,28 +2,28 @@
 
 namespace Tests\Unit\Crypto;
 
-use App\Services\Crypto\LegacyShareLinkKey;
+use App\Services\Crypto\HighlightTokenKey;
 use PHPUnit\Framework\TestCase;
 
-class LegacyShareLinkKeyTest extends TestCase
+class HighlightTokenKeyTest extends TestCase
 {
     public function test_derives_a_32_byte_key(): void
     {
-        $key = LegacyShareLinkKey::derive('some-token');
+        $key = HighlightTokenKey::derive('some-token');
         $this->assertSame(32, strlen($key));
     }
 
     public function test_is_deterministic_for_the_same_token(): void
     {
-        $a = LegacyShareLinkKey::derive('same-token');
-        $b = LegacyShareLinkKey::derive('same-token');
+        $a = HighlightTokenKey::derive('same-token');
+        $b = HighlightTokenKey::derive('same-token');
         $this->assertSame($a, $b);
     }
 
     public function test_produces_different_keys_for_different_tokens(): void
     {
-        $a = LegacyShareLinkKey::derive('token-one');
-        $b = LegacyShareLinkKey::derive('token-two');
+        $a = HighlightTokenKey::derive('token-one');
+        $b = HighlightTokenKey::derive('token-two');
         $this->assertNotSame($a, $b);
     }
 
@@ -31,12 +31,12 @@ class LegacyShareLinkKeyTest extends TestCase
     public function test_matches_the_documented_interop_fixture(): void
     {
         $fixture = json_decode(
-            file_get_contents(__DIR__.'/../../Fixtures/crypto/legacy_share_link_key.json'),
+            file_get_contents(__DIR__.'/../../Fixtures/crypto/highlight_token_key.json'),
             associative: true,
             flags: JSON_THROW_ON_ERROR,
         );
 
-        $key = LegacyShareLinkKey::derive($fixture['token']);
+        $key = HighlightTokenKey::derive($fixture['token']);
 
         $this->assertSame($fixture['expected_key_base64'], base64_encode($key));
     }

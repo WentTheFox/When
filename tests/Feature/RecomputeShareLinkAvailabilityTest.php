@@ -7,7 +7,7 @@ use App\Models\ShareLink;
 use App\Models\ShareLinkWord;
 use App\Models\User;
 use App\Services\Crypto\AesGcm;
-use App\Services\Crypto\LegacyShareLinkKey;
+use App\Services\Crypto\HighlightTokenKey;
 use GuzzleHttp\Client;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
@@ -73,7 +73,7 @@ class RecomputeShareLinkAvailabilityTest extends TestCase
         $this->assertStringNotContainsString('Alice', $cache->ciphertext);
         $this->assertStringNotContainsString('example.com/secret.ics', $cache->ciphertext);
 
-        $derivedKey = LegacyShareLinkKey::derive($shareLink->id);
+        $derivedKey = HighlightTokenKey::derive($shareLink->highlight_token);
         $decrypted = json_decode(AesGcm::decrypt($derivedKey, $cache->ciphertext), true);
 
         $this->assertCount(1, $decrypted['highlighted']);
@@ -110,7 +110,7 @@ class RecomputeShareLinkAvailabilityTest extends TestCase
         $this->assertNull($shareLink->fresh()->cache);
     }
 
-    public function test_a_legacy_share_link_encrypts_with_a_key_derived_from_its_legacy_token_not_its_id(): void
+    public function test_a_share_link_with_an_explicit_highlight_token_encrypts_with_a_key_derived_from_it(): void
     {
         $this->mockCalendarResponse($this->icsFixture());
 
@@ -118,7 +118,7 @@ class RecomputeShareLinkAvailabilityTest extends TestCase
             'calendar_url_ciphertext' => Crypt::encryptString('https://example.com/secret.ics'),
         ]);
         $shareLink = ShareLink::factory()->for($user)->create([
-            'legacy_token' => 'legacy-token-for-recompute-test',
+            'highlight_token' => 'highlight-token-for-recompute-test',
         ]);
 
         RecomputeShareLinkAvailability::dispatchSync($shareLink->id);
@@ -126,7 +126,7 @@ class RecomputeShareLinkAvailabilityTest extends TestCase
         $cache = $shareLink->fresh()->cache;
         $this->assertNotNull($cache);
 
-        $derivedKey = LegacyShareLinkKey::derive('legacy-token-for-recompute-test');
+        $derivedKey = HighlightTokenKey::derive('highlight-token-for-recompute-test');
         $decrypted = json_decode(AesGcm::decrypt($derivedKey, $cache->ciphertext), true);
 
         $this->assertCount(1, $decrypted['unavailable']);

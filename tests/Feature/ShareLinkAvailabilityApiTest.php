@@ -30,7 +30,7 @@ class ShareLinkAvailabilityApiTest extends TestCase
 
         $shareLink = ShareLink::factory()->for($this->userWithCalendar())->create();
 
-        $response = $this->getJson(route('api.share-links.show', $shareLink));
+        $response = $this->getJson(route('api.share-links.show', $shareLink->highlight_token));
 
         $response->assertStatus(202)->assertJson(['status' => 'pending']);
         Bus::assertDispatched(RecomputeShareLinkAvailability::class);
@@ -51,9 +51,9 @@ class ShareLinkAvailabilityApiTest extends TestCase
 
         $shareLink = ShareLink::factory()->for($this->userWithCalendar())->create();
 
-        $this->getJson(route('api.share-links.show', $shareLink))->assertStatus(202);
-        $this->getJson(route('api.share-links.show', $shareLink))->assertStatus(202);
-        $this->getJson(route('api.share-links.show', $shareLink))->assertStatus(202);
+        $this->getJson(route('api.share-links.show', $shareLink->highlight_token))->assertStatus(202);
+        $this->getJson(route('api.share-links.show', $shareLink->highlight_token))->assertStatus(202);
+        $this->getJson(route('api.share-links.show', $shareLink->highlight_token))->assertStatus(202);
 
         Bus::assertDispatchedTimes(RecomputeShareLinkAvailability::class, 1);
     }
@@ -71,7 +71,7 @@ class ShareLinkAvailabilityApiTest extends TestCase
             'encrypted_at' => now(),
         ]);
 
-        $response = $this->getJson(route('api.share-links.show', $shareLink));
+        $response = $this->getJson(route('api.share-links.show', $shareLink->highlight_token));
 
         $response->assertOk()->assertJson([
             'status' => 'ready',
@@ -94,7 +94,7 @@ class ShareLinkAvailabilityApiTest extends TestCase
             'encrypted_at' => now()->subMinutes(30), // older than the 15-minute TTL
         ]);
 
-        $response = $this->getJson(route('api.share-links.show', $shareLink));
+        $response = $this->getJson(route('api.share-links.show', $shareLink->highlight_token));
 
         $response->assertOk()->assertJson([
             'status' => 'ready',
@@ -104,22 +104,22 @@ class ShareLinkAvailabilityApiTest extends TestCase
         Bus::assertDispatched(RecomputeShareLinkAvailability::class);
     }
 
-    public function test_resolves_a_legacy_token_the_same_as_a_uuid_id(): void
+    public function test_resolves_by_an_explicit_highlight_token(): void
     {
-        $shareLink = ShareLink::factory()->for($this->userWithCalendar())->create(['legacy_token' => 'legacy-abc-123']);
+        $shareLink = ShareLink::factory()->for($this->userWithCalendar())->create(['highlight_token' => 'highlight-abc-123']);
         ShareLinkCache::create([
             'share_link_id' => $shareLink->id,
-            'ciphertext' => 'legacy-ciphertext-blob',
+            'ciphertext' => 'highlight-ciphertext-blob',
             'computed_range_start' => now(),
             'computed_range_end' => now()->addDays(60),
             'encrypted_at' => now(),
         ]);
 
-        $response = $this->getJson('/api/share/legacy-abc-123');
+        $response = $this->getJson('/api/share/highlight-abc-123');
 
         $response->assertOk()->assertJson([
             'status' => 'ready',
-            'ciphertext' => 'legacy-ciphertext-blob',
+            'ciphertext' => 'highlight-ciphertext-blob',
         ]);
     }
 
@@ -127,7 +127,7 @@ class ShareLinkAvailabilityApiTest extends TestCase
     {
         $shareLink = ShareLink::factory()->for($this->userWithCalendar())->create(['archived' => true]);
 
-        $response = $this->getJson(route('api.share-links.show', $shareLink));
+        $response = $this->getJson(route('api.share-links.show', $shareLink->highlight_token));
 
         // 401, not 404 — the link *was* valid, this is "expired," not "never existed."
         $response->assertStatus(401);
@@ -145,7 +145,7 @@ class ShareLinkAvailabilityApiTest extends TestCase
             'encrypted_at' => now(),
         ]);
 
-        $response = $this->getJson(route('api.share-links.show', $shareLink));
+        $response = $this->getJson(route('api.share-links.show', $shareLink->highlight_token));
 
         $response->assertJson(['timezone' => 'Europe/Budapest']);
     }
@@ -163,7 +163,7 @@ class ShareLinkAvailabilityApiTest extends TestCase
 
         $shareLink = ShareLink::factory()->for(User::factory()->create(['calendar_url_ciphertext' => null]))->create();
 
-        $response = $this->getJson(route('api.share-links.show', $shareLink));
+        $response = $this->getJson(route('api.share-links.show', $shareLink->highlight_token));
 
         $response->assertOk()->assertJson(['status' => 'unconfigured']);
         Bus::assertNotDispatched(RecomputeShareLinkAvailability::class);
@@ -182,7 +182,7 @@ class ShareLinkAvailabilityApiTest extends TestCase
             'encrypted_at' => now()->subMinutes(30),
         ]);
 
-        $response = $this->getJson(route('api.share-links.show', $shareLink));
+        $response = $this->getJson(route('api.share-links.show', $shareLink->highlight_token));
 
         $response->assertOk()->assertJson(['status' => 'unconfigured']);
         Bus::assertNotDispatched(RecomputeShareLinkAvailability::class);

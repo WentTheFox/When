@@ -23,11 +23,11 @@ class CalendarFetcher
                 'headers' => ['Accept' => 'text/calendar, text/plain, */*'],
             ]);
         } catch (GuzzleException) {
-            throw new CalendarFetchException();
+            throw new CalendarFetchException;
         }
 
         if ($response->getStatusCode() >= 400) {
-            throw new CalendarFetchException();
+            throw new CalendarFetchException;
         }
 
         return (string) $response->getBody();

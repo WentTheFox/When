@@ -2,6 +2,13 @@ import type { ColorSlot, ColorSwatch } from './free/color-palette';
 import type { IconOption, IconSlot } from './free/icon-palette';
 import type { NowColorPreset } from './free/now-color-presets';
 
+/** One row of App\Support\Locales::forFrontend(). */
+export interface LocaleOption {
+  code: string;
+  native: string;
+  english: string;
+}
+
 /**
  * Every prop HandleInertiaRequests::share() sends on every request. Pass
  * this explicitly to usePage<SharedPageProps>() at each call site — trying
@@ -31,6 +38,7 @@ export interface SharedPageProps {
     presets: NowColorPreset[];
     defaultKey: string;
   };
+  locales: LocaleOption[];
   auth: {
     user: {
       name: string;

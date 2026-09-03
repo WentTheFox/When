@@ -21,9 +21,9 @@ return new class extends Migration
         });
 
         DB::statement(
-            "ALTER TABLE users ADD CONSTRAINT users_now_color_format_check CHECK (".
+            'ALTER TABLE users ADD CONSTRAINT users_now_color_format_check CHECK ('.
             "(now_color IS NULL OR now_color ~ '^#[0-9a-fA-F]{6}$')".
-            ")"
+            ')'
         );
     }
 

@@ -24,8 +24,8 @@ return new class extends Migration
 
         DB::statement('ALTER TABLE connection_attribute_definitions DROP CONSTRAINT connection_attribute_definitions_type_check');
         DB::statement(
-            "ALTER TABLE connection_attribute_definitions ADD CONSTRAINT ".
-            "connection_attribute_definitions_type_check ".
+            'ALTER TABLE connection_attribute_definitions ADD CONSTRAINT '.
+            'connection_attribute_definitions_type_check '.
             "CHECK (type IN ('text', 'textarea', 'date', 'number', 'url', 'email', 'phone', 'radio'))"
         );
     }
@@ -34,8 +34,8 @@ return new class extends Migration
     {
         DB::statement('ALTER TABLE connection_attribute_definitions DROP CONSTRAINT connection_attribute_definitions_type_check');
         DB::statement(
-            "ALTER TABLE connection_attribute_definitions ADD CONSTRAINT ".
-            "connection_attribute_definitions_type_check ".
+            'ALTER TABLE connection_attribute_definitions ADD CONSTRAINT '.
+            'connection_attribute_definitions_type_check '.
             "CHECK (type IN ('text', 'date', 'number', 'url', 'email', 'phone'))"
         );
 

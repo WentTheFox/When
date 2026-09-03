@@ -13,7 +13,7 @@ export interface ShareLinkRow {
   archived: boolean;
   bypass_dnd: boolean;
   show_activity: boolean;
-  legacy_token: string | null;
+  highlight_token: string | null;
   connection_id: string | null;
   highlight_words: string[];
 }
@@ -117,11 +117,11 @@ const displayLabel = computed(() => {
 
 /**
  * A share link's URL carries no secret at all — every link's content key
- * derives deterministically from its own id/legacy_token (see
- * LegacyShareLinkKey), so the path alone (no fragment, no server round
+ * derives deterministically from its own highlight_token (see
+ * HighlightTokenKey), so the path alone (no fragment, no server round
  * trip) is the whole URL.
  */
-const url = computed(() => `${window.location.origin}/free/${props.link.legacy_token ?? props.link.id}`);
+const url = computed(() => `${window.location.origin}/free/${props.link.highlight_token}`);
 
 onMounted(async () => {
   if (!props.link.label_ciphertext) {
@@ -188,7 +188,7 @@ async function regenerateToken(): Promise<void> {
 
   try {
     const { data } = await axios.post(`/dashboard/share-links/${props.link.id}/regenerate-token`);
-    const regeneratedUrl = `${window.location.origin}/free/${data.legacy_token ?? data.id}`;
+    const regeneratedUrl = `${window.location.origin}/free/${data.highlight_token}`;
     emit('regenerated', data, regeneratedUrl);
   } catch (error) {
     console.error(error);

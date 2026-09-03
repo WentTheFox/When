@@ -12,7 +12,7 @@ class ActivityExtractorTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->extractor = new ActivityExtractor();
+        $this->extractor = new ActivityExtractor;
     }
 
     public function test_a_null_pattern_extracts_nothing_even_when_the_default_pattern_would_match(): void

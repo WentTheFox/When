@@ -21,7 +21,9 @@ namespace App\Services\Crypto;
 class AesGcm
 {
     private const IV_LENGTH = 12;
+
     private const TAG_LENGTH = 16;
+
     private const CIPHER = 'aes-256-gcm';
 
     public static function encrypt(string $rawKey, string $plaintext): string
@@ -56,7 +58,7 @@ class AesGcm
         $combined = base64_decode($blob, true);
 
         if ($combined === false || strlen($combined) <= self::IV_LENGTH + self::TAG_LENGTH) {
-            throw new DecryptionFailedException();
+            throw new DecryptionFailedException;
         }
 
         $iv = substr($combined, 0, self::IV_LENGTH);
@@ -73,7 +75,7 @@ class AesGcm
         );
 
         if ($plaintext === false) {
-            throw new DecryptionFailedException();
+            throw new DecryptionFailedException;
         }
 
         return $plaintext;

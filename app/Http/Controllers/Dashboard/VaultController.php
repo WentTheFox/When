@@ -7,12 +7,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * §0.3's key ring, session-authenticated for the dashboard (the CLI's
- * equivalent operates directly via Eloquent + Argon2id.php/KeyRing.php,
- * not this API — see UnlocksVault's doc comment). The server only
- * ever holds and returns this ciphertext, never the vault key needed to
- * open it — the dashboard is responsible for deriving that locally from
- * the owner's passphrase and doing all encrypt/decrypt client-side.
+ * §0.3's key ring, session-authenticated for the dashboard. The server
+ * only ever holds and returns this ciphertext, never the vault key needed
+ * to open it — the dashboard is responsible for deriving that locally
+ * from the owner's passphrase and doing all encrypt/decrypt client-side.
  */
 class VaultController extends Controller
 {

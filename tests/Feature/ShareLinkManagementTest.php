@@ -28,24 +28,24 @@ class ShareLinkManagementTest extends TestCase
         $response = $this->actingAs($owner)->postJson("/dashboard/share-links/{$shareLink->id}/regenerate-token");
 
         $response->assertOk();
-        $newToken = $response->json('legacy_token');
+        $newToken = $response->json('highlight_token');
 
         $this->assertNotNull($newToken);
         $this->assertTrue(ctype_alnum($newToken));
-        $this->assertSame($newToken, $shareLink->fresh()->legacy_token);
+        $this->assertSame($newToken, $shareLink->fresh()->highlight_token);
         $this->assertNull($shareLink->fresh()->cache);
     }
 
-    public function test_regenerate_token_on_an_already_legacy_link_replaces_the_old_token(): void
+    public function test_regenerate_token_replaces_an_existing_highlight_token(): void
     {
         $owner = User::factory()->create();
-        $shareLink = ShareLink::factory()->for($owner)->create(['legacy_token' => 'the-old-token']);
+        $shareLink = ShareLink::factory()->for($owner)->create(['highlight_token' => 'the-old-token']);
 
         $response = $this->actingAs($owner)->postJson("/dashboard/share-links/{$shareLink->id}/regenerate-token");
 
         $response->assertOk();
-        $this->assertNotSame('the-old-token', $response->json('legacy_token'));
-        $this->assertNull(ShareLink::where('legacy_token', 'the-old-token')->first());
+        $this->assertNotSame('the-old-token', $response->json('highlight_token'));
+        $this->assertNull(ShareLink::where('highlight_token', 'the-old-token')->first());
     }
 
     public function test_cannot_regenerate_the_token_of_another_owners_share_link(): void

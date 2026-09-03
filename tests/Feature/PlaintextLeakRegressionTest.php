@@ -28,8 +28,8 @@ use Tests\TestCase;
  *   fixtures here simulate opaque client-produced ciphertext — the
  *   assertion is that the known plaintext never appears anywhere in the
  *   dump. A share link's content key is never generated or stored at all
- *   (it derives deterministically from the link's own id/legacy_token, see
- *   LegacyShareLinkKey), so there's no separate key-secrecy assertion to
+ *   (it derives deterministically from the link's own highlight_token, see
+ *   HighlightTokenKey), so there's no separate key-secrecy assertion to
  *   make for it here.
  */
 class PlaintextLeakRegressionTest extends TestCase

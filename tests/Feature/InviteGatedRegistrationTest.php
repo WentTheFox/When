@@ -140,7 +140,7 @@ class InviteGatedRegistrationTest extends TestCase
         $owner = User::factory()->create();
         $shareLink = ShareLink::factory()->for($owner)->create();
 
-        $response = $this->get(route('share-links.show', $shareLink));
+        $response = $this->get(route('share-links.show', $shareLink->highlight_token));
 
         $response->assertOk();
 

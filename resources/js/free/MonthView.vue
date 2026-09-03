@@ -7,7 +7,7 @@
  * there, same as the source app.
  */
 import { addDays, format, getDay, subDays } from 'date-fns';
-import { enUS, hu } from 'date-fns/locale';
+import { resolveDateFnsLocale } from './dateFnsLocale';
 import { TZDate } from '@date-fns/tz';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
@@ -57,7 +57,7 @@ const emit = defineEmits<{
   weekClick: [day: Date];
 }>();
 
-const dateFnsLocale = computed(() => currentLocale.value === 'hu' ? hu : enUS);
+const dateFnsLocale = computed(() => resolveDateFnsLocale(currentLocale.value));
 
 // April 6 2025 is a Sunday, so `6 + weekStart + i` walks forward from
 // whichever weekday weekStart names — no hardcoded Monday-first assumption.

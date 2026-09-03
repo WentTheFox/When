@@ -18,7 +18,7 @@ class ShareLinkLocaleTest extends TestCase
         $owner->setLocalizedField('public_page_title', ['default' => 'English Title', 'hu' => 'Magyar Cim']);
         $shareLink = ShareLink::factory()->for($owner)->create();
 
-        $this->get("/free/{$shareLink->id}")
+        $this->get("/free/{$shareLink->highlight_token}")
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('pageTitle', 'English Title')
@@ -37,7 +37,7 @@ class ShareLinkLocaleTest extends TestCase
         // ShareLinkLocaleDetectionTest), which the test client's own
         // default Accept-Language would otherwise trigger here too.
         $this->withCookie('wtf-locale', 'hu')
-            ->get("/hu/free/{$shareLink->id}")
+            ->get("/hu/free/{$shareLink->highlight_token}")
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('pageTitle', 'Magyar Cim')
@@ -51,19 +51,19 @@ class ShareLinkLocaleTest extends TestCase
         $shareLink = ShareLink::factory()->for($owner)->create();
 
         $this->withCookie('wtf-locale', 'hu')
-            ->get("/hu/free/{$shareLink->id}")
+            ->get("/hu/free/{$shareLink->highlight_token}")
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page->where('pageTitle', 'English Title'));
     }
 
-    public function test_hu_free_path_still_resolves_a_legacy_token(): void
+    public function test_hu_free_path_resolves_by_highlight_token(): void
     {
         ShareLink::factory()->for(User::factory())->create([
-            'legacy_token' => 'old-legacy-token-xyz789',
+            'highlight_token' => 'old-highlight-token-xyz789',
         ]);
 
         $this->withCookie('wtf-locale', 'hu')
-            ->get('/hu/free/old-legacy-token-xyz789')
+            ->get('/hu/free/old-highlight-token-xyz789')
             ->assertOk();
     }
 }

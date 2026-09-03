@@ -9,7 +9,7 @@
  * at) — a per-day list instead of a side-by-side week grid.
  */
 import { addDays, format, subDays } from 'date-fns';
-import { enUS, hu } from 'date-fns/locale';
+import { resolveDateFnsLocale } from './dateFnsLocale';
 import { TZDate } from '@date-fns/tz';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
@@ -75,7 +75,7 @@ const slotTypeIcon = computed<Record<DayBlock['type'], IconDefinition>>(() => ({
   sleep: props.icons.sleep,
 }));
 
-const dateFnsLocale = computed(() => currentLocale.value === 'hu' ? hu : enUS);
+const dateFnsLocale = computed(() => resolveDateFnsLocale(currentLocale.value));
 
 function slotLabel(slot: DayBlock): string {
   if (slot.type === 'highlighted') {

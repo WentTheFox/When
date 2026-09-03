@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\User;
 use App\Support\ColorPalette;
 use App\Support\IconPalette;
+use App\Support\Locales;
 use App\Support\NowColorPresetKey;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -102,6 +103,10 @@ class HandleInertiaRequests extends Middleware
                     'freeColorKey' => $request->user()->free_color_key,
                 ] : null,
             ],
+            // Single source of truth for every language the /free page and
+            // owner-authored localized-text fields can be shown in — see
+            // App\Support\Locales's own doc comment.
+            'locales' => Locales::forFrontend(),
             'flash' => [
                 'status' => $request->session()->get('status'),
                 'recoveryCodes' => $request->session()->get('recoveryCodes'),

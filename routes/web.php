@@ -20,6 +20,7 @@ use App\Http\Controllers\Dashboard\VaultController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InviteController;
 use App\Http\Controllers\ShareLinkController;
+use App\Support\Locales;
 use Illuminate\Support\Facades\Route;
 
 // `/` is a pure dispatcher (see AboutController's own doc comment) — the
@@ -35,20 +36,36 @@ Route::redirect('/security', '/about');
 
 // Public share-link view (§4, §0.4, §0.5/Stage 5). Full build in Stage 6 —
 // for now this hosts the "create your own" invite CTA described in Stage 3,
-// plus the legacy-token resolution described in ShareLinkController's doc
-// comment. {token} (not {shareLink}) since it's a plain string, resolving
-// either a UUID share-link id or a legacy token inside the controller —
-// never Eloquent route-model-binding, since a legacy token isn't a model key.
-// Locale is part of the path, not a query param or Accept-Language guess —
-// /free/{token} is always English, /hu/free/{token} is always Hungarian.
-// Both hit the same action; the locale default tells the controller which.
+// plus the highlight_token resolution described in ShareLinkController's
+// doc comment. {token} (not {shareLink}) since it's a plain string, looked
+// up by highlight_token inside the controller — never Eloquent
+// route-model-binding, since it isn't a model key. The index routes (no
+// {token} segment) resolve here too, always rendering the "link expired"
+// state — see ShareLinkController::render()'s doc comment. Locale is part
+// of the path, not a query param or Accept-Language guess — /free/... is
+// always English, /{locale}/free/... (one route per App\Support\Locales::
+// codes() entry other than 'en', the no-prefix default) is always that
+// locale. Every one of these hits the same action; the locale default
+// tells the controller which.
 Route::middleware('throttle:share-link-view')->group(function () {
+    Route::get('/free', [ShareLinkController::class, 'show'])
+        ->name('share-links.index')
+        ->defaults('locale', Locales::DEFAULT);
     Route::get('/free/{token}', [ShareLinkController::class, 'show'])
         ->name('share-links.show')
-        ->defaults('locale', 'en');
-    Route::get('/hu/free/{token}', [ShareLinkController::class, 'show'])
-        ->name('share-links.show.hu')
-        ->defaults('locale', 'hu');
+        ->defaults('locale', Locales::DEFAULT);
+
+    foreach (Locales::codes() as $locale) {
+        if ($locale === Locales::DEFAULT) {
+            continue;
+        }
+        Route::get("/{$locale}/free", [ShareLinkController::class, 'show'])
+            ->name("share-links.index.{$locale}")
+            ->defaults('locale', $locale);
+        Route::get("/{$locale}/free/{token}", [ShareLinkController::class, 'show'])
+            ->name("share-links.show.{$locale}")
+            ->defaults('locale', $locale);
+    }
 });
 
 Route::middleware('guest')->group(function () {

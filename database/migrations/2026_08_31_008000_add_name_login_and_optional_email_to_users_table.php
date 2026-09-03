@@ -3,6 +3,7 @@
 use App\Models\User;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -54,7 +55,7 @@ return new class extends Migration
         // app's invite-only, small-userbase model.
         foreach (DB::table('users')->select('id', 'name')->get() as $row) {
             DB::table('users')->where('id', $row->id)->update([
-                'name_hash' => User::hashName(\Illuminate\Support\Facades\Crypt::decryptString($row->name)),
+                'name_hash' => User::hashName(Crypt::decryptString($row->name)),
             ]);
         }
 

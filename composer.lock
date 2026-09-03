@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "2afb175b9ee85da65e02af4004c6009f",
+    "content-hash": "84c25f15e1712fe78189e6ae681b0ad2",
     "packages": [
         {
             "name": "brick/math",
@@ -6739,6 +6739,52 @@
                 }
             ],
             "time": "2026-04-26T05:33:54+00:00"
+        },
+        {
+            "name": "zonuexe/http-accept-language",
+            "version": "0.6.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/BaguettePHP/http-accept-language.git",
+                "reference": "e423ad29571e89d962bea15d1f74953479fd3d24"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/BaguettePHP/http-accept-language/zipball/e423ad29571e89d962bea15d1f74953479fd3d24",
+                "reference": "e423ad29571e89d962bea15d1f74953479fd3d24",
+                "shasum": ""
+            },
+            "require": {
+                "ext-intl": "*",
+                "php": ">=7.2.0"
+            },
+            "require-dev": {
+                "phpstan/phpstan": "^1.10",
+                "phpunit/phpunit": "^8.5|^7.5|^4.8",
+                "yoast/phpunit-polyfills": "^1.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Teto\\HTTP\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "USAMI Kenta",
+                    "email": "tadsan@zonu.me"
+                }
+            ],
+            "description": "HTTP Accept-Language Header parser",
+            "support": {
+                "issues": "https://github.com/BaguettePHP/http-accept-language/issues",
+                "source": "https://github.com/BaguettePHP/http-accept-language/tree/0.6.0"
+            },
+            "time": "2023-04-29T18:49:09+00:00"
         }
     ],
     "packages-dev": [
@@ -9112,7 +9158,7 @@
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
-        "php": "^8.2"
+        "php": "^8.5"
     },
     "platform-dev": {},
     "plugin-api-version": "2.9.0"
