@@ -6,6 +6,8 @@ use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\TwoFactorController;
 use App\Http\Controllers\CalendarPreviewController;
 use App\Http\Controllers\Dashboard\AccountController;
+use App\Http\Controllers\Dashboard\AccountDeletionController;
+use App\Http\Controllers\Dashboard\AccountExportController;
 use App\Http\Controllers\Dashboard\ActivityRoleController;
 use App\Http\Controllers\Dashboard\ConnectionAttributeDefinitionController;
 use App\Http\Controllers\Dashboard\ConnectionController;
@@ -59,13 +61,28 @@ Route::middleware('throttle:share-link-view')->group(function () {
         if ($locale === Locales::DEFAULT) {
             continue;
         }
-        Route::get("/{$locale}/free", [ShareLinkController::class, 'show'])
-            ->name("share-links.index.{$locale}")
-            ->defaults('locale', $locale);
-        Route::get("/{$locale}/free/{token}", [ShareLinkController::class, 'show'])
-            ->name("share-links.show.{$locale}")
-            ->defaults('locale', $locale);
+        Route::prefix($locale)->group(function () use ($locale) {
+            Route::get('/free', [ShareLinkController::class, 'show'])
+                ->name("share-links.index.{$locale}")
+                ->defaults('locale', $locale);
+            Route::get('/free/{token}', [ShareLinkController::class, 'show'])
+                ->name("share-links.show.{$locale}")
+                ->defaults('locale', $locale);
+        });
     }
+});
+
+// Deliberately NOT inside the guest-only group below: it's also called by
+// already-authenticated pages that need the account's own id-based verifier
+// salt (ConfirmPasswordModal.vue, Account.vue's change-master-password flow)
+// — under `guest`, the middleware itself would 302-redirect those calls to
+// /dashboard before AuthenticatedSessionController::lookup() ever runs,
+// handing the caller an HTML redirect body instead of the {id, saltVersion}
+// JSON it expects. The lookup itself carries no session-specific
+// information either way (its whole point is to work for a not-yet-
+// authenticated caller), so nothing is lost by allowing both.
+Route::middleware('throttle:login-lookup')->group(function () {
+    Route::post('/login/lookup', [AuthenticatedSessionController::class, 'lookup'])->name('login.lookup');
 });
 
 Route::middleware('guest')->group(function () {
@@ -80,9 +97,6 @@ Route::middleware('guest')->group(function () {
 
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('/login', [AuthenticatedSessionController::class, 'store']);
-    Route::middleware('throttle:login-lookup')->group(function () {
-        Route::post('/login/lookup', [AuthenticatedSessionController::class, 'lookup'])->name('login.lookup');
-    });
 
     Route::get('/two-factor-challenge', [TwoFactorController::class, 'challenge'])
         ->name('two-factor.challenge');
@@ -103,6 +117,18 @@ Route::middleware('auth')->group(function () {
         ->name('dashboard.account.name.update');
     Route::patch('/dashboard/account/email', [AccountController::class, 'updateEmail'])
         ->name('dashboard.account.email.update');
+    Route::put('/dashboard/account/password', [AccountController::class, 'updatePassword'])
+        ->name('dashboard.account.password.update');
+
+    // Both require re-confirming the master password (ConfirmsPassword) —
+    // see AccountExportController/AccountDeletionController's own doc
+    // comments. Export is additionally throttled since it's the heaviest
+    // self-service action a caller can trigger.
+    Route::post('/dashboard/account/export', [AccountExportController::class, 'store'])
+        ->name('dashboard.account.export')
+        ->middleware('throttle:account-data-export');
+    Route::delete('/dashboard/account', [AccountDeletionController::class, 'destroy'])
+        ->name('dashboard.account.destroy');
 
     Route::get('/two-factor', [TwoFactorController::class, 'setup'])->name('two-factor.setup');
     Route::post('/two-factor/confirm', [TwoFactorController::class, 'confirm'])

@@ -60,6 +60,24 @@ ordinary password). See `resources/js/crypto/argon2.ts`.
   **never** sends or stores a raw hex for these slots — only a palette key, validated
   server-side against `ColorPalette::KEYS`. Don't reintroduce a free-form color picker
   for these fields; a colorpicker version existed before and was deliberately replaced.
+- **Data export:** `App\Services\Account\AccountExportService` enumerates every table
+  hanging off a user into the "request my data" zip, tagging each file `plaintext` /
+  `server-decrypted` / `e2ee`. Two standalone decrypt scripts ship inside every export
+  (`app/Services/Account/scripts/decrypt_export.{py,php}`) — both are **fully generic**:
+  they walk every JSON file, and for any file tagged `e2ee` decrypt every `*_ciphertext`
+  field on every record that carries a `key_ring_id`, using that record's own key from
+  the key ring. Because of that, adding a new *column* to an existing e2ee table needs
+  no changes to either script — but adding a brand-new **table** does: whoever adds it
+  to `AccountExportService::build()` must follow the same `tier`/`records`/`key_ring_id`/
+  `*_ciphertext`-suffix convention every existing file already uses, or the scripts will
+  silently skip that file instead of decrypting it. `tests/Feature/
+  AccountExportDecryptionScriptsTest.php` is the enforcement point for this: it seeds one
+  of every current e2ee field, generates a real export, actually runs both scripts
+  against it, and asserts every field round-trips — extend its fixture list whenever a
+  new e2ee field is added, so a convention violation fails a test instead of silently
+  shipping an undecryptable file. (The Python half of that test skips itself when
+  `argon2-cffi`/`cryptography` aren't installed — see `app/Services/Account/scripts/
+  requirements.txt` — but the PHP half has no such escape hatch and always runs.)
 
 ## Verifying changes
 
@@ -133,14 +151,3 @@ user-visible benefit, so don't "fix" these to match unless asked.
   repeat count is both wasteful and prone to one bubble's pointer-events intercepting
   hover meant for a neighboring element. Pair with a global `.tooltip { pointer-events:
   none; }` so no tooltip can ever be the thing the mouse lands on.
-
-## Deferred, not forgotten
-
-Change-master-password flow: flagged as needed, deliberately not built yet. The design
-sketch that existed for it lived only in `PLAN.md`, which was never committed (gitignored,
-local-only) and has since been deleted — nothing to check in git history. The gist of it,
-so it doesn't need re-deriving from scratch: re-derive the old vault key from the
-re-entered current password to verify it, generate a new `passphrase_salt`, re-encrypt
-the same key-ring contents under a freshly-derived vault key, compute a new login
-verifier, submit all of it to a new endpoint. Confirm the details with the user before
-building it — this is a compressed summary, not the full sketch.

@@ -40,5 +40,9 @@ class AppServiceProvider extends ServiceProvider
         // requests, so it's IP-limited the same as the other two
         // unauthenticated surfaces above.
         RateLimiter::for('login-lookup', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
+        // Unlike the three above, this route requires auth — user-keyed,
+        // not IP-keyed. 5/day caps the cost of the heaviest self-service
+        // action a caller can trigger (a full account data export).
+        RateLimiter::for('account-data-export', fn (Request $request) => Limit::perDay(5)->by($request->user()->id));
     }
 }

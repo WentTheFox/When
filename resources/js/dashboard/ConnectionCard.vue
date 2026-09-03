@@ -17,6 +17,7 @@ import {
 } from 'bootstrap-vue-next';
 import { computed, onMounted, ref } from 'vue';
 import { decryptString, encryptString } from '../crypto';
+import { requestConfirm } from './confirmModal';
 import { useVault } from './useVault';
 
 interface AttributeValue {
@@ -177,7 +178,13 @@ async function save(): Promise<void> {
 }
 
 async function remove(): Promise<void> {
-  if (!window.confirm('Delete this connection?')) return;
+  const confirmed = await requestConfirm({
+    title: 'Delete this connection?',
+    confirmText: 'Delete',
+    variant: 'danger',
+  });
+  if (!confirmed) return;
+
   try {
     await axios.delete(`/dashboard/connections/${props.connection.id}`);
     emit('deleted', props.connection.id);

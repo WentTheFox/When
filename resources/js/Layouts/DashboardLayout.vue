@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import ConfirmModal from '../Components/ConfirmModal.vue';
+import ConfirmPasswordModal from '../Components/ConfirmPasswordModal.vue';
 import SiteFooter from '../Components/SiteFooter.vue';
 import SiteHeader from '../Components/SiteHeader.vue';
 import VaultUnlockModal from '../dashboard/VaultUnlockModal.vue';
@@ -48,5 +50,7 @@ const accentStyle = computed(() => ({
     <SiteFooter />
 
     <VaultUnlockModal />
+    <ConfirmPasswordModal />
+    <ConfirmModal />
   </div>
 </template>

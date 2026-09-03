@@ -80,6 +80,27 @@ const page = usePage();
     encrypted at rest, the same as your calendar URL above.
   </p>
 
+  <h2 class="h5">Exporting and deleting your data</h2>
+  <p class="mb-2">
+    You can download a copy of everything tied to your account from your
+    account page, after re-confirming your master password. Some fields
+    (your name, your calendar URL, two-factor recovery codes) are included
+    in plain text, because the server can already read them day to day —
+    the download flags these clearly since they're sensitive on their own
+    terms. Your Connections CRM data and share-link labels stay encrypted
+    in the download exactly as they're stored; a plaintext instructions
+    file explains how to decrypt them yourself, offline, using your master
+    password. This is rate-limited to 5 downloads per day.
+  </p>
+  <p class="mb-4">
+    Deleting your account also requires re-confirming your master password,
+    logs you out immediately, and is final from your side — there's no way
+    to log back in and undo it. We keep the underlying records soft-deleted
+    (inaccessible, but not yet erased) for 48 hours before a background
+    process permanently deletes them; that window exists purely as an
+    internal safety margin, not as a user-facing recovery option.
+  </p>
+
   <h2 class="h5">How your master password works</h2>
   <p class="mb-2">
     You set one master password. It's split, client-side, into two

@@ -131,7 +131,12 @@ class ConnectionController extends Controller
 
     public function destroy(Request $request, string $connection): JsonResponse
     {
-        $this->findOwned($request, $connection)->delete();
+        // forceDelete(), not delete() — see ActivityRoleController::destroy's
+        // comment: SoftDeletes on this model exists only for account-wide
+        // deletion, not this single-record user action. Also matters here
+        // specifically: connection_attribute_values/connection_source_links'
+        // cascadeOnDelete() FKs only fire on a real DELETE.
+        $this->findOwned($request, $connection)->forceDelete();
 
         return response()->json(['status' => 'ok']);
     }

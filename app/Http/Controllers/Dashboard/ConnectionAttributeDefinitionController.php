@@ -28,7 +28,10 @@ class ConnectionAttributeDefinitionController extends Controller
 
     public function destroy(Request $request, string $definition): JsonResponse
     {
-        $request->user()->connectionAttributeDefinitions()->where('id', $definition)->firstOrFail()->delete();
+        // forceDelete(), not delete() — see ActivityRoleController::destroy's
+        // comment: SoftDeletes on this model exists only for account-wide
+        // deletion, not this single-record user action.
+        $request->user()->connectionAttributeDefinitions()->where('id', $definition)->firstOrFail()->forceDelete();
 
         return response()->json(['status' => 'ok']);
     }

@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Http\Controllers\Concerns\ConfirmsPassword;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -24,6 +26,8 @@ use Inertia\Response;
  */
 class AccountController extends Controller
 {
+    use ConfirmsPassword;
+
     public function edit(Request $request): Response
     {
         $user = $request->user();
@@ -77,5 +81,45 @@ class AccountController extends Controller
         $user->save();
 
         return back()->with('status', 'Email updated.');
+    }
+
+    /**
+     * The client already proves possession of the *current* master password
+     * client-side before this request is ever built: it derives the current
+     * vault key from the re-entered current password and decrypts the
+     * existing key_ring_ciphertext with it (AES-GCM is authenticated, so a
+     * wrong password can't produce a ciphertext that re-encrypts back to
+     * anything meaningful) — then re-encrypts the same key-ring contents
+     * under a freshly-derived key from the new password + a new salt.
+     *
+     * That's not a substitute for a server-side check, though — it only
+     * proves anything about a client that's honestly running this app's own
+     * JS. A request forged directly at this endpoint (stolen session
+     * cookie, XSS) would otherwise carry no proof at all that whoever sent
+     * it knows the real current password, turning a hijacked session into a
+     * full vault takeover. ConfirmsPassword's Hash::check closes that gap
+     * the same way it does for delete/export, as defense in depth alongside
+     * the client-side proof above. The persist step itself mirrors
+     * AuthenticatedSessionController::migrateVerifier()'s forceFill
+     * pattern.
+     */
+    public function updatePassword(Request $request): RedirectResponse
+    {
+        $this->confirmPassword($request);
+
+        $data = $request->validate([
+            'passphrase_salt' => ['required', 'string'],
+            'key_ring_ciphertext' => ['required', 'string'],
+            'verifier' => ['required', 'string'],
+        ]);
+
+        $request->user()->forceFill([
+            'passphrase_salt' => $data['passphrase_salt'],
+            'key_ring_ciphertext' => $data['key_ring_ciphertext'],
+            'password' => Hash::make($data['verifier']),
+            'verifier_salt_version' => 'id',
+        ])->save();
+
+        return back()->with('status', 'Master password updated.');
     }
 }

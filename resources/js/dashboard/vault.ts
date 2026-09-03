@@ -102,3 +102,26 @@ export async function deleteRecordKey(recordId: string): Promise<void> {
   keyRing = removeKeyFromRing(requireKeyRing(), recordId);
   await persistKeyRing();
 }
+
+/**
+ * Decrypts the key ring for a GIVEN passphrase without touching this
+ * module's own unlocked-vault state — used by the change-master-password
+ * flow, which needs the raw KeyRing to re-encrypt it under a new passphrase,
+ * not just a locked/unlocked flag. Throws DecryptionFailedError (from
+ * decryptKeyRing) on a wrong passphrase; that failure itself IS the "is this
+ * really your current password" check, no separate server round-trip needed.
+ */
+export async function decryptVaultKeyRingWithPassphrase(passphrase: string): Promise<KeyRing> {
+  const { data } = await axios.get<VaultResponse>('/dashboard/vault');
+
+  const { keyBytes } = await deriveKeyFromPassphrase(passphrase, data.passphrase_salt);
+  const candidateKey = await crypto.subtle.importKey(
+    'raw',
+    keyBytes,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+
+  return decryptKeyRing(candidateKey, data.key_ring_ciphertext);
+}

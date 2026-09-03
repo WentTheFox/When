@@ -6,6 +6,7 @@ use App\Models\Concerns\HasLocalizedFields;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * An owner-configurable (pattern, label) pair — generalizes the old
@@ -21,7 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class ActivityRole extends Model
 {
-    use HasLocalizedFields, HasUuids;
+    use HasLocalizedFields, HasUuids, SoftDeletes;
 
     protected $fillable = [
         'id',

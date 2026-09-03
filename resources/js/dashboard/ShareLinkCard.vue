@@ -5,6 +5,7 @@ import { faCheck, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { BBadge, BButton, BCard, BFormCheckbox, BFormGroup, BFormInput, BFormSelect, BFormTextarea } from 'bootstrap-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../crypto';
+import { requestConfirm } from './confirmModal';
 import { useVault } from './useVault';
 
 export interface ShareLinkRow {
@@ -182,9 +183,13 @@ async function copyUrl(): Promise<void> {
 }
 
 async function regenerateToken(): Promise<void> {
-  if (!window.confirm('This invalidates the existing link immediately and issues a new one. Continue?')) {
-    return;
-  }
+  const confirmed = await requestConfirm({
+    title: 'Regenerate this link?',
+    message: 'This invalidates the existing link immediately and issues a new one.',
+    confirmText: 'Regenerate',
+    variant: 'danger',
+  });
+  if (!confirmed) return;
 
   try {
     const { data } = await axios.post(`/dashboard/share-links/${props.link.id}/regenerate-token`);
@@ -196,9 +201,13 @@ async function regenerateToken(): Promise<void> {
 }
 
 async function remove(): Promise<void> {
-  if (!window.confirm('Permanently delete this share link? This cannot be undone.')) {
-    return;
-  }
+  const confirmed = await requestConfirm({
+    title: 'Permanently delete this share link?',
+    message: 'This cannot be undone.',
+    confirmText: 'Delete',
+    variant: 'danger',
+  });
+  if (!confirmed) return;
 
   try {
     await axios.delete(`/dashboard/share-links/${props.link.id}`);

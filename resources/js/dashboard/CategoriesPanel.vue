@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { BButton, BCard, BFormGroup, BFormInput, BTooltip } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
+import { requestConfirm } from './confirmModal';
 import { useResolvedTheme } from '../composables/useTheme';
 import { getColorPalette, swatchByKey } from '../free/color-palette';
 
@@ -68,9 +69,17 @@ function save(): void {
   emit('update', selectedId.value, editName.value, editColorKey.value);
 }
 
-function remove(): void {
+async function remove(): Promise<void> {
   if (!selectedId.value) return;
-  if (!window.confirm('Delete this category? Sources using it keep their color unassigned.')) return;
+
+  const confirmed = await requestConfirm({
+    title: 'Delete this category?',
+    message: 'Sources using it keep their color unassigned.',
+    confirmText: 'Delete',
+    variant: 'danger',
+  });
+  if (!confirmed) return;
+
   emit('remove', selectedId.value);
   selectedId.value = null;
 }

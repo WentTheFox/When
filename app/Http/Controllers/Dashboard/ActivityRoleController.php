@@ -73,7 +73,13 @@ class ActivityRoleController extends Controller
 
     public function destroy(Request $request, string $activityRole): JsonResponse
     {
-        $request->user()->activityRoles()->where('id', $activityRole)->firstOrFail()->delete();
+        // forceDelete(), not delete(): this is the existing single-record
+        // "delete my own activity role" action, unrelated to the
+        // account-wide soft-delete/48h-purge flow (App\Services\Account\
+        // AccountDeletionService) — SoftDeletes on this model exists only
+        // to serve that flow, deleting one record here should still be
+        // immediate and permanent like it always was.
+        $request->user()->activityRoles()->where('id', $activityRole)->firstOrFail()->forceDelete();
 
         return response()->json(['status' => 'ok']);
     }

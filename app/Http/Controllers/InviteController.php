@@ -53,11 +53,14 @@ class InviteController extends Controller
 
     public function destroy(Request $request, string $invite): RedirectResponse
     {
+        // forceDelete(), not delete() — see ActivityRoleController::destroy's
+        // comment: SoftDeletes on this model exists only for account-wide
+        // deletion, not this single-record user action.
         $request->user()
             ->invitesIssued()
             ->where('id', $invite)
             ->firstOrFail()
-            ->delete();
+            ->forceDelete();
 
         return redirect()->route('invites.index');
     }

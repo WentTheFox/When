@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { BButton, BCard, BFormGroup, BFormInput, BFormSelect } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
+import { requestConfirm } from './confirmModal';
 
 interface SourceOption {
   id: string;
@@ -59,9 +60,16 @@ function save(): void {
   emit('update', selectedId.value, editName.value, editCategoryId.value);
 }
 
-function remove(): void {
+async function remove(): Promise<void> {
   if (!selectedId.value) return;
-  if (!window.confirm('Delete this source?')) return;
+
+  const confirmed = await requestConfirm({
+    title: 'Delete this source?',
+    confirmText: 'Delete',
+    variant: 'danger',
+  });
+  if (!confirmed) return;
+
   emit('remove', selectedId.value);
   selectedId.value = null;
 }

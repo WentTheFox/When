@@ -4,6 +4,7 @@ namespace App\Models\Concerns;
 
 use App\Models\Translation;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -50,19 +51,32 @@ trait HasLocalizedFields
      */
     public function setLocalizedField(string $field, ?array $value): void
     {
-        $this->localizedTexts()->where('field', $field)->delete();
+        // Delete-then-insert across a whole locale set — wrapped so a
+        // failure partway through (e.g. one locale's insert erroring)
+        // can never leave the field with only some of its rows removed
+        // and none of the replacements written.
+        DB::transaction(function () use ($field, $value) {
+            // forceDelete(), not delete(): this rewrites the field's rows
+            // on every ordinary save (Translation now has SoftDeletes,
+            // added only to serve account-wide deletion — App\Services\
+            // Account\AccountDeletionService). A plain delete() here would
+            // leave a soft-deleted row behind on every single edit,
+            // accumulating garbage and risking a duplicate (field, locale)
+            // pair once the row is ever un-hidden.
+            $this->localizedTexts()->where('field', $field)->forceDelete();
 
-        foreach ($value ?? [] as $locale => $text) {
-            if (! is_string($text) || $text === '') {
-                continue;
+            foreach ($value ?? [] as $locale => $text) {
+                if (! is_string($text) || $text === '') {
+                    continue;
+                }
+
+                $this->localizedTexts()->create([
+                    'id' => (string) Str::uuid(),
+                    'field' => $field,
+                    'locale' => $locale,
+                    'text' => $text,
+                ]);
             }
-
-            $this->localizedTexts()->create([
-                'id' => (string) Str::uuid(),
-                'field' => $field,
-                'locale' => $locale,
-                'text' => $text,
-            ]);
-        }
+        });
     }
 }

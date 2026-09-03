@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * One (owner, field, locale) -> text row — see localized_texts'
@@ -16,7 +17,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  */
 class Translation extends Model
 {
-    use HasUuids;
+    use HasUuids, SoftDeletes;
 
     protected $table = 'localized_texts';
 

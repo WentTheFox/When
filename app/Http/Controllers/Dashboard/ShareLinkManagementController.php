@@ -134,7 +134,11 @@ class ShareLinkManagementController extends Controller
             ], fn ($value) => $value !== null))->save();
 
             if (array_key_exists('highlight_words', $data)) {
-                $shareLink->words()->delete();
+                // forceDelete(), not delete(): this replaces the word set
+                // outright, not a user-account deletion — SoftDeletes on
+                // ShareLinkWord exists only to serve the account-wide
+                // deletion flow (App\Services\Account\AccountDeletionService).
+                $shareLink->words()->forceDelete();
                 foreach ($data['highlight_words'] as $word) {
                     ShareLinkWord::create([
                         'share_link_id' => $shareLink->id,
@@ -170,7 +174,12 @@ class ShareLinkManagementController extends Controller
 
     public function destroy(Request $request, string $shareLink): JsonResponse
     {
-        $this->findOwned($request, $shareLink)->delete();
+        // forceDelete(), not delete() — see ActivityRoleController::destroy's
+        // comment: SoftDeletes on this model exists only for account-wide
+        // deletion, not this single-record user action. Also matters here
+        // specifically: connections.share_link_id's nullOnDelete() FK only
+        // fires on a real DELETE, not a soft-delete UPDATE.
+        $this->findOwned($request, $shareLink)->forceDelete();
 
         return response()->json(null, 204);
     }

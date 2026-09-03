@@ -30,7 +30,10 @@ class SleepExceptionController extends Controller
 
     public function destroy(Request $request, string $sleepException): JsonResponse
     {
-        $request->user()->sleepExceptions()->where('id', $sleepException)->firstOrFail()->delete();
+        // forceDelete(), not delete() — see ActivityRoleController::destroy's
+        // comment: SoftDeletes on this model exists only for account-wide
+        // deletion, not this single-record user action.
+        $request->user()->sleepExceptions()->where('id', $sleepException)->firstOrFail()->forceDelete();
 
         return response()->json(['status' => 'ok']);
     }

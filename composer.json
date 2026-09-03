@@ -13,6 +13,7 @@
         "laravel/framework": "^12.0",
         "laravel/horizon": "^5.48",
         "laravel/tinker": "^2.10.1",
+        "maennchen/zipstream-php": "^3.2",
         "pragmarx/google2fa": "^9.1",
         "sabre/vobject": "^5.0",
         "spatie/laravel-google-fonts": "^1.7",

@@ -28,7 +28,10 @@ class ConnectionEdgeController extends Controller
 
     public function destroy(Request $request, string $edge): JsonResponse
     {
-        $request->user()->connectionEdges()->where('id', $edge)->firstOrFail()->delete();
+        // forceDelete(), not delete() — see ActivityRoleController::destroy's
+        // comment: SoftDeletes on this model exists only for account-wide
+        // deletion, not this single-record user action.
+        $request->user()->connectionEdges()->where('id', $edge)->firstOrFail()->forceDelete();
 
         return response()->json(['status' => 'ok']);
     }
