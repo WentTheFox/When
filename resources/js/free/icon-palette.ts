@@ -83,7 +83,7 @@ import {
   faUsers,
   faUtensils,
   faWarehouse,
-  faXmark,
+  faXmark, faUserGraduate, faGraduationCap,
 } from '@fortawesome/free-solid-svg-icons';
 
 export interface IconOption {
@@ -170,6 +170,8 @@ const ICON_KEY_TO_FA: Record<string, IconDefinition> = {
   // forcing a book-shaped icon onto every subject just for consistency.
   geography: faBookAtlas,
   computer: faComputer,
+  graduate: faUserGraduate,
+  'graduation-cap': faGraduationCap,
 };
 
 let icons: IconOption[] = [];

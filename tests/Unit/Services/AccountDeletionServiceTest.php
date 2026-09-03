@@ -2,7 +2,7 @@
 
 namespace Tests\Unit\Services;
 
-use App\Models\ActivityRole;
+use App\Models\ActivityLocalization;
 use App\Models\CalendarDetection;
 use App\Models\Connection;
 use App\Models\ConnectionAttributeDefinition;
@@ -60,14 +60,14 @@ class AccountDeletionServiceTest extends TestCase
             'end_date' => '2026-01-02',
         ]);
 
-        $activityRole = ActivityRole::create([
+        $activityLocalization = ActivityLocalization::create([
             'user_id' => $user->id,
             'pattern' => '^host\s+(.+)$',
             'sort_order' => 0,
         ]);
         // label isn't mass-assignable — see HasLocalizedFields' own doc
         // comment; set it directly instead.
-        $activityRole->setLocalizedField('label', ['default' => 'Visiting']);
+        $activityLocalization->setLocalizedField('label', ['default' => 'Visiting']);
 
         $category = ConnectionSourceCategory::create(['user_id' => $user->id, 'name_ciphertext' => 'opaque']);
         $source = ConnectionSource::create(['user_id' => $user->id, 'category_id' => $category->id, 'name_ciphertext' => 'opaque']);
@@ -96,7 +96,7 @@ class AccountDeletionServiceTest extends TestCase
         ]);
 
         return compact(
-            'shareLink', 'sleepException', 'activityRole', 'category', 'source',
+            'shareLink', 'sleepException', 'activityLocalization', 'category', 'source',
             'connection', 'definition', 'attributeValue', 'otherConnection', 'edge',
             'invite', 'redemption', 'detection',
         );
@@ -112,7 +112,7 @@ class AccountDeletionServiceTest extends TestCase
         $this->assertNotNull($this->deletedAtOf('users', $user->id));
         $this->assertNotNull($this->deletedAtOf('share_links', $rows['shareLink']->id));
         $this->assertNotNull($this->deletedAtOf('sleep_exceptions', $rows['sleepException']->id));
-        $this->assertNotNull($this->deletedAtOf('activity_roles', $rows['activityRole']->id));
+        $this->assertNotNull($this->deletedAtOf('activity_localizations', $rows['activityLocalization']->id));
         $this->assertNotNull($this->deletedAtOf('connection_source_categories', $rows['category']->id));
         $this->assertNotNull($this->deletedAtOf('connection_sources', $rows['source']->id));
         $this->assertNotNull($this->deletedAtOf('connections', $rows['connection']->id));
@@ -154,7 +154,7 @@ class AccountDeletionServiceTest extends TestCase
     public function test_hard_delete_cleans_up_localized_texts_which_have_no_fk(): void
     {
         $user = User::factory()->create();
-        $activityRole = ActivityRole::create([
+        $activityLocalization = ActivityLocalization::create([
             'user_id' => $user->id,
             'pattern' => '^host\s+(.+)$',
             'sort_order' => 0,
@@ -162,14 +162,14 @@ class AccountDeletionServiceTest extends TestCase
         // label isn't mass-assignable (HasLocalizedFields' documented
         // "call setLocalizedField() directly" pattern — passing it via
         // create() silently no-ops).
-        $activityRole->setLocalizedField('label', ['default' => 'Visiting']);
+        $activityLocalization->setLocalizedField('label', ['default' => 'Visiting']);
         $user->setLocalizedField('public_page_title', ['default' => 'My calendar']);
 
         $userTextCount = DB::table('localized_texts')
             ->where(['localizable_type' => User::class, 'localizable_id' => $user->id])
             ->count();
         $roleTextCount = DB::table('localized_texts')
-            ->where(['localizable_type' => ActivityRole::class, 'localizable_id' => $activityRole->id])
+            ->where(['localizable_type' => ActivityLocalization::class, 'localizable_id' => $activityLocalization->id])
             ->count();
         $this->assertGreaterThan(0, $userTextCount);
         $this->assertGreaterThan(0, $roleTextCount);
@@ -184,7 +184,7 @@ class AccountDeletionServiceTest extends TestCase
         );
         $this->assertSame(
             0,
-            DB::table('localized_texts')->where(['localizable_type' => ActivityRole::class, 'localizable_id' => $activityRole->id])->count(),
+            DB::table('localized_texts')->where(['localizable_type' => ActivityLocalization::class, 'localizable_id' => $activityLocalization->id])->count(),
         );
     }
 

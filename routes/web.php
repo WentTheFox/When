@@ -8,7 +8,7 @@ use App\Http\Controllers\CalendarPreviewController;
 use App\Http\Controllers\Dashboard\AccountController;
 use App\Http\Controllers\Dashboard\AccountDeletionController;
 use App\Http\Controllers\Dashboard\AccountExportController;
-use App\Http\Controllers\Dashboard\ActivityRoleController;
+use App\Http\Controllers\Dashboard\ActivityLocalizationController;
 use App\Http\Controllers\Dashboard\ConnectionAttributeDefinitionController;
 use App\Http\Controllers\Dashboard\ConnectionController;
 use App\Http\Controllers\Dashboard\ConnectionEdgeController;
@@ -161,12 +161,12 @@ Route::middleware('auth')->group(function () {
     Route::delete('/settings/sleep-exceptions/{sleepException}', [SleepExceptionController::class, 'destroy'])
         ->name('sleep-exceptions.destroy');
 
-    Route::post('/settings/activity-roles', [ActivityRoleController::class, 'store'])
-        ->name('activity-roles.store');
-    Route::patch('/settings/activity-roles/{activityRole}', [ActivityRoleController::class, 'update'])
-        ->name('activity-roles.update');
-    Route::delete('/settings/activity-roles/{activityRole}', [ActivityRoleController::class, 'destroy'])
-        ->name('activity-roles.destroy');
+    Route::post('/settings/activity-localization', [ActivityLocalizationController::class, 'store'])
+        ->name('activity-localizations.store');
+    Route::patch('/settings/activity-localization/{activityLocalization}', [ActivityLocalizationController::class, 'update'])
+        ->name('activity-localizations.update');
+    Route::delete('/settings/activity-localization/{activityLocalization}', [ActivityLocalizationController::class, 'destroy'])
+        ->name('activity-localizations.destroy');
 
     Route::get('/dashboard/share-links', [ShareLinkManagementController::class, 'index'])
         ->name('dashboard.share-links');

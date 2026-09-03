@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * CRUD list for App\Models\ActivityRole — generalizes the old hardcoded
+ * CRUD list for App\Models\ActivityLocalization — generalizes the old hardcoded
  * "Host X"/"Visit X" convention into an owner-configurable, ordered list
  * of (pattern, localized label) pairs. Each role's own pattern is
  * matched the same way highlight_clause_pattern is (see
@@ -14,18 +14,19 @@ import axios from 'axios';
 import { BButton, BFormGroup } from 'bootstrap-vue-next';
 import { ref } from 'vue';
 import LocalizedTextInput from './LocalizedTextInput.vue';
+import PatternPreview from './PatternPreview.vue';
 import RegexPatternInput from './RegexPatternInput.vue';
 
-interface ActivityRoleData {
+interface ActivityLocalizationData {
   id: string;
   pattern: string;
   label: Record<string, string>;
   sort_order: number;
 }
 
-const props = defineProps<{ initial: ActivityRoleData[] }>();
+const props = defineProps<{ initial: ActivityLocalizationData[] }>();
 
-const roles = ref<ActivityRoleData[]>([...props.initial].sort((a, b) => a.sort_order - b.sort_order));
+const roles = ref<ActivityLocalizationData[]>([...props.initial].sort((a, b) => a.sort_order - b.sort_order));
 const savingId = ref<string | null>(null);
 const savedId = ref<string | null>(null);
 const errors = ref<Record<string, string>>({});
@@ -35,13 +36,13 @@ const newLabel = ref<Record<string, string>>({});
 const adding = ref(false);
 const addError = ref('');
 
-async function save(role: ActivityRoleData): Promise<void> {
+async function save(role: ActivityLocalizationData): Promise<void> {
   savingId.value = role.id;
   savedId.value = null;
   errors.value[role.id] = '';
 
   try {
-    await axios.patch(`/settings/activity-roles/${role.id}`, {
+    await axios.patch(`/settings/activity-localization/${role.id}`, {
       pattern: role.pattern,
       label: role.label,
       sort_order: role.sort_order,
@@ -55,9 +56,9 @@ async function save(role: ActivityRoleData): Promise<void> {
   }
 }
 
-async function remove(role: ActivityRoleData): Promise<void> {
+async function remove(role: ActivityLocalizationData): Promise<void> {
   try {
-    await axios.delete(`/settings/activity-roles/${role.id}`);
+    await axios.delete(`/settings/activity-localization/${role.id}`);
     roles.value = roles.value.filter((r) => r.id !== role.id);
   } catch (e) {
     console.error(e);
@@ -78,7 +79,7 @@ async function add(): Promise<void> {
     const id = crypto.randomUUID();
     const sortOrder = roles.value.length;
 
-    await axios.post('/settings/activity-roles', {
+    await axios.post('/settings/activity-localization', {
       id,
       pattern: newPattern.value,
       label: newLabel.value,
@@ -98,26 +99,34 @@ async function add(): Promise<void> {
 </script>
 
 <template>
-  <h3 class="h6 mb-2">Activity roles</h3>
+  <h2 class="h5 mb-3">Activity localizations</h2>
   <p class="small text-muted">
-    Each role is a pattern (same rules as the fields above — exactly one <code>(…)</code> capture
-    group, the matched name) plus a label shown to that person instead of raw extracted activity
-    text. The two below are the classic "Host X"/"Visit X" convention, now yours to edit or
-    remove — the label is <em>the viewer's own role</em>, not the owner's: an owner's "Host
-    Alice" title means Alice herself is visiting, so its label reads "Visiting", not "Hosting".
+    Each pattern has the same rules as the fields above: exactly one <code>(…)</code> capture
+    group to define the matched name(s). Maps to a label shown to the viewer instead of raw extracted
+    activity text. Besides the possibility to translate activities, another possible use-case could be
+    hosting/visiting — the label can be changed to <em>the viewer's perspective</em>. If an event's
+    title is "Host Alice" that means Alice is visiting the calendar owner, so its label can be
+    changed to "Visiting" when she's reading the calendar.
   </p>
 
-  <div v-for="role in roles" :key="role.id" class="wtf-pattern-preview-panel mb-3">
-    <div class="row">
+  <!-- TODO Create dedicated form component -->
+  <div v-for="role in roles" :key="role.id" class="wtf-pattern-preview-panel">
+    <div class="row mb-3">
       <div class="col-md-6">
-        <BFormGroup label="Pattern" :label-for="`activity_role_pattern_${role.id}`" class="mb-2">
-          <RegexPatternInput :id="`activity_role_pattern_${role.id}`" v-model="role.pattern" />
+        <BFormGroup label="Pattern" :label-for="`activity_localization_pattern_${role.id}`" class="mb-2">
+          <RegexPatternInput :id="`activity_localization_pattern_${role.id}`" v-model="role.pattern" />
         </BFormGroup>
+        <p class="small text-muted mb-1">Live preview</p>
+        <PatternPreview
+          :pattern="role.pattern"
+          mode="tokens"
+          :show-reset="false"
+        />
       </div>
       <div class="col-md-6">
         <LocalizedTextInput
           v-model="role.label"
-          :id="`activity_role_label_${role.id}`"
+          :id="`activity_localization_label_${role.id}`"
           label="Label shown to the viewer"
           default-placeholder="Visiting"
         />
@@ -129,25 +138,32 @@ async function add(): Promise<void> {
     <div v-if="errors[role.id]" class="text-danger small mt-1">{{ errors[role.id] }}</div>
   </div>
 
+  <!-- TODO Create dedicated form component -->
   <div class="wtf-pattern-preview-panel">
     <p class="small fw-semibold mb-2">Add a role</p>
-    <div class="row">
+    <div class="row mb-2">
       <div class="col-md-6">
-        <BFormGroup label="Pattern" label-for="new_activity_role_pattern" class="mb-2">
-          <RegexPatternInput id="new_activity_role_pattern" v-model="newPattern" />
+        <BFormGroup label="Pattern" label-for="new_activity_localization_pattern" class="mb-2">
+          <RegexPatternInput id="new_activity_localization_pattern" v-model="newPattern" />
         </BFormGroup>
+        <p class="small text-muted mb-1">Live preview</p>
+        <PatternPreview
+          :pattern="newPattern"
+          mode="tokens"
+          :show-reset="false"
+        />
       </div>
       <div class="col-md-6">
         <LocalizedTextInput
           v-model="newLabel"
-          id="new_activity_role_label"
+          id="new_activity_localization_label"
           label="Label shown to the viewer"
           default-placeholder="Visiting"
           required
         />
       </div>
     </div>
-    <BButton variant="outline-secondary" :disabled="adding" @click="add">Add role</BButton>
+    <BButton variant="primary" :disabled="adding" @click="add">Add role</BButton>
     <div v-if="addError" class="text-danger small mt-1">{{ addError }}</div>
   </div>
 </template>

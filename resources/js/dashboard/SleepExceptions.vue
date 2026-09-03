@@ -172,7 +172,7 @@ function onNoteFocus(event: FocusEvent): void {
       </BFormGroup>
     </div>
     <div class="col-md-2 mb-3">
-      <BButton variant="outline-secondary" class="w-100" :disabled="adding" @click="add">Add</BButton>
+      <BButton variant="primary" class="w-100" :disabled="adding" @click="add">Add</BButton>
     </div>
   </div>
   <div class="text-danger small">{{ error }}</div>

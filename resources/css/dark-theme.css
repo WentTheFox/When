@@ -1658,6 +1658,11 @@ hr {
     color: transparent;
     caret-color: var(--app-text);
     min-height: 100%;
+
+    &.blank::placeholder {
+      color: var(--app-text) !important;
+      opacity: 0.55;
+    }
 }
 
 .wtf-pattern-preview-highlight {
@@ -1674,17 +1679,11 @@ hr {
     resize: none;
 }
 
-.wtf-match-hit {
-    color: var(--app-regex-escape);
+.wtf-match-hit, .wtf-match-capture {
+    color: var(--app-regex-group);
     font-weight: 700;
     /* Color alone shouldn't be the only signal that a span is meaningfully
        highlighted (colorblind accessibility) — an underline carries the
        same information independent of hue. */
-    text-decoration: underline;
-}
-
-.wtf-match-capture {
-    color: var(--app-accent);
-    font-weight: 700;
     text-decoration: underline;
 }

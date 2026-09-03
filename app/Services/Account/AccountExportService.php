@@ -53,7 +53,7 @@ class AccountExportService
         $zip->addFile('account/calendar-detections.json', $this->json($this->calendarDetections($user)));
 
         $zip->addFile('availability/sleep-exceptions.json', $this->json($this->sleepExceptions($user)));
-        $zip->addFile('availability/activity-roles.json', $this->json($this->activityRoles($user)));
+        $zip->addFile('availability/activity-localizations.json', $this->json($this->activityLocalizations($user)));
 
         $shareLinkIds = $user->shareLinks()->pluck('id');
 
@@ -213,11 +213,11 @@ class AccountExportService
     }
 
     /** @return array<string, mixed> */
-    private function activityRoles(User $user): array
+    private function activityLocalizations(User $user): array
     {
         return [
             'tier' => 'plaintext',
-            'records' => $user->activityRoles->map(fn ($role) => [
+            'records' => $user->activityLocalizations->map(fn ($role) => [
                 'id' => $role->id,
                 'pattern' => $role->pattern,
                 'sort_order' => $role->sort_order,

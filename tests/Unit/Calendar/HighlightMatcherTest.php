@@ -129,15 +129,15 @@ class HighlightMatcherTest extends TestCase
     }
 
     /**
-     * Host/Visit aren't hardcoded anymore (App\Models\ActivityRole,
+     * Host/Visit aren't hardcoded anymore (App\Models\ActivityLocalization,
      * previously HighlightMatcher::HOST_PATTERN/VISIT_PATTERN) — every
-     * test below builds its own $activityRoles list and passes it
+     * test below builds its own $activityLocalizations list and passes it
      * explicitly, same as a real caller now has to (see
      * AvailabilityService::compute()).
      *
      * @return array<int, array{pattern: string, label: array<string, string>}>
      */
-    private function hostVisitRoles(): array
+    private function hostVisitLocalizations(): array
     {
         return [
             ['pattern' => '^host\s+(.+)$', 'label' => ['default' => 'Visiting']],
@@ -145,30 +145,30 @@ class HighlightMatcherTest extends TestCase
         ];
     }
 
-    public function test_host_prefix_role_sets_the_visiting_label(): void
+    public function test_host_prefix_localization_sets_the_visiting_label(): void
     {
-        $result = $this->matcher->match($this->event(summary: 'Host Alice'), ['Alice'], activityRoles: $this->hostVisitRoles());
+        $result = $this->matcher->match($this->event(summary: 'Host Alice'), ['Alice'], activityLocalizations: $this->hostVisitLocalizations());
         $this->assertSame(['Alice'], $result->words);
         $this->assertSame(['default' => 'Visiting'], $result->activityLabel);
     }
 
-    public function test_visit_prefix_role_sets_the_hosting_label(): void
+    public function test_visit_prefix_localization_sets_the_hosting_label(): void
     {
-        $result = $this->matcher->match($this->event(summary: 'Visit Alice'), ['Alice'], activityRoles: $this->hostVisitRoles());
+        $result = $this->matcher->match($this->event(summary: 'Visit Alice'), ['Alice'], activityLocalizations: $this->hostVisitLocalizations());
         $this->assertSame(['Alice'], $result->words);
         $this->assertSame(['default' => 'Hosting'], $result->activityLabel);
     }
 
     public function test_host_prefix_does_not_match_an_unconfigured_word(): void
     {
-        $result = $this->matcher->match($this->event(summary: 'Host Someone Else'), ['Alice'], activityRoles: $this->hostVisitRoles());
+        $result = $this->matcher->match($this->event(summary: 'Host Someone Else'), ['Alice'], activityLocalizations: $this->hostVisitLocalizations());
         $this->assertNull($result);
     }
 
-    public function test_a_role_pattern_is_never_checked_when_no_roles_are_configured(): void
+    public function test_a_localization_pattern_is_never_checked_when_no_localizations_are_configured(): void
     {
-        // Same title as test_host_prefix_role_sets_the_visiting_label, but
-        // with an empty $activityRoles list (the default) — confirms this
+        // Same title as test_host_prefix_localization_sets_the_visiting_label, but
+        // with an empty $activityLocalizations list (the default) — confirms this
         // is genuinely owner-configurable now, not still hardcoded.
         $result = $this->matcher->match($this->event(summary: 'Host Alice'), ['Alice']);
         $this->assertNull($result);

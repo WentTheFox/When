@@ -26,7 +26,7 @@ export interface TentativeSlot extends FreeSlot {
 export interface HighlightedSlot extends TentativeSlot {
   /** Raw, unlocalized freetext preceding "with X"/"w/ X" (e.g. "Dinner") — shown as-is when activity_label below isn't set. See ActivityExtractor. */
   activity?: string | null;
-  /** The owner's own configured, localized label for this event's matched ActivityRole (e.g. "Visiting"/"Hosting", or any other role an owner defined) — takes precedence over `activity` above when set. Resolve with resolveLocalizedText(). */
+  /** The owner's own configured, localized label for this event's matched ActivityLocalization (e.g. "Visiting"/"Hosting", or any other role an owner defined) — takes precedence over `activity` above when set. Resolve with resolveLocalizedText(). */
   activity_label?: LocalizedText | null;
   /** Every configured highlight word that matched — a clause can name more than one person (e.g. "with Alice, Bob"). */
   highlight_words?: string[];

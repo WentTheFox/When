@@ -8,9 +8,8 @@ use App\Support\Regex;
 
 /**
  * §5.0/§5.1's highlight matching, plus the owner's own configured
- * activity_roles (App\Models\ActivityRole — e.g. the built-in-turned-
- * configurable "Host X"/"Visit X" convention). Matching strategy depends
- * on what the feed actually exposes:
+ * activity_localizations (App\Models\ActivityLocalization. Matching
+ * strategy depends on what the feed actually exposes:
  *
  * - full_detail: parse a "with X" / "w/ X" clause (or one of the owner's
  *   own role patterns) out of SUMMARY/DESCRIPTION and check whether any
@@ -61,27 +60,27 @@ class HighlightMatcher
     public const DEFAULT_SPLIT_PATTERN = '[,&/]';
 
     /**
-     * @param  string[]  $highlightWords  Owner's configured words, already decrypted.
-     * @param  array<int, array{pattern: string, label: array<string, string>}>  $activityRoles  Owner's own configured roles, in display/check order.
+     * @param  string[]                                                         $highlightWords        Owner's configured words, already decrypted.
+     * @param  array<int, array{pattern: string, label: array<string, string>}> $activityLocalizations Owner's own configured roles, in display/check order.
      */
-    public function match(ParsedEvent $event, array $highlightWords, ?string $clausePattern = null, ?string $splitPattern = null, array $activityRoles = []): ?HighlightMatch
+    public function match(ParsedEvent $event, array $highlightWords, ?string $clausePattern = null, ?string $splitPattern = null, array $activityLocalizations = []): ?HighlightMatch
     {
         if ($event->isFreeBusyOnly) {
             return $this->matchFreeBusyOnly($event, $highlightWords);
         }
 
-        return $this->matchFullDetail($event, $highlightWords, $clausePattern, $splitPattern, $activityRoles)
+        return $this->matchFullDetail($event, $highlightWords, $clausePattern, $splitPattern, $activityLocalizations)
             ?? $this->matchFreeBusyOnly($event, $highlightWords);
     }
 
-    private function matchFullDetail(ParsedEvent $event, array $highlightWords, ?string $clausePattern, ?string $splitPattern, array $activityRoles): ?HighlightMatch
+    private function matchFullDetail(ParsedEvent $event, array $highlightWords, ?string $clausePattern, ?string $splitPattern, array $activityLocalizations): ?HighlightMatch
     {
         foreach ([$event->summary, $event->description] as $text) {
             if ($text === null) {
                 continue;
             }
 
-            if ($match = $this->matchClauseText($text, $highlightWords, $clausePattern, $splitPattern, $activityRoles)) {
+            if ($match = $this->matchClauseText($text, $highlightWords, $clausePattern, $splitPattern, $activityLocalizations)) {
                 return $match;
             }
         }
@@ -89,7 +88,7 @@ class HighlightMatcher
         return null;
     }
 
-    private function matchClauseText(string $text, array $highlightWords, ?string $clausePattern, ?string $splitPattern, array $activityRoles): ?HighlightMatch
+    private function matchClauseText(string $text, array $highlightWords, ?string $clausePattern, ?string $splitPattern, array $activityLocalizations): ?HighlightMatch
     {
         $pattern = $clausePattern ?: self::DEFAULT_CLAUSE_PATTERN;
 
@@ -107,7 +106,7 @@ class HighlightMatcher
         // whose pattern matches (and whose captured name contains a
         // configured highlight word) wins, same "first match wins" spirit
         // as every other ordered-list matching in this app.
-        foreach ($activityRoles as $role) {
+        foreach ($activityLocalizations as $role) {
             if (($matches = Regex::tryMatch("\x01".$role['pattern']."\x01iu", $text)) === null || ! isset($matches[1])) {
                 continue;
             }

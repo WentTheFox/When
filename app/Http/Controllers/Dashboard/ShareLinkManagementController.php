@@ -174,7 +174,7 @@ class ShareLinkManagementController extends Controller
 
     public function destroy(Request $request, string $shareLink): JsonResponse
     {
-        // forceDelete(), not delete() — see ActivityRoleController::destroy's
+        // forceDelete(), not delete() — see ActivityLocalizationController::destroy's
         // comment: SoftDeletes on this model exists only for account-wide
         // deletion, not this single-record user action. Also matters here
         // specifically: connections.share_link_id's nullOnDelete() FK only

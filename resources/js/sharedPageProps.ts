@@ -6,7 +6,6 @@ import type { NowColorPreset } from './free/now-color-presets';
 export interface LocaleOption {
   code: string;
   native: string;
-  english: string;
 }
 
 /**

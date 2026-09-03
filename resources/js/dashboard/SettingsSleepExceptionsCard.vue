@@ -1,0 +1,21 @@
+<script setup lang="ts">
+/**
+ * Settings.vue's "Activity localizations" card — its own top-level card below
+ * "Event title matching rules", not part of the shared `form`/submit():
+ * ActivityLocalizations.vue already saves each role independently through its own
+ * /settings/activity-localization/* endpoints, so this card needs no form wrapper
+ * or footer save button of its own.
+ */
+import { BCard } from 'bootstrap-vue-next';
+import SleepExceptions from './SleepExceptions.vue';
+
+defineProps<{
+  sleepExceptions: { id: string; start_date: string; end_date: string; label_ciphertext: string | null }[];
+}>();
+</script>
+
+<template>
+  <BCard class="mb-4">
+    <SleepExceptions :initial="sleepExceptions" />
+  </BCard>
+</template>

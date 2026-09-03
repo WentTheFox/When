@@ -2,7 +2,7 @@
 
 namespace App\Services\Account;
 
-use App\Models\ActivityRole;
+use App\Models\ActivityLocalization;
 use App\Models\CalendarDetection;
 use App\Models\Connection;
 use App\Models\ConnectionAttributeDefinition;
@@ -45,12 +45,12 @@ class AccountDeletionService
 
             SleepException::where('user_id', $user->id)->update(['deleted_at' => $now]);
 
-            $activityRoleIds = ActivityRole::where('user_id', $user->id)->pluck('id');
-            ActivityRole::whereIn('id', $activityRoleIds)->update(['deleted_at' => $now]);
+            $activityLocalizationIds = ActivityLocalization::where('user_id', $user->id)->pluck('id');
+            ActivityLocalization::whereIn('id', $activityLocalizationIds)->update(['deleted_at' => $now]);
             $user->localizedTexts()->update(['deleted_at' => $now]);
-            ActivityRole::whereIn('id', $activityRoleIds)
+            ActivityLocalization::whereIn('id', $activityLocalizationIds)
                 ->get()
-                ->each(fn (ActivityRole $role) => $role->localizedTexts()->update(['deleted_at' => $now]));
+                ->each(fn (ActivityLocalization $role) => $role->localizedTexts()->update(['deleted_at' => $now]));
 
             $shareLinkIds = ShareLink::where('user_id', $user->id)->pluck('id');
             ShareLink::whereIn('id', $shareLinkIds)->update(['deleted_at' => $now]);
@@ -108,14 +108,14 @@ class AccountDeletionService
             // localized_texts has no FK constraint (polymorphic) — the
             // users row's own cascadeOnDelete() below won't reach it, so
             // it's cleaned up explicitly first, for the user itself and
-            // every one of its (already soft-deleted) activity roles.
-            $activityRoleIds = ActivityRole::withTrashed()->where('user_id', $userId)->pluck('id');
+            // every one of its (already soft-deleted) activity localizations.
+            $activityLocalizationIds = ActivityLocalization::withTrashed()->where('user_id', $userId)->pluck('id');
             DB::table('localized_texts')
-                ->where(function ($query) use ($userId, $activityRoleIds) {
+                ->where(function ($query) use ($userId, $activityLocalizationIds) {
                     $query->where(['localizable_type' => User::class, 'localizable_id' => $userId])
-                        ->orWhere(function ($query) use ($activityRoleIds) {
-                            $query->where('localizable_type', ActivityRole::class)
-                                ->whereIn('localizable_id', $activityRoleIds);
+                        ->orWhere(function ($query) use ($activityLocalizationIds) {
+                            $query->where('localizable_type', ActivityLocalization::class)
+                                ->whereIn('localizable_id', $activityLocalizationIds);
                         });
                 })
                 ->delete();

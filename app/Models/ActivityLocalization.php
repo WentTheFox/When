@@ -20,8 +20,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * themselves, so unlike calendar_url/connections data there's nothing
  * here that needs §0.1/§0.2 treatment.
  */
-class ActivityRole extends Model
+class ActivityLocalization extends Model
 {
+    /**
+     * @use HasLocalizedFields<ActivityLocalization>
+     */
     use HasLocalizedFields, HasUuids, SoftDeletes;
 
     protected $fillable = [

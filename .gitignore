@@ -4,6 +4,7 @@
 /PLAN.md
 .env.backup
 .env.production
+.env.testing
 .phpactor.json
 .phpunit.result.cache
 /.fleet
@@ -26,3 +27,4 @@ Homestead.yaml
 Thumbs.db
 __pycache__
 *.pyc
+/_ide_helper*.php

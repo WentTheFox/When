@@ -8,15 +8,15 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * CRUD for App\Models\ActivityRole — same "own immediate endpoint, not
- * part of the big settings form" shape as SleepExceptionController, since
- * each role is really its own record an owner adds/removes one at a time
+ * CRUD for {App\Models\ActivityLocalization} — same "own immediate endpoint, not
+ * part of the big settings form" shape as SleepExceptionController.
+ * Each role is its own record an owner adds/removes one at a time
  * rather than a handful of fields saved together. Nothing here is §0.1
  * E2EE (unlike SleepException's own optional note) — pattern/label are
  * both owner-authored, not extracted from calendar content, so there's
  * nothing sensitive for the server to avoid seeing.
  */
-class ActivityRoleController extends Controller
+class ActivityLocalizationController extends Controller
 {
     /** @return array<int, string> */
     private static function localizedTextRules(): array
@@ -35,7 +35,7 @@ class ActivityRoleController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'id' => ['required', 'uuid', 'unique:activity_roles,id'],
+            'id' => ['required', 'uuid', 'unique:activity_localizations,id'],
             'pattern' => ['required', 'string', 'max:500', Regex::validateSingleCaptureGroup(...)],
             'sort_order' => ['required', 'integer', 'min:0'],
             ...self::localizedTextRules(),
@@ -47,13 +47,13 @@ class ActivityRoleController extends Controller
         $label = $data['label'];
         unset($data['label']);
 
-        $role = $request->user()->activityRoles()->create($data);
+        $role = $request->user()->activityLocalizations()->create($data);
         $role->setLocalizedField('label', $label);
 
         return response()->json(['id' => $role->id], 201);
     }
 
-    public function update(Request $request, string $activityRole): JsonResponse
+    public function update(Request $request, string $activityLocalization): JsonResponse
     {
         $data = $request->validate([
             'pattern' => ['required', 'string', 'max:500', Regex::validateSingleCaptureGroup(...)],
@@ -64,22 +64,22 @@ class ActivityRoleController extends Controller
         $label = $data['label'];
         unset($data['label']);
 
-        $role = $request->user()->activityRoles()->where('id', $activityRole)->firstOrFail();
+        $role = $request->user()->activityLocalizations()->where('id', $activityLocalization)->firstOrFail();
         $role->update($data);
         $role->setLocalizedField('label', $label);
 
         return response()->json(['status' => 'ok']);
     }
 
-    public function destroy(Request $request, string $activityRole): JsonResponse
+    public function destroy(Request $request, string $activityLocalization): JsonResponse
     {
         // forceDelete(), not delete(): this is the existing single-record
-        // "delete my own activity role" action, unrelated to the
+        // "delete my own activity localization" action, unrelated to the
         // account-wide soft-delete/48h-purge flow (App\Services\Account\
         // AccountDeletionService) — SoftDeletes on this model exists only
         // to serve that flow, deleting one record here should still be
         // immediate and permanent like it always was.
-        $request->user()->activityRoles()->where('id', $activityRole)->firstOrFail()->forceDelete();
+        $request->user()->activityLocalizations()->where('id', $activityLocalization)->firstOrFail()->forceDelete();
 
         return response()->json(['status' => 'ok']);
     }

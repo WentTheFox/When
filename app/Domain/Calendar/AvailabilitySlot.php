@@ -22,7 +22,7 @@ final class AvailabilitySlot
         public readonly bool $tentativeEnd = false,
         /** Freetext preceding "with X"/"w/ X" (e.g. "Dinner"), raw and unlocalized. Only ever set within highlighted. Null unless share_links.show_activity is on for this link, or activityLabel below already covers this event. See ActivityExtractor. */
         public readonly ?string $activity = null,
-        /** The owner's own configured, localized label for this event's matched activity_role (e.g. "Visiting"/"Hosting", or any other role an owner defined) — see App\Support\LocalizedText. Takes precedence over `activity` above when both are present (see AvailabilityService::compute). Only ever set within highlighted. */
+        /** The owner's own configured, localized label for this event's matched activity_localization (e.g. "Visiting"/"Hosting", or any other role an owner defined) — see App\Support\LocalizedText. Takes precedence over `activity` above when both are present (see AvailabilityService::compute). Only ever set within highlighted. */
         public readonly ?array $activityLabel = null,
         /** Every configured highlight word that matched (a clause can name more than one person). Only ever set within highlighted. */
         public readonly array $highlightWords = [],

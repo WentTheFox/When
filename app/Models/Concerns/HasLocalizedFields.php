@@ -9,16 +9,21 @@ use Illuminate\Support\Str;
 
 /**
  * Backs a model's own App\Support\LocalizedText-shaped fields (e.g.
- * users.public_page_title, activity_roles.label — before this trait,
+ * users.public_page_title, activity_localizations.label — before this trait,
  * each was a single JSON column; now each row lives in the shared
  * `localized_texts` table instead, one per (field, locale)). A field
  * using this is deliberately NOT in the model's own $fillable/mass-
  * assignment — same "outside fill(), handled explicitly" pattern
  * User::calendar_url_ciphertext already uses — call
  * getLocalizedField()/setLocalizedField() directly instead.
+ *
+ * @template T
  */
 trait HasLocalizedFields
 {
+    /**
+     * @return MorphMany<T>
+     */
     public function localizedTexts(): MorphMany
     {
         return $this->morphMany(Translation::class, 'localizable');

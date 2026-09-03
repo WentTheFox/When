@@ -51,7 +51,7 @@ function hrefFor(code: string): string {
       :active="locale.code === currentLocaleCode"
       :disabled="locale.code === currentLocaleCode"
     >
-      {{ locale.code === 'en' ? 'English' : `${locale.native} (${locale.english})` }}
+      {{ locale.native }}
     </BDropdownItem>
   </BDropdown>
 </template>

@@ -48,9 +48,10 @@ function splitIntoTokens(tokenStr: string, splitPattern: string): string[] {
   return rawTokens.map((t) => t.trim()).filter((t) => t !== '');
 }
 
-const props = defineProps<{
-  pattern: string;
-  examples: string[];
+const props = withDefaults(defineProps<{
+  pattern: string | null;
+  examples?: string[];
+  placeholder?: string;
   /**
    * 'match': DND/nap/work/school/tentative/open-end/open-start — did it match at all?
    * 'extract': activity clause — what did group 1 capture, verbatim?
@@ -62,7 +63,15 @@ const props = defineProps<{
   sampleWords?: string[];
   /** Used in 'tokens'/'split' mode — the owner's highlight_split_pattern (or its default). */
   splitPattern?: string;
-}>();
+  showReset?: boolean;
+}>(), {
+  sampleWords: undefined,
+  placeholder: undefined,
+  splitPattern: undefined,
+  showReset: true,
+});
+
+const DEFAULT_PLACEHOLDER = 'Type here to test pattern matching';
 
 // Seeded once from the initial `examples` prop, then owned entirely by the
 // textarea from that point on — the prop is a fixed per-field example set
@@ -70,7 +79,7 @@ const props = defineProps<{
 // there's nothing to keep re-syncing after mount. defaultLinesText keeps
 // that seed around separately so "Reset examples" below has something to
 // restore to even after the owner's own edits.
-const defaultLinesText = props.examples.join('\n');
+const defaultLinesText = props.examples?.join('\n') ?? '';
 const linesText = ref(defaultLinesText);
 const lines = computed(() => linesText.value.split('\n'));
 
@@ -116,7 +125,7 @@ function highlightSpans(line: string, ranges: { start: number; end: number; cls:
 
 function resultFor(line: string): LineResult {
   if (props.mode === 'match') {
-    const match = tryExec(props.pattern, line);
+    const match = props.pattern ? tryExec(props.pattern, line) : null;
     if (!match) return { matched: false, spans: [{ text: line }] };
     return {
       matched: true,
@@ -125,7 +134,7 @@ function resultFor(line: string): LineResult {
   }
 
   if (props.mode === 'extract') {
-    const match = tryExec(props.pattern, line);
+    const match = props.pattern ? tryExec(props.pattern, line) : null;
     const indices = (match as (RegExpExecArray & { indices?: Array<[number, number] | undefined> }) | null)?.indices;
     const group1 = indices?.[1];
     const spans = group1
@@ -135,7 +144,7 @@ function resultFor(line: string): LineResult {
   }
 
   if (props.mode === 'tokens') {
-    const match = tryExec(props.pattern, line);
+    const match = props.pattern ? tryExec(props.pattern, line) : null;
     const indices = (match as (RegExpExecArray & { indices?: Array<[number, number] | undefined> }) | null)?.indices;
     const group1 = indices?.[1];
     const words = match?.[1]
@@ -151,7 +160,7 @@ function resultFor(line: string): LineResult {
   // happen to match a sample word (there's no "configured word" concept
   // for this field at all; the point of this preview is purely "how does
   // my clause get divided", not a match/no-match judgement per piece).
-  const match = tryExec(props.pattern, line);
+  const match = props.pattern ? tryExec(props.pattern, line) : null;
   const indices = (match as (RegExpExecArray & { indices?: Array<[number, number] | undefined> }) | null)?.indices;
   const group1 = indices?.[1];
 
@@ -232,17 +241,19 @@ onUnmounted(() => resizeObserver?.disconnect());
       <textarea
         ref="nativeEl"
         v-model="linesText"
-        class="form-control wtf-pattern-preview-native"
+        :class="['form-control wtf-pattern-preview-native', { blank: linesText.length === 0 }]"
         :rows="Math.max(lines.length, 2)"
         spellcheck="false"
         autocomplete="off"
         autocapitalize="off"
+        :placeholder="placeholder ?? DEFAULT_PLACEHOLDER"
         @scroll="syncScroll"
         @input="syncScroll"
       />
     </div>
   </div>
   <BButton
+    v-if="showReset"
     variant="link"
     size="sm"
     class="p-0 align-baseline mt-1"

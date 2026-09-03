@@ -17,13 +17,17 @@ import { resolveLocalizedText } from '../free/localizedText';
 import type { AvailabilityResponse } from '../free/nuxt-blocks';
 import LocalizedTextInput from './LocalizedTextInput.vue';
 import type { Settings } from './settingsTypes';
-import type { SettingsForm } from '../Pages/Dashboard/Settings.vue';
+import type {
+  PublicPageSettingsForm,
+  CalendarSettingsForm, AvailabilitySettingsForm,
+} from '../Pages/Dashboard/Settings.vue';
 
 const props = defineProps<{
-  form: SettingsForm;
+  publicPageSettingsForm: PublicPageSettingsForm;
+  calendarSettingsForm: CalendarSettingsForm;
+  availabilitySettingsForm: AvailabilitySettingsForm;
   name: string;
   previewAvailability: AvailabilityResponse | null;
-  submit: () => void;
 }>();
 
 /**
@@ -76,7 +80,7 @@ const resolvedTheme = useResolvedTheme();
 
 /** Resolved against the settings page's own live theme — same as every other color-key resolution on this page. */
 function activeIconColor(iconField: (typeof iconFields)[number]): string {
-  const colorKey = (props.form as unknown as Record<string, string>)[iconField.colorField];
+  const colorKey = (props.publicPageSettingsForm as unknown as Record<string, string>)[iconField.colorField];
 
   return resolveSwatchHex(colorKey, iconField.slot, resolvedTheme.value);
 }
@@ -171,7 +175,7 @@ const exampleAvailability = computed<AvailabilityResponse>(() => {
     // needs when today is a Monday), so this has to wrap it into 0..6 by
     // hand rather than relying on a bare `% 7`.
     const dow = exampleWeekDatesMonFirst[((dayOffset % 7) + 7) % 7]!.getUTCDay();
-    const config = props.form.availability[dow];
+    const config = props.availabilitySettingsForm.availability[dow];
     if (!config?.wake || !config?.sleep) return null;
 
     const [wakeHour, wakeMinute] = config.wake.split(':').map(Number);
@@ -343,7 +347,7 @@ const exampleAvailability = computed<AvailabilityResponse>(() => {
 });
 
 const previewDays = computed(() => {
-  const weekStart = startOfWeekFns(new Date(), { weekStartsOn: props.form.week_start as 0 | 1 | 2 | 3 | 4 | 5 | 6 });
+  const weekStart = startOfWeekFns(new Date(), { weekStartsOn: props.calendarSettingsForm.week_start as 0 | 1 | 2 | 3 | 4 | 5 | 6 });
   return Array.from({ length: 7 }, (_, i) => addDaysFns(weekStart, i));
 });
 /**
@@ -375,13 +379,13 @@ const currentTimePct = (() => {
  * (a fixed light/dark pair here, the page's own live theme there).
  */
 function previewStyleFor(theme: 'light' | 'dark') {
-  const accent = resolveSwatchHex(props.form.accent_color_key, 'accent', theme);
-  const free = resolveSwatchHex(props.form.free_color_key, 'free', theme);
-  const busy = resolveSwatchHex(props.form.busy_color_key, 'busy', theme);
-  const work = resolveSwatchHex(props.form.work_color_key, 'work', theme);
-  const school = resolveSwatchHex(props.form.school_color_key, 'school', theme);
-  const sleep = resolveSwatchHex(props.form.sleep_color_key, 'sleep', theme);
-  const highlighted = resolveSwatchHex(props.form.highlight_color_key, 'highlighted', theme);
+  const accent = resolveSwatchHex(props.publicPageSettingsForm.accent_color_key, 'accent', theme);
+  const free = resolveSwatchHex(props.publicPageSettingsForm.free_color_key, 'free', theme);
+  const busy = resolveSwatchHex(props.publicPageSettingsForm.busy_color_key, 'busy', theme);
+  const work = resolveSwatchHex(props.publicPageSettingsForm.work_color_key, 'work', theme);
+  const school = resolveSwatchHex(props.publicPageSettingsForm.school_color_key, 'school', theme);
+  const sleep = resolveSwatchHex(props.publicPageSettingsForm.sleep_color_key, 'sleep', theme);
+  const highlighted = resolveSwatchHex(props.publicPageSettingsForm.highlight_color_key, 'highlighted', theme);
   const alpha = BLOCK_ALPHA[theme];
 
   return {
@@ -399,7 +403,7 @@ function previewStyleFor(theme: 'light' | 'dark') {
     '--app-hue-sleep': sleep,
     '--app-color-highlighted': hexToRgba(highlighted, alpha.highlighted),
     '--app-hue-highlighted': highlighted,
-    '--app-color-now': resolveNowColorHex(props.form.now_color_key, theme),
+    '--app-color-now': resolveNowColorHex(props.publicPageSettingsForm.now_color_key, theme),
   };
 }
 
@@ -410,26 +414,37 @@ function previewStyleFor(theme: 'light' | 'dark') {
 // reads on the theme they're NOT currently looking at without switching.
 const previewStyleLight = computed(() => previewStyleFor('light'));
 const previewStyleDark = computed(() => previewStyleFor('dark'));
-const previewSecondaryColorLight = computed(() => resolveSwatchHex(props.form.secondary_color_key, 'secondary', 'light'));
-const previewSecondaryColorDark = computed(() => resolveSwatchHex(props.form.secondary_color_key, 'secondary', 'dark'));
+const previewSecondaryColorLight = computed(() => resolveSwatchHex(props.publicPageSettingsForm.secondary_color_key, 'secondary', 'light'));
+const previewSecondaryColorDark = computed(() => resolveSwatchHex(props.publicPageSettingsForm.secondary_color_key, 'secondary', 'dark'));
 
 /** Fed to this card's own preview CalendarView instances — icons aren't theme-reactive (see icon-palette.ts), so this is a single computed, not a light/dark pair. */
 const formIcons = computed(() => ({
-  free: resolveIcon(props.form.free_icon_key, 'free'),
-  busy: resolveIcon(props.form.busy_icon_key, 'busy'),
-  work: resolveIcon(props.form.work_icon_key, 'work'),
-  school: resolveIcon(props.form.school_icon_key, 'school'),
-  sleep: resolveIcon(props.form.sleep_icon_key, 'sleep'),
-  highlighted: resolveIcon(props.form.highlight_icon_key, 'highlighted'),
+  free: resolveIcon(props.publicPageSettingsForm.free_icon_key, 'free'),
+  busy: resolveIcon(props.publicPageSettingsForm.busy_icon_key, 'busy'),
+  work: resolveIcon(props.publicPageSettingsForm.work_icon_key, 'work'),
+  school: resolveIcon(props.publicPageSettingsForm.school_icon_key, 'school'),
+  sleep: resolveIcon(props.publicPageSettingsForm.sleep_icon_key, 'sleep'),
+  highlighted: resolveIcon(props.publicPageSettingsForm.highlight_icon_key, 'highlighted'),
 }));
 
-/** This card's own "Reset" button field list — form.reset(...) only reverts the fields named, not the other cards' worth that happen to share this same useForm() instance. */
+/** This card's "Reset" button field list, named explicitly for clarity even though publicPageSettingsForm holds only these fields anyway. */
 const PUBLIC_PAGE_FIELDS = [
   'public_page_title',
   'accent_color_key', 'secondary_color_key', 'free_color_key', 'busy_color_key', 'work_color_key', 'school_color_key', 'sleep_color_key', 'highlight_color_key',
   'free_icon_key', 'busy_icon_key', 'work_icon_key', 'school_icon_key', 'sleep_icon_key', 'highlight_icon_key',
   'now_color_key',
 ] as const;
+
+function submit(): void {
+  props.publicPageSettingsForm.patch('/settings', {
+    preserveScroll: true,
+    // Updates form's own "reset to" baseline to the values just saved —
+    // without this, every card's Reset button would always revert to
+    // whatever was on the page at the very first load, never to a save
+    // made sometime after that.
+    onSuccess: () => props.publicPageSettingsForm.defaults(),
+  });
+}
 </script>
 
 <template>
@@ -444,7 +459,7 @@ const PUBLIC_PAGE_FIELDS = [
         <div class="row">
           <div class="col-md-6">
             <LocalizedTextInput
-              v-model="form.public_page_title"
+              v-model="publicPageSettingsForm.public_page_title"
               id="public_page_title"
               label="Page title"
               :default-placeholder="`${name}'s Free Time`"
@@ -467,10 +482,10 @@ const PUBLIC_PAGE_FIELDS = [
                   :key="swatch.key"
                   type="button"
                   class="wtf-swatch-btn"
-                  :class="{ 'wtf-swatch-btn-active': (form as unknown as Record<string, string>)[colorField.field] === swatch.key }"
-                  :aria-pressed="(form as unknown as Record<string, string>)[colorField.field] === swatch.key"
+                  :class="{ 'wtf-swatch-btn-active': (publicPageSettingsForm as unknown as Record<string, string>)[colorField.field] === swatch.key }"
+                  :aria-pressed="(publicPageSettingsForm as unknown as Record<string, string>)[colorField.field] === swatch.key"
                   :style="{ '--app-swatch-light': swatch.light, '--app-swatch-dark': swatch.dark }"
-                  @click="(form as unknown as Record<string, string>)[colorField.field] = swatch.key"
+                  @click="(publicPageSettingsForm as unknown as Record<string, string>)[colorField.field] = swatch.key"
                   @mouseenter="showSwatchTooltip($event, swatch.label)"
                   @mouseleave="hideSwatchTooltip"
                   @focus="showSwatchTooltip($event, swatch.label)"
@@ -489,10 +504,10 @@ const PUBLIC_PAGE_FIELDS = [
                   :key="preset.key"
                   type="button"
                   class="wtf-swatch-btn"
-                  :class="{ 'wtf-swatch-btn-active': form.now_color_key === preset.key }"
+                  :class="{ 'wtf-swatch-btn-active': publicPageSettingsForm.now_color_key === preset.key }"
                   :style="{ '--app-swatch-light': preset.light, '--app-swatch-dark': preset.dark }"
-                  :aria-pressed="form.now_color_key === preset.key"
-                  @click="form.now_color_key = preset.key"
+                  :aria-pressed="publicPageSettingsForm.now_color_key === preset.key"
+                  @click="publicPageSettingsForm.now_color_key = preset.key"
                   @mouseenter="showSwatchTooltip($event, preset.label)"
                   @mouseleave="hideSwatchTooltip"
                   @focus="showSwatchTooltip($event, preset.label)"
@@ -519,10 +534,10 @@ const PUBLIC_PAGE_FIELDS = [
                   :key="icon.key"
                   type="button"
                   class="wtf-icon-swatch-btn"
-                  :class="{ 'wtf-icon-swatch-btn-active': (form as unknown as Record<string, string>)[iconField.field] === icon.key }"
+                  :class="{ 'wtf-icon-swatch-btn-active': (publicPageSettingsForm as unknown as Record<string, string>)[iconField.field] === icon.key }"
                   :style="{ '--app-icon-active-color': activeIconColor(iconField) }"
-                  :aria-pressed="(form as unknown as Record<string, string>)[iconField.field] === icon.key"
-                  @click="(form as unknown as Record<string, string>)[iconField.field] = icon.key"
+                  :aria-pressed="(publicPageSettingsForm as unknown as Record<string, string>)[iconField.field] === icon.key"
+                  @click="(publicPageSettingsForm as unknown as Record<string, string>)[iconField.field] = icon.key"
                   @mouseenter="showSwatchTooltip($event, icon.label)"
                   @mouseleave="hideSwatchTooltip"
                   @focus="showSwatchTooltip($event, icon.label)"
@@ -558,7 +573,9 @@ const PUBLIC_PAGE_FIELDS = [
                 <FontAwesomeIcon :icon="theme === 'dark' ? faMoon : faSun" class="me-1" />{{ theme === 'dark' ? 'Dark theme' : 'Light theme' }}
               </p>
               <p class="small fw-bold mb-1">
-                {{ resolveLocalizedText(form.public_page_title, 'default') || `${name}'s Free Time` }}
+                {{
+                  resolveLocalizedText(publicPageSettingsForm.public_page_title, 'default') || `${name}'s Free Time`
+                }}
               </p>
               <p class="small mb-2" :style="{ color: theme === 'dark' ? previewSecondaryColorDark : previewSecondaryColorLight }">
                 <template v-if="previewAvailability">
@@ -580,7 +597,7 @@ const PUBLIC_PAGE_FIELDS = [
                 :pending="false"
                 :has-error="false"
                 :has-any-free-time="true"
-                :timezone="previewAvailability ? form.timezone : 'UTC'"
+                :timezone="previewAvailability ? calendarSettingsForm.timezone : 'UTC'"
                 :show-blocks="true"
                 :show-current-time="true"
                 :current-time-pct="currentTimePct"
@@ -590,8 +607,8 @@ const PUBLIC_PAGE_FIELDS = [
         </div>
 
       <template #footer>
-        <BButton type="submit" variant="primary" :disabled="form.processing">Save public page</BButton>
-        <BButton variant="outline-secondary" class="ms-2" @click="form.reset(...PUBLIC_PAGE_FIELDS)">Reset</BButton>
+        <BButton type="submit" variant="primary" :disabled="publicPageSettingsForm.processing">Save public page</BButton>
+        <BButton variant="outline-secondary" class="ms-2" @click="publicPageSettingsForm.reset(...PUBLIC_PAGE_FIELDS)">Reset</BButton>
       </template>
     </BCard>
   </form>

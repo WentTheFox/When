@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\ActivityRole;
+use App\Models\ActivityLocalization;
 use App\Models\CalendarDetection;
 use App\Models\Connection;
 use App\Models\ConnectionAttributeDefinition;
@@ -83,14 +83,14 @@ class AccountExportTest extends TestCase
             'label_ciphertext' => 'opaque-sleep-label',
         ]);
 
-        $activityRole = ActivityRole::create([
+        $activityLocalization = ActivityLocalization::create([
             'user_id' => $user->id,
             'pattern' => '^host\s+(.+)$',
             'sort_order' => 0,
         ]);
         // label isn't mass-assignable — see HasLocalizedFields' own doc
         // comment; set it directly instead.
-        $activityRole->setLocalizedField('label', ['default' => 'Visiting']);
+        $activityLocalization->setLocalizedField('label', ['default' => 'Visiting']);
 
         $category = ConnectionSourceCategory::create(['user_id' => $user->id, 'name_ciphertext' => 'opaque-category']);
         $source = ConnectionSource::create(['user_id' => $user->id, 'category_id' => $category->id, 'name_ciphertext' => 'opaque-source']);
@@ -129,7 +129,7 @@ class AccountExportTest extends TestCase
             'account/invite-redemptions.json',
             'account/calendar-detections.json',
             'availability/sleep-exceptions.json',
-            'availability/activity-roles.json',
+            'availability/activity-localizations.json',
             'share-links/share-links.json',
             'share-links/share-link-words.json',
             'share-links/share-link-cache-note.txt',

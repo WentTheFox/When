@@ -49,7 +49,7 @@ class AvailabilityService
         ?string $workEventPattern = null,
         ?string $highlightSplitPattern = null,
         ?string $schoolEventPattern = null,
-        array $activityRoles = [],
+        array $activityLocalizations = [],
     ): AvailabilityResult {
         $napIntervals = [];
         $busyIntervals = [];
@@ -84,7 +84,7 @@ class AvailabilityService
                 $school[] = ['start' => $event->start, 'end' => $event->end, 'tentativeStart' => $event->tentativeStart, 'tentativeEnd' => $event->tentativeEnd];
             }
 
-            $highlightMatch = $this->matcher->match($event, $highlightWords, $highlightClausePattern, $highlightSplitPattern, $activityRoles);
+            $highlightMatch = $this->matcher->match($event, $highlightWords, $highlightClausePattern, $highlightSplitPattern, $activityLocalizations);
 
             if ($highlightMatch !== null) {
                 // Raw freetext extraction still runs independently of

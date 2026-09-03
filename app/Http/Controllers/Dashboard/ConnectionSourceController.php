@@ -42,7 +42,7 @@ class ConnectionSourceController extends Controller
 
     public function destroy(Request $request, string $source): JsonResponse
     {
-        // forceDelete(), not delete() — see ActivityRoleController::destroy's
+        // forceDelete(), not delete() — see ActivityLocalizationController::destroy's
         // comment: SoftDeletes on this model exists only for account-wide
         // deletion, not this single-record user action.
         $request->user()->connectionSources()->where('id', $source)->firstOrFail()->forceDelete();

@@ -3,18 +3,14 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UpdateSettingsRequest;
+use App\Models\User;
 use App\Services\Calendar\ActivityExtractor;
 use App\Services\Calendar\HighlightMatcher;
 use App\Services\Calendar\IcsParser;
-use App\Support\CalendarParsingMode;
-use App\Support\ColorSwatchKey;
-use App\Support\IconKey;
-use App\Support\NowColorPresetKey;
-use App\Support\Regex;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -67,6 +63,9 @@ class SettingsController extends Controller
 
     public function edit(Request $request): Response
     {
+        /**
+         * @var User $user
+         */
         $user = $request->user();
 
         return Inertia::render('Dashboard/Settings', [
@@ -132,7 +131,7 @@ class SettingsController extends Controller
                 'end_date' => $e->end_date->toDateString(),
                 'label_ciphertext' => $e->label_ciphertext,
             ]),
-            'activityRoles' => $user->activityRoles->map(fn ($r) => [
+            'activityLocalizations' => $user->activityLocalizations->map(fn ($r) => [
                 'id' => $r->id,
                 'pattern' => $r->pattern,
                 'label' => $r->label,
@@ -141,94 +140,54 @@ class SettingsController extends Controller
         ]);
     }
 
-    public function update(Request $request): RedirectResponse
-    {
-        $data = $request->validate([
-            'timezone' => ['required', 'timezone'],
-            'week_start' => ['required', 'integer', 'between:0,6'],
-            'dnd_event_pattern' => ['nullable', 'string', 'max:255', Regex::validateCompiles(...)],
-            'nap_event_pattern' => ['nullable', 'string', 'max:255', Regex::validateCompiles(...)],
-            'work_event_pattern' => ['nullable', 'string', 'max:255', Regex::validateCompiles(...)],
-            'school_event_pattern' => ['nullable', 'string', 'max:255', Regex::validateCompiles(...)],
-            'calendar_parsing_mode' => ['required', Rule::enum(CalendarParsingMode::class)],
-            'highlight_clause_pattern' => ['nullable', 'string', 'max:500', Regex::validateSingleCaptureGroup(...)],
-            'highlight_split_pattern' => ['nullable', 'string', 'max:255', Regex::validateCompiles(...)],
-            'activity_clause_pattern' => ['nullable', 'string', 'max:500', Regex::validateSingleCaptureGroup(...)],
-            'tentative_pattern' => ['nullable', 'string', 'max:500', Regex::validateCompiles(...)],
-            'open_end_pattern' => ['nullable', 'string', 'max:500', Regex::validateCompiles(...)],
-            'open_start_pattern' => ['nullable', 'string', 'max:500', Regex::validateCompiles(...)],
-            // App\Support\LocalizedText — 'default' stays optional here
-            // (unlike ActivityRole's own label), since a blank title
-            // already falls back to a computed "{name}'s Free Time" (see
-            // ShareLinkController::resolveTitle).
-            'public_page_title' => ['nullable', 'array'],
-            'public_page_title.default' => ['nullable', 'string', 'max:255'],
-            'public_page_title.*' => ['nullable', 'string', 'max:255'],
-            'accent_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
-            'secondary_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
-            'sleep_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
-            'busy_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
-            'work_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
-            'school_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
-            'free_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
-            'highlight_color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
-            'free_icon_key' => ['nullable', Rule::enum(IconKey::class)],
-            'busy_icon_key' => ['nullable', Rule::enum(IconKey::class)],
-            'work_icon_key' => ['nullable', Rule::enum(IconKey::class)],
-            'school_icon_key' => ['nullable', Rule::enum(IconKey::class)],
-            'sleep_icon_key' => ['nullable', Rule::enum(IconKey::class)],
-            'highlight_icon_key' => ['nullable', Rule::enum(IconKey::class)],
-            'now_color_key' => ['nullable', Rule::enum(NowColorPresetKey::class)],
-            'availability' => ['nullable', 'array'],
-            'availability.*.wake' => ['nullable', 'string'],
-            'availability.*.sleep' => ['nullable', 'string'],
-        ]);
+    /**
+     * Every field a single card's PATCH payload might carry — Settings.vue
+     * now submits 4 independent per-card useForm() instances to this same
+     * endpoint, each with only its own fields. Only keys actually present
+     * in $data (this request's own card) may touch $user; anything absent
+     * must be left alone, or saving one card would silently null out every
+     * other card's settings.
+     *
+     * @var list<string>
+     */
+    private const SIMPLE_FIELDS = [
+        'timezone', 'week_start', 'calendar_parsing_mode',
+        'dnd_event_pattern', 'nap_event_pattern', 'work_event_pattern', 'school_event_pattern',
+        'highlight_clause_pattern', 'highlight_split_pattern', 'activity_clause_pattern',
+        'tentative_pattern', 'open_end_pattern', 'open_start_pattern',
+        'accent_color_key', 'secondary_color_key', 'sleep_color_key', 'busy_color_key',
+        'work_color_key', 'school_color_key', 'free_color_key', 'highlight_color_key',
+        'free_icon_key', 'busy_icon_key', 'work_icon_key', 'school_icon_key',
+        'sleep_icon_key', 'highlight_icon_key', 'now_color_key',
+    ];
 
+    public function update(UpdateSettingsRequest $request): RedirectResponse
+    {
+        $data = $request->validated();
+
+        /** @var User $user */
         $user = $request->user();
 
-        $availability = [];
-        foreach ($data['availability'] ?? [] as $weekday => $config) {
-            $availability[(int) $weekday] = [
-                'wake' => $config['wake'] ?? null,
-                'sleep' => $config['sleep'] ?? null,
-            ];
+        if (array_key_exists('availability', $data)) {
+            $availability = $user->availability_settings ?? [];
+            foreach ($data['availability'] as $weekday => $config) {
+                $availability[(int) $weekday] = [
+                    'wake' => $config['wake'] ?? null,
+                    'sleep' => $config['sleep'] ?? null,
+                ];
+            }
+            $user->availability_settings = $availability;
         }
 
-        $user->fill([
-            'timezone' => $data['timezone'],
-            'week_start' => $data['week_start'],
-            'dnd_event_pattern' => $data['dnd_event_pattern'] ?? null,
-            'nap_event_pattern' => $data['nap_event_pattern'] ?? null,
-            'work_event_pattern' => $data['work_event_pattern'] ?? null,
-            'school_event_pattern' => $data['school_event_pattern'] ?? null,
-            'calendar_parsing_mode' => $data['calendar_parsing_mode'],
-            'highlight_clause_pattern' => $data['highlight_clause_pattern'] ?? null,
-            'highlight_split_pattern' => $data['highlight_split_pattern'] ?? null,
-            'activity_clause_pattern' => $data['activity_clause_pattern'] ?? null,
-            'tentative_pattern' => $data['tentative_pattern'] ?? null,
-            'open_end_pattern' => $data['open_end_pattern'] ?? null,
-            'open_start_pattern' => $data['open_start_pattern'] ?? null,
-            'accent_color_key' => $data['accent_color_key'] ?? null,
-            'secondary_color_key' => $data['secondary_color_key'] ?? null,
-            'sleep_color_key' => $data['sleep_color_key'] ?? null,
-            'busy_color_key' => $data['busy_color_key'] ?? null,
-            'work_color_key' => $data['work_color_key'] ?? null,
-            'school_color_key' => $data['school_color_key'] ?? null,
-            'free_color_key' => $data['free_color_key'] ?? null,
-            'highlight_color_key' => $data['highlight_color_key'] ?? null,
-            'free_icon_key' => $data['free_icon_key'] ?? null,
-            'busy_icon_key' => $data['busy_icon_key'] ?? null,
-            'work_icon_key' => $data['work_icon_key'] ?? null,
-            'school_icon_key' => $data['school_icon_key'] ?? null,
-            'sleep_icon_key' => $data['sleep_icon_key'] ?? null,
-            'highlight_icon_key' => $data['highlight_icon_key'] ?? null,
-            'now_color_key' => $data['now_color_key'] ?? null,
-            'availability_settings' => $availability,
-        ])->save();
+        $user->fill(array_intersect_key($data, array_flip(self::SIMPLE_FIELDS)));
+        $user->save();
 
         // Not mass-assignable (see App\Models\Concerns\HasLocalizedFields)
-        // — saved via its own call, same as calendar_url_ciphertext.
-        $user->setLocalizedField('public_page_title', $data['public_page_title'] ?? null);
+        // — saved via its own call, same as calendar_url_ciphertext. Only
+        // touched when this card's own payload actually carried it.
+        if (array_key_exists('public_page_title', $data)) {
+            $user->setLocalizedField('public_page_title', $data['public_page_title']);
+        }
 
         return back()->with('status', 'Settings saved.');
     }

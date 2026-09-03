@@ -153,7 +153,7 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
             ->all();
 
         $weeklyAvailability = $user->availability_settings ?? [];
-        $activityRoles = $user->activityRoles->map(fn ($r) => ['pattern' => $r->pattern, 'label' => $r->label])->all();
+        $activityLocalizations = $user->activityLocalizations->map(fn ($r) => ['pattern' => $r->pattern, 'label' => $r->label])->all();
 
         $result = $availabilityService->compute(
             events: $events,
@@ -171,7 +171,7 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
             workEventPattern: $user->work_event_pattern,
             highlightSplitPattern: $user->highlight_split_pattern,
             schoolEventPattern: $user->school_event_pattern,
-            activityRoles: $activityRoles,
+            activityLocalizations: $activityLocalizations,
         );
 
         $timer->lap('compute_availability', [

@@ -68,7 +68,7 @@ class AvailabilityServiceTest extends TestCase
         bool $bypassDnd = false,
         bool $showActivity = true,
         ?string $activityClausePattern = null,
-        array $activityRoles = [],
+        array $activityLocalizations = [],
     ): AvailabilityResult {
         return $this->service->compute(
             $events,
@@ -82,7 +82,7 @@ class AvailabilityServiceTest extends TestCase
             $this->rangeEnd,
             activityClausePattern: $activityClausePattern,
             showActivity: $showActivity,
-            activityRoles: $activityRoles,
+          activityLocalizations: $activityLocalizations,
         );
     }
 
@@ -387,13 +387,13 @@ class AvailabilityServiceTest extends TestCase
 
     public function test_a_host_prefixed_event_is_highlighted_with_the_configured_role_label(): void
     {
-        // Host/Visit aren't hardcoded (App\Models\ActivityRole) — the
-        // caller has to pass its own $activityRoles list now, same as
+        // Host/Visit aren't hardcoded (App\Models\ActivityLocalization) — the
+        // caller has to pass its own $activityLocalizations list now, same as
         // every real caller does (AvailabilityService::compute()).
         $result = $this->compute(
             events: [$this->event('c1', '2026-06-03 12:00', '2026-06-03 13:00', 'Host Alice')],
             highlightWords: ['Alice'],
-            activityRoles: [
+            activityLocalizations: [
                 ['pattern' => '^host\s+(.+)$', 'label' => ['default' => 'Visiting']],
                 ['pattern' => '^visit\s+(.+)$', 'label' => ['default' => 'Hosting']],
             ],

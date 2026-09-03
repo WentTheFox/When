@@ -91,7 +91,7 @@ const dateFnsLocale = computed(() => resolveDateFnsLocale(currentLocale.value));
 
 function blockLabel(block: DayBlock): string {
   if (block.type === 'highlighted') {
-    // A matched ActivityRole's own localized label takes precedence over
+    // A matched ActivityLocalization's own localized label takes precedence over
     // the raw, unlocalized freetext activity_clause_pattern extracted —
     // see AvailabilityService::compute()'s own doc comment.
     const roleLabel = resolveLocalizedText(block.activityLabel, currentLocale.value);

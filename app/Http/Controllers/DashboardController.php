@@ -213,7 +213,7 @@ class DashboardController extends Controller
         $noTime = [];
 
         $shareLinks = $user->shareLinks()->where('archived', false)->with('connection')->get();
-        $activityRoles = $user->activityRoles->map(fn ($r) => ['pattern' => $r->pattern, 'label' => $r->label])->all();
+        $activityLocalizations = $user->activityLocalizations->map(fn ($r) => ['pattern' => $r->pattern, 'label' => $r->label])->all();
 
         foreach ($shareLinks as $shareLink) {
             $words = $shareLink->words()
@@ -237,7 +237,7 @@ class DashboardController extends Controller
                 rangeEnd: $rangeEnd,
                 highlightClausePattern: $user->highlight_clause_pattern,
                 highlightSplitPattern: $user->highlight_split_pattern,
-                activityRoles: $activityRoles,
+                activityLocalizations: $activityLocalizations,
             );
 
             $minutes = $this->sumSlotMinutes($linkResult->highlighted, $rangeStart, $rangeEnd);
@@ -270,7 +270,7 @@ class DashboardController extends Controller
      * source app's own dialog — a plain substring match against raw ICS
      * event titles — this app's highlight matching is clause-based (§ see
      * HighlightMatcher's own doc comment: "with X"/one of the owner's own
-     * configured activity_roles), so there's no single raw "event name" to
+     * configured activity_localizations), so there's no single raw "event name" to
      * show per match. AvailabilitySlot already carries everything the
      * /free viewer itself shows for a highlighted block (activity,
      * activity_label, tentative edges, matched words) — reusing that same

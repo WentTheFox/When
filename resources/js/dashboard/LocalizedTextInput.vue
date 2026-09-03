@@ -9,11 +9,11 @@
  * list itself comes from the shared `locales` page prop (see
  * App\Support\Locales), so adding a language is a one-line PHP change,
  * no frontend change needed. Used for both the Public page title and
- * each ActivityRole's own label.
+ * each ActivityLocalization's own label.
  */
 import { BButton, BFormGroup, BFormInput, BFormSelect } from 'bootstrap-vue-next';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
 import { usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import type { SharedPageProps } from '../sharedPageProps';
@@ -21,19 +21,16 @@ import type { SharedPageProps } from '../sharedPageProps';
 const props = defineProps<{
   id: string;
   label: string;
-  defaultPlaceholder?: string;
-  /** Purely a UI hint (native `required` on the default input) — actual enforcement is server-side validation, since this component has no idea whether its caller's field is truly required (ActivityRole's label is; Public page title isn't, since it already falls back to a computed default). */
+  /** Purely a UI hint (native `required` on the default input) — actual enforcement is server-side validation, since this component has no idea whether its caller's field is truly required (ActivityLocalization's label is; Public page title isn't, since it already falls back to a computed default). */
   required?: boolean;
 }>();
 
-const model = defineModel<Record<string, string>>({ default: () => ({}) });
+const model = defineModel<Record<string, string>>({ default: () => ({en:''}) });
 
 const page = usePage<SharedPageProps>();
 
-// The full set of language overrides an owner can add on top of the
-// required English default ('en' itself is excluded — that's what the
-// default row already is).
-const languageOptions = computed(() => page.props.locales.filter((l) => l.code !== 'en'));
+// The full set of language overrides an owner can add
+const languageOptions = computed(() => page.props.locales);
 
 interface Row {
   code: string;
@@ -46,7 +43,7 @@ interface Row {
 // update round-tripping back in through v-model.
 const defaultValue = ref(model.value?.default ?? '');
 const rows = ref<Row[]>(
-  Object.entries(model.value ?? {})
+  Object.entries(model.value ?? {en:''})
     .filter(([key]) => key !== 'default')
     .map(([code, value]) => ({ code, value })),
 );
@@ -89,29 +86,23 @@ function removeRow(index: number): void {
 <template>
   <div>
     <BFormGroup :label="label" :label-for="id" class="mb-2">
-      <div class="d-flex gap-2 align-items-center">
-        <BFormSelect model-value="en" disabled style="max-width: 10rem" aria-label="Language">
-          <option value="en">English</option>
+      <div v-for="(row, i) in rows" :key="i" class="d-flex gap-2 mb-2 align-items-center">
+        <BFormSelect v-model="row.code" style="max-width: 10rem" aria-label="Language">
+          <option
+            v-for="locale in languageOptions"
+            :key="locale.code"
+            :value="locale.code"
+            :disabled="locale.code !== row.code && codesUsedByOtherRows(i).has(locale.code)"
+          >
+            {{ locale.native }} ({{ locale.code }})
+          </option>
         </BFormSelect>
-        <BFormInput :id="id" v-model="defaultValue" type="text" :placeholder="defaultPlaceholder" :required="required" class="flex-grow-1" />
+        <BFormInput v-model="row.value" type="text" :placeholder="label" class="flex-grow-1" />
+        <BButton variant="outline-danger" size="sm" class="flex-shrink-0" aria-label="Remove language" @click="removeRow(i)">
+          <FontAwesomeIcon :icon="faTrash" />
+        </BButton>
       </div>
     </BFormGroup>
-    <div v-for="(row, i) in rows" :key="i" class="d-flex gap-2 mb-2 align-items-center">
-      <BFormSelect v-model="row.code" style="max-width: 10rem" aria-label="Language">
-        <option
-          v-for="locale in languageOptions"
-          :key="locale.code"
-          :value="locale.code"
-          :disabled="locale.code !== row.code && codesUsedByOtherRows(i).has(locale.code)"
-        >
-          {{ locale.native }} ({{ locale.english }})
-        </option>
-      </BFormSelect>
-      <BFormInput v-model="row.value" type="text" :placeholder="label" class="flex-grow-1" />
-      <BButton variant="outline-danger" size="sm" class="flex-shrink-0" aria-label="Remove language" @click="removeRow(i)">
-        <FontAwesomeIcon :icon="faTrash" />
-      </BButton>
-    </div>
-    <BButton v-if="nextAvailableCode !== null" variant="outline-secondary" size="sm" @click="addRow">+ Add language</BButton>
+    <BButton v-if="nextAvailableCode !== null" variant="outline-secondary" size="sm" @click="addRow"><FontAwesomeIcon :icon="faPlus" class="me-1"/>Add language</BButton>
   </div>
 </template>

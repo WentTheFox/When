@@ -15,7 +15,10 @@ use Illuminate\Support\Facades\Crypt;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
+    /**
+     * @use HasFactory<UserFactory>
+     * @use HasLocalizedFields<User>
+     */
     use HasFactory, HasLocalizedFields, HasUuids, Notifiable, SoftDeletes;
 
     /**
@@ -100,7 +103,6 @@ class User extends Authenticatable
      * name and email are encrypted at rest (§0.2's server-runtime tier —
      * same Crypt/APP_KEY as calendar_url_ciphertext). Not client-vault E2EE:
      * login has to work before a passphrase is ever entered.
-     *
      * Neither can use Eloquent's plain 'encrypted' cast, because Crypt's
      * ciphertext is randomized per call — a plain `where('name', ...)` (or
      * `where('email', ...)`) can never match it. *_hash is a deterministic
@@ -194,13 +196,13 @@ class User extends Authenticatable
         return $this->hasMany(SleepException::class);
     }
 
-    public function activityRoles(): HasMany
+    public function activityLocalizations(): HasMany
     {
         // Eager-loads each role's own localizedTexts whenever this
         // relation itself is loaded — every real caller immediately
-        // reads ->label (ActivityRole::getLabelAttribute()) right after,
+        // reads ->label (ActivityLocalization::getLabelAttribute()) right after,
         // so this avoids an N+1 query per role.
-        return $this->hasMany(ActivityRole::class)->with('localizedTexts')->orderBy('sort_order');
+        return $this->hasMany(ActivityLocalization::class)->with('localizedTexts')->orderBy('sort_order');
     }
 
     public function shareLinks(): HasMany

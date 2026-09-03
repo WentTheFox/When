@@ -65,14 +65,14 @@ return new class extends Migration
                     continue;
                 }
                 $rows[] = [
-                    'id' => (string) Str::uuid(),
-                    'localizable_type' => 'App\\Models\\ActivityRole',
-                    'localizable_id' => $role->id,
-                    'field' => 'label',
-                    'locale' => $locale,
-                    'text' => $text,
-                    'created_at' => $now,
-                    'updated_at' => $now,
+                  'id' => (string) Str::uuid(),
+                  'localizable_type' => 'App\\Models\\ActivityLocalization',
+                  'localizable_id' => $role->id,
+                  'field' => 'label',
+                  'locale' => $locale,
+                  'text' => $text,
+                  'created_at' => $now,
+                  'updated_at' => $now,
                 ];
             }
         }
