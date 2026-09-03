@@ -32,9 +32,16 @@ function setFormField(field: keyof Settings, value: string): void {
 
 /** This card's "Reset" button field list, named explicitly for clarity even though eventMatchingSettingsForm holds only these fields anyway. */
 const EVENT_MATCHING_FIELDS = [
-  'dnd_event_pattern', 'nap_event_pattern', 'work_event_pattern', 'school_event_pattern',
-  'highlight_clause_pattern', 'highlight_split_pattern', 'activity_clause_pattern',
-  'tentative_pattern', 'open_end_pattern', 'open_start_pattern',
+  'dnd_event_pattern', 'dnd_event_pattern_preview',
+  'nap_event_pattern', 'nap_event_pattern_preview',
+  'work_event_pattern', 'work_event_pattern_preview',
+  'school_event_pattern', 'school_event_pattern_preview',
+  'highlight_clause_pattern', 'highlight_clause_pattern_preview',
+  'highlight_split_pattern', 'highlight_split_pattern_preview',
+  'activity_clause_pattern', 'activity_clause_pattern_preview',
+  'tentative_pattern', 'tentative_pattern_preview',
+  'open_end_pattern', 'open_end_pattern_preview',
+  'open_start_pattern', 'open_start_pattern_preview',
 ] as const;
 
 const PATTERN_DISABLED_TEXT = '(blank, off)';
@@ -209,6 +216,7 @@ function submit(): void {
                   eventMatchingSettingsForm.dnd_event_pattern || PATTERN_DISABLED_TEXT
                 }}</code></p>
               <PatternPreview
+                v-model="eventMatchingSettingsForm.dnd_event_pattern_preview"
                 :pattern="eventMatchingSettingsForm.dnd_event_pattern"
                 :examples="['DND', 'Team DND block', 'dnd - focus time', 'Focus time', 'Lunch with Sarah']"
                 mode="match"
@@ -235,6 +243,7 @@ function submit(): void {
                   eventMatchingSettingsForm.nap_event_pattern || PATTERN_DISABLED_TEXT
                 }}</code></p>
               <PatternPreview
+                v-model="eventMatchingSettingsForm.nap_event_pattern_preview"
                 :pattern="eventMatchingSettingsForm.nap_event_pattern"
                 :examples="['Nap', 'Afternoon nap', 'NAP TIME', 'Sleep', 'Standup meeting']"
                 mode="match"
@@ -262,6 +271,7 @@ function submit(): void {
                   eventMatchingSettingsForm.work_event_pattern || PATTERN_DISABLED_TEXT
                 }}</code></p>
               <PatternPreview
+                v-model="eventMatchingSettingsForm.work_event_pattern_preview"
                 :pattern="eventMatchingSettingsForm.work_event_pattern"
                 :examples="['Work', 'Work block', 'WFH', 'Team standup', 'Lunch with Sarah']"
                 mode="match"
@@ -289,6 +299,7 @@ function submit(): void {
                   eventMatchingSettingsForm.school_event_pattern || PATTERN_DISABLED_TEXT
                 }}</code></p>
               <PatternPreview
+                v-model="eventMatchingSettingsForm.school_event_pattern_preview"
                 :pattern="eventMatchingSettingsForm.school_event_pattern"
                 :examples="['Chemistry class', 'School pickup', 'CLASS 4B', 'Team standup', 'Lunch with Sarah']"
                 mode="match"
@@ -326,6 +337,7 @@ function submit(): void {
                 <br><span class="text-muted">(against sample configured words "Alice", "Bob")</span>
               </p>
               <PatternPreview
+                v-model="eventMatchingSettingsForm.highlight_clause_pattern_preview"
                 :pattern="eventMatchingSettingsForm.highlight_clause_pattern || defaults.highlightClausePattern"
                 :examples="['Dinner with Alice', 'Call w/ Bob', 'Team sync', 'Dinner with Charlie, Alice, Bob']"
                 :sample-words="['Alice', 'Bob']"
@@ -365,6 +377,7 @@ function submit(): void {
                   }}</code>
               </p>
               <PatternPreview
+                v-model="eventMatchingSettingsForm.highlight_split_pattern_preview"
                 pattern="(.+)"
                 :examples="['Alicia, Bob', 'Cleo/Damien/Ed', 'Frank & George']"
                 :split-pattern="eventMatchingSettingsForm.highlight_split_pattern || defaults.highlightSplitPattern"
@@ -407,6 +420,7 @@ function submit(): void {
                 }}</code>
               </p>
               <PatternPreview
+                v-model="eventMatchingSettingsForm.activity_clause_pattern_preview"
                 :pattern="eventMatchingSettingsForm.activity_clause_pattern"
                 :examples="['Dinner with Alice', 'Call w/ Bob', 'Team sync', 'Coffee then gym with Charlie, Daniel']"
                 mode="extract"
@@ -441,6 +455,7 @@ function submit(): void {
                 }}</code>
               </p>
               <PatternPreview
+                v-model="eventMatchingSettingsForm.tentative_pattern_preview"
                 :pattern="eventMatchingSettingsForm.tentative_pattern"
                 :examples="['Maybe lunch (?)', 'Team standup', 'Coffee with Alice (?)', 'Workshop']"
                 mode="match"
@@ -473,6 +488,7 @@ function submit(): void {
                 }}</code>
               </p>
               <PatternPreview
+                v-model="eventMatchingSettingsForm.open_end_pattern_preview"
                 :pattern="eventMatchingSettingsForm.open_end_pattern"
                 :examples="['Dinner (-?)', 'Team standup', 'Party (-?)', 'Workshop']"
                 mode="match"
@@ -504,6 +520,7 @@ function submit(): void {
                 }}</code>
               </p>
               <PatternPreview
+                v-model="eventMatchingSettingsForm.open_start_pattern_preview"
                 :pattern="eventMatchingSettingsForm.open_start_pattern"
                 :examples="['Dinner (?-)', 'Team standup', 'Party (?-)', 'Workshop']"
                 mode="match"

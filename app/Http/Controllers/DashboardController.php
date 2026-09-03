@@ -93,7 +93,7 @@ class DashboardController extends Controller
                 ])
                 ->all();
 
-            $weeklyAvailability = $user->availability_settings ?? [];
+            $weeklyAvailability = $user->weeklyAvailability();
 
             $result = $availabilityService->compute(
                 events: $events,

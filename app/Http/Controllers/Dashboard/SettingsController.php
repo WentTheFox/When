@@ -15,12 +15,14 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Owner settings (Stage 7). Almost none of this needs the client vault —
- * per the users table migration, only calendar_url is even ciphertext, and
- * that's the §0.2 server-runtime tier (Crypt), not the §0.1/§0.3 client
- * vault. Everything else here (timezone, event-name patterns, wake/sleep
- * windows, parsing mode, colors, page title) is plain metadata, not
- * "content" in §0.1's E2EE-guarantee sense.
+ * Owner settings (Stage 7). None of this needs the client vault — calendar_url,
+ * timezone, every event-name/regex pattern (and its live-preview example
+ * text), and wake/sleep windows are all §0.2 server-runtime Crypt/APP_KEY
+ * ciphertext at rest (User::casts()/AvailabilityWindow::casts()), not the
+ * §0.1/§0.3 client vault: Eloquent's 'encrypted' cast decrypts them
+ * transparently on every read below, so this controller still only ever
+ * handles plaintext. Parsing mode, colors, and page title stay genuinely
+ * plain metadata.
  */
 class SettingsController extends Controller
 {
@@ -73,16 +75,26 @@ class SettingsController extends Controller
                 'timezone' => $user->timezone,
                 'week_start' => $user->week_start,
                 'dnd_event_pattern' => $user->dnd_event_pattern,
+                'dnd_event_pattern_preview' => $user->dnd_event_pattern_preview,
                 'nap_event_pattern' => $user->nap_event_pattern,
+                'nap_event_pattern_preview' => $user->nap_event_pattern_preview,
                 'work_event_pattern' => $user->work_event_pattern,
+                'work_event_pattern_preview' => $user->work_event_pattern_preview,
                 'school_event_pattern' => $user->school_event_pattern,
+                'school_event_pattern_preview' => $user->school_event_pattern_preview,
                 'calendar_parsing_mode' => $user->calendar_parsing_mode,
                 'highlight_clause_pattern' => $user->highlight_clause_pattern,
+                'highlight_clause_pattern_preview' => $user->highlight_clause_pattern_preview,
                 'highlight_split_pattern' => $user->highlight_split_pattern,
+                'highlight_split_pattern_preview' => $user->highlight_split_pattern_preview,
                 'activity_clause_pattern' => $user->activity_clause_pattern,
+                'activity_clause_pattern_preview' => $user->activity_clause_pattern_preview,
                 'tentative_pattern' => $user->tentative_pattern,
+                'tentative_pattern_preview' => $user->tentative_pattern_preview,
                 'open_end_pattern' => $user->open_end_pattern,
+                'open_end_pattern_preview' => $user->open_end_pattern_preview,
                 'open_start_pattern' => $user->open_start_pattern,
+                'open_start_pattern_preview' => $user->open_start_pattern_preview,
                 'public_page_title' => $user->public_page_title,
                 'name' => $user->name,
                 'accent_color_key' => $user->accent_color_key,
@@ -100,7 +112,7 @@ class SettingsController extends Controller
                 'sleep_icon_key' => $user->sleep_icon_key,
                 'highlight_icon_key' => $user->highlight_icon_key,
                 'now_color_key' => $user->now_color_key,
-                'availability' => $user->availability_settings ?? [],
+                'availability' => $user->weeklyAvailability(),
             ],
             'defaults' => [
                 'dndEventPattern' => self::SUGGESTED_DND_EVENT_PATTERN,
@@ -125,15 +137,20 @@ class SettingsController extends Controller
             'calendarUrl' => $user->calendar_url_ciphertext !== null
                 ? Crypt::decryptString($user->calendar_url_ciphertext)
                 : null,
-            'sleepExceptions' => $user->sleepExceptions()->orderBy('start_date')->get()->map(fn ($e) => [
+            // start_date/end_date are §0.2 ciphertext (SleepException::casts())
+            // — sorted here in PHP on the already-decrypted 'Y-m-d' string
+            // rather than a DB ->orderBy('start_date'), which would sort
+            // ciphertext noise instead of dates.
+            'sleepExceptions' => $user->sleepExceptions()->get()->sortBy('start_date')->values()->map(fn ($e) => [
                 'id' => $e->id,
-                'start_date' => $e->start_date->toDateString(),
-                'end_date' => $e->end_date->toDateString(),
+                'start_date' => $e->start_date,
+                'end_date' => $e->end_date,
                 'label_ciphertext' => $e->label_ciphertext,
             ]),
             'activityLocalizations' => $user->activityLocalizations->map(fn ($r) => [
                 'id' => $r->id,
                 'pattern' => $r->pattern,
+                'pattern_preview' => $r->pattern_preview,
                 'label' => $r->label,
                 'sort_order' => $r->sort_order,
             ]),
@@ -152,9 +169,16 @@ class SettingsController extends Controller
      */
     private const SIMPLE_FIELDS = [
         'timezone', 'week_start', 'calendar_parsing_mode',
-        'dnd_event_pattern', 'nap_event_pattern', 'work_event_pattern', 'school_event_pattern',
-        'highlight_clause_pattern', 'highlight_split_pattern', 'activity_clause_pattern',
-        'tentative_pattern', 'open_end_pattern', 'open_start_pattern',
+        'dnd_event_pattern', 'dnd_event_pattern_preview',
+        'nap_event_pattern', 'nap_event_pattern_preview',
+        'work_event_pattern', 'work_event_pattern_preview',
+        'school_event_pattern', 'school_event_pattern_preview',
+        'highlight_clause_pattern', 'highlight_clause_pattern_preview',
+        'highlight_split_pattern', 'highlight_split_pattern_preview',
+        'activity_clause_pattern', 'activity_clause_pattern_preview',
+        'tentative_pattern', 'tentative_pattern_preview',
+        'open_end_pattern', 'open_end_pattern_preview',
+        'open_start_pattern', 'open_start_pattern_preview',
         'accent_color_key', 'secondary_color_key', 'sleep_color_key', 'busy_color_key',
         'work_color_key', 'school_color_key', 'free_color_key', 'highlight_color_key',
         'free_icon_key', 'busy_icon_key', 'work_icon_key', 'school_icon_key',
@@ -169,14 +193,7 @@ class SettingsController extends Controller
         $user = $request->user();
 
         if (array_key_exists('availability', $data)) {
-            $availability = $user->availability_settings ?? [];
-            foreach ($data['availability'] as $weekday => $config) {
-                $availability[(int) $weekday] = [
-                    'wake' => $config['wake'] ?? null,
-                    'sleep' => $config['sleep'] ?? null,
-                ];
-            }
-            $user->availability_settings = $availability;
+            $user->setWeeklyAvailability($data['availability']);
         }
 
         $user->fill(array_intersect_key($data, array_flip(self::SIMPLE_FIELDS)));

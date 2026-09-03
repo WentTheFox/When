@@ -67,7 +67,8 @@ class ShareLinkAvailabilityController extends Controller
             // and no way to tell this apart from a slow first fetch.
             return response()->json([
                 'status' => 'unconfigured',
-                'timezone' => $shareLink->user->timezone,
+                'timezone' => $shareLink->user->timezone ?? 'UTC',
+                'timezone_configured' => $shareLink->user->timezone !== null,
             ]);
         }
 
@@ -81,7 +82,8 @@ class ShareLinkAvailabilityController extends Controller
         if ($cache === null) {
             return response()->json([
                 'status' => 'pending',
-                'timezone' => $shareLink->user->timezone,
+                'timezone' => $shareLink->user->timezone ?? 'UTC',
+                'timezone_configured' => $shareLink->user->timezone !== null,
             ], 202);
         }
 
@@ -94,7 +96,19 @@ class ShareLinkAvailabilityController extends Controller
             // Plaintext, not sensitive — same tier as availability_settings
             // (schedule shape, not content). Lets the viewer compare their
             // own timezone against the owner's, same as the source app.
-            'timezone' => $shareLink->user->timezone,
+            // timezone itself defaults to null (no DB default any more —
+            // see Settings.vue's own client-side autodetect-on-first-save)
+            // until the owner's first settings save, but this field always
+            // falls back to 'UTC' regardless: it's not just the comparison
+            // note, CalendarView.vue anchors the actual rendered day
+            // boundaries to it, so a valid IANA identifier is required
+            // either way. timezone_configured is the separate signal
+            // Free/Show.vue actually gates the "Our timezones match!"/
+            // offset note on — an owner who's never configured a timezone
+            // shouldn't have a viewer shown a confident-looking comparison
+            // against a guessed 'UTC'.
+            'timezone' => $shareLink->user->timezone ?? 'UTC',
+            'timezone_configured' => $shareLink->user->timezone !== null,
         ]);
     }
 }

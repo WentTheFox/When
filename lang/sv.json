@@ -28,5 +28,6 @@
     "free.decryptFailed": "Det gick inte att dekryptera den här kalendern. Länken kan vara trasig.",
     "free.loadFailed": "Det gick inte att läsa in den här kalendern just nu. Försök igen senare.",
     "free.linkExpiredTitle": "Länken Har Gått Ut",
-    "free.linkExpiredBody": "Den här kalenderlänken har gått ut eller är inte längre giltig."
+    "free.linkExpiredBody": "Den här kalenderlänken har gått ut eller är inte längre giltig.",
+    "free.defaultTitle": "Min Lediga Tid"
 }

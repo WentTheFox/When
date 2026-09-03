@@ -26,7 +26,6 @@ const props = defineProps<{
   publicPageSettingsForm: PublicPageSettingsForm;
   calendarSettingsForm: CalendarSettingsForm;
   availabilitySettingsForm: AvailabilitySettingsForm;
-  name: string;
   previewAvailability: AvailabilityResponse | null;
 }>();
 
@@ -462,13 +461,13 @@ function submit(): void {
               v-model="publicPageSettingsForm.public_page_title"
               id="public_page_title"
               label="Page title"
-              :default-placeholder="`${name}'s Free Time`"
+              default-placeholder="My Free Time"
             />
             <p class="small text-muted mt-n2">
               The default is shown on every locale (e.g. <code>/free/</code>) without its own
               "Add language" override — add one (e.g. <code>hu</code> for <code>/hu/free/</code>)
               only for a locale you want a genuinely different title on. Leave the default blank
-              to fall back to "{{ name }}'s Free Time".
+              to fall back to "My Free Time" (translated per visitor locale).
             </p>
           </div>
         </div>
@@ -574,7 +573,7 @@ function submit(): void {
               </p>
               <p class="small fw-bold mb-1">
                 {{
-                  resolveLocalizedText(publicPageSettingsForm.public_page_title, 'default') || `${name}'s Free Time`
+                  resolveLocalizedText(publicPageSettingsForm.public_page_title, 'default') || 'My Free Time'
                 }}
               </p>
               <p class="small mb-2" :style="{ color: theme === 'dark' ? previewSecondaryColorDark : previewSecondaryColorLight }">

@@ -28,5 +28,6 @@
     "free.decryptFailed": "Nie udało się odszyfrować tego kalendarza. Link może być uszkodzony.",
     "free.loadFailed": "Nie udało się teraz załadować tego kalendarza. Spróbuj ponownie później.",
     "free.linkExpiredTitle": "Link Wygasł",
-    "free.linkExpiredBody": "Ten link kalendarza wygasł lub nie jest już ważny."
+    "free.linkExpiredBody": "Ten link kalendarza wygasł lub nie jest już ważny.",
+    "free.defaultTitle": "Mój Wolny Czas"
 }

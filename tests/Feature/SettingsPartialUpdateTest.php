@@ -171,8 +171,7 @@ class SettingsPartialUpdateTest extends TestCase
     public function test_saving_the_availability_card_alone_does_not_wipe_the_other_cards(): void
     {
         $user = $this->fullyConfiguredUser();
-        $user->availability_settings = [0 => ['wake' => '07:00', 'sleep' => '23:00']];
-        $user->save();
+        $user->setWeeklyAvailability([0 => ['wake' => '07:00', 'sleep' => '23:00']]);
         $before = $user->fresh();
 
         // Exactly what SettingsAvailabilityCard's own submit() transforms its
@@ -185,7 +184,7 @@ class SettingsPartialUpdateTest extends TestCase
 
         $response->assertSessionHasNoErrors();
         $after = $user->fresh();
-        $this->assertSame('08:00', $after->availability_settings[0]['wake']);
+        $this->assertSame('08:00', $after->weeklyAvailability()[0]['wake']);
         $this->assertUnrelatedSettingsUntouched($before, $after);
     }
 

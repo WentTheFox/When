@@ -41,20 +41,31 @@ class UpdateSettingsRequest extends FormRequest
             'timezone' => ['sometimes', 'timezone'],
             'week_start' => ['sometimes', 'integer', 'between:0,6'],
             'dnd_event_pattern' => ['sometimes', 'nullable', 'string', 'max:255', Regex::validateCompiles(...)],
+            'dnd_event_pattern_preview' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'nap_event_pattern' => ['sometimes', 'nullable', 'string', 'max:255', Regex::validateCompiles(...)],
+            'nap_event_pattern_preview' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'work_event_pattern' => ['sometimes', 'nullable', 'string', 'max:255', Regex::validateCompiles(...)],
+            'work_event_pattern_preview' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'school_event_pattern' => ['sometimes', 'nullable', 'string', 'max:255', Regex::validateCompiles(...)],
+            'school_event_pattern_preview' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'calendar_parsing_mode' => ['sometimes', Rule::enum(CalendarParsingMode::class)],
             'highlight_clause_pattern' => ['sometimes', 'nullable', 'string', 'max:500', Regex::validateSingleCaptureGroup(...)],
+            'highlight_clause_pattern_preview' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'highlight_split_pattern' => ['sometimes', 'nullable', 'string', 'max:255', Regex::validateCompiles(...)],
+            'highlight_split_pattern_preview' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'activity_clause_pattern' => ['sometimes', 'nullable', 'string', 'max:500', Regex::validateSingleCaptureGroup(...)],
+            'activity_clause_pattern_preview' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'tentative_pattern' => ['sometimes', 'nullable', 'string', 'max:500', Regex::validateCompiles(...)],
+            'tentative_pattern_preview' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'open_end_pattern' => ['sometimes', 'nullable', 'string', 'max:500', Regex::validateCompiles(...)],
+            'open_end_pattern_preview' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'open_start_pattern' => ['sometimes', 'nullable', 'string', 'max:500', Regex::validateCompiles(...)],
+            'open_start_pattern_preview' => ['sometimes', 'nullable', 'string', 'max:2000'],
             // App\Support\LocalizedText — 'default' stays optional here
             // (unlike ActivityLocalization's own label), since a blank title
-            // already falls back to a computed "{name}'s Free Time" (see
-            // ShareLinkController::resolveTitle).
+            // already falls back to a translated "My Free Time" (see
+            // ShareLinkController::resolveTitle and lang/*.json's
+            // free.defaultTitle).
             'public_page_title' => ['sometimes', 'nullable', 'array'],
             'public_page_title.default' => ['nullable', 'string', 'max:255'],
             'public_page_title.*' => ['nullable', 'string', 'max:255'],

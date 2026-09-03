@@ -28,5 +28,6 @@
     "free.decryptFailed": "Nem sikerült visszafejteni ezt a naptárt. A link lehet, hogy sérült.",
     "free.loadFailed": "Jelenleg nem sikerült betölteni ezt a naptárt. Kérjük, próbáld újra később.",
     "free.linkExpiredTitle": "Lejárt Link",
-    "free.linkExpiredBody": "Ez a naptárlink lejárt vagy már nem érvényes."
+    "free.linkExpiredBody": "Ez a naptárlink lejárt vagy már nem érvényes.",
+    "free.defaultTitle": "Szabadidőm"
 }

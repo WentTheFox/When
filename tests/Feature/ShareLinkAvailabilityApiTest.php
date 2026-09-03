@@ -147,7 +147,32 @@ class ShareLinkAvailabilityApiTest extends TestCase
 
         $response = $this->getJson(route('api.share-links.show', $shareLink->highlight_token));
 
-        $response->assertJson(['timezone' => 'Europe/Budapest']);
+        $response->assertJson(['timezone' => 'Europe/Budapest', 'timezone_configured' => true]);
+    }
+
+    /**
+     * An owner who's never saved Settings has a null timezone (see
+     * User's own doc history) — the response still needs a valid IANA
+     * zone for CalendarView.vue's own day-boundary rendering, so it falls
+     * back to 'UTC', but timezone_configured tells Free/Show.vue that's a
+     * guess, not a real comparison point, so it can suppress the "Our
+     * timezones match!"/offset note rather than show it against a guess.
+     */
+    public function test_response_falls_back_to_utc_and_flags_timezone_as_unconfigured_when_the_owner_never_set_one(): void
+    {
+        $user = $this->userWithCalendar(['timezone' => null]);
+        $shareLink = ShareLink::factory()->for($user)->create();
+        ShareLinkCache::create([
+            'share_link_id' => $shareLink->id,
+            'ciphertext' => 'ciphertext-blob',
+            'computed_range_start' => now(),
+            'computed_range_end' => now()->addDays(60),
+            'encrypted_at' => now(),
+        ]);
+
+        $response = $this->getJson(route('api.share-links.show', $shareLink->highlight_token));
+
+        $response->assertJson(['timezone' => 'UTC', 'timezone_configured' => false]);
     }
 
     /**

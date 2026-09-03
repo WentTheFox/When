@@ -88,17 +88,27 @@ class AccountExportService
                 'timezone' => $user->timezone,
                 'week_start' => $user->week_start,
                 'dnd_event_pattern' => $user->dnd_event_pattern,
+                'dnd_event_pattern_preview' => $user->dnd_event_pattern_preview,
                 'nap_event_pattern' => $user->nap_event_pattern,
+                'nap_event_pattern_preview' => $user->nap_event_pattern_preview,
                 'work_event_pattern' => $user->work_event_pattern,
+                'work_event_pattern_preview' => $user->work_event_pattern_preview,
                 'school_event_pattern' => $user->school_event_pattern,
-                'availability_settings' => $user->availability_settings,
+                'school_event_pattern_preview' => $user->school_event_pattern_preview,
+                'availability_windows' => $user->weeklyAvailability(),
                 'calendar_parsing_mode' => $user->calendar_parsing_mode,
                 'highlight_clause_pattern' => $user->highlight_clause_pattern,
+                'highlight_clause_pattern_preview' => $user->highlight_clause_pattern_preview,
                 'highlight_split_pattern' => $user->highlight_split_pattern,
+                'highlight_split_pattern_preview' => $user->highlight_split_pattern_preview,
                 'activity_clause_pattern' => $user->activity_clause_pattern,
+                'activity_clause_pattern_preview' => $user->activity_clause_pattern_preview,
                 'tentative_pattern' => $user->tentative_pattern,
+                'tentative_pattern_preview' => $user->tentative_pattern_preview,
                 'open_end_pattern' => $user->open_end_pattern,
+                'open_end_pattern_preview' => $user->open_end_pattern_preview,
                 'open_start_pattern' => $user->open_start_pattern,
+                'open_start_pattern_preview' => $user->open_start_pattern_preview,
                 'accent_color_key' => $user->accent_color_key,
                 'secondary_color_key' => $user->secondary_color_key,
                 'sleep_color_key' => $user->sleep_color_key,
@@ -216,10 +226,16 @@ class AccountExportService
     private function activityLocalizations(User $user): array
     {
         return [
-            'tier' => 'plaintext',
+            // pattern/pattern_preview are §0.2 ciphertext at rest
+            // (ActivityLocalization::casts()) — decrypted here via the
+            // model's own 'encrypted' cast, same as profile()'s own
+            // 'server-decrypted' fields above. label stays genuinely
+            // plaintext (a separate, untouched localized_texts row).
+            'tier' => 'server-decrypted',
             'records' => $user->activityLocalizations->map(fn ($role) => [
                 'id' => $role->id,
                 'pattern' => $role->pattern,
+                'pattern_preview' => $role->pattern_preview,
                 'sort_order' => $role->sort_order,
                 'label' => $role->label,
             ])->all(),

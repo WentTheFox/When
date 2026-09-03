@@ -56,6 +56,27 @@ class ShareLinkLocaleTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->where('pageTitle', 'English Title'));
     }
 
+    public function test_hu_free_path_falls_back_to_the_translated_default_title_when_unset(): void
+    {
+        $owner = User::factory()->create();
+        $shareLink = ShareLink::factory()->for($owner)->create();
+
+        $this->withCookie('wtf-locale', 'hu')
+            ->get("/hu/free/{$shareLink->highlight_token}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('pageTitle', 'Szabadidőm'));
+    }
+
+    public function test_free_path_falls_back_to_the_english_default_title_when_unset(): void
+    {
+        $owner = User::factory()->create();
+        $shareLink = ShareLink::factory()->for($owner)->create();
+
+        $this->get("/free/{$shareLink->highlight_token}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('pageTitle', 'My Free Time'));
+    }
+
     public function test_hu_free_path_resolves_by_highlight_token(): void
     {
         ShareLink::factory()->for(User::factory())->create([

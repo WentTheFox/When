@@ -28,5 +28,6 @@
     "free.decryptFailed": "无法解密此日历。链接可能已损坏。",
     "free.loadFailed": "目前无法加载此日历。请稍后再试。",
     "free.linkExpiredTitle": "链接已过期",
-    "free.linkExpiredBody": "此日历链接已过期或不再有效。"
+    "free.linkExpiredBody": "此日历链接已过期或不再有效。",
+    "free.defaultTitle": "我的空闲时间"
 }

@@ -28,5 +28,6 @@
     "free.decryptFailed": "Não foi possível desencriptar este calendário. O link pode estar danificado.",
     "free.loadFailed": "Não foi possível carregar este calendário agora. Tenta novamente mais tarde.",
     "free.linkExpiredTitle": "Link Expirado",
-    "free.linkExpiredBody": "Este link de calendário expirou ou já não é válido."
+    "free.linkExpiredBody": "Este link de calendário expirou ou já não é válido.",
+    "free.defaultTitle": "Meu Tempo Livre"
 }

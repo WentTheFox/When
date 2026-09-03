@@ -36,17 +36,26 @@ class User extends Authenticatable
         'timezone',
         'week_start',
         'dnd_event_pattern',
+        'dnd_event_pattern_preview',
         'nap_event_pattern',
+        'nap_event_pattern_preview',
         'work_event_pattern',
+        'work_event_pattern_preview',
         'school_event_pattern',
-        'availability_settings',
+        'school_event_pattern_preview',
         'calendar_parsing_mode',
         'highlight_clause_pattern',
+        'highlight_clause_pattern_preview',
         'highlight_split_pattern',
+        'highlight_split_pattern_preview',
         'activity_clause_pattern',
+        'activity_clause_pattern_preview',
         'tentative_pattern',
+        'tentative_pattern_preview',
         'open_end_pattern',
+        'open_end_pattern_preview',
         'open_start_pattern',
+        'open_start_pattern_preview',
         'accent_color_key',
         'secondary_color_key',
         'sleep_color_key',
@@ -86,6 +95,14 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
+    /**
+     * timezone and every *_pattern/*_pattern_preview column are §0.2
+     * server-runtime Crypt/APP_KEY ciphertext (2026_09_03_120000), same
+     * tier as calendar_url_ciphertext — but unlike name/email (below),
+     * none of these is ever looked up by value anywhere in the app, so
+     * the plain 'encrypted' cast is enough: no companion *_hash column,
+     * no whereX() scope, transparent decrypt on every existing read site.
+     */
     protected function casts(): array
     {
         return [
@@ -94,8 +111,28 @@ class User extends Authenticatable
             'two_factor_secret' => 'encrypted',
             'two_factor_recovery_codes' => 'encrypted:array',
             'two_factor_confirmed_at' => 'datetime',
-            'availability_settings' => 'array',
             'week_start' => 'integer',
+            'timezone' => 'encrypted',
+            'dnd_event_pattern' => 'encrypted',
+            'dnd_event_pattern_preview' => 'encrypted',
+            'nap_event_pattern' => 'encrypted',
+            'nap_event_pattern_preview' => 'encrypted',
+            'work_event_pattern' => 'encrypted',
+            'work_event_pattern_preview' => 'encrypted',
+            'school_event_pattern' => 'encrypted',
+            'school_event_pattern_preview' => 'encrypted',
+            'highlight_clause_pattern' => 'encrypted',
+            'highlight_clause_pattern_preview' => 'encrypted',
+            'highlight_split_pattern' => 'encrypted',
+            'highlight_split_pattern_preview' => 'encrypted',
+            'activity_clause_pattern' => 'encrypted',
+            'activity_clause_pattern_preview' => 'encrypted',
+            'tentative_pattern' => 'encrypted',
+            'tentative_pattern_preview' => 'encrypted',
+            'open_end_pattern' => 'encrypted',
+            'open_end_pattern_preview' => 'encrypted',
+            'open_start_pattern' => 'encrypted',
+            'open_start_pattern_preview' => 'encrypted',
         ];
     }
 
@@ -194,6 +231,49 @@ class User extends Authenticatable
     public function sleepExceptions(): HasMany
     {
         return $this->hasMany(SleepException::class);
+    }
+
+    public function availabilityWindows(): HasMany
+    {
+        return $this->hasMany(AvailabilityWindow::class);
+    }
+
+    /**
+     * Reassembles the availability_windows table back into the same
+     * `array<int, array{wake: ?string, sleep: ?string}>` shape (keyed
+     * 0=Sun..6=Sat) the old users.availability_settings JSON column used
+     * to hold directly — every existing consumer of that shape
+     * (AvailabilityService::compute() and its callers) reads it through
+     * here now, unchanged.
+     *
+     * @return array<int, array{wake: ?string, sleep: ?string}>
+     */
+    public function weeklyAvailability(): array
+    {
+        return $this->availabilityWindows->mapWithKeys(fn (AvailabilityWindow $window) => [
+            $window->weekday => [
+                'wake' => $window->wake_time,
+                'sleep' => $window->sleep_time,
+            ],
+        ])->all();
+    }
+
+    /**
+     * Upserts one weekday's window at a time — a partial PATCH from a
+     * subset of days (Settings.vue's own availability form always sends
+     * all 7, but this mirrors the old JSON-merge write's per-key
+     * semantics) only touches the weekdays actually present in $weekly.
+     *
+     * @param  array<int, array{wake: ?string, sleep: ?string}>  $weekly
+     */
+    public function setWeeklyAvailability(array $weekly): void
+    {
+        foreach ($weekly as $weekday => $config) {
+            $this->availabilityWindows()->updateOrCreate(
+                ['weekday' => (int) $weekday],
+                ['wake_time' => $config['wake'] ?: null, 'sleep_time' => $config['sleep'] ?: null],
+            );
+        }
     }
 
     public function activityLocalizations(): HasMany

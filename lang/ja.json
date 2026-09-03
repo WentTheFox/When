@@ -28,5 +28,6 @@
     "free.decryptFailed": "このカレンダーを復号できませんでした。リンクが壊れている可能性があります。",
     "free.loadFailed": "現在このカレンダーを読み込めませんでした。しばらくしてからもう一度お試しください。",
     "free.linkExpiredTitle": "リンクの有効期限切れ",
-    "free.linkExpiredBody": "このカレンダーリンクは期限切れか、無効になっています。"
+    "free.linkExpiredBody": "このカレンダーリンクは期限切れか、無効になっています。",
+    "free.defaultTitle": "私の空き時間"
 }

@@ -139,6 +139,8 @@ interface ApiResponse {
   computed_range_end?: string;
   stale?: boolean;
   timezone: string;
+  /** False when the owner has never set a timezone — `timezone` above is still a valid IANA zone (defaults to 'UTC') for rendering, but that's a guess, not a real comparison point, so the match/offset note is suppressed rather than shown against it. */
+  timezone_configured: boolean;
 }
 
 const showError = ref(false);
@@ -304,7 +306,13 @@ function onWeekClick(day: Date): void {
 
 // ── Timezone comparison ─────────────────────────────────────────────
 
-function renderTimezoneOffsetNote(ownerTimezone: string): void {
+/** No-op (leaves the note blank/hidden) when the owner has never configured a timezone — see ApiResponse['timezone_configured']. */
+function renderTimezoneOffsetNote(ownerTimezone: string, timezoneConfigured: boolean): void {
+  if (!timezoneConfigured) {
+    timezoneOffsetNote.value = '';
+    return;
+  }
+
   const viewerTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const now = new Date();
@@ -399,8 +407,17 @@ async function boot(): Promise<void> {
 
   try {
     const response = await fetchWithPolling();
-    timezone.value = response.timezone;
-    renderTimezoneOffsetNote(response.timezone);
+    // response.timezone is a guessed 'UTC' when the owner has never
+    // configured one (see ApiResponse['timezone_configured']) — rendering
+    // the grid in that guess would misalign it against the viewer's own
+    // wall-clock hours for no reason, so render in the viewer's own
+    // detected browser timezone instead in that case. This only affects
+    // which hours the calendar grid's columns/labels line up with — the
+    // underlying computed slots are already fixed instants either way.
+    timezone.value = response.timezone_configured
+      ? response.timezone
+      : Intl.DateTimeFormat().resolvedOptions().timeZone;
+    renderTimezoneOffsetNote(response.timezone, response.timezone_configured);
 
     const key = await resolveContentKey();
     const plaintext = await decryptString(key, response.ciphertext!);

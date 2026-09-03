@@ -118,11 +118,13 @@ class ShareLinkController extends Controller
     {
         $resolved = LocalizedText::resolve($owner->public_page_title, $locale);
 
-        // No hardcoded "My Free Time" branding — owners can override the
-        // page heading entirely; the default is computed here rather than
-        // baked into the frontend so the fallback text itself stays
-        // server-controlled.
-        return $resolved ?? "{$owner->name}'s Free Time";
+        // Falls back to a translated "My Free Time" (lang/{locale}.json's
+        // free.defaultTitle — the same JSON files every other /free string
+        // already uses), not the owner's own name — owners can still
+        // override the heading entirely via public_page_title. __() takes
+        // $locale explicitly rather than relying on App::getLocale(),
+        // which nothing on this request path ever sets.
+        return $resolved ?? __('free.defaultTitle', [], $locale);
     }
 
     /**

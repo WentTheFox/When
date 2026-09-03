@@ -28,5 +28,6 @@
     "free.decryptFailed": "Denne kalender kunne ikke dekrypteres. Linket kan være ødelagt.",
     "free.loadFailed": "Denne kalender kunne ikke indlæses lige nu. Prøv igen senere.",
     "free.linkExpiredTitle": "Link Udløbet",
-    "free.linkExpiredBody": "Dette kalenderlink er udløbet eller er ikke længere gyldigt."
+    "free.linkExpiredBody": "Dette kalenderlink er udløbet eller er ikke længere gyldigt.",
+    "free.defaultTitle": "Min Fritid"
 }

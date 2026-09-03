@@ -57,6 +57,7 @@ const props = defineProps<{
   activityLocalizations: {
     id: string;
     pattern: string;
+    pattern_preview: string | null;
     label: Record<string, string>;
     sort_order: number
   }[];
@@ -66,8 +67,27 @@ const page = usePage<SharedPageProps>();
 
 const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+/**
+ * timezone stays null in the DB until an owner's first Settings save (see
+ * settingsTypes.ts) — rather than showing that as a blank/UTC-looking
+ * select on someone's very first visit, try the browser's own IANA zone
+ * first. Only ever seeds the in-memory form value; nothing is persisted
+ * until the owner actually submits this card, same as any other field
+ * here. Falls back to 'UTC' if Intl is unavailable or resolves to
+ * something not in the server's own known-timezones list.
+ */
+function detectTimezone(knownTimezones: string[]): string {
+  try {
+    const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (detected && knownTimezones.includes(detected)) return detected;
+  } catch {
+    // Intl.DateTimeFormat unsupported/threw — fall through to UTC below.
+  }
+  return 'UTC';
+}
+
 const calendarSettingsForm = useForm({
-  timezone: props.settings.timezone,
+  timezone: props.settings.timezone ?? detectTimezone(props.timezones),
   week_start: props.settings.week_start,
   calendar_parsing_mode: props.settings.calendar_parsing_mode,
 });
@@ -110,15 +130,25 @@ const eventMatchingSettingsForm = useForm({
   // look already active — the suggestion is shown as a "Suggested"/
   // "Default" value with its own "Use" button instead.
   dnd_event_pattern: props.settings.dnd_event_pattern,
+  dnd_event_pattern_preview: props.settings.dnd_event_pattern_preview,
   nap_event_pattern: props.settings.nap_event_pattern,
+  nap_event_pattern_preview: props.settings.nap_event_pattern_preview,
   work_event_pattern: props.settings.work_event_pattern,
+  work_event_pattern_preview: props.settings.work_event_pattern_preview,
   school_event_pattern: props.settings.school_event_pattern,
+  school_event_pattern_preview: props.settings.school_event_pattern_preview,
   highlight_clause_pattern: props.settings.highlight_clause_pattern,
+  highlight_clause_pattern_preview: props.settings.highlight_clause_pattern_preview,
   highlight_split_pattern: props.settings.highlight_split_pattern,
+  highlight_split_pattern_preview: props.settings.highlight_split_pattern_preview,
   activity_clause_pattern: props.settings.activity_clause_pattern,
+  activity_clause_pattern_preview: props.settings.activity_clause_pattern_preview,
   tentative_pattern: props.settings.tentative_pattern,
+  tentative_pattern_preview: props.settings.tentative_pattern_preview,
   open_end_pattern: props.settings.open_end_pattern,
+  open_end_pattern_preview: props.settings.open_end_pattern_preview,
   open_start_pattern: props.settings.open_start_pattern,
+  open_start_pattern_preview: props.settings.open_start_pattern_preview,
 });
 export type EventMatchingSettingsForm = typeof eventMatchingSettingsForm;
 
@@ -178,7 +208,6 @@ const previewAvailability = ref<AvailabilityResponse | null>(null);
   <SettingsPublicPageCard
     :availability-settings-form="availabilitySettingsForm"
     :calendar-settings-form="calendarSettingsForm"
-    :name="settings.name"
     :preview-availability="previewAvailability"
     :public-page-settings-form="publicPageSettingsForm"
   />

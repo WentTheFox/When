@@ -28,5 +28,6 @@
     "free.decryptFailed": "Acest calendar nu a putut fi decriptat. Linkul ar putea fi deteriorat.",
     "free.loadFailed": "Acest calendar nu a putut fi încărcat acum. Te rugăm să încerci din nou mai târziu.",
     "free.linkExpiredTitle": "Link Expirat",
-    "free.linkExpiredBody": "Acest link de calendar a expirat sau nu mai este valid."
+    "free.linkExpiredBody": "Acest link de calendar a expirat sau nu mai este valid.",
+    "free.defaultTitle": "Timpul Meu Liber"
 }

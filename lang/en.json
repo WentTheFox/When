@@ -28,5 +28,6 @@
     "free.decryptFailed": "Could not decrypt this calendar. The link may be broken.",
     "free.loadFailed": "Could not load this calendar right now. Please try again later.",
     "free.linkExpiredTitle": "Link Expired",
-    "free.linkExpiredBody": "This calendar link has expired or is no longer valid."
+    "free.linkExpiredBody": "This calendar link has expired or is no longer valid.",
+    "free.defaultTitle": "My Free Time"
 }

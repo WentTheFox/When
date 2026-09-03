@@ -5,6 +5,17 @@ import { BButton } from 'bootstrap-vue-next';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 /**
+ * The example text is a persisted, optional per-field override (v-model,
+ * see the default-exported `model` below) — null means "use the hardcoded
+ * `examples` prop", a stored string means the owner edited it away from
+ * that, same optional-override shape every pattern field itself already
+ * has. The default text is never sent to/compared against the server:
+ * `examples` is a plain literal already baked into each call site
+ * (Settings*.vue), so "has this been edited from the default" is a
+ * client-only comparison against that same literal.
+ */
+
+/**
  * Editable multi-line live preview: each line of the textarea is one
  * example event title, tested against `pattern` as the owner types either
  * the pattern or the examples — so "what happens if I edit this example"
@@ -73,14 +84,21 @@ const props = withDefaults(defineProps<{
 
 const DEFAULT_PLACEHOLDER = 'Type here to test pattern matching';
 
-// Seeded once from the initial `examples` prop, then owned entirely by the
-// textarea from that point on — the prop is a fixed per-field example set
-// (see every call site in Settings.vue), never reassigned at runtime, so
-// there's nothing to keep re-syncing after mount. defaultLinesText keeps
-// that seed around separately so "Reset examples" below has something to
-// restore to even after the owner's own edits.
+// `examples` is a fixed per-field literal (see every call site in
+// Settings*.vue), never reassigned at runtime — defaultLinesText is just
+// that joined into the same shape the textarea itself uses.
 const defaultLinesText = props.examples?.join('\n') ?? '';
-const linesText = ref(defaultLinesText);
+
+const model = defineModel<string | null>({ default: null });
+
+// get/set computed rather than a plain ref: reading always falls back to
+// the hardcoded default while nothing's been persisted; every edit writes
+// straight through to the model (the parent's own form field), so it
+// survives a save/reload instead of vanishing like this used to.
+const linesText = computed({
+  get: () => model.value ?? defaultLinesText,
+  set: (value: string) => { model.value = value; },
+});
 const lines = computed(() => linesText.value.split('\n'));
 
 type Span = { text: string; cls?: string };
@@ -257,8 +275,8 @@ onUnmounted(() => resizeObserver?.disconnect());
     variant="link"
     size="sm"
     class="p-0 align-baseline mt-1"
-    :disabled="linesText === defaultLinesText"
-    @click="linesText = defaultLinesText"
+    :disabled="model === null"
+    @click="model = null"
   >
     Reset examples
   </BButton>

@@ -28,5 +28,6 @@
     "free.decryptFailed": "Deze agenda kon niet worden ontsleuteld. De link is mogelijk beschadigd.",
     "free.loadFailed": "Deze agenda kon nu niet worden geladen. Probeer het later opnieuw.",
     "free.linkExpiredTitle": "Link Verlopen",
-    "free.linkExpiredBody": "Deze agendalink is verlopen of niet meer geldig."
+    "free.linkExpiredBody": "Deze agendalink is verlopen of niet meer geldig.",
+    "free.defaultTitle": "Mijn Vrije Tijd"
 }

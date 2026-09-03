@@ -28,5 +28,6 @@
     "free.decryptFailed": "Impossibile decifrare questo calendario. Il link potrebbe essere danneggiato.",
     "free.loadFailed": "Impossibile caricare questo calendario al momento. Riprova più tardi.",
     "free.linkExpiredTitle": "Link Scaduto",
-    "free.linkExpiredBody": "Questo link del calendario è scaduto o non è più valido."
+    "free.linkExpiredBody": "Questo link del calendario è scaduto o non è più valido.",
+    "free.defaultTitle": "Il Mio Tempo Libero"
 }

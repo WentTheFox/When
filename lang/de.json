@@ -28,5 +28,6 @@
     "free.decryptFailed": "Dieser Kalender konnte nicht entschlüsselt werden. Der Link ist möglicherweise fehlerhaft.",
     "free.loadFailed": "Dieser Kalender konnte gerade nicht geladen werden. Bitte versuche es später erneut.",
     "free.linkExpiredTitle": "Link abgelaufen",
-    "free.linkExpiredBody": "Dieser Kalenderlink ist abgelaufen oder nicht mehr gültig."
+    "free.linkExpiredBody": "Dieser Kalenderlink ist abgelaufen oder nicht mehr gültig.",
+    "free.defaultTitle": "Meine Freizeit"
 }

@@ -152,7 +152,7 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
             ])
             ->all();
 
-        $weeklyAvailability = $user->availability_settings ?? [];
+        $weeklyAvailability = $user->weeklyAvailability();
         $activityLocalizations = $user->activityLocalizations->map(fn ($r) => ['pattern' => $r->pattern, 'label' => $r->label])->all();
 
         $result = $availabilityService->compute(

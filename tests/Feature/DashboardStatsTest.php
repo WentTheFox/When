@@ -61,6 +61,25 @@ class DashboardStatsTest extends TestCase
         $response->assertJsonPath('error', 'no_calendar');
     }
 
+    /**
+     * timezone defaults to null now (no DB default, no app-level fallback
+     * at creation — see User's own doc history) until an owner's first
+     * Settings save; this endpoint's own "today"/"this week" boundaries
+     * still need to work before that ever happens, via
+     * DashboardController's `$user->timezone ?? 'UTC'`.
+     */
+    public function test_stats_endpoint_works_for_a_user_who_has_never_set_a_timezone(): void
+    {
+        $user = User::factory()->create(['calendar_url_ciphertext' => null]);
+
+        $this->assertNull($user->timezone);
+
+        $response = $this->actingAs($user)->getJson('/dashboard/stats/availability');
+
+        $response->assertOk();
+        $response->assertJsonPath('error', 'no_calendar');
+    }
+
     public function test_an_unauthenticated_visitor_cannot_use_the_stats_endpoint(): void
     {
         $response = $this->getJson('/dashboard/stats/availability');

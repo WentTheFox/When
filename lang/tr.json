@@ -28,5 +28,6 @@
     "free.decryptFailed": "Bu takvimin şifresi çözülemedi. Bağlantı bozuk olabilir.",
     "free.loadFailed": "Bu takvim şu anda yüklenemedi. Lütfen daha sonra tekrar deneyin.",
     "free.linkExpiredTitle": "Bağlantının Süresi Doldu",
-    "free.linkExpiredBody": "Bu takvim bağlantısının süresi doldu veya artık geçerli değil."
+    "free.linkExpiredBody": "Bu takvim bağlantısının süresi doldu veya artık geçerli değil.",
+    "free.defaultTitle": "Boş Zamanım"
 }

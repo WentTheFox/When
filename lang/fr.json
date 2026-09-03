@@ -28,5 +28,6 @@
     "free.decryptFailed": "Impossible de déchiffrer ce calendrier. Le lien est peut-être corrompu.",
     "free.loadFailed": "Impossible de charger ce calendrier pour le moment. Merci de réessayer plus tard.",
     "free.linkExpiredTitle": "Lien Expiré",
-    "free.linkExpiredBody": "Ce lien de calendrier a expiré ou n'est plus valide."
+    "free.linkExpiredBody": "Ce lien de calendrier a expiré ou n'est plus valide.",
+    "free.defaultTitle": "Mon Temps Libre"
 }

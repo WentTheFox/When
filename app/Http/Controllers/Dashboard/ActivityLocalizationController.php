@@ -12,9 +12,11 @@ use Illuminate\Http\Request;
  * part of the big settings form" shape as SleepExceptionController.
  * Each role is its own record an owner adds/removes one at a time
  * rather than a handful of fields saved together. Nothing here is §0.1
- * E2EE (unlike SleepException's own optional note) — pattern/label are
- * both owner-authored, not extracted from calendar content, so there's
- * nothing sensitive for the server to avoid seeing.
+ * client-vault E2EE — pattern/pattern_preview are instead §0.2
+ * server-runtime Crypt/APP_KEY ciphertext (see
+ * ActivityLocalization::casts()), transparently encrypted/decrypted by
+ * the model on every write/read below; label stays genuinely plaintext
+ * (a separate localized_texts row, an owner-chosen display string).
  */
 class ActivityLocalizationController extends Controller
 {
@@ -37,6 +39,7 @@ class ActivityLocalizationController extends Controller
         $data = $request->validate([
             'id' => ['required', 'uuid', 'unique:activity_localizations,id'],
             'pattern' => ['required', 'string', 'max:500', Regex::validateSingleCaptureGroup(...)],
+            'pattern_preview' => ['nullable', 'string', 'max:2000'],
             'sort_order' => ['required', 'integer', 'min:0'],
             ...self::localizedTextRules(),
         ]);
@@ -57,6 +60,7 @@ class ActivityLocalizationController extends Controller
     {
         $data = $request->validate([
             'pattern' => ['required', 'string', 'max:500', Regex::validateSingleCaptureGroup(...)],
+            'pattern_preview' => ['nullable', 'string', 'max:2000'],
             'sort_order' => ['required', 'integer', 'min:0'],
             ...self::localizedTextRules(),
         ]);

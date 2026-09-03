@@ -11,14 +11,16 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * An owner-configurable (pattern, label) pair — generalizes the old
  * hardcoded "Host X"/"Visit X" convention into an arbitrary, ordered
- * list. `pattern` is matched the same way highlight_clause_pattern is
- * (a regex fragment requiring exactly one capture group, see
- * HighlightMatcher); `label` is an App\Support\LocalizedText — one row
- * per locale in the shared `localized_texts` table (see
- * HasLocalizedFields), not a column on this model — never plaintext
- * freetext extracted from the owner's own calendar, an owner writes it
- * themselves, so unlike calendar_url/connections data there's nothing
- * here that needs §0.1/§0.2 treatment.
+ * list. `pattern` (and `pattern_preview`, the owner's own edited example
+ * text for its live preview tester — see PatternPreview.vue) are §0.2
+ * server-runtime Crypt/APP_KEY ciphertext, same tier and same plain
+ * 'encrypted' cast as User's own *_pattern columns
+ * (2026_09_03_120000_encrypt_pattern_and_timezone_fields) — never looked
+ * up by value, so no *_hash/whereX() machinery needed. `label` is a
+ * separate App\Support\LocalizedText — one row per locale in the shared
+ * `localized_texts` table (see HasLocalizedFields), not a column on this
+ * model — untouched by that migration, still plain: an owner-chosen
+ * display label, not calendar-derived text.
  */
 class ActivityLocalization extends Model
 {
@@ -31,6 +33,7 @@ class ActivityLocalization extends Model
         'id',
         'user_id',
         'pattern',
+        'pattern_preview',
         'sort_order',
     ];
 
@@ -38,6 +41,8 @@ class ActivityLocalization extends Model
     {
         return [
             'sort_order' => 'integer',
+            'pattern' => 'encrypted',
+            'pattern_preview' => 'encrypted',
         ];
     }
 

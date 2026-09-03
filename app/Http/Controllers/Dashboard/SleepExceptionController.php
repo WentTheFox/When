@@ -9,8 +9,12 @@ use Illuminate\Http\Request;
 /**
  * label_ciphertext is client-vault E2EE (§0.1/§0.3, see the migration's doc
  * comment) — this controller only ever stores ciphertext the client already
- * produced. start_date/end_date stay plaintext since §5.1's recompute needs
- * them to suppress the default sleep block.
+ * produced. start_date/end_date are §0.2 server-runtime Crypt/APP_KEY
+ * ciphertext instead (see SleepException::casts()) — this controller still
+ * only ever handles their plaintext 'Y-m-d' form; the model's 'encrypted'
+ * cast transparently encrypts on write/decrypts on read, so §5.1's
+ * recompute (which needs the plain dates to suppress the default sleep
+ * block) is unaffected.
  */
 class SleepExceptionController extends Controller
 {

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ActivityLocalization;
 use App\Models\Connection;
 use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionAttributeValue;
@@ -62,12 +63,31 @@ class PlaintextLeakRegressionTest extends TestCase
 
     private const CATEGORY_NAME = 'PlaintextSentinelCategory_SocialMedia';
 
+    private const DND_PATTERN = 'PlaintextSentinelPattern_DndXyz123';
+
+    private const PATTERN_PREVIEW = 'PlaintextSentinelPreview_TeamDndBlockXyz';
+
+    private const TIMEZONE = 'Pacific/Kiritimati';
+
+    private const ACTIVITY_LOCALIZATION_PATTERN = '^Host (PlaintextSentinelActivityPattern_Xyz)$';
+
     public function test_no_known_plaintext_survives_in_any_stored_column(): void
     {
         $user = User::factory()->create([
             'name' => self::USER_NAME,
             'email' => self::USER_EMAIL,
             'calendar_url_ciphertext' => Crypt::encryptString(self::CALENDAR_URL),
+            'timezone' => self::TIMEZONE,
+            'dnd_event_pattern' => self::DND_PATTERN,
+            'dnd_event_pattern_preview' => self::PATTERN_PREVIEW,
+        ]);
+
+        $user->setWeeklyAvailability([0 => ['wake' => '07:00', 'sleep' => '23:00']]);
+
+        ActivityLocalization::create([
+            'user_id' => $user->id,
+            'pattern' => self::ACTIVITY_LOCALIZATION_PATTERN,
+            'sort_order' => 0,
         ]);
 
         SleepException::create([
@@ -154,6 +174,10 @@ class PlaintextLeakRegressionTest extends TestCase
             self::EDGE_LABEL,
             self::SOURCE_NAME,
             self::CATEGORY_NAME,
+            self::DND_PATTERN,
+            self::PATTERN_PREVIEW,
+            self::TIMEZONE,
+            self::ACTIVITY_LOCALIZATION_PATTERN,
         ];
 
         foreach ($knownPlaintextSecrets as $secret) {
@@ -203,6 +227,66 @@ class PlaintextLeakRegressionTest extends TestCase
     }
 
     /**
+     * timezone/*_pattern/*_pattern_preview use Eloquent's plain 'encrypted'
+     * cast (User::casts()) rather than calendar_url_ciphertext's explicit
+     * Crypt:: calls, but the guarantee is identical: the raw column is
+     * ciphertext, and the accessor decrypts it transparently.
+     */
+    public function test_timezone_and_pattern_columns_round_trip_via_runtime_key_only(): void
+    {
+        $user = User::factory()->create([
+            'timezone' => self::TIMEZONE,
+            'dnd_event_pattern' => self::DND_PATTERN,
+            'dnd_event_pattern_preview' => self::PATTERN_PREVIEW,
+        ]);
+
+        $row = DB::table('users')->where('id', $user->id)->first();
+
+        $this->assertStringNotContainsString(self::TIMEZONE, $row->timezone);
+        $this->assertStringNotContainsString(self::DND_PATTERN, $row->dnd_event_pattern);
+        $this->assertStringNotContainsString(self::PATTERN_PREVIEW, $row->dnd_event_pattern_preview);
+        $this->assertSame(self::TIMEZONE, Crypt::decryptString($row->timezone));
+        $this->assertSame(self::DND_PATTERN, Crypt::decryptString($row->dnd_event_pattern));
+        $this->assertSame(self::PATTERN_PREVIEW, Crypt::decryptString($row->dnd_event_pattern_preview));
+
+        $this->assertSame(self::TIMEZONE, $user->refresh()->timezone);
+        $this->assertSame(self::DND_PATTERN, $user->dnd_event_pattern);
+    }
+
+    public function test_sleep_exception_dates_round_trip_via_runtime_key_only(): void
+    {
+        $user = User::factory()->create();
+
+        $exception = SleepException::create([
+            'user_id' => $user->id,
+            'start_date' => '2026-01-01',
+            'end_date' => '2026-01-07',
+        ]);
+
+        $row = DB::table('sleep_exceptions')->where('id', $exception->id)->first();
+
+        $this->assertStringNotContainsString('2026-01-01', $row->start_date);
+        $this->assertStringNotContainsString('2026-01-07', $row->end_date);
+        $this->assertSame('2026-01-01', Crypt::decryptString($row->start_date));
+        $this->assertSame('2026-01-07', Crypt::decryptString($row->end_date));
+        $this->assertSame('2026-01-01', $exception->refresh()->start_date);
+    }
+
+    public function test_availability_window_times_round_trip_via_runtime_key_only(): void
+    {
+        $user = User::factory()->create();
+        $user->setWeeklyAvailability([0 => ['wake' => '07:00', 'sleep' => '23:00']]);
+
+        $row = DB::table('availability_windows')->where('user_id', $user->id)->where('weekday', 0)->first();
+
+        $this->assertStringNotContainsString('07:00', $row->wake_time);
+        $this->assertStringNotContainsString('23:00', $row->sleep_time);
+        $this->assertSame('07:00', Crypt::decryptString($row->wake_time));
+        $this->assertSame('23:00', Crypt::decryptString($row->sleep_time));
+        $this->assertSame('07:00', $user->weeklyAvailability()[0]['wake']);
+    }
+
+    /**
      * Stands in for real client-side WebCrypto AES-256-GCM encryption: the
      * key is random and immediately discarded, so the server (and this test
      * harness, playing the server's role) never has it either — matching
@@ -228,7 +312,7 @@ class PlaintextLeakRegressionTest extends TestCase
             'connection_sources', 'share_links', 'share_link_words',
             'share_link_cache', 'connections', 'connection_attribute_definitions',
             'connection_attribute_values', 'connection_edges', 'invites',
-            'invite_redemptions',
+            'invite_redemptions', 'activity_localizations', 'availability_windows',
         ];
 
         $chunks = [];

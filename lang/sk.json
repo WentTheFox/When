@@ -28,5 +28,6 @@
     "free.decryptFailed": "Tento kalendár sa nepodarilo dešifrovať. Odkaz môže byť poškodený.",
     "free.loadFailed": "Tento kalendár sa teraz nepodarilo načítať. Skús to prosím neskôr znova.",
     "free.linkExpiredTitle": "Odkaz Vypršal",
-    "free.linkExpiredBody": "Tento odkaz na kalendár vypršal alebo už nie je platný."
+    "free.linkExpiredBody": "Tento odkaz na kalendár vypršal alebo už nie je platný.",
+    "free.defaultTitle": "Môj Voľný Čas"
 }
