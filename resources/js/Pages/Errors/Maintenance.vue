@@ -10,18 +10,39 @@
  * shared props (and isFirstUser is a DB query besides, unwise to depend on
  * while the app might be mid-migration).
  */
-import { faRotate } from '@fortawesome/free-solid-svg-icons';
+import { faLanguage, faRotate } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { Head } from '@inertiajs/vue3';
-import { BButton, BCard } from 'bootstrap-vue-next';
-import { onMounted, onUnmounted, ref } from 'vue';
+import { BButton, BCard, BDropdown, BDropdownItem } from 'bootstrap-vue-next';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import logoUrl from '../../../img/When.svg';
 import { useTheme } from '../../composables/useTheme';
 
 const props = defineProps<{
   appName: string;
+  locale: string;
   textDirection: 'ltr' | 'rtl';
+  locales: { code: string; native: string }[];
 }>();
+
+// Unlike LanguageSwitcher.vue (which only ever runs on /free/{token} and
+// rewrites that fixed path shape), this page can be showing for literally
+// any URL — maintenance mode intercepts every route — so there's no
+// "/free/" segment to anchor on. Reuses the same locale-prefix convention
+// instead (props.locale is exactly what bootstrap/app.php derived from the
+// URL's first segment), just stripping/prepending whichever prefix that
+// was. A plain full-navigation <a>, not an Inertia visit: the whole point
+// is picking up the new lang/{code}.json at boot (app.ts's initialLocale),
+// which only happens on a fresh page load.
+const currentLocale = computed(() => (
+  props.locales.find((l) => l.code === props.locale) ?? props.locales[0]
+));
+
+function hrefFor(code: string): string {
+  const { pathname, search, hash } = window.location;
+  const rest = props.locale === 'en' ? pathname : (pathname.replace(`/${props.locale}`, '') || '/');
+  return (code === 'en' ? rest : `/${code}${rest}`) + search + hash;
+}
 
 // Purely client-side (cookie + prefers-color-scheme), no shared props or
 // DB access needed — same composable every other page uses.
@@ -104,6 +125,23 @@ onUnmounted(() => {
     <div class="container py-5">
       <div class="row justify-content-center">
         <div class="col-12 col-sm-8 col-md-6 col-lg-5">
+          <div class="d-flex justify-content-end mb-2">
+            <BDropdown variant="link" toggle-class="text-body-secondary" no-caret size="sm">
+              <template #button-content>
+                <FontAwesomeIcon :icon="faLanguage" class="me-1" />{{ currentLocale?.native }}
+              </template>
+              <BDropdownItem
+                v-for="l in props.locales"
+                :key="l.code"
+                :href="hrefFor(l.code)"
+                :active="l.code === props.locale"
+                :disabled="l.code === props.locale"
+              >
+                {{ l.native }}
+              </BDropdownItem>
+            </BDropdown>
+          </div>
+
           <div class="text-center mb-4">
             <img :src="logoUrl" alt="" width="40" height="40" class="mb-2">
             <div class="fs-5 fw-semibold">{{ props.appName }}</div>
