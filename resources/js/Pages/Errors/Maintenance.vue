@@ -16,7 +16,7 @@
 import { faLanguage, faRotate } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { Head } from '@inertiajs/vue3';
-import { BButton, BCard, BDropdown, BDropdownItem } from 'bootstrap-vue-next';
+import { BButton, BCard, BDropdown, BDropdownDivider, BDropdownItem } from 'bootstrap-vue-next';
 import { loadLanguageAsync } from 'laravel-vue-i18n';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import BrandMark from '../../Components/BrandMark.vue';
@@ -56,6 +56,32 @@ const textDirection = computed(() => (RTL_CODES.has(activeLocale.value) ? 'rtl' 
 const sortedLocales = computed(() => (
   [...props.locales].sort((a, b) => a.native.localeCompare(b.native))
 ));
+
+// navigator.languages is ranked by the browser's own preference order
+// (Accept-Language) — surface whichever of our locales it actually knows
+// about at the top, in that same order, ahead of the alphabetical rest.
+// No divider (and no reordering at all) when it's unavailable or matches
+// nothing — an empty "likely wanted" group would just be a stray divider
+// sitting above the exact same full list.
+const preferredLocales = computed(() => {
+  const languages = typeof navigator === 'undefined' ? [] : (navigator.languages ?? []);
+  const seen = new Set<string>();
+  const matched: { code: string; native: string }[] = [];
+  for (const tag of languages) {
+    const base = tag.split('-')[0].toLowerCase();
+    const match = props.locales.find((l) => l.code === base);
+    if (match && !seen.has(match.code)) {
+      seen.add(match.code);
+      matched.push(match);
+    }
+  }
+  return matched;
+});
+
+const otherLocales = computed(() => {
+  const preferredCodes = new Set(preferredLocales.value.map((l) => l.code));
+  return sortedLocales.value.filter((l) => !preferredCodes.has(l.code));
+});
 
 async function switchLocale(code: string): Promise<void> {
   if (code === activeLocale.value || switching.value) {
@@ -160,7 +186,17 @@ onUnmounted(() => {
               <FontAwesomeIcon :icon="faLanguage" class="me-1" />{{ currentLocale?.native }}
             </template>
             <BDropdownItem
-              v-for="l in sortedLocales"
+              v-for="l in preferredLocales"
+              :key="l.code"
+              :active="l.code === activeLocale"
+              :disabled="l.code === activeLocale"
+              @click="switchLocale(l.code)"
+            >
+              {{ l.native }}
+            </BDropdownItem>
+            <BDropdownDivider v-if="preferredLocales.length > 0" />
+            <BDropdownItem
+              v-for="l in otherLocales"
               :key="l.code"
               :active="l.code === activeLocale"
               :disabled="l.code === activeLocale"
