@@ -3,11 +3,11 @@
  * attribute — Bootstrap's own component CSS (card/btn/form-control/alert/
  * badge/...) re-themes itself under that automatically, no manual
  * component-by-component override needed for anything Bootstrap already
- * themes. What's left here is this app's own --wtf-* variables (which
+ * themes. What's left here is this app's own --app-* variables (which
  * Bootstrap knows nothing about) and the handful of true Bootstrap-default
  * gaps/quirks called out individually below.
  *
- * Slot-type colors (--wtf-color-*) are set as defaults here and can be
+ * Slot-type colors (--app-color-*) are set as defaults here and can be
  * overridden inline per owner via users.accent_color/free_color/etc.
  * (Stage 6/7 schema) — see share-links/show.blade.php.
  */
@@ -25,27 +25,27 @@
  * $body-bg is literally `transparent`, deferring to Bootstrap's own
  * palette), so matching those values instead of picking our own keeps this
  * app's dark theme from looking like a different, slightly-off palette
- * next to it. --wtf-accent is WentTheNuxt's own $favourite-color
+ * next to it. --app-accent is WentTheNuxt's own $favourite-color
  * (app/assets/scss/_vars.scss), not a Bootstrap value.
  */
 :root,
 :root[data-bs-theme="dark"] {
-    --wtf-bg: #212529;
-    --wtf-bg-elevated: #2b3035;
-    --wtf-text: #dee2e6;
-    --wtf-text-muted: rgba(222, 226, 230, 0.75);
-    --wtf-border: #495057;
+    --app-bg: #212529;
+    --app-bg-elevated: #2b3035;
+    --app-text: #dee2e6;
+    --app-text-muted: rgba(222, 226, 230, 0.75);
+    --app-border: #495057;
 
-    --wtf-accent: #6181b6;
-    /* Same RGB as --wtf-accent, comma-separated so rgba(var(--wtf-accent-rgb), a)
+    --app-accent: #6181b6;
+    /* Same RGB as --app-accent, comma-separated so rgba(var(--app-accent-rgb), a)
        works below — CSS can't pull channels back out of a hex custom property. */
-    --wtf-accent-rgb: 97, 129, 182;
-    /* YIQ-contrast text color for anything painted with --wtf-accent as a
+    --app-accent-rgb: 97, 129, 182;
+    /* YIQ-contrast text color for anything painted with --app-accent as a
        background (.btn-primary/.btn-secondary/the active Month-Week toggle,
        below) — computed per-swatch by resources/js/free/color-utils.ts's
        yiqTextColor() wherever an owner's accent choice sets this alongside
-       --wtf-accent; this default matches the default accent hex above. */
-    --wtf-accent-text: #fff;
+       --app-accent; this default matches the default accent hex above. */
+    --app-accent-text: #fff;
     /* free/busy/sleep still match the reference /free page's own dark-theme
        block colors exactly (FreeCalendarView.module.scss's @include
        dark-theme block: $block-color=$favourite-color at 0.35,
@@ -59,24 +59,24 @@
        equivalent at all — it's a new category, not ported). Every one of
        these six is only reachable if an owner's color-key inline override
        is ever missing entirely; in practice Free/Show.vue's rootStyle/
-       Settings.vue's previewStyleFor always set --wtf-color-* explicitly. */
-    --wtf-color-free: rgba(var(--wtf-accent-rgb), 0.35);
-    --wtf-color-busy: rgba(33, 37, 41, 0.3);
-    --wtf-color-highlighted: rgba(255, 214, 10, 0.35);
-    --wtf-color-work: rgba(139, 94, 52, 0.35);
-    --wtf-color-school: rgba(47, 158, 68, 0.35);
-    --wtf-color-sleep: rgba(111, 66, 193, 0.35);
-    /* A plain number, not rgba(var(--wtf-accent-rgb), 0.12) — a custom
+       Settings.vue's previewStyleFor always set --app-color-* explicitly. */
+    --app-color-free: rgba(var(--app-accent-rgb), 0.35);
+    --app-color-busy: rgba(33, 37, 41, 0.3);
+    --app-color-highlighted: rgba(255, 214, 10, 0.35);
+    --app-color-work: rgba(139, 94, 52, 0.35);
+    --app-color-school: rgba(47, 158, 68, 0.35);
+    --app-color-sleep: rgba(111, 66, 193, 0.35);
+    /* A plain number, not rgba(var(--app-accent-rgb), 0.12) — a custom
        property whose OWN value embeds another var() freezes that inner
        reference to whatever was in scope where the outer one was declared
-       (:root's default --wtf-accent-rgb), not the value inherited at
+       (:root's default --app-accent-rgb), not the value inherited at
        wherever it's actually used. That silently broke an owner's custom
        accent color from ever reaching the today-highlight background (same
        root cause .wtf-fmonth-day-cell.is-today below already avoids, by
-       using rgba(var(--wtf-accent-rgb), ...) directly rather than through
+       using rgba(var(--app-accent-rgb), ...) directly rather than through
        an alias). Keeping this as a bare number and letting
        .wtf-fcal-day-column.is-today build the rgba() itself sidesteps it. */
-    --wtf-fcal-today-alpha: 0.12;
+    --app-fcal-today-alpha: 0.12;
     /* The current-time line/dot on the week/month views — owner-customizable
        like the block colors above, picked from NowColorPresetKey's own
        curated (loud/saturated, kept out of the normal block palette)
@@ -84,44 +84,44 @@
        pair per preset just like ColorSwatchKey. This bare fallback matches
        NowColorPresetKey::default()->dark() — only reachable if an inline
        override is ever somehow missing entirely (every real page sets
-       --wtf-color-now inline via resolveNowColorHex()). */
-    --wtf-color-now: #ff0000;
+       --app-color-now inline via resolveNowColorHex()). */
+    --app-color-now: #ff0000;
 
     /* Pre-auth header (below) — deliberately theme-independent (not
        redeclared in the light block), same as the reference /free page's
        chrome: it sits on the always-accent-colored backdrop, not on
-       --wtf-bg, so it needs its own fixed text color regardless of theme.
+       --app-bg, so it needs its own fixed text color regardless of theme.
        Variables, not literals, so a future per-owner override story
-       (matching --wtf-accent's existing pattern) is a one-line addition
+       (matching --app-accent's existing pattern) is a one-line addition
        rather than a find-and-replace. */
-    --wtf-header-text: rgba(255, 255, 255, 0.92);
-    --wtf-header-text-hover: #ffffff;
+    --app-header-text: rgba(255, 255, 255, 0.92);
+    --app-header-text-hover: #ffffff;
     /* Darkens the header a shade below the backdrop it sits on (both are
-       --wtf-accent) so it reads as a distinct bar, matching the reference
+       --app-accent) so it reads as a distinct bar, matching the reference
        site's header being visibly darker than its own page background. */
-    --wtf-header-overlay: rgba(0, 0, 0, 0.16);
+    --app-header-overlay: rgba(0, 0, 0, 0.16);
 }
 
 :root[data-bs-theme="light"] {
-    --wtf-bg: #ffffff;
-    --wtf-bg-elevated: #f8f9fa;
-    --wtf-text: #212529;
-    --wtf-text-muted: #6c757d;
-    --wtf-border: #dee2e6;
+    --app-bg: #ffffff;
+    --app-bg-elevated: #f8f9fa;
+    --app-text: #212529;
+    --app-text-muted: #6c757d;
+    --app-border: #dee2e6;
 
-    --wtf-accent: #6181b6;
-    --wtf-accent-rgb: 97, 129, 182;
-    --wtf-accent-text: #fff;
+    --app-accent: #6181b6;
+    --app-accent-rgb: 97, 129, 182;
+    --app-accent-text: #fff;
     /* Same source/reasoning as the dark-theme block above, but the base
        (non-dark-theme) alphas: $block-color at 0.25, $dark at 0.2,
        $purple at 0.3, highlighted/work/school at 0.3. */
-    --wtf-color-free: rgba(var(--wtf-accent-rgb), 0.25);
-    --wtf-color-busy: rgba(33, 37, 41, 0.2);
-    --wtf-color-highlighted: rgba(255, 214, 10, 0.3);
-    --wtf-color-work: rgba(139, 94, 52, 0.3);
-    --wtf-color-school: rgba(47, 158, 68, 0.3);
-    --wtf-color-sleep: rgba(111, 66, 193, 0.3);
-    --wtf-fcal-today-alpha: 0.06;
+    --app-color-free: rgba(var(--app-accent-rgb), 0.25);
+    --app-color-busy: rgba(33, 37, 41, 0.2);
+    --app-color-highlighted: rgba(255, 214, 10, 0.3);
+    --app-color-work: rgba(139, 94, 52, 0.3);
+    --app-color-school: rgba(47, 158, 68, 0.3);
+    --app-color-sleep: rgba(111, 66, 193, 0.3);
+    --app-fcal-today-alpha: 0.06;
 }
 
 /*
@@ -138,45 +138,45 @@
  * inherited theme context nested inside the page's own.
  */
 .wtf-theme-preview[data-bs-theme="dark"] {
-    --wtf-bg: #212529;
-    --wtf-bg-elevated: #2b3035;
-    --wtf-text: #dee2e6;
-    --wtf-text-muted: rgba(222, 226, 230, 0.75);
-    --wtf-border: #495057;
-    --wtf-fcal-today-alpha: 0.12;
-    --wtf-fcal-text-unavailable: #717e8c;
-    /* Redeclared, not just inherited — --wtf-fcal-text-free/highlighted/
-       sleep below are themselves color-mix() aliases of --wtf-hue-x and
-       --wtf-text, and a custom property's var() references resolve
+    --app-bg: #212529;
+    --app-bg-elevated: #2b3035;
+    --app-text: #dee2e6;
+    --app-text-muted: rgba(222, 226, 230, 0.75);
+    --app-border: #495057;
+    --app-fcal-today-alpha: 0.12;
+    --app-fcal-text-unavailable: #717e8c;
+    /* Redeclared, not just inherited — --app-fcal-text-free/highlighted/
+       sleep below are themselves color-mix() aliases of --app-hue-x and
+       --app-text, and a custom property's var() references resolve
        against the scope where THAT property is declared, not wherever
        it's later used. Since the :root versions only ever resolve against
-       :root's own (page-theme-following) --wtf-text, simply inheriting
-       them here would silently ignore this scope's fixed --wtf-text
+       :root's own (page-theme-following) --app-text, simply inheriting
+       them here would silently ignore this scope's fixed --app-text
        above — exactly the bug this block exists to avoid. Redeclaring the
-       formula here, with the same --wtf-hue-* fallback, forces it to
+       formula here, with the same --app-hue-* fallback, forces it to
        resolve against THIS scope's own vars instead. */
-    --wtf-fcal-text-free: color-mix(in srgb, var(--wtf-hue-free, var(--wtf-accent)) 65%, var(--wtf-text) 35%);
-    --wtf-fcal-text-highlighted: color-mix(in srgb, var(--wtf-hue-highlighted, #ffd60a) 65%, var(--wtf-text) 35%);
-    --wtf-fcal-text-work: color-mix(in srgb, var(--wtf-hue-work, #8b5e34) 65%, var(--wtf-text) 35%);
-    --wtf-fcal-text-school: color-mix(in srgb, var(--wtf-hue-school, #2f9e44) 65%, var(--wtf-text) 35%);
-    --wtf-fcal-text-sleep: color-mix(in srgb, var(--wtf-hue-sleep, #6f42c1) 65%, var(--wtf-text) 35%);
-    color: var(--wtf-text);
+    --app-fcal-text-free: color-mix(in srgb, var(--app-hue-free, var(--app-accent)) 65%, var(--app-text) 35%);
+    --app-fcal-text-highlighted: color-mix(in srgb, var(--app-hue-highlighted, #ffd60a) 65%, var(--app-text) 35%);
+    --app-fcal-text-work: color-mix(in srgb, var(--app-hue-work, #8b5e34) 65%, var(--app-text) 35%);
+    --app-fcal-text-school: color-mix(in srgb, var(--app-hue-school, #2f9e44) 65%, var(--app-text) 35%);
+    --app-fcal-text-sleep: color-mix(in srgb, var(--app-hue-sleep, #6f42c1) 65%, var(--app-text) 35%);
+    color: var(--app-text);
 }
 
 .wtf-theme-preview[data-bs-theme="light"] {
-    --wtf-bg: #ffffff;
-    --wtf-bg-elevated: #f8f9fa;
-    --wtf-text: #212529;
-    --wtf-text-muted: #6c757d;
-    --wtf-border: #dee2e6;
-    --wtf-fcal-today-alpha: 0.06;
-    --wtf-fcal-text-unavailable: #0f1112;
-    --wtf-fcal-text-free: color-mix(in srgb, var(--wtf-hue-free, var(--wtf-accent)) 65%, var(--wtf-text) 35%);
-    --wtf-fcal-text-highlighted: color-mix(in srgb, var(--wtf-hue-highlighted, #ffd60a) 65%, var(--wtf-text) 35%);
-    --wtf-fcal-text-work: color-mix(in srgb, var(--wtf-hue-work, #8b5e34) 65%, var(--wtf-text) 35%);
-    --wtf-fcal-text-school: color-mix(in srgb, var(--wtf-hue-school, #2f9e44) 65%, var(--wtf-text) 35%);
-    --wtf-fcal-text-sleep: color-mix(in srgb, var(--wtf-hue-sleep, #6f42c1) 65%, var(--wtf-text) 35%);
-    color: var(--wtf-text);
+    --app-bg: #ffffff;
+    --app-bg-elevated: #f8f9fa;
+    --app-text: #212529;
+    --app-text-muted: #6c757d;
+    --app-border: #dee2e6;
+    --app-fcal-today-alpha: 0.06;
+    --app-fcal-text-unavailable: #0f1112;
+    --app-fcal-text-free: color-mix(in srgb, var(--app-hue-free, var(--app-accent)) 65%, var(--app-text) 35%);
+    --app-fcal-text-highlighted: color-mix(in srgb, var(--app-hue-highlighted, #ffd60a) 65%, var(--app-text) 35%);
+    --app-fcal-text-work: color-mix(in srgb, var(--app-hue-work, #8b5e34) 65%, var(--app-text) 35%);
+    --app-fcal-text-school: color-mix(in srgb, var(--app-hue-school, #2f9e44) 65%, var(--app-text) 35%);
+    --app-fcal-text-sleep: color-mix(in srgb, var(--app-hue-sleep, #6f42c1) 65%, var(--app-text) 35%);
+    color: var(--app-text);
 }
 
 /*
@@ -184,13 +184,13 @@
  * match each block's own hue rather than plain body text, same idea as the
  * source app's darken($x, N%) in light mode / lighten($x, N%) in dark mode.
  * Instead of precomputing separate light/dark hex constants, this blends
- * each hue toward --wtf-text with color-mix() — one formula, reactive to
+ * each hue toward --app-text with color-mix() — one formula, reactive to
  * either theme automatically, no magic numbers to keep in sync by hand.
  */
 /*
- * --wtf-hue-free/highlighted/sleep are set inline per-owner (Settings.vue's
+ * --app-hue-free/highlighted/sleep are set inline per-owner (Settings.vue's
  * live preview, Free/Show.vue's rootStyle) alongside the matching
- * --wtf-color-* background override, to the same theme-resolved hex the
+ * --app-color-* background override, to the same theme-resolved hex the
  * background uses — falling back here to the un-tinted default hue when an
  * owner hasn't customized that slot. Previously these three were always
  * mixed from a hardcoded default hue regardless of any customization, so
@@ -198,32 +198,32 @@
  * block's background, never its label text.
  */
 :root {
-    --wtf-fcal-text-free: color-mix(in srgb, var(--wtf-hue-free, var(--wtf-accent)) 65%, var(--wtf-text) 35%);
-    --wtf-fcal-text-highlighted: color-mix(in srgb, var(--wtf-hue-highlighted, #ffd60a) 65%, var(--wtf-text) 35%);
-    --wtf-fcal-text-work: color-mix(in srgb, var(--wtf-hue-work, #8b5e34) 65%, var(--wtf-text) 35%);
-    --wtf-fcal-text-school: color-mix(in srgb, var(--wtf-hue-school, #2f9e44) 65%, var(--wtf-text) 35%);
-    --wtf-fcal-text-sleep: color-mix(in srgb, var(--wtf-hue-sleep, #6f42c1) 65%, var(--wtf-text) 35%);
+    --app-fcal-text-free: color-mix(in srgb, var(--app-hue-free, var(--app-accent)) 65%, var(--app-text) 35%);
+    --app-fcal-text-highlighted: color-mix(in srgb, var(--app-hue-highlighted, #ffd60a) 65%, var(--app-text) 35%);
+    --app-fcal-text-work: color-mix(in srgb, var(--app-hue-work, #8b5e34) 65%, var(--app-text) 35%);
+    --app-fcal-text-school: color-mix(in srgb, var(--app-hue-school, #2f9e44) 65%, var(--app-text) 35%);
+    --app-fcal-text-sleep: color-mix(in srgb, var(--app-hue-sleep, #6f42c1) 65%, var(--app-text) 35%);
 }
 
 /*
  * "Unavailable" is the one block type that isn't owner-color-reactive on
  * the reference site — it doesn't tint toward the busy color (usually
- * near-black, which color-mix()'d toward --wtf-text would just stay
+ * near-black, which color-mix()'d toward --app-text would just stay
  * near-black in dark mode too, unreadable). Checked live against the
  * reference /free page's desktop week view (not the mobile agenda view,
  * which uses a different, unthemed rgb(248,249,250)/near-white there
- * instead — that one's left as plain --wtf-text): rgb(15,17,18) in light,
+ * instead — that one's left as plain --app-text): rgb(15,17,18) in light,
  * rgb(113,126,140) in dark. Fixed per-theme literals, same convention as
- * --wtf-color-busy above, since there's no hue here for color-mix() to
+ * --app-color-busy above, since there's no hue here for color-mix() to
  * blend toward.
  */
 :root,
 :root[data-bs-theme="dark"] {
-    --wtf-fcal-text-unavailable: #717e8c;
+    --app-fcal-text-unavailable: #717e8c;
 }
 
 :root[data-bs-theme="light"] {
-    --wtf-fcal-text-unavailable: #0f1112;
+    --app-fcal-text-unavailable: #0f1112;
 }
 
 :root[data-bs-theme="light"] .btn-secondary {
@@ -233,19 +233,19 @@
 /*
  * `.navbar-dark` hardcodes white brand/nav-link text (Bootstrap assumes a
  * permanently dark navbar) — fine for the dark theme, but invisible once
- * the light theme's white/near-white --wtf-bg-elevated shows through the
+ * the light theme's white/near-white --app-bg-elevated shows through the
  * same navbar. Every navbar in the app (header partial, dashboard layout)
  * uses `.navbar-dark` purely for its other defaults, so repaint the text
  * itself to track the current theme instead.
  */
 .navbar-dark .navbar-brand,
 .navbar-dark .navbar-nav .nav-link {
-    color: var(--wtf-text);
+    color: var(--app-text);
 }
 
 .navbar-dark .navbar-nav .nav-link:hover,
 .navbar-dark .navbar-nav .nav-link.active {
-    color: var(--wtf-accent);
+    color: var(--app-accent);
 }
 
 /*
@@ -262,61 +262,61 @@
        getComputedStyle): a semi-transparent accent background over a
        blurred backdrop, plus a soft accent-colored glow instead of a flat
        shadow. */
-    background: linear-gradient(var(--wtf-header-overlay), var(--wtf-header-overlay)), rgba(var(--wtf-accent-rgb), 0.9) !important;
+    background: linear-gradient(var(--app-header-overlay), var(--app-header-overlay)), rgba(var(--app-accent-rgb), 0.9) !important;
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
-    box-shadow: 0 0 10px 0 rgba(var(--wtf-accent-rgb), 0.9);
+    box-shadow: 0 0 10px 0 rgba(var(--app-accent-rgb), 0.9);
 }
 
 .wtf-brand-header .navbar-brand,
 .wtf-brand-header .navbar-nav .nav-link {
-    color: var(--wtf-header-text);
+    color: var(--app-header-text);
 }
 
 .wtf-brand-header .navbar-nav .nav-link:hover,
 .wtf-brand-header .navbar-nav .nav-link.active {
-    color: var(--wtf-header-text-hover);
+    color: var(--app-header-text-hover);
 }
 
-/* .btn-outline-secondary's default color/border (var(--wtf-text-muted) /
-   var(--wtf-border)) is tuned for a neutral card surface — unreadable
+/* .btn-outline-secondary's default color/border (var(--app-text-muted) /
+   var(--app-border)) is tuned for a neutral card surface — unreadable
    against the header's vivid, always-blue background regardless of theme. */
 .wtf-brand-header .btn-outline-secondary {
-    color: var(--wtf-header-text);
-    border-color: var(--wtf-header-text);
+    color: var(--app-header-text);
+    border-color: var(--app-header-text);
 }
 
 .wtf-brand-header .btn-outline-secondary:hover:not(:disabled) {
     background-color: rgba(255, 255, 255, 0.15);
-    color: var(--wtf-header-text-hover);
-    border-color: var(--wtf-header-text-hover);
+    color: var(--app-header-text-hover);
+    border-color: var(--app-header-text-hover);
 }
 
 /* ThemeToggle.vue: btn-link (matching the source app's own theme switcher),
    not btn-outline-secondary — Bootstrap's default link color is unreadable
    on both the header's blue backdrop and a dark card surface. */
 .btn-link {
-    color: var(--wtf-text);
+    color: var(--app-text);
 }
 
 .btn-link:hover:not(:disabled) {
-    color: var(--wtf-accent);
+    color: var(--app-accent);
     text-decoration: none;
 }
 
 .wtf-brand-header .btn-link {
-    color: var(--wtf-header-text);
+    color: var(--app-header-text);
 }
 
 .wtf-brand-header .btn-link:hover:not(:disabled) {
-    color: var(--wtf-header-text-hover);
+    color: var(--app-header-text-hover);
 }
 
 .wtf-backdrop {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    background: var(--wtf-accent);
+    background: var(--app-accent);
 }
 
 .wtf-backdrop > .wtf-page-content {
@@ -325,8 +325,8 @@
 
 .wtf-footer {
     flex: 1 0 auto;
-    background: var(--wtf-bg-elevated);
-    color: var(--wtf-text);
+    background: var(--app-bg-elevated);
+    color: var(--app-text);
     display: flex;
     align-items: flex-start;
     justify-content: center;
@@ -339,13 +339,13 @@
 }
 
 .wtf-footer a {
-    color: var(--wtf-text);
+    color: var(--app-text);
     text-decoration: underline;
 }
 
 body {
-    background-color: var(--wtf-bg);
-    color: var(--wtf-text);
+    background-color: var(--app-bg);
+    color: var(--app-text);
 }
 
 /* A visible gap below the header (the card was otherwise butted right up
@@ -378,81 +378,81 @@ body {
 }
 
 a {
-    color: var(--wtf-accent);
+    color: var(--app-accent);
 }
 
 .card,
 .modal-content {
-    background-color: var(--wtf-bg-elevated);
-    border-color: var(--wtf-border);
-    color: var(--wtf-text);
+    background-color: var(--app-bg-elevated);
+    border-color: var(--app-border);
+    color: var(--app-text);
 }
 
 /* Bootstrap 4's .table hardcodes a dark #212529 text color regardless of
    its container's background — invisible against a dark card body. */
 .table {
-    color: var(--wtf-text);
+    color: var(--app-text);
 }
 
 .table thead th {
-    border-color: var(--wtf-border);
+    border-color: var(--app-border);
 }
 
 .table td,
 .table th {
-    border-top-color: var(--wtf-border);
+    border-top-color: var(--app-border);
 }
 
 /* Bootstrap's own .text-muted is a flat #6c757d with !important — beats a
-   plain var(--wtf-text-muted) rule unless this also carries !important.
+   plain var(--app-text-muted) rule unless this also carries !important.
    Needed so a per-owner secondary_color override (Free/Show.vue's
    rootStyle) actually reaches text-muted elements on the public page. */
 .text-muted {
-    color: var(--wtf-text-muted) !important;
+    color: var(--app-text-muted) !important;
 }
 
 .btn-outline-secondary {
-    color: var(--wtf-text-muted);
-    border-color: var(--wtf-border);
+    color: var(--app-text-muted);
+    border-color: var(--app-border);
 }
 
 .btn-outline-secondary:hover:not(:disabled) {
-    background-color: var(--wtf-bg-elevated);
-    color: var(--wtf-text);
-    border-color: var(--wtf-text-muted);
+    background-color: var(--app-bg-elevated);
+    color: var(--app-text);
+    border-color: var(--app-text-muted);
 }
 
 .btn-secondary {
-    background-color: var(--wtf-accent);
-    border-color: var(--wtf-accent);
-    color: var(--wtf-accent-text);
+    background-color: var(--app-accent);
+    border-color: var(--app-accent);
+    color: var(--app-accent-text);
 }
 
 .btn-secondary:hover:not(:disabled) {
     filter: brightness(1.1);
-    background-color: var(--wtf-accent);
-    border-color: var(--wtf-accent);
-    color: var(--wtf-accent-text);
+    background-color: var(--app-accent);
+    border-color: var(--app-accent);
+    color: var(--app-accent-text);
 }
 
 .btn-group .btn-outline-secondary.active,
 .btn-check:checked + .btn-outline-secondary {
-    background-color: var(--wtf-accent);
-    border-color: var(--wtf-accent);
-    color: var(--wtf-accent-text);
+    background-color: var(--app-accent);
+    border-color: var(--app-accent);
+    color: var(--app-accent-text);
 }
 
 .form-control {
-    background-color: var(--wtf-bg-elevated);
-    border-color: var(--wtf-border);
-    color: var(--wtf-text);
+    background-color: var(--app-bg-elevated);
+    border-color: var(--app-border);
+    color: var(--app-text);
 }
 
 .form-control:focus {
-    background-color: var(--wtf-bg-elevated);
-    color: var(--wtf-text);
-    border-color: var(--wtf-accent);
-    box-shadow: 0 0 0 0.2rem rgba(var(--wtf-accent-rgb), 0.25);
+    background-color: var(--app-bg-elevated);
+    color: var(--app-text);
+    border-color: var(--app-accent);
+    box-shadow: 0 0 0 0.2rem rgba(var(--app-accent-rgb), 0.25);
 }
 
 /*
@@ -468,53 +468,53 @@ a {
  * that need dark text, not just darker ones that read fine with white).
  */
 .btn-primary {
-    background-color: var(--wtf-accent);
-    border-color: var(--wtf-accent);
-    color: var(--wtf-accent-text);
+    background-color: var(--app-accent);
+    border-color: var(--app-accent);
+    color: var(--app-accent-text);
 }
 
 .btn-primary:hover:not(:disabled) {
     filter: brightness(1.1);
-    background-color: var(--wtf-accent);
-    border-color: var(--wtf-accent);
-    color: var(--wtf-accent-text);
+    background-color: var(--app-accent);
+    border-color: var(--app-accent);
+    color: var(--app-accent-text);
 }
 
 .btn-primary:focus,
 .btn-primary.focus,
 .btn-primary:not(:disabled):not(.disabled):active {
-    background-color: var(--wtf-accent);
-    border-color: var(--wtf-accent);
-    color: var(--wtf-accent-text);
-    box-shadow: 0 0 0 0.2rem rgba(var(--wtf-accent-rgb), 0.5);
+    background-color: var(--app-accent);
+    border-color: var(--app-accent);
+    color: var(--app-accent-text);
+    box-shadow: 0 0 0 0.2rem rgba(var(--app-accent-rgb), 0.5);
 }
 
 .text-primary {
-    color: var(--wtf-accent) !important;
+    color: var(--app-accent) !important;
 }
 
 .text-bg-primary {
-    background-color: var(--wtf-accent) !important;
+    background-color: var(--app-accent) !important;
 }
 
 /* BS5's checkbox/radio fill is on the input itself, not a sibling label's
    ::before pseudo-element (that was BS4's .custom-control-* pattern). */
 .form-check-input:checked {
-    background-color: var(--wtf-accent);
-    border-color: var(--wtf-accent);
+    background-color: var(--app-accent);
+    border-color: var(--app-accent);
 }
 
 .form-check-input:focus {
-    box-shadow: 0 0 0 0.2rem rgba(var(--wtf-accent-rgb), 0.25);
+    box-shadow: 0 0 0 0.2rem rgba(var(--app-accent-rgb), 0.25);
 }
 
 .page-link {
-    color: var(--wtf-accent);
+    color: var(--app-accent);
 }
 
 .page-item.active .page-link {
-    background-color: var(--wtf-accent);
-    border-color: var(--wtf-accent);
+    background-color: var(--app-accent);
+    border-color: var(--app-accent);
 }
 
 .text-warning {
@@ -526,7 +526,7 @@ a {
 }
 
 hr {
-    border-top-color: var(--wtf-border);
+    border-top-color: var(--app-border);
 }
 
 /*
@@ -556,12 +556,12 @@ hr {
     font-weight: 700;
     padding-bottom: 0.4rem;
     margin-bottom: 0.5rem;
-    border-bottom: 2px solid var(--wtf-border);
+    border-bottom: 2px solid var(--app-border);
 }
 
 .wtf-agenda-day-header.is-today {
-    color: var(--wtf-accent);
-    border-bottom-color: var(--wtf-accent);
+    color: var(--app-accent);
+    border-bottom-color: var(--app-accent);
 }
 
 .wtf-agenda-slot {
@@ -579,21 +579,21 @@ hr {
     height: 100%;
     padding: 1rem;
     border-radius: 0.25rem;
-    background-color: var(--wtf-bg);
-    border: 1px solid var(--wtf-border);
+    background-color: var(--app-bg);
+    border: 1px solid var(--app-border);
 }
 
 /* DayPreview.vue: a single-day column of absolute-positioned blocks, same
    visual language as Free/Show.vue's real week view (topPct/heightPct over
-   a full 24h column, background = var(--wtf-color-*)) — see that
+   a full 24h column, background = var(--app-color-*)) — see that
    component's header comment for why this is a separate, declarative
    implementation rather than a shared one. */
 .wtf-daypreview-column {
     position: relative;
     height: 16rem;
-    border: 1px solid var(--wtf-border);
+    border: 1px solid var(--app-border);
     border-radius: 0.25rem;
-    background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(2rem - 1px), var(--wtf-border) calc(2rem - 1px), var(--wtf-border) 2rem);
+    background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(2rem - 1px), var(--app-border) calc(2rem - 1px), var(--app-border) 2rem);
 }
 
 .wtf-daypreview-block {
@@ -610,7 +610,7 @@ hr {
  * CalendarView.vue — ported from WentTheNuxt's FreeCalendarView.module.scss.
  * Class names are wtf-fcal-* (this app's own convention) rather than the
  * CSS-module-generated names in the source, and colors come from this
- * file's --wtf-color-* / --wtf-accent-* custom properties instead of
+ * file's --app-color-* / --app-accent-* custom properties instead of
  * Bootstrap Sass variables — everything else (layout, sizing, the
  * tentative-fade technique) is a direct translation, not a redesign.
  */
@@ -626,14 +626,14 @@ hr {
 
 .wtf-fcal {
     min-width: 520px;
-    border: 1px solid var(--wtf-border);
+    border: 1px solid var(--app-border);
     border-radius: 0.25rem;
     overflow: hidden;
 }
 
 .wtf-fcal-header {
     display: flex;
-    border-bottom: 2px solid var(--wtf-accent);
+    border-bottom: 2px solid var(--app-accent);
 }
 
 .wtf-fcal-time-gutter-header {
@@ -650,12 +650,12 @@ hr {
 .wtf-fcal-day-header {
     text-align: center;
     padding: 0.4rem 0.25rem;
-    border-left: 1px solid var(--wtf-border);
+    border-left: 1px solid var(--app-border);
     font-size: 0.875rem;
 }
 
 .wtf-fcal-day-header.is-today {
-    color: var(--wtf-accent);
+    color: var(--app-accent);
     font-weight: 700;
 }
 
@@ -686,7 +686,7 @@ hr {
     position: absolute;
     right: 0.4rem;
     font-size: 0.65rem;
-    color: var(--wtf-text-muted);
+    color: var(--app-text-muted);
     transform: translateY(-50%);
     user-select: none;
     pointer-events: none;
@@ -696,18 +696,18 @@ hr {
     flex: 1;
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    border-left: 1px solid var(--wtf-border);
+    border-left: 1px solid var(--app-border);
     position: relative;
 }
 
 .wtf-fcal-day-column {
     position: relative;
-    border-right: 1px solid var(--wtf-border);
-    background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(2.25rem - 1px), var(--wtf-border) calc(2.25rem - 1px), var(--wtf-border) 2.25rem);
+    border-right: 1px solid var(--app-border);
+    background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(2.25rem - 1px), var(--app-border) calc(2.25rem - 1px), var(--app-border) 2.25rem);
 }
 
 .wtf-fcal-day-column.is-today {
-    background-color: rgba(var(--wtf-accent-rgb), var(--wtf-fcal-today-alpha));
+    background-color: rgba(var(--app-accent-rgb), var(--app-fcal-today-alpha));
 }
 
 /* Shared positioning for every block type, regardless of which type-specific
@@ -729,23 +729,23 @@ hr {
 }
 
 .wtf-fcal-free-block {
-    background-color: var(--wtf-color-free);
+    background-color: var(--app-color-free);
 }
 
 .wtf-fcal-unavailable-block {
-    background-color: var(--wtf-color-busy);
+    background-color: var(--app-color-busy);
 }
 
 .wtf-fcal-unavailable-block .wtf-fcal-block-label {
-    color: var(--wtf-fcal-text-unavailable);
+    color: var(--app-fcal-text-unavailable);
 }
 
 .wtf-fcal-highlighted-block {
-    background-color: var(--wtf-color-highlighted);
+    background-color: var(--app-color-highlighted);
 }
 
 .wtf-fcal-highlighted-block .wtf-fcal-block-label {
-    color: var(--wtf-fcal-text-highlighted);
+    color: var(--app-fcal-text-highlighted);
 }
 
 .wtf-fcal-highlighted-block .wtf-fcal-block-label-time {
@@ -753,27 +753,27 @@ hr {
 }
 
 .wtf-fcal-work-block {
-    background-color: var(--wtf-color-work);
+    background-color: var(--app-color-work);
 }
 
 .wtf-fcal-work-block .wtf-fcal-block-label {
-    color: var(--wtf-fcal-text-work);
+    color: var(--app-fcal-text-work);
 }
 
 .wtf-fcal-school-block {
-    background-color: var(--wtf-color-school);
+    background-color: var(--app-color-school);
 }
 
 .wtf-fcal-school-block .wtf-fcal-block-label {
-    color: var(--wtf-fcal-text-school);
+    color: var(--app-fcal-text-school);
 }
 
 .wtf-fcal-sleep-block {
-    background-color: var(--wtf-color-sleep);
+    background-color: var(--app-color-sleep);
 }
 
 .wtf-fcal-sleep-block .wtf-fcal-block-label {
-    color: var(--wtf-fcal-text-sleep);
+    color: var(--app-fcal-text-sleep);
 }
 
 .wtf-fcal-block-label {
@@ -785,7 +785,7 @@ hr {
        that no block (tentative or not) has a border, to keep the transition
        between them seamless. */
     padding: 4px 7px 4px 10px;
-    color: var(--wtf-fcal-text-free);
+    color: var(--app-fcal-text-free);
     line-height: 1em;
     overflow: hidden;
 }
@@ -826,27 +826,27 @@ hr {
 }
 
 .wtf-fcal-free-block.wtf-fcal-tentative-block::before {
-    --own-color: var(--wtf-color-free);
+    --own-color: var(--app-color-free);
 }
 
 .wtf-fcal-unavailable-block.wtf-fcal-tentative-block::before {
-    --own-color: var(--wtf-color-busy);
+    --own-color: var(--app-color-busy);
 }
 
 .wtf-fcal-highlighted-block.wtf-fcal-tentative-block::before {
-    --own-color: var(--wtf-color-highlighted);
+    --own-color: var(--app-color-highlighted);
 }
 
 .wtf-fcal-work-block.wtf-fcal-tentative-block::before {
-    --own-color: var(--wtf-color-work);
+    --own-color: var(--app-color-work);
 }
 
 .wtf-fcal-school-block.wtf-fcal-tentative-block::before {
-    --own-color: var(--wtf-color-school);
+    --own-color: var(--app-color-school);
 }
 
 .wtf-fcal-sleep-block.wtf-fcal-tentative-block::before {
-    --own-color: var(--wtf-color-sleep);
+    --own-color: var(--app-color-sleep);
 }
 
 .wtf-fcal-current-time {
@@ -854,7 +854,7 @@ hr {
     left: 0;
     right: 0;
     height: 2px;
-    background-color: var(--wtf-color-now);
+    background-color: var(--app-color-now);
     z-index: 2;
 }
 
@@ -866,7 +866,7 @@ hr {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background-color: var(--wtf-color-now);
+    background-color: var(--app-color-now);
 }
 
 .wtf-fcal-loading-overlay {
@@ -874,7 +874,7 @@ hr {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--wtf-text-muted);
+    color: var(--app-text-muted);
 }
 
 .wtf-fcal-error-state {
@@ -893,8 +893,8 @@ hr {
     max-width: 80%;
     padding: 0.75rem 1.5rem;
     border-radius: 0.3rem;
-    background-color: rgba(var(--wtf-accent-rgb), 0.12);
-    color: var(--wtf-text-muted);
+    background-color: rgba(var(--app-accent-rgb), 0.12);
+    color: var(--app-text-muted);
     font-style: italic;
     font-weight: 600;
     font-size: 1.05rem;
@@ -934,13 +934,13 @@ hr {
 }
 
 .wtf-fagenda-list {
-    border: 1px solid var(--wtf-border);
+    border: 1px solid var(--app-border);
     border-radius: 0.25rem;
     overflow: hidden;
 }
 
 .wtf-fagenda-day {
-    border-bottom: 1px solid var(--wtf-border);
+    border-bottom: 1px solid var(--app-border);
 }
 
 .wtf-fagenda-day:last-child {
@@ -952,12 +952,12 @@ hr {
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 0.75rem;
-    background-color: var(--wtf-bg-elevated);
-    border-bottom: 1px solid var(--wtf-border);
+    background-color: var(--app-bg-elevated);
+    border-bottom: 1px solid var(--app-border);
 }
 
 .wtf-fagenda-day-header.is-today {
-    color: var(--wtf-accent);
+    color: var(--app-accent);
 }
 
 .wtf-fagenda-day-name {
@@ -976,7 +976,7 @@ hr {
     left: 0;
     right: 0;
     height: 2px;
-    background-color: var(--wtf-color-now);
+    background-color: var(--app-color-now);
     z-index: 1;
     pointer-events: none;
 }
@@ -989,7 +989,7 @@ hr {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background-color: var(--wtf-color-now);
+    background-color: var(--app-color-now);
 }
 
 .wtf-fagenda-slot {
@@ -998,52 +998,52 @@ hr {
     align-items: flex-start;
     justify-content: space-between;
     padding: 0.15rem 0.9rem 0.15rem calc(0.9rem + 3px);
-    background-color: var(--wtf-color-free);
+    background-color: var(--app-color-free);
 }
 
 .wtf-fagenda-slot-unavailable {
-    background-color: var(--wtf-color-busy);
+    background-color: var(--app-color-busy);
 }
 
 .wtf-fagenda-slot-unavailable .wtf-fagenda-slot-time,
 .wtf-fagenda-slot-unavailable .wtf-fagenda-slot-label {
-    color: var(--wtf-text);
+    color: var(--app-text);
 }
 
 .wtf-fagenda-slot-highlighted {
-    background-color: var(--wtf-color-highlighted);
+    background-color: var(--app-color-highlighted);
 }
 
 .wtf-fagenda-slot-highlighted .wtf-fagenda-slot-time,
 .wtf-fagenda-slot-highlighted .wtf-fagenda-slot-label {
-    color: var(--wtf-fcal-text-highlighted);
+    color: var(--app-fcal-text-highlighted);
 }
 
 .wtf-fagenda-slot-work {
-    background-color: var(--wtf-color-work);
+    background-color: var(--app-color-work);
 }
 
 .wtf-fagenda-slot-work .wtf-fagenda-slot-time,
 .wtf-fagenda-slot-work .wtf-fagenda-slot-label {
-    color: var(--wtf-fcal-text-work);
+    color: var(--app-fcal-text-work);
 }
 
 .wtf-fagenda-slot-school {
-    background-color: var(--wtf-color-school);
+    background-color: var(--app-color-school);
 }
 
 .wtf-fagenda-slot-school .wtf-fagenda-slot-time,
 .wtf-fagenda-slot-school .wtf-fagenda-slot-label {
-    color: var(--wtf-fcal-text-school);
+    color: var(--app-fcal-text-school);
 }
 
 .wtf-fagenda-slot-sleep {
-    background-color: var(--wtf-color-sleep);
+    background-color: var(--app-color-sleep);
 }
 
 .wtf-fagenda-slot-sleep .wtf-fagenda-slot-time,
 .wtf-fagenda-slot-sleep .wtf-fagenda-slot-label {
-    color: var(--wtf-fcal-text-sleep);
+    color: var(--app-fcal-text-sleep);
 }
 
 .wtf-fagenda-slot-time {
@@ -1052,7 +1052,7 @@ hr {
     font-size: 0.875rem;
     font-weight: 600;
     padding: 0.3rem 0;
-    color: var(--wtf-fcal-text-free);
+    color: var(--app-fcal-text-free);
 }
 
 .wtf-fagenda-slot-label {
@@ -1061,7 +1061,7 @@ hr {
     font-size: 0.75rem;
     font-weight: 700;
     padding: 0.3rem 0;
-    color: var(--wtf-fcal-text-free);
+    color: var(--app-fcal-text-free);
 }
 
 .wtf-fagenda-slot-icon {
@@ -1083,30 +1083,30 @@ hr {
 }
 
 .wtf-fagenda-slot-unavailable.wtf-fagenda-slot-tentative::before {
-    --own-color: var(--wtf-color-busy);
+    --own-color: var(--app-color-busy);
 }
 
 .wtf-fagenda-slot-highlighted.wtf-fagenda-slot-tentative::before {
-    --own-color: var(--wtf-color-highlighted);
+    --own-color: var(--app-color-highlighted);
 }
 
 .wtf-fagenda-slot-work.wtf-fagenda-slot-tentative::before {
-    --own-color: var(--wtf-color-work);
+    --own-color: var(--app-color-work);
 }
 
 .wtf-fagenda-slot-school.wtf-fagenda-slot-tentative::before {
-    --own-color: var(--wtf-color-school);
+    --own-color: var(--app-color-school);
 }
 
 .wtf-fagenda-slot-sleep.wtf-fagenda-slot-tentative::before {
-    --own-color: var(--wtf-color-sleep);
+    --own-color: var(--app-color-sleep);
 }
 
 /*
  * MonthView.vue — ported from WentTheNuxt's FreeMonthView.module.scss.
  * The source app tunes a separate, more opaque color palette for these
  * thin per-day bars (they need more contrast at that size) — this port
- * reuses the same --wtf-color-* tokens as the week/agenda views instead,
+ * reuses the same --app-color-* tokens as the week/agenda views instead,
  * trading that fine-tuning for one consistent palette across all three
  * views app-wide.
  */
@@ -1128,7 +1128,7 @@ hr {
 .wtf-fmonth-grid {
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--wtf-border);
+    border: 1px solid var(--app-border);
     border-radius: 0.25rem;
     padding: 0.5rem;
 }
@@ -1144,7 +1144,7 @@ hr {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--wtf-text-muted);
+    color: var(--app-text-muted);
     padding: 0.25rem 0 0.5rem;
     user-select: none;
 }
@@ -1159,7 +1159,7 @@ hr {
 }
 
 .wtf-fmonth-week-row:hover {
-    background-color: rgba(var(--wtf-accent-rgb), 0.1);
+    background-color: rgba(var(--app-accent-rgb), 0.1);
 }
 
 .wtf-fmonth-day-cell-empty {
@@ -1176,7 +1176,7 @@ hr {
 }
 
 .wtf-fmonth-day-cell.is-today {
-    background-color: rgba(var(--wtf-accent-rgb), 0.08);
+    background-color: rgba(var(--app-accent-rgb), 0.08);
 }
 
 /* A leading/trailing day from the adjacent month, padded in to fill out
@@ -1187,7 +1187,7 @@ hr {
 }
 
 .wtf-fmonth-week-row:hover .wtf-fmonth-day-cell.is-today {
-    background-color: rgba(var(--wtf-accent-rgb), 0.15);
+    background-color: rgba(var(--app-accent-rgb), 0.15);
 }
 
 .wtf-fmonth-day-number {
@@ -1204,7 +1204,7 @@ hr {
 }
 
 .wtf-fmonth-day-number-today {
-    background-color: var(--wtf-accent);
+    background-color: var(--app-accent);
     color: #fff;
     font-weight: 700;
 }
@@ -1229,7 +1229,7 @@ hr {
     left: 0;
     right: 0;
     height: 2px;
-    background-color: var(--wtf-color-now);
+    background-color: var(--app-color-now);
     z-index: 1;
     pointer-events: none;
 }
@@ -1242,7 +1242,7 @@ hr {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background-color: var(--wtf-color-now);
+    background-color: var(--app-color-now);
 }
 
 .wtf-fmonth-avail-block-free {
@@ -1251,33 +1251,33 @@ hr {
     font-size: 0.65rem;
     font-weight: 600;
     line-height: 1.2;
-    background-color: var(--wtf-color-free);
-    color: var(--wtf-fcal-text-free);
+    background-color: var(--app-color-free);
+    color: var(--app-fcal-text-free);
 }
 
 .wtf-fmonth-avail-block-unavail {
     min-height: 0.4rem;
-    background-color: var(--wtf-color-busy);
+    background-color: var(--app-color-busy);
 }
 
 .wtf-fmonth-avail-block-highlighted {
     min-height: 0.4rem;
-    background-color: var(--wtf-color-highlighted);
+    background-color: var(--app-color-highlighted);
 }
 
 .wtf-fmonth-avail-block-work {
     min-height: 0.4rem;
-    background-color: var(--wtf-color-work);
+    background-color: var(--app-color-work);
 }
 
 .wtf-fmonth-avail-block-school {
     min-height: 0.4rem;
-    background-color: var(--wtf-color-school);
+    background-color: var(--app-color-school);
 }
 
 .wtf-fmonth-avail-block-sleep {
     min-height: 0.4rem;
-    background-color: var(--wtf-color-sleep);
+    background-color: var(--app-color-sleep);
 }
 
 /* Same fade-at-the-edges treatment as the week/agenda views — see
@@ -1294,28 +1294,28 @@ hr {
 }
 
 .wtf-fmonth-avail-block-unavail.wtf-fmonth-avail-block-tentative::before {
-    --own-color: var(--wtf-color-busy);
+    --own-color: var(--app-color-busy);
 }
 
 .wtf-fmonth-avail-block-highlighted.wtf-fmonth-avail-block-tentative::before {
-    --own-color: var(--wtf-color-highlighted);
+    --own-color: var(--app-color-highlighted);
 }
 
 .wtf-fmonth-avail-block-work.wtf-fmonth-avail-block-tentative::before {
-    --own-color: var(--wtf-color-work);
+    --own-color: var(--app-color-work);
 }
 
 .wtf-fmonth-avail-block-school.wtf-fmonth-avail-block-tentative::before {
-    --own-color: var(--wtf-color-school);
+    --own-color: var(--app-color-school);
 }
 
 .wtf-fmonth-avail-block-sleep.wtf-fmonth-avail-block-tentative::before {
-    --own-color: var(--wtf-color-sleep);
+    --own-color: var(--app-color-sleep);
 }
 
 .wtf-fmonth-no-data {
     text-align: center;
-    color: var(--wtf-text-muted);
+    color: var(--app-text-muted);
     font-style: italic;
     font-size: 0.875rem;
     margin-top: 1rem;
@@ -1325,7 +1325,7 @@ hr {
  * Settings.vue's palette swatch picker (see color-palette.ts) — a fixed
  * set of pre-approved color options, not a free-form <input type="color">.
  * Each button is a circle split diagonally so both halves of the swatch's
- * light/dark pair are visible at once (--wtf-swatch-light/-dark are set
+ * light/dark pair are visible at once (--app-swatch-light/-dark are set
  * inline per button), rather than only showing whichever half matches the
  * theme the settings page happens to be open in right now.
  */
@@ -1342,14 +1342,14 @@ hr {
     border: none;
     padding: 0;
     cursor: pointer;
-    background: linear-gradient(135deg, var(--wtf-swatch-light) 0 50%, var(--wtf-swatch-dark) 50% 100%);
+    background: linear-gradient(135deg, var(--app-swatch-light) 0 50%, var(--app-swatch-dark) 50% 100%);
     /* A transparent border used to stand in for the "unselected" state here
        — border-box background painting under a fully transparent border
        edge produces a faint anti-aliasing seam right at the circle's rim,
        which read as a stray ring around every unpicked swatch. box-shadow
        alone (same 1px/2px weight either way, only the color changes)
        avoids that seam entirely. */
-    box-shadow: 0 0 0 1px var(--wtf-border);
+    box-shadow: 0 0 0 1px var(--app-border);
     transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
@@ -1358,7 +1358,7 @@ hr {
 }
 
 .wtf-swatch-btn-active {
-    box-shadow: 0 0 0 2px var(--wtf-text);
+    box-shadow: 0 0 0 2px var(--app-text);
 }
 
 /*
@@ -1377,10 +1377,10 @@ hr {
     border: none;
     padding: 0;
     cursor: pointer;
-    background: var(--wtf-bg-elevated);
-    color: var(--wtf-text);
+    background: var(--app-bg-elevated);
+    color: var(--app-text);
     /* Same transparent-border-seam avoidance as .wtf-swatch-btn above. */
-    box-shadow: 0 0 0 1px var(--wtf-border);
+    box-shadow: 0 0 0 1px var(--app-border);
     transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
@@ -1388,16 +1388,16 @@ hr {
     transform: scale(1.1);
 }
 
-/* --wtf-icon-active-color is set inline per button (Settings.vue's
+/* --app-icon-active-color is set inline per button (Settings.vue's
    activeIconColor) to that icon GROUP's own configured color (free/busy/
    work/sleep/highlighted) — not a single generic accent — so a selected
    sleep icon tints purple, a selected work icon tints blue, etc., matching
    whatever that same block type's own color picker (just above this one)
-   is currently set to. Falls back to --wtf-accent only if that variable
+   is currently set to. Falls back to --app-accent only if that variable
    were ever somehow unset. */
 .wtf-icon-swatch-btn-active {
-    box-shadow: 0 0 0 2px var(--wtf-icon-active-color, var(--wtf-accent));
-    color: var(--wtf-icon-active-color, var(--wtf-accent));
+    box-shadow: 0 0 0 2px var(--app-icon-active-color, var(--app-accent));
+    color: var(--app-icon-active-color, var(--app-accent));
 }
 
 /*
@@ -1428,33 +1428,33 @@ hr {
  */
 :root,
 :root[data-bs-theme="dark"] {
-    --wtf-regex-meta: #ff8fa3;
-    --wtf-regex-escape: #ffa94d;
-    --wtf-regex-group: #74c0fc;
+    --app-regex-meta: #ff8fa3;
+    --app-regex-escape: #ffa94d;
+    --app-regex-group: #74c0fc;
     /* Deliberately a plain gray, not another hue — a non-capturing group
        is "just grouping," semantically inert compared to a real capture
-       group (--wtf-regex-group), so it reads as de-emphasized rather than
+       group (--app-regex-group), so it reads as de-emphasized rather than
        competing for attention with the colors that actually matter. */
-    --wtf-regex-noncap: #adb5bd;
-    --wtf-regex-class: #63e6be;
+    --app-regex-noncap: #adb5bd;
+    --app-regex-class: #63e6be;
     /* PatternPreview.vue's match/no-match gutter icon — a dedicated,
        theme-tuned pair rather than Bootstrap's own .text-success (a fixed
        dark green regardless of theme, too low-contrast against a near-
        black background) or .text-muted (its dark-theme value is a fairly
        high-alpha near-white, which reads as "still basically normal text
        color" rather than clearly dimmed). */
-    --wtf-preview-match: #51cf66;
-    --wtf-preview-no-match: #6c757d;
+    --app-preview-match: #51cf66;
+    --app-preview-no-match: #6c757d;
 }
 
 :root[data-bs-theme="light"] {
-    --wtf-regex-meta: #c2255c;
-    --wtf-regex-escape: #d9480f;
-    --wtf-regex-group: #1864ab;
-    --wtf-regex-noncap: #495057;
-    --wtf-regex-class: #087f5b;
-    --wtf-preview-match: #2b8a3e;
-    --wtf-preview-no-match: #adb5bd;
+    --app-regex-meta: #c2255c;
+    --app-regex-escape: #d9480f;
+    --app-regex-group: #1864ab;
+    --app-regex-noncap: #495057;
+    --app-regex-class: #087f5b;
+    --app-preview-match: #2b8a3e;
+    --app-preview-no-match: #adb5bd;
 }
 
 .wtf-regex-editor {
@@ -1514,7 +1514,7 @@ hr {
     background-color: transparent !important;
     border-color: transparent !important;
     box-shadow: none !important;
-    color: var(--wtf-text);
+    color: var(--app-text);
     pointer-events: none;
     user-select: none;
 }
@@ -1535,7 +1535,7 @@ hr {
 .wtf-regex-native.form-control {
     position: relative;
     color: transparent;
-    caret-color: var(--wtf-text);
+    caret-color: var(--app-text);
 }
 
 .wtf-regex-native.form-control::placeholder {
@@ -1548,7 +1548,7 @@ hr {
    be overridden first or it'd fight with every un-tokenized plain-text
    character in the pattern. */
 .wtf-regex-highlighted-code {
-    color: var(--wtf-text);
+    color: var(--app-text);
 }
 
 /* Settings.vue's badge legend (the "Boolean"/"Capture"/"Flag"/"Split"
@@ -1576,27 +1576,27 @@ hr {
 }
 
 .wtf-regex-tok-meta {
-    color: var(--wtf-regex-meta);
+    color: var(--app-regex-meta);
     font-weight: 700;
 }
 
 .wtf-regex-tok-escape {
-    color: var(--wtf-regex-escape);
+    color: var(--app-regex-escape);
     font-weight: 700;
 }
 
 .wtf-regex-tok-group {
-    color: var(--wtf-regex-group);
+    color: var(--app-regex-group);
     font-weight: 700;
 }
 
 .wtf-regex-tok-noncap {
-    color: var(--wtf-regex-noncap);
+    color: var(--app-regex-noncap);
     font-weight: 700;
 }
 
 .wtf-regex-tok-class {
-    color: var(--wtf-regex-class);
+    color: var(--app-regex-class);
     font-weight: 700;
 }
 
@@ -1629,11 +1629,11 @@ hr {
 }
 
 .wtf-pattern-preview-icon-match {
-    color: var(--wtf-preview-match);
+    color: var(--app-preview-match);
 }
 
 .wtf-pattern-preview-icon-no-match {
-    color: var(--wtf-preview-no-match);
+    color: var(--app-preview-no-match);
 }
 
 .wtf-pattern-preview-editor {
@@ -1656,7 +1656,7 @@ hr {
     position: relative;
     resize: vertical;
     color: transparent;
-    caret-color: var(--wtf-text);
+    caret-color: var(--app-text);
     min-height: 100%;
 }
 
@@ -1668,14 +1668,14 @@ hr {
     background-color: transparent !important;
     border-color: transparent !important;
     box-shadow: none !important;
-    color: var(--wtf-text);
+    color: var(--app-text);
     pointer-events: none;
     user-select: none;
     resize: none;
 }
 
 .wtf-match-hit {
-    color: var(--wtf-regex-escape);
+    color: var(--app-regex-escape);
     font-weight: 700;
     /* Color alone shouldn't be the only signal that a span is meaningfully
        highlighted (colorblind accessibility) — an underline carries the
@@ -1684,7 +1684,7 @@ hr {
 }
 
 .wtf-match-capture {
-    color: var(--wtf-accent);
+    color: var(--app-accent);
     font-weight: 700;
     text-decoration: underline;
 }

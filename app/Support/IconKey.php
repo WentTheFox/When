@@ -20,7 +20,7 @@ namespace App\Support;
  *
  * Unlike ColorSwatchKey, there's no light/dark pair per case — a glyph's
  * shape doesn't need a theme-specific variant the way a hex color does;
- * it inherits the same --wtf-fcal-text-* color CSS already gives the
+ * it inherits the same --app-fcal-text-* color CSS already gives the
  * block's label text.
  *
  * A backed enum rather than an assoc array plus a parallel KEYS list —

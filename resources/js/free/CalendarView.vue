@@ -8,7 +8,7 @@
  *     (this app uses the Laravel-family i18n package, not raw vue-i18n).
  *   - CSS modules (*.module.scss, Bootstrap 5 SCSS vars) -> plain CSS
  *     classes in resources/css/dark-theme.css using this app's own
- *     --wtf-color-* custom properties (this app is Bootstrap 4 + a manual
+ *     --app-color-* custom properties (this app is Bootstrap 4 + a manual
  *     dark-theme overlay, not Sass).
  *   - <FontAwesome> (Nuxt global component) -> local FontAwesomeIcon import.
  *   - <CutieMarkPlayer> (a WentTheNuxt-specific mascot asset) -> a plain
@@ -47,12 +47,12 @@ const BLOCK_TYPE_LABEL_KEY: Record<DayBlock['type'], string> = {
 };
 
 const BLOCK_TYPE_COLOR_VAR: Record<DayBlock['type'], string> = {
-  free: '--wtf-color-free',
-  unavailable: '--wtf-color-busy',
-  highlighted: '--wtf-color-highlighted',
-  work: '--wtf-color-work',
-  school: '--wtf-color-school',
-  sleep: '--wtf-color-sleep',
+  free: '--app-color-free',
+  unavailable: '--app-color-busy',
+  highlighted: '--app-color-highlighted',
+  work: '--app-color-work',
+  school: '--app-color-school',
+  sleep: '--app-color-sleep',
 };
 
 const props = defineProps<{

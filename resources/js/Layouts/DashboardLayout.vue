@@ -18,7 +18,7 @@ const resolvedTheme = useResolvedTheme();
 /**
  * Reflects the owner's own public-page accent/secondary colors (Settings)
  * across their dashboard too, not just their public share page's own
- * preview — same --wtf-accent/--wtf-accent-rgb/--wtf-text-muted mapping
+ * preview — same --app-accent/--app-accent-rgb/--app-text-muted mapping
  * Free/Show.vue's rootStyle already applies there, resolved against
  * whichever theme the dashboard itself is currently rendered in. A live
  * override (see liveThemePreview.ts) takes priority while Settings.vue's
@@ -30,10 +30,10 @@ const accentColor = computed(() => liveThemeOverride.value?.accent
 const secondaryColor = computed(() => liveThemeOverride.value?.secondary
   ?? resolveSwatchHex(page.props.auth?.user?.secondaryColorKey, 'secondary', resolvedTheme.value));
 const accentStyle = computed(() => ({
-  '--wtf-accent': accentColor.value,
-  '--wtf-accent-rgb': hexToRgbTriplet(accentColor.value),
-  '--wtf-accent-text': yiqTextColor(accentColor.value),
-  '--wtf-text-muted': secondaryColor.value,
+  '--app-accent': accentColor.value,
+  '--app-accent-rgb': hexToRgbTriplet(accentColor.value),
+  '--app-accent-text': yiqTextColor(accentColor.value),
+  '--app-text-muted': secondaryColor.value,
 }));
 </script>
 

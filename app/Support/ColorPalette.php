@@ -16,7 +16,7 @@ class ColorPalette
         'secondary' => ColorSwatchKey::Silver->value,
         'free' => ColorSwatchKey::Blue->value,
         // Charcoal, not another gray-ramp step: its light hex (#212529)
-        // matches dark-theme.css's own fixed --wtf-color-busy default
+        // matches dark-theme.css's own fixed --app-color-busy default
         // exactly, and its dark hex (#6c757d) is the darkest option the
         // ramp has — every other step (slate/steel/silver/fog) trends
         // lighter in dark theme, which made an un-customized Unavailable

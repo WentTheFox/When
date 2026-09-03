@@ -94,22 +94,22 @@ const rootStyle = computed(() => {
   const alpha = BLOCK_ALPHA[theme];
 
   return {
-    '--wtf-accent': accent,
-    '--wtf-accent-rgb': hexToRgbTriplet(accent),
-    '--wtf-accent-text': yiqTextColor(accent),
-    '--wtf-text-muted': secondary,
-    '--wtf-color-free': hexToRgba(free, alpha.free),
-    '--wtf-hue-free': free,
-    '--wtf-color-busy': hexToRgba(busy, alpha.busy),
-    '--wtf-color-work': hexToRgba(work, alpha.work),
-    '--wtf-hue-work': work,
-    '--wtf-color-school': hexToRgba(school, alpha.school),
-    '--wtf-hue-school': school,
-    '--wtf-color-sleep': hexToRgba(sleep, alpha.sleep),
-    '--wtf-hue-sleep': sleep,
-    '--wtf-color-highlighted': hexToRgba(highlighted, alpha.highlighted),
-    '--wtf-hue-highlighted': highlighted,
-    '--wtf-color-now': resolveNowColorHex(props.colors.now, theme),
+    '--app-accent': accent,
+    '--app-accent-rgb': hexToRgbTriplet(accent),
+    '--app-accent-text': yiqTextColor(accent),
+    '--app-text-muted': secondary,
+    '--app-color-free': hexToRgba(free, alpha.free),
+    '--app-hue-free': free,
+    '--app-color-busy': hexToRgba(busy, alpha.busy),
+    '--app-color-work': hexToRgba(work, alpha.work),
+    '--app-hue-work': work,
+    '--app-color-school': hexToRgba(school, alpha.school),
+    '--app-hue-school': school,
+    '--app-color-sleep': hexToRgba(sleep, alpha.sleep),
+    '--app-hue-sleep': sleep,
+    '--app-color-highlighted': hexToRgba(highlighted, alpha.highlighted),
+    '--app-hue-highlighted': highlighted,
+    '--app-color-now': resolveNowColorHex(props.colors.now, theme),
   };
 });
 

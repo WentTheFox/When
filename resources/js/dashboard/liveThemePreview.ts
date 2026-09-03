@@ -3,7 +3,7 @@ import { inject, provide, ref, type Ref } from 'vue';
 /**
  * Lets a settings-editing page (Settings.vue's accent/secondary color
  * pickers) live-preview a color change across the whole dashboard chrome
- * (nav, links, --wtf-text-muted elements) before it's ever saved — not just
+ * (nav, links, --app-text-muted elements) before it's ever saved — not just
  * in that page's own local preview panel. DashboardLayout provides the
  * shared ref; a page injects it and writes into it while mounted, clearing
  * it on unmount so navigating away restores the owner's actually-saved

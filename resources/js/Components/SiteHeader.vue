@@ -93,7 +93,7 @@ function logout(): void {
         <ThemeToggle />
 
         <template v-if="page.props.auth?.user">
-          <Link href="/dashboard/account" class="d-flex align-items-center text-decoration-none ms-3 me-3" style="color: var(--wtf-header-text);">
+          <Link href="/dashboard/account" class="d-flex align-items-center text-decoration-none ms-3 me-3" style="color: var(--app-header-text);">
             <img
               v-if="page.props.auth.user.avatarUrl"
               :src="page.props.auth.user.avatarUrl"

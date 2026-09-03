@@ -28,7 +28,7 @@
  * ColorPalette slots the /free viewer itself resolves via
  * resolveSwatchHex), not Bootstrap's stock text-primary/text-danger/
  * bg-primary/bg-danger utility classes — those don't track an owner's
- * chosen palette (dark-theme.css repaints .text-primary to --wtf-accent
+ * chosen palette (dark-theme.css repaints .text-primary to --app-accent
  * app-wide but leaves .bg-primary at Bootstrap's own stock blue, so the
  * label text and its own bar segment didn't even agree with each other).
  */

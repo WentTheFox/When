@@ -26,12 +26,12 @@ const AVAIL_BLOCK_CLASS: Record<DayBlock['type'], string> = {
 };
 
 const AVAIL_BLOCK_COLOR_VAR: Record<DayBlock['type'], string> = {
-  free: '--wtf-color-free',
-  unavailable: '--wtf-color-busy',
-  highlighted: '--wtf-color-highlighted',
-  work: '--wtf-color-work',
-  school: '--wtf-color-school',
-  sleep: '--wtf-color-sleep',
+  free: '--app-color-free',
+  unavailable: '--app-color-busy',
+  highlighted: '--app-color-highlighted',
+  work: '--app-color-work',
+  school: '--app-color-school',
+  sleep: '--app-color-sleep',
 };
 
 const props = defineProps<{

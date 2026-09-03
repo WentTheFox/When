@@ -1,9 +1,9 @@
 /**
  * <input type="color"> (Settings.vue's accent/free/busy/sleep/highlighted
  * pickers) only ever produces a solid "#RRGGBB" hex — no alpha channel.
- * Binding that straight to --wtf-color-free/busy/highlighted/sleep would
+ * Binding that straight to --app-color-free/busy/highlighted/sleep would
  * make an owner's customized blocks fully opaque, losing the transparent-
- * wash treatment every default color gets (see dark-theme.css's --wtf-
+ * wash treatment every default color gets (see dark-theme.css's --app-
  * color-* — verified against the reference site's own computed styles).
  * This re-applies the same alpha the built-in dark-theme default uses, so
  * a custom color reads the same way as the defaults, just a different hue.
@@ -17,10 +17,10 @@ export function hexToRgba(hex: string, alpha: number): string {
 }
 
 /**
- * --wtf-accent-rgb exists because --wtf-fcal-today-bg/.wtf-fmonth-day-cell.is-today
- * need the bare "r, g, b" channels to build their own rgba(var(--wtf-accent-rgb), a)
+ * --app-accent-rgb exists because --app-fcal-today-bg/.wtf-fmonth-day-cell.is-today
+ * need the bare "r, g, b" channels to build their own rgba(var(--app-accent-rgb), a)
  * — CSS can't pull channels back out of a hex custom property. Whenever
- * --wtf-accent is overridden with an owner's custom color, --wtf-accent-rgb
+ * --app-accent is overridden with an owner's custom color, --app-accent-rgb
  * must be set alongside it or the today-highlight backgrounds silently keep
  * using the default accent's RGB instead of the custom one.
  */
@@ -60,14 +60,14 @@ export const BLOCK_ALPHA = {
 
 /**
  * Bootstrap's own pre-5.3 `color-yiq()` Sass function, ported to run at
- * runtime — dark-theme.css can't use the Sass version since --wtf-accent is
+ * runtime — dark-theme.css can't use the Sass version since --app-accent is
  * a CSS custom property set from an owner's palette choice, not a Sass
  * variable resolved at build time. Buttons painted with an owner's accent
  * color (.btn-primary, .btn-secondary, the active Month/Week toggle, etc.)
  * need their label color picked per-swatch instead of assuming the accent
  * is always dark enough for light text — ColorPalette.php's swatches span
  * both (charcoal to fog, red to amber), and "Today"/active-view buttons in
- * dark theme were rendering near-black text (--wtf-bg's dark-theme value)
+ * dark theme were rendering near-black text (--app-bg's dark-theme value)
  * on a medium-lightness accent, unreadable.
  */
 export function yiqTextColor(hex: string): '#000' | '#fff' {

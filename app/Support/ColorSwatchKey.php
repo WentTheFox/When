@@ -36,12 +36,12 @@ namespace App\Support;
  *
  * Every swatch is WCAG-AA verified (>=4.5:1), not just eyeballed: each hex
  * is checked as it's ACTUALLY rendered — color-mix(in srgb, hue 65%,
- * --wtf-text 35%) (dark-theme.css's --wtf-fcal-text-* formula) against
- * --wtf-bg, separately for light-hex-vs-light-theme and
+ * --app-text 35%) (dark-theme.css's --app-fcal-text-* formula) against
+ * --app-bg, separately for light-hex-vs-light-theme and
  * dark-hex-vs-dark-theme (a block label's own background is the page
  * background, since blocks tile directly on it) — not the raw swatch hex
  * alone, which would understate real contrast since the rendered text
- * color is always blended toward --wtf-text. lime and fog needed the
+ * color is always blended toward --app-text. lime and fog needed the
  * generated hue's default lightness pulled in from the hue-averaging /
  * gray-ramp math to clear 4.5:1; every other swatch already cleared it
  * with no adjustment.

@@ -84,7 +84,7 @@ class HandleInertiaRequests extends Middleware
                     // colors (Settings) across their dashboard too, applied
                     // by DashboardLayout.vue the same way Free/Show.vue's
                     // rootStyle already applies them on the public page
-                    // (--wtf-accent/--wtf-accent-rgb, --wtf-text-muted) —
+                    // (--app-accent/--app-accent-rgb, --app-text-muted) —
                     // not sensitive, same tier as the other public-page
                     // display settings (§0.2, not §0.1). Palette KEYs, not
                     // hex — see resources/js/free/color-palette.ts.

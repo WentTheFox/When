@@ -366,7 +366,7 @@ const currentTimePct = (() => {
 
 /**
  * <input type="color"> only ever gives a solid hex, no alpha — binding it
- * straight to --wtf-color-* would make these preview blocks fully opaque,
+ * straight to --app-color-* would make these preview blocks fully opaque,
  * losing the transparent-wash treatment every block gets on the real /free
  * page (see color-utils.ts). Re-applies the same alpha so what's previewed
  * here actually matches what a viewer would see. Same helper as
@@ -385,21 +385,21 @@ function previewStyleFor(theme: 'light' | 'dark') {
   const alpha = BLOCK_ALPHA[theme];
 
   return {
-    '--wtf-accent': accent,
-    '--wtf-accent-rgb': hexToRgbTriplet(accent),
-    '--wtf-accent-text': yiqTextColor(accent),
-    '--wtf-color-free': hexToRgba(free, alpha.free),
-    '--wtf-hue-free': free,
-    '--wtf-color-busy': hexToRgba(busy, alpha.busy),
-    '--wtf-color-work': hexToRgba(work, alpha.work),
-    '--wtf-hue-work': work,
-    '--wtf-color-school': hexToRgba(school, alpha.school),
-    '--wtf-hue-school': school,
-    '--wtf-color-sleep': hexToRgba(sleep, alpha.sleep),
-    '--wtf-hue-sleep': sleep,
-    '--wtf-color-highlighted': hexToRgba(highlighted, alpha.highlighted),
-    '--wtf-hue-highlighted': highlighted,
-    '--wtf-color-now': resolveNowColorHex(props.form.now_color_key, theme),
+    '--app-accent': accent,
+    '--app-accent-rgb': hexToRgbTriplet(accent),
+    '--app-accent-text': yiqTextColor(accent),
+    '--app-color-free': hexToRgba(free, alpha.free),
+    '--app-hue-free': free,
+    '--app-color-busy': hexToRgba(busy, alpha.busy),
+    '--app-color-work': hexToRgba(work, alpha.work),
+    '--app-hue-work': work,
+    '--app-color-school': hexToRgba(school, alpha.school),
+    '--app-hue-school': school,
+    '--app-color-sleep': hexToRgba(sleep, alpha.sleep),
+    '--app-hue-sleep': sleep,
+    '--app-color-highlighted': hexToRgba(highlighted, alpha.highlighted),
+    '--app-hue-highlighted': highlighted,
+    '--app-color-now': resolveNowColorHex(props.form.now_color_key, theme),
   };
 }
 
@@ -469,7 +469,7 @@ const PUBLIC_PAGE_FIELDS = [
                   class="wtf-swatch-btn"
                   :class="{ 'wtf-swatch-btn-active': (form as unknown as Record<string, string>)[colorField.field] === swatch.key }"
                   :aria-pressed="(form as unknown as Record<string, string>)[colorField.field] === swatch.key"
-                  :style="{ '--wtf-swatch-light': swatch.light, '--wtf-swatch-dark': swatch.dark }"
+                  :style="{ '--app-swatch-light': swatch.light, '--app-swatch-dark': swatch.dark }"
                   @click="(form as unknown as Record<string, string>)[colorField.field] = swatch.key"
                   @mouseenter="showSwatchTooltip($event, swatch.label)"
                   @mouseleave="hideSwatchTooltip"
@@ -490,7 +490,7 @@ const PUBLIC_PAGE_FIELDS = [
                   type="button"
                   class="wtf-swatch-btn"
                   :class="{ 'wtf-swatch-btn-active': form.now_color_key === preset.key }"
-                  :style="{ '--wtf-swatch-light': preset.light, '--wtf-swatch-dark': preset.dark }"
+                  :style="{ '--app-swatch-light': preset.light, '--app-swatch-dark': preset.dark }"
                   :aria-pressed="form.now_color_key === preset.key"
                   @click="form.now_color_key = preset.key"
                   @mouseenter="showSwatchTooltip($event, preset.label)"
@@ -520,7 +520,7 @@ const PUBLIC_PAGE_FIELDS = [
                   type="button"
                   class="wtf-icon-swatch-btn"
                   :class="{ 'wtf-icon-swatch-btn-active': (form as unknown as Record<string, string>)[iconField.field] === icon.key }"
-                  :style="{ '--wtf-icon-active-color': activeIconColor(iconField) }"
+                  :style="{ '--app-icon-active-color': activeIconColor(iconField) }"
                   :aria-pressed="(form as unknown as Record<string, string>)[iconField.field] === icon.key"
                   @click="(form as unknown as Record<string, string>)[iconField.field] = icon.key"
                   @mouseenter="showSwatchTooltip($event, icon.label)"

@@ -141,7 +141,7 @@ function hideSwatchTooltip(): void {
                 class="wtf-swatch-btn"
                 :class="{ 'wtf-swatch-btn-active': editColorKey === swatch.key }"
                 :aria-pressed="editColorKey === swatch.key"
-                :style="{ '--wtf-swatch-light': swatch.light, '--wtf-swatch-dark': swatch.dark }"
+                :style="{ '--app-swatch-light': swatch.light, '--app-swatch-dark': swatch.dark }"
                 @click="editColorKey = editColorKey === swatch.key ? null : swatch.key"
                 @mouseenter="showSwatchTooltip($event, swatch.label)"
                 @mouseleave="hideSwatchTooltip"

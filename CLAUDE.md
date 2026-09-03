@@ -120,7 +120,7 @@ user-visible benefit, so don't "fix" these to match unless asked.
   produce a visible anti-aliasing seam at the element's edge. Use `box-shadow` for a
   "no border" state instead of a transparent one.
 - A CSS comment containing a literal `*/` substring inside prose (e.g. writing
-  `--wtf-hue-*/` as a variable-name fragment) closes the comment early and breaks the
+  `--app-hue-*/` as a variable-name fragment) closes the comment early and breaks the
   parser. Watch for this specifically when a comment mentions a wildcard/glob next to a
   slash.
 - Prefer `sticky-top` over `fixed-top` for a persistent header unless there's a real

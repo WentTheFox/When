@@ -15,7 +15,7 @@ return new class extends Migration
      * (DashboardController::statsAvailability) previously borrowed
      * Bootstrap's own text-primary/bg-primary utility classes, which don't
      * track an owner's chosen accent (dark-theme.css repaints .text-primary
-     * to --wtf-accent app-wide, but .bg-primary is left at Bootstrap's
+     * to --app-accent app-wide, but .bg-primary is left at Bootstrap's
      * stock blue) — a dedicated slot lets the widget use one real owner
      * color for both the label text and the bar consistently.
      */

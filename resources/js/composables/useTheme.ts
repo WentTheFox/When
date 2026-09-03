@@ -52,7 +52,7 @@ function apply(pref: Preference): void {
   // Bootstrap 5's own native theming attribute — its built-in component
   // styles (card, btn, form-control, alert, ...) re-theme themselves under
   // this automatically; dark-theme.css only needs to supply this app's own
-  // --wtf-* variables and whatever Bootstrap doesn't cover on top of that.
+  // --app-* variables and whatever Bootstrap doesn't cover on top of that.
   document.documentElement.setAttribute('data-bs-theme', resolved);
 }
 
