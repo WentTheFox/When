@@ -46,6 +46,17 @@ const currentLocale = computed(() => (
 ));
 const textDirection = computed(() => (RTL_CODES.has(activeLocale.value) ? 'rtl' : 'ltr'));
 
+// Locales::NAMES's own order (English first, then roughly by region) is
+// meant for LanguageSwitcher.vue/LocalizedTextInput.vue's very different
+// context (a page whose language IS one of these, or a form authoring
+// content in a specific one) — a visitor stuck on a down page has no
+// locale of their own to prioritize from, so a flat alphabetical-by-native-
+// name list is easier to scan than either English-first or an arbitrary
+// region grouping.
+const sortedLocales = computed(() => (
+  [...props.locales].sort((a, b) => a.native.localeCompare(b.native))
+));
+
 async function switchLocale(code: string): Promise<void> {
   if (code === activeLocale.value || switching.value) {
     return;
@@ -149,7 +160,7 @@ onUnmounted(() => {
               <FontAwesomeIcon :icon="faLanguage" class="me-1" />{{ currentLocale?.native }}
             </template>
             <BDropdownItem
-              v-for="l in props.locales"
+              v-for="l in sortedLocales"
               :key="l.code"
               :active="l.code === activeLocale"
               :disabled="l.code === activeLocale"
