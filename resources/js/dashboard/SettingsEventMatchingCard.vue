@@ -309,9 +309,8 @@ function submit(): void {
                 whole-word match, and this comparison is case-<strong>sensitive</strong>) against
                 a share link's own configured highlight words (set per-link, not here). "Dinner
                 with Alice, Bob" checks both "Alice" and "Bob" individually. Any pattern
-                configured under "Activity localizations" below also matches independently of this field
-                (e.g. the classic "Host X"/"Visit X" convention, now just two example roles you
-                can edit or remove) — see that section for details. Leave blank to fall back to
+                configured under "Activity localizations" below also matches independently of this
+                field — see that section for details. Leave blank to fall back to
                 the built-in default rather than turning matching off.
                 Default: <RegexHighlightedCode :pattern="defaults.highlightClausePattern" />
                 <BButton variant="link" size="sm" class="p-0 align-baseline ms-1" @click="setFormField('highlight_clause_pattern', defaults.highlightClausePattern)">Use default</BButton>
