@@ -9,6 +9,16 @@ if [[ "$refname" == "$RUN_FOR_REF" ]]; then
     APP_DIR="$(readlink -nf "$PWD/..")"
     cd "${APP_DIR}"
 
+    # If the site was already put into maintenance mode before this deploy
+    # started (e.g. manually, with `--secret`/`--with-secret` for an IP-less
+    # bypass link), leave that alone: don't call `artisan down` again
+    # ourselves (a plain re-down with no --secret would overwrite the
+    # existing maintenance-mode file and invalidate that bypass link), and
+    # don't call `artisan up` at the end either — the deploy shouldn't be
+    # what silently ends someone's deliberate maintenance window.
+    WAS_ALREADY_DOWN=0
+    [[ -f "${APP_DIR}/storage/framework/down" ]] && WAS_ALREADY_DOWN=1
+
     CMD_FETCH="timeout 15 $GIT fetch"
     CMD_COMPOSER="composer install --optimize-autoloader --no-dev"
     CMD_LARAVEL_DOWN="php artisan down"
@@ -40,8 +50,14 @@ if [[ "$refname" == "$RUN_FOR_REF" ]]; then
         echo "# Skipping composer install, lockfile not modified"
     fi
 
-    # Maintenance mode only around the parts that touch running state.
-    echo "$ $CMD_LARAVEL_DOWN"; eval ${CMD_LARAVEL_DOWN}
+    # Maintenance mode only around the parts that touch running state — but
+    # only take it down ourselves if it wasn't already (see WAS_ALREADY_DOWN
+    # above); either way migrate still runs, down or not.
+    if [[ "$WAS_ALREADY_DOWN" -eq 0 ]]; then
+        echo "$ $CMD_LARAVEL_DOWN"; eval ${CMD_LARAVEL_DOWN}
+    else
+        echo "# Already in maintenance mode, leaving it as-is"
+    fi
     echo "$ $CMD_MIGRATE"; eval ${CMD_MIGRATE}
 
     # spatie/laravel-google-fonts (config/google-fonts.php) — re-fetch
@@ -74,7 +90,11 @@ if [[ "$refname" == "$RUN_FOR_REF" ]]; then
 
     echo "$ $CMD_OPTIMIZE"; eval ${CMD_OPTIMIZE}
     echo "$ $CMD_HORIZON_RESTART"; eval ${CMD_HORIZON_RESTART}
-    echo "$ $CMD_LARAVEL_UP"; eval ${CMD_LARAVEL_UP}
+    if [[ "$WAS_ALREADY_DOWN" -eq 0 ]]; then
+        echo "$ $CMD_LARAVEL_UP"; eval ${CMD_LARAVEL_UP}
+    else
+        echo "# Was already in maintenance mode before this deploy started, leaving it down"
+    fi
 
     [[ -n "$BUILD_FAILED" ]] && exit 1
 else
