@@ -19,12 +19,16 @@ use Teto\HTTP\AcceptLanguage;
 class ShareLinkController extends Controller
 {
     /**
-     * Shared with resources/js/Components/LanguageSwitcher.vue's own choice
-     * of name only by convention, not by any code path in common — the
-     * switcher is a plain full-navigation link (see its own header
-     * comment), so it never reads or writes this cookie itself; landing on
-     * whichever locale route it points at is what sets it, same as any
-     * other visit here.
+     * Name also used directly by resources/js/Components/LanguageSwitcher.vue,
+     * which primes this cookie client-side before a navigate=true click's
+     * default navigation proceeds — required specifically for switching to
+     * English (the no-prefix route), which resolvePreferredLocale() below
+     * treats as ambiguous and resolves from this same cookie; without
+     * priming it first, a stale cookie value would win over the explicit
+     * click and redirect straight back to itself. Every other switch (to a
+     * locale-prefixed route) doesn't strictly need the priming — the
+     * server never re-guesses those — but the switcher primes unconditionally
+     * rather than special-casing English alone.
      */
     private const LOCALE_COOKIE = 'wtf-locale';
 
@@ -197,10 +201,13 @@ class ShareLinkController extends Controller
      * so its result can only ever promote /free up to /hu, never demote.
      * A stored cookie preference always wins once it exists — set on every
      * visit here (see show() above), whether that visit arrived via this
-     * very redirect, a manual LanguageSwitcher.vue click, or a share link
-     * the owner copied in whichever locale they happened to be viewing —
-     * so detection only ever runs once per visitor and a manual switch back
-     * sticks instead of being re-guessed on the next visit. Absent that,
+     * very redirect, a share link the owner copied in whichever locale
+     * they happened to be viewing, or a manual LanguageSwitcher.vue click
+     * (which primes this same cookie itself before navigating here — see
+     * its own comment — precisely so its explicit choice wins over
+     * whatever this cookie held a moment ago) — so detection only ever
+     * runs once per visitor and a manual switch back sticks instead of
+     * being re-guessed on the next visit. Absent that,
      * Accept-Language gets one guess; anything else (no clear preference, a
      * browser sending nothing this app supports) falls back to whatever
      * locale the URL itself already asked for, i.e. no redirect at all.

@@ -15,6 +15,11 @@
  * for /free/{token} exactly the same way it works for the maintenance
  * page showing on an arbitrary URL) — it only needs `modelValue` to know
  * what to strip, not the specific route shape.
+ *
+ * navigate=true also primes the `wtf-locale` cookie before letting the
+ * click's default navigation proceed — see primeLocaleCookie()'s own
+ * comment for why that's needed specifically for the switch-to-English
+ * case.
  */
 import { faLanguage } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
@@ -73,8 +78,27 @@ function hrefFor(code: string): string {
   return (code === 'en' ? rest : `/${code}${rest}`) + search + hash;
 }
 
+// Matches ShareLinkController::LOCALE_COOKIE. Only needed for the
+// navigate=true path: switching to English lands on the no-prefix /free
+// route, which the server treats as ambiguous and resolves via this same
+// cookie (falling back to Accept-Language) rather than trusting the URL —
+// see resolvePreferredLocale()'s own doc comment. Without priming it here
+// first, a stale cookie from an earlier auto-detect or a previous manual
+// switch would win over this explicit click and redirect straight back to
+// itself, making "switch to English" from any other locale a no-op.
+const LOCALE_COOKIE = 'wtf-locale';
+const LOCALE_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+
+function primeLocaleCookie(code: string): void {
+  if (typeof document === 'undefined') {
+    return;
+  }
+  document.cookie = `${LOCALE_COOKIE}=${code}; path=/; max-age=${LOCALE_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
+}
+
 async function handleClick(event: MouseEvent, code: string): Promise<void> {
   if (props.navigate) {
+    primeLocaleCookie(code);
     return;
   }
   // Not a navigate-mode switch: BDropdownItem always renders as an <a>
