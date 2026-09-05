@@ -316,12 +316,16 @@ function submit(): void {
               <RegexPatternInput id="public_event_pattern" v-model="eventMatchingSettingsForm.public_event_pattern" />
               <template #description>
                 Same regex-body rules as above. A match renders that event in its own neutral,
-                monochrome category on the /free calendar, showing its title to every viewer
-                verbatim — not run through the Activity regular expression below, unlike a
-                highlighted event — and the matched marker text is stripped from the title used for
-                pattern matching, same as the tentative/open-end/open-start fields below. A blank
-                field turns this detection off entirely — the suggested starting point matches a
-                trailing <code>(public)</code>, e.g. "Team meeting (public)" &rarr; "Team meeting".
+                monochrome category on the /free calendar, shown to every viewer — its activity is
+                extracted the same way as a highlighted event's (see the Activity field below), so
+                "Dinner with Alice (public)" shows as "Dinner" to everyone, falling back to the full
+                title when the Activity pattern isn't configured or doesn't match. A public event
+                that also matches one of a share link's own highlight words still shows as
+                highlighted for that link too, on top of showing as public for everyone else. The
+                matched marker text itself is stripped from the title used for pattern matching, same
+                as the tentative/open-end/open-start fields below. A blank field turns this detection
+                off entirely — the suggested starting point matches a trailing
+                <code>(public)</code>, e.g. "Team meeting (public)" &rarr; "Team meeting".
                 Suggested: <RegexHighlightedCode :pattern="defaults.publicEventPattern" />
                 <BButton variant="link" size="sm" class="p-0 align-baseline ms-1" @click="setFormField('public_event_pattern', defaults.publicEventPattern)">Use suggested</BButton>
               </template>
@@ -335,7 +339,7 @@ function submit(): void {
               <PatternPreview
                 v-model="eventMatchingSettingsForm.public_event_pattern_preview"
                 :pattern="eventMatchingSettingsForm.public_event_pattern"
-                :examples="['Team meeting (public)', 'Community potluck (public)', 'Team standup', 'Lunch with Sarah']"
+                :examples="['Dinner with Alice (public)', 'Community potluck (public)', 'Team standup', 'Lunch with Sarah']"
                 mode="match"
               />
             </div>

@@ -91,16 +91,32 @@ class AvailabilityService
             // a Flag-style marker (like tentative/open-end/open-start)
             // already stripped out of $event->summary by the time this
             // event reaches us, so there'd be nothing left here to match
-            // against. The activity shown for a public event is the
-            // event's own (already-cleaned) summary verbatim, not run
-            // through activityClausePattern like highlighted's extraction
-            // below — the whole point of "public" is that the owner has
-            // nothing to hide about this event, so its real title (minus
-            // the internal marker) is surfaced as-is.
+            // against. The activity shown for a public event runs through
+            // the same activityClausePattern extraction as a highlighted
+            // event below (e.g. "Dinner" from "Dinner with Alice"), but
+            // unconditionally — never gated behind a share link's own
+            // show_activity toggle, since a public event is by definition
+            // shown to every visitor, not just one a highlight word
+            // matched — falling back to the full (already-cleaned) summary
+            // verbatim whenever there's no pattern configured or it simply
+            // doesn't match this title, same as before this extraction
+            // step existed.
             if ($event->isPublicEventTitle) {
-                $public[] = ['start' => $event->start, 'end' => $event->end, 'tentativeStart' => $event->tentativeStart, 'tentativeEnd' => $event->tentativeEnd, 'summary' => $event->summary];
+                $publicActivity = $event->summary !== null
+                    ? ($this->activityExtractor->extract($event->summary, $activityClausePattern) ?? $event->summary)
+                    : null;
+
+                $public[] = ['start' => $event->start, 'end' => $event->end, 'tentativeStart' => $event->tentativeStart, 'tentativeEnd' => $event->tentativeEnd, 'summary' => $publicActivity];
             }
 
+            // Public events aren't exempt from also being highlighted — a
+            // public event mentioning a share link's own highlight word
+            // (e.g. "Dinner with Alice (public)") still produces its own
+            // `highlighted` slot for Alice's link below, on top of the
+            // `public` slot above every other visitor sees; whichever
+            // category actually renders on top for a given viewer is a
+            // client-side overlay-precedence concern (see nuxt-blocks.ts),
+            // not something resolved here.
             $highlightMatch = $this->matcher->match($event, $highlightWords, $highlightClausePattern, $highlightSplitPattern, $activityLocalizations);
 
             if ($highlightMatch !== null) {

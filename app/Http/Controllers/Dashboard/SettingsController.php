@@ -70,10 +70,15 @@ class SettingsController extends Controller
      * (IcsParser::DEFAULT_PUBLIC_EVENT_TITLE_PATTERN), not evaluated
      * later against the summary like the boolean patterns above. A match
      * tags the event as "public" — rendered in its own neutral category
-     * on the /free calendar with its (now marker-stripped) title shown
-     * verbatim to every viewer (no activity_clause_pattern extraction),
-     * instead of the generic "Busy" label an ordinary unavailable block
-     * gets.
+     * on the /free calendar, its (marker-stripped) title run through the
+     * same activity_clause_pattern extraction as a highlighted event
+     * (e.g. "Dinner with Alice (public)" shows as "Dinner" to every
+     * viewer), falling back to the full title when that pattern isn't
+     * configured or doesn't match — instead of the generic "Busy" label
+     * an ordinary unavailable block gets. Still independently eligible to
+     * also match a share link's own highlight words, same as any other
+     * event — a public event isn't exempt from also showing as
+     * highlighted for the link it names.
      */
     private const SUGGESTED_PUBLIC_EVENT_PATTERN = '\(public\)\s*$';
 

@@ -545,17 +545,54 @@ class AvailabilityServiceTest extends TestCase
         $this->assertCount(1, $this->eventsOfType($result, 'unavailable'));
     }
 
-    public function test_a_public_event_surfaces_its_title_verbatim_ignoring_the_activity_clause_pattern(): void
+    public function test_a_public_events_activity_is_extracted_the_same_way_as_a_highlighted_events(): void
     {
         $result = $this->compute(
-            events: [$this->event('p1', '2026-06-03 18:00', '2026-06-03 19:00', 'Cleanup with Alice', isPublicEventTitle: true)],
-            // Configured, but must NOT be applied to the public event's
-            // activity — only highlighted events run through extraction.
+            events: [$this->event('p1', '2026-06-03 18:00', '2026-06-03 19:00', 'Dinner with Alice', isPublicEventTitle: true)],
             activityClausePattern: ActivityExtractor::DEFAULT_PATTERN,
         );
 
         $public = $this->eventsOfType($result, 'public');
-        $this->assertSame('Cleanup with Alice', $public[0]->activity);
+        $this->assertSame('Dinner', $public[0]->activity);
+    }
+
+    public function test_a_public_events_activity_falls_back_to_the_full_title_when_no_pattern_matches(): void
+    {
+        // No "with"/"w/" clause for activityClausePattern to extract, and no
+        // pattern at all in the other case — either way, a public event's
+        // whole point is showing something to every visitor, so it must
+        // never fall back to nothing.
+        $result = $this->compute(
+            events: [$this->event('p1', '2026-06-03 18:00', '2026-06-03 19:00', 'Neighborhood Cleanup', isPublicEventTitle: true)],
+            activityClausePattern: ActivityExtractor::DEFAULT_PATTERN,
+        );
+        $this->assertSame('Neighborhood Cleanup', $this->eventsOfType($result, 'public')[0]->activity);
+
+        $result = $this->compute(
+            events: [$this->event('p2', '2026-06-03 18:00', '2026-06-03 19:00', 'Neighborhood Cleanup', isPublicEventTitle: true)],
+        );
+        $this->assertSame('Neighborhood Cleanup', $this->eventsOfType($result, 'public')[0]->activity);
+    }
+
+    public function test_a_public_event_matching_a_highlight_word_also_produces_a_highlighted_slot(): void
+    {
+        // "Dinner with Alice (public)" — public to every visitor as
+        // "Dinner", but still highlighted (with the same extracted
+        // activity) for whichever share link's own words include "Alice".
+        $result = $this->compute(
+            events: [$this->event('p1', '2026-06-03 18:00', '2026-06-03 19:00', 'Dinner with Alice', isPublicEventTitle: true)],
+            highlightWords: ['Alice'],
+            activityClausePattern: ActivityExtractor::DEFAULT_PATTERN,
+        );
+
+        $public = $this->eventsOfType($result, 'public');
+        $this->assertCount(1, $public);
+        $this->assertSame('Dinner', $public[0]->activity);
+
+        $highlighted = $this->eventsOfType($result, 'highlighted');
+        $this->assertCount(1, $highlighted);
+        $this->assertSame('Dinner', $highlighted[0]->activity);
+        $this->assertSame(['Alice'], $highlighted[0]->highlightWords);
     }
 
     public function test_a_non_flagged_event_produces_no_public_slot(): void

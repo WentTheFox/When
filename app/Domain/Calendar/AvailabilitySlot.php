@@ -22,7 +22,7 @@ final class AvailabilitySlot
         public readonly bool $tentativeStart = false,
         /** End time is unknown/approximate (source title ended in "(-?)", or fully-tentative "(?)"/STATUS:TENTATIVE). Only ever true for unavailable/highlighted/work/school/public types — free/sleep never carry this. */
         public readonly bool $tentativeEnd = false,
-        /** Freetext preceding "with X"/"w/ X" (e.g. "Dinner"), raw and unlocalized, for a highlighted slot — null unless share_links.show_activity is on for this link, or activityLabel below already covers this event. See ActivityExtractor. For a public slot, this is instead the event's full raw summary verbatim (no extraction pattern applied) — see AvailabilityService::compute. */
+        /** Freetext preceding "with X"/"w/ X" (e.g. "Dinner"), raw and unlocalized, for a highlighted slot — null unless share_links.show_activity is on for this link, or activityLabel below already covers this event. See ActivityExtractor. A public slot runs through the same extraction unconditionally (never gated behind show_activity, since every visitor sees it), falling back to the full cleaned summary whenever there's no pattern configured or it doesn't match — see AvailabilityService::compute. */
         public readonly ?string $activity = null,
         /** The owner's own configured, localized label for this event's matched activity_localization (e.g. "Visiting"/"Hosting", or any other role an owner defined) — see App\Support\LocalizedText. Takes precedence over `activity` above when both are present (see AvailabilityService::compute). Only ever set for a highlighted slot. */
         public readonly ?array $activityLabel = null,
