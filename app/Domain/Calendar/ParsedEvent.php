@@ -34,6 +34,16 @@ final class ParsedEvent
         public readonly bool $tentativeStart = false,
         /** End time is unknown/approximate — from "(-?)" or a fully-tentative "(?)"/STATUS:TENTATIVE match. */
         public readonly bool $tentativeEnd = false,
+        /**
+         * True when the title matched IcsParser's public_event_pattern —
+         * decided (and the matched marker stripped out of $summary above)
+         * at parse time, same Flag treatment as tentativeStart/tentativeEnd
+         * above, rather than a plain matchesEventNamePattern() check like
+         * dnd/nap/work/school: by the time this event reaches
+         * AvailabilityService::compute(), the marker text is already gone
+         * from $summary, so there's nothing left here to match against.
+         */
+        public readonly bool $isPublicEventTitle = false,
     ) {}
 
     /**

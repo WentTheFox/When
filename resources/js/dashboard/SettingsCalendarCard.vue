@@ -82,6 +82,7 @@ const formIcons = computed(() => ({
   busy: resolveIcon(props.publicPageSettingsForm.busy_icon_key, 'busy'),
   work: resolveIcon(props.publicPageSettingsForm.work_icon_key, 'work'),
   school: resolveIcon(props.publicPageSettingsForm.school_icon_key, 'school'),
+  public: resolveIcon(props.publicPageSettingsForm.public_icon_key, 'public'),
   sleep: resolveIcon(props.publicPageSettingsForm.sleep_icon_key, 'sleep'),
   highlighted: resolveIcon(props.publicPageSettingsForm.highlight_icon_key, 'highlighted'),
 }));
@@ -110,6 +111,7 @@ function previewStyleFor(theme: 'light' | 'dark') {
   const busy = resolveSwatchHex(props.publicPageSettingsForm.busy_color_key, 'busy', theme);
   const work = resolveSwatchHex(props.publicPageSettingsForm.work_color_key, 'work', theme);
   const school = resolveSwatchHex(props.publicPageSettingsForm.school_color_key, 'school', theme);
+  const publicColor = resolveSwatchHex(props.publicPageSettingsForm.public_color_key, 'public', theme);
   const sleep = resolveSwatchHex(props.publicPageSettingsForm.sleep_color_key, 'sleep', theme);
   const highlighted = resolveSwatchHex(props.publicPageSettingsForm.highlight_color_key, 'highlighted', theme);
   const alpha = BLOCK_ALPHA[theme];
@@ -125,6 +127,8 @@ function previewStyleFor(theme: 'light' | 'dark') {
     '--app-hue-work': work,
     '--app-color-school': hexToRgba(school, alpha.school),
     '--app-hue-school': school,
+    '--app-color-public': hexToRgba(publicColor, alpha.public),
+    '--app-hue-public': publicColor,
     '--app-color-sleep': hexToRgba(sleep, alpha.sleep),
     '--app-hue-sleep': sleep,
     '--app-color-highlighted': hexToRgba(highlighted, alpha.highlighted),
@@ -160,6 +164,7 @@ async function preview(): Promise<void> {
       nap_event_pattern: props.eventMatchingSettingsForm.nap_event_pattern,
       work_event_pattern: props.eventMatchingSettingsForm.work_event_pattern,
       school_event_pattern: props.eventMatchingSettingsForm.school_event_pattern,
+      public_event_pattern: props.eventMatchingSettingsForm.public_event_pattern,
       highlight_clause_pattern: props.eventMatchingSettingsForm.highlight_clause_pattern,
       highlight_split_pattern: props.eventMatchingSettingsForm.highlight_split_pattern,
       activity_clause_pattern: props.eventMatchingSettingsForm.activity_clause_pattern,
@@ -171,7 +176,7 @@ async function preview(): Promise<void> {
 
     previewResult.value = {
       detected_mode: data.detected_mode,
-      slotCount: data.free.length + data.highlighted.length + data.unavailable.length + data.sleep.length + data.school.length,
+      slotCount: data.events.length,
     };
     // Suggest a parsing mode from what the feed actually contains, but only
     // for a brand-new setup — re-previewing an already-saved URL must never
@@ -181,14 +186,7 @@ async function preview(): Promise<void> {
     if (!hadSavedCalendarUrl.value) {
       props.calendarSettingsForm.calendar_parsing_mode = data.detected_mode === 'free_busy_only' ? 'free_busy_only' : 'full_detail';
     }
-    previewAvailability.value = {
-      free: data.free,
-      highlighted: data.highlighted,
-      unavailable: data.unavailable,
-      work: data.work,
-      school: data.school,
-      sleep: data.sleep,
-    };
+    previewAvailability.value = { events: data.events };
     calendarUrlForm.calendar_url_preview_confirmed = true;
     previewStatus.value = 'Looks good.';
   } catch (error) {
@@ -321,12 +319,7 @@ function submit(): void {
       >
         <CalendarView
           :visible-days="previewDays"
-          :free-slots="previewAvailability.free"
-          :highlighted-slots="previewAvailability.highlighted"
-          :unavailable-slots="previewAvailability.unavailable"
-          :work-slots="previewAvailability.work"
-          :school-slots="previewAvailability.school"
-          :sleep-slots="previewAvailability.sleep"
+          :events="previewAvailability.events"
           :icons="formIcons"
           :pending="false"
           :has-error="false"

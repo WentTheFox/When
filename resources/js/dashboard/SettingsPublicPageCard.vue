@@ -14,7 +14,7 @@ import type { IconSlot } from '../free/icon-palette';
 import { getNowColorPresets, resolveNowColorHex } from '../free/now-color-presets';
 import { useResolvedTheme } from '../composables/useTheme';
 import { resolveLocalizedText } from '../free/localizedText';
-import type { AvailabilityResponse } from '../free/nuxt-blocks';
+import type { AvailabilityResponse, EventSlot } from '../free/nuxt-blocks';
 import LocalizedTextInput from './LocalizedTextInput.vue';
 import type { Settings } from './settingsTypes';
 import type {
@@ -47,6 +47,7 @@ const colorFields: { field: keyof Settings; slot: ColorSlot; label: string }[] =
   { field: 'busy_color_key', slot: 'busy', label: 'Unavailable' },
   { field: 'work_color_key', slot: 'work', label: 'Work' },
   { field: 'school_color_key', slot: 'school', label: 'School' },
+  { field: 'public_color_key', slot: 'public', label: 'Public event' },
   { field: 'sleep_color_key', slot: 'sleep', label: 'Sleep' },
   { field: 'highlight_color_key', slot: 'highlighted', label: 'Highlighted' },
 ];
@@ -69,6 +70,7 @@ const iconFields: { field: keyof Settings; slot: IconSlot; colorField: keyof Set
   { field: 'busy_icon_key', slot: 'busy', colorField: 'busy_color_key', label: 'Unavailable' },
   { field: 'work_icon_key', slot: 'work', colorField: 'work_color_key', label: 'Work' },
   { field: 'school_icon_key', slot: 'school', colorField: 'school_color_key', label: 'School' },
+  { field: 'public_icon_key', slot: 'public', colorField: 'public_color_key', label: 'Public event' },
   { field: 'sleep_icon_key', slot: 'sleep', colorField: 'sleep_color_key', label: 'Sleep' },
   { field: 'highlight_icon_key', slot: 'highlighted', colorField: 'highlight_color_key', label: 'Highlighted' },
 ];
@@ -197,13 +199,14 @@ const exampleAvailability = computed<AvailabilityResponse>(() => {
   // Single source of truth for every made-up event — free/unavailable/
   // highlighted below are ALL derived from this, each clipped to that
   // day's own wake/sleep window.
-  const events: { day: number; start: number; end: number; tentativeStart?: boolean; tentativeEnd?: boolean; activity?: string; highlightWords?: string[]; work?: boolean; school?: boolean }[] = [
+  const events: { day: number; start: number; end: number; tentativeStart?: boolean; tentativeEnd?: boolean; activity?: string; highlightWords?: string[]; work?: boolean; school?: boolean; public?: boolean }[] = [
     { day: 0, start: 9 * 60, end: 10 * 60 + 30, school: true }, // Mon: Chemistry class (school)
     { day: 0, start: 12 * 60, end: 14 * 60, activity: 'Lunch', highlightWords: ['Alice'] }, // Mon: Lunch with Alice
     { day: 1, start: 9 * 60, end: 11 * 60 + 30 }, // Tue: Team meeting
     { day: 2, start: 14 * 60, end: 16 * 60, tentativeStart: true, tentativeEnd: true }, // Wed: Maybe call
     { day: 3, start: 10 * 60, end: 12 * 60, tentativeStart: true, tentativeEnd: true, activity: 'Coffee', highlightWords: ['Bob'] }, // Thu: Coffee with Bob (fully tentative + highlighted)
     { day: 4, start: 13 * 60, end: 17 * 60, work: true }, // Fri: Workshop (work)
+    { day: 5, start: 10 * 60, end: 12 * 60, public: true, activity: 'Neighborhood cleanup' }, // Sat: public event ("(public)" marker already stripped, shown verbatim)
     { day: 5, start: 18 * 60, end: 20 * 60, tentativeEnd: true, activity: 'Dinner', highlightWords: ['Alice'] }, // Sat: Dinner with Alice, open end + highlighted
     { day: 6, start: 15 * 60, end: 17 * 60, tentativeStart: true, activity: 'Call', highlightWords: ['Charlie'] }, // Sun: Call with Charlie, open start + highlighted
   ];
@@ -277,71 +280,37 @@ const exampleAvailability = computed<AvailabilityResponse>(() => {
   }
   if (cursor < RANGE_END_DAY * 1440) sleep.push({ start: atAbsMinutes(cursor), end: atAbsMinutes(RANGE_END_DAY * 1440) });
 
+  /** Shared clip-and-tag step every non-free/sleep category below runs — returns null (dropped) when the sleep window clips the event away entirely. */
+  function toTaggedSlot(event: (typeof events)[number], type: EventSlot['type']): EventSlot | null {
+    const clipped = clippedEventMinutes(event);
+    if (!clipped) return null;
+    return {
+      start: atAbsMinutes(event.day * 1440 + clipped[0]),
+      end: atAbsMinutes(event.day * 1440 + clipped[1]),
+      type,
+      activity: event.activity,
+      highlight_words: event.highlightWords,
+      tentative_start: event.tentativeStart,
+      tentative_end: event.tentativeEnd,
+    };
+  }
+
   return {
-    free,
-    sleep,
-    // A highlighted event is still busy time — the real backend always
-    // double-lists its range in `unavailable` too, since `highlighted` is
-    // an overlay split out of an existing unavailable/free base block
-    // (getBlocksForDay's splitByOverlay), not a standalone block of its
-    // own. Omitting the base here is exactly what caused the gap/squash.
-    unavailable: events
-      .map((event) => {
-        const clipped = clippedEventMinutes(event);
-        if (!clipped) return null;
-        return {
-          start: atAbsMinutes(event.day * 1440 + clipped[0]),
-          end: atAbsMinutes(event.day * 1440 + clipped[1]),
-          tentative_start: event.tentativeStart,
-          tentative_end: event.tentativeEnd,
-        };
-      })
-      .filter((slot) => slot !== null),
-    // Same double-bookkeeping as `highlighted` above — a work event is
-    // still busy time too (already double-listed in `unavailable`), this
-    // is just the overlay tag on top of it.
-    work: events
-      .filter((event) => event.work)
-      .map((event) => {
-        const clipped = clippedEventMinutes(event);
-        if (!clipped) return null;
-        return {
-          start: atAbsMinutes(event.day * 1440 + clipped[0]),
-          end: atAbsMinutes(event.day * 1440 + clipped[1]),
-          tentative_start: event.tentativeStart,
-          tentative_end: event.tentativeEnd,
-        };
-      })
-      .filter((slot) => slot !== null),
-    // Same double-bookkeeping as work above.
-    school: events
-      .filter((event) => event.school)
-      .map((event) => {
-        const clipped = clippedEventMinutes(event);
-        if (!clipped) return null;
-        return {
-          start: atAbsMinutes(event.day * 1440 + clipped[0]),
-          end: atAbsMinutes(event.day * 1440 + clipped[1]),
-          tentative_start: event.tentativeStart,
-          tentative_end: event.tentativeEnd,
-        };
-      })
-      .filter((slot) => slot !== null),
-    highlighted: events
-      .filter((event) => event.activity)
-      .map((event) => {
-        const clipped = clippedEventMinutes(event);
-        if (!clipped) return null;
-        return {
-          start: atAbsMinutes(event.day * 1440 + clipped[0]),
-          end: atAbsMinutes(event.day * 1440 + clipped[1]),
-          activity: event.activity,
-          highlight_words: event.highlightWords,
-          tentative_start: event.tentativeStart,
-          tentative_end: event.tentativeEnd,
-        };
-      })
-      .filter((slot) => slot !== null),
+    events: [
+      ...free.map((slot): EventSlot => ({ ...slot, type: 'free' })),
+      ...sleep.map((slot): EventSlot => ({ ...slot, type: 'sleep' })),
+      // A highlighted/work/school/public event is still busy time — the
+      // real backend always double-lists its range as `unavailable` too,
+      // since each of those is an overlay split out of an existing
+      // unavailable/free base block (getBlocksForDay's splitByOverlay),
+      // not a standalone block of its own. Omitting the base here is
+      // exactly what caused the gap/squash.
+      ...events.map((event) => toTaggedSlot(event, 'unavailable')).filter((slot): slot is EventSlot => slot !== null),
+      ...events.filter((event) => event.work).map((event) => toTaggedSlot(event, 'work')).filter((slot): slot is EventSlot => slot !== null),
+      ...events.filter((event) => event.school).map((event) => toTaggedSlot(event, 'school')).filter((slot): slot is EventSlot => slot !== null),
+      ...events.filter((event) => event.public).map((event) => toTaggedSlot(event, 'public')).filter((slot): slot is EventSlot => slot !== null),
+      ...events.filter((event) => event.activity && !event.public).map((event) => toTaggedSlot(event, 'highlighted')).filter((slot): slot is EventSlot => slot !== null),
+    ],
   };
 });
 
@@ -383,6 +352,7 @@ function previewStyleFor(theme: 'light' | 'dark') {
   const busy = resolveSwatchHex(props.publicPageSettingsForm.busy_color_key, 'busy', theme);
   const work = resolveSwatchHex(props.publicPageSettingsForm.work_color_key, 'work', theme);
   const school = resolveSwatchHex(props.publicPageSettingsForm.school_color_key, 'school', theme);
+  const publicColor = resolveSwatchHex(props.publicPageSettingsForm.public_color_key, 'public', theme);
   const sleep = resolveSwatchHex(props.publicPageSettingsForm.sleep_color_key, 'sleep', theme);
   const highlighted = resolveSwatchHex(props.publicPageSettingsForm.highlight_color_key, 'highlighted', theme);
   const alpha = BLOCK_ALPHA[theme];
@@ -398,6 +368,8 @@ function previewStyleFor(theme: 'light' | 'dark') {
     '--app-hue-work': work,
     '--app-color-school': hexToRgba(school, alpha.school),
     '--app-hue-school': school,
+    '--app-color-public': hexToRgba(publicColor, alpha.public),
+    '--app-hue-public': publicColor,
     '--app-color-sleep': hexToRgba(sleep, alpha.sleep),
     '--app-hue-sleep': sleep,
     '--app-color-highlighted': hexToRgba(highlighted, alpha.highlighted),
@@ -422,6 +394,7 @@ const formIcons = computed(() => ({
   busy: resolveIcon(props.publicPageSettingsForm.busy_icon_key, 'busy'),
   work: resolveIcon(props.publicPageSettingsForm.work_icon_key, 'work'),
   school: resolveIcon(props.publicPageSettingsForm.school_icon_key, 'school'),
+  public: resolveIcon(props.publicPageSettingsForm.public_icon_key, 'public'),
   sleep: resolveIcon(props.publicPageSettingsForm.sleep_icon_key, 'sleep'),
   highlighted: resolveIcon(props.publicPageSettingsForm.highlight_icon_key, 'highlighted'),
 }));
@@ -429,8 +402,8 @@ const formIcons = computed(() => ({
 /** This card's "Reset" button field list, named explicitly for clarity even though publicPageSettingsForm holds only these fields anyway. */
 const PUBLIC_PAGE_FIELDS = [
   'public_page_title',
-  'accent_color_key', 'secondary_color_key', 'free_color_key', 'busy_color_key', 'work_color_key', 'school_color_key', 'sleep_color_key', 'highlight_color_key',
-  'free_icon_key', 'busy_icon_key', 'work_icon_key', 'school_icon_key', 'sleep_icon_key', 'highlight_icon_key',
+  'accent_color_key', 'secondary_color_key', 'free_color_key', 'busy_color_key', 'work_color_key', 'school_color_key', 'public_color_key', 'sleep_color_key', 'highlight_color_key',
+  'free_icon_key', 'busy_icon_key', 'work_icon_key', 'school_icon_key', 'public_icon_key', 'sleep_icon_key', 'highlight_icon_key',
   'now_color_key',
 ] as const;
 
@@ -586,12 +559,7 @@ function submit(): void {
               </p>
               <CalendarView
                 :visible-days="colorPreviewVisibleDays"
-                :free-slots="(previewAvailability ?? exampleAvailability).free"
-                :highlighted-slots="(previewAvailability ?? exampleAvailability).highlighted"
-                :unavailable-slots="(previewAvailability ?? exampleAvailability).unavailable"
-                :work-slots="(previewAvailability ?? exampleAvailability).work"
-                :school-slots="(previewAvailability ?? exampleAvailability).school"
-                :sleep-slots="(previewAvailability ?? exampleAvailability).sleep"
+                :events="(previewAvailability ?? exampleAvailability).events"
                 :icons="formIcons"
                 :pending="false"
                 :has-error="false"

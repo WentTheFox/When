@@ -36,6 +36,7 @@ const EVENT_MATCHING_FIELDS = [
   'nap_event_pattern', 'nap_event_pattern_preview',
   'work_event_pattern', 'work_event_pattern_preview',
   'school_event_pattern', 'school_event_pattern_preview',
+  'public_event_pattern', 'public_event_pattern_preview',
   'highlight_clause_pattern', 'highlight_clause_pattern_preview',
   'highlight_split_pattern', 'highlight_split_pattern_preview',
   'activity_clause_pattern', 'activity_clause_pattern_preview',
@@ -302,6 +303,39 @@ function submit(): void {
                 v-model="eventMatchingSettingsForm.school_event_pattern_preview"
                 :pattern="eventMatchingSettingsForm.school_event_pattern"
                 :examples="['Chemistry class', 'School pickup', 'CLASS 4B', 'Team standup', 'Lunch with Sarah']"
+                mode="match"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <BFormGroup label-for="public_event_pattern" class="mb-0">
+              <template #label>Public event regular expression <BBadge variant="warning" text="dark" class="align-middle">Flag</BBadge></template>
+              <RegexPatternInput id="public_event_pattern" v-model="eventMatchingSettingsForm.public_event_pattern" />
+              <template #description>
+                Same regex-body rules as above. A match renders that event in its own neutral,
+                monochrome category on the /free calendar, showing its title to every viewer
+                verbatim — not run through the Activity regular expression below, unlike a
+                highlighted event — and the matched marker text is stripped from the title used for
+                pattern matching, same as the tentative/open-end/open-start fields below. A blank
+                field turns this detection off entirely — the suggested starting point matches a
+                trailing <code>(public)</code>, e.g. "Team meeting (public)" &rarr; "Team meeting".
+                Suggested: <RegexHighlightedCode :pattern="defaults.publicEventPattern" />
+                <BButton variant="link" size="sm" class="p-0 align-baseline ms-1" @click="setFormField('public_event_pattern', defaults.publicEventPattern)">Use suggested</BButton>
+              </template>
+            </BFormGroup>
+          </div>
+          <div class="col-md-6">
+            <div class="wtf-pattern-preview-panel">
+              <p class="small text-muted mb-1">Live preview — <code>{{
+                  eventMatchingSettingsForm.public_event_pattern || PATTERN_DISABLED_TEXT
+                }}</code></p>
+              <PatternPreview
+                v-model="eventMatchingSettingsForm.public_event_pattern_preview"
+                :pattern="eventMatchingSettingsForm.public_event_pattern"
+                :examples="['Team meeting (public)', 'Community potluck (public)', 'Team standup', 'Lunch with Sarah']"
                 mode="match"
               />
             </div>

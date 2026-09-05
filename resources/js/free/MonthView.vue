@@ -14,7 +14,7 @@ import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { computed } from 'vue';
 import { currentLocale } from 'laravel-vue-i18n';
 import { getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay } from './nuxt-blocks';
-import type { DayBlock, FreeSlot, HighlightedSlot, TentativeSlot } from './nuxt-blocks';
+import type { DayBlock, EventSlot } from './nuxt-blocks';
 
 const AVAIL_BLOCK_CLASS: Record<DayBlock['type'], string> = {
   free: 'wtf-fmonth-avail-block-free',
@@ -22,6 +22,7 @@ const AVAIL_BLOCK_CLASS: Record<DayBlock['type'], string> = {
   highlighted: 'wtf-fmonth-avail-block-highlighted',
   work: 'wtf-fmonth-avail-block-work',
   school: 'wtf-fmonth-avail-block-school',
+  public: 'wtf-fmonth-avail-block-public',
   sleep: 'wtf-fmonth-avail-block-sleep',
 };
 
@@ -31,17 +32,13 @@ const AVAIL_BLOCK_COLOR_VAR: Record<DayBlock['type'], string> = {
   highlighted: '--app-color-highlighted',
   work: '--app-color-work',
   school: '--app-color-school',
+  public: '--app-color-public',
   sleep: '--app-color-sleep',
 };
 
 const props = defineProps<{
   days: Date[];
-  freeSlots: FreeSlot[];
-  highlightedSlots: HighlightedSlot[];
-  unavailableSlots: TentativeSlot[];
-  workSlots: TentativeSlot[];
-  schoolSlots: TentativeSlot[];
-  sleepSlots: FreeSlot[];
+  events: EventSlot[];
   pending: boolean;
   hasError: boolean;
   hasAnyFreeTime: boolean;
@@ -147,7 +144,7 @@ const dayStatuses = computed(() => {
 
   return paddedDays.value.map((day): DayStatus => {
     const blocks = props.showBlocks
-      ? getBlocksForDay(day, props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots, props.schoolSlots)
+      ? getBlocksForDay(day, props.events, props.timezone)
       : [];
     const isToday = isDayToday(day);
     let currentBlockIndex = -1;
@@ -195,7 +192,7 @@ function tentativeFadeStyle(cell: DayStatus, i: number): Record<string, string> 
   if (startFuzzy) {
     const prev = i > 0
       ? blocks[i - 1]
-      : getBlocksForDay(subDays(cell.day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots, props.schoolSlots).at(-1);
+      : getBlocksForDay(subDays(cell.day, 1), props.events, props.timezone).at(-1);
     if (prev) style['--fade-start'] = `var(${AVAIL_BLOCK_COLOR_VAR[prev.type]})`;
   } else {
     style['--fade-start'] = `var(${AVAIL_BLOCK_COLOR_VAR[block.type]})`;
@@ -204,7 +201,7 @@ function tentativeFadeStyle(cell: DayStatus, i: number): Record<string, string> 
   if (endFuzzy) {
     const next = i < blocks.length - 1
       ? blocks[i + 1]
-      : getBlocksForDay(addDays(cell.day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots, props.schoolSlots)[0];
+      : getBlocksForDay(addDays(cell.day, 1), props.events, props.timezone)[0];
     if (next) style['--fade-end'] = `var(${AVAIL_BLOCK_COLOR_VAR[next.type]})`;
   } else {
     style['--fade-end'] = `var(${AVAIL_BLOCK_COLOR_VAR[block.type]})`;

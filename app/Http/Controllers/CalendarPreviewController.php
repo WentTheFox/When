@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Calendar\AvailabilitySlot;
 use App\Models\User;
 use App\Services\Calendar\AvailabilityService;
 use App\Services\Calendar\CalendarFetcher;
@@ -42,6 +43,7 @@ class CalendarPreviewController extends Controller
             'nap_event_pattern' => ['nullable', 'string'],
             'work_event_pattern' => ['nullable', 'string'],
             'school_event_pattern' => ['nullable', 'string'],
+            'public_event_pattern' => ['nullable', 'string'],
             'highlight_clause_pattern' => ['nullable', 'string', Regex::validateSingleCaptureGroup(...)],
             'highlight_split_pattern' => ['nullable', 'string'],
             'activity_clause_pattern' => ['nullable', 'string', Regex::validateSingleCaptureGroup(...)],
@@ -87,6 +89,7 @@ class CalendarPreviewController extends Controller
             $data['open_end_pattern'] ?? null,
             $data['open_start_pattern'] ?? null,
             $parsingMode,
+            publicEventTitlePattern: $data['public_event_pattern'] ?? null,
         );
         $detectedMode = $classifier->classify($rawItems);
         $timer->lap('parse_and_classify', ['raw_item_count' => count($rawItems), 'detected_mode' => $detectedMode->value]);
@@ -120,18 +123,14 @@ class CalendarPreviewController extends Controller
             activityLocalizations: $user->activityLocalizations->map(fn ($r) => ['pattern' => $r->pattern, 'label' => $r->label])->all(),
         );
 
-        $timer->lap('compute_availability', [
-            'free_count' => count($result->free),
-            'highlighted_count' => count($result->highlighted),
-            'unavailable_count' => count($result->unavailable),
-            'work_count' => count($result->work),
-            'school_count' => count($result->school),
-            'sleep_count' => count($result->sleep),
-        ]);
+        $timer->lap('compute_availability', array_merge(
+            ['total_count' => count($result->events)],
+            array_count_values(array_map(fn (AvailabilitySlot $s) => $s->type.'_count', $result->events)),
+        ));
 
         return response()->json([
             'detected_mode' => $detectedMode->value,
-            ...$result->toArray(),
+            'events' => $result->toArray(),
         ]);
     }
 }

@@ -29,6 +29,7 @@ class SettingsPartialUpdateTest extends TestCase
             'nap_event_pattern' => '^nap$',
             'work_event_pattern' => '^work$',
             'school_event_pattern' => '(school|class)',
+            'public_event_pattern' => '(public|community)',
             'highlight_clause_pattern' => '\b(?:with|w\/)\s+(.+)$',
             'highlight_split_pattern' => ',|&',
             'activity_clause_pattern' => '\b(?:at|@)\s+(.+)$',
@@ -41,12 +42,14 @@ class SettingsPartialUpdateTest extends TestCase
             'busy_color_key' => 'red',
             'work_color_key' => 'orange',
             'school_color_key' => 'gold',
+            'public_color_key' => 'silver',
             'free_color_key' => 'green',
             'highlight_color_key' => 'pink',
             'free_icon_key' => 'circle-check',
             'busy_icon_key' => 'circle-xmark',
             'work_icon_key' => 'briefcase',
             'school_icon_key' => 'graduation-cap',
+            'public_icon_key' => 'flag',
             'sleep_icon_key' => 'bed',
             'highlight_icon_key' => 'star',
             'now_color_key' => 'blue',
@@ -60,6 +63,7 @@ class SettingsPartialUpdateTest extends TestCase
         $this->assertSame($before->nap_event_pattern, $after->nap_event_pattern);
         $this->assertSame($before->work_event_pattern, $after->work_event_pattern);
         $this->assertSame($before->school_event_pattern, $after->school_event_pattern);
+        $this->assertSame($before->public_event_pattern, $after->public_event_pattern);
         $this->assertSame($before->highlight_clause_pattern, $after->highlight_clause_pattern);
         $this->assertSame($before->highlight_split_pattern, $after->highlight_split_pattern);
         $this->assertSame($before->activity_clause_pattern, $after->activity_clause_pattern);
@@ -72,12 +76,14 @@ class SettingsPartialUpdateTest extends TestCase
         $this->assertSame($before->busy_color_key, $after->busy_color_key);
         $this->assertSame($before->work_color_key, $after->work_color_key);
         $this->assertSame($before->school_color_key, $after->school_color_key);
+        $this->assertSame($before->public_color_key, $after->public_color_key);
         $this->assertSame($before->free_color_key, $after->free_color_key);
         $this->assertSame($before->highlight_color_key, $after->highlight_color_key);
         $this->assertSame($before->free_icon_key, $after->free_icon_key);
         $this->assertSame($before->busy_icon_key, $after->busy_icon_key);
         $this->assertSame($before->work_icon_key, $after->work_icon_key);
         $this->assertSame($before->school_icon_key, $after->school_icon_key);
+        $this->assertSame($before->public_icon_key, $after->public_icon_key);
         $this->assertSame($before->sleep_icon_key, $after->sleep_icon_key);
         $this->assertSame($before->highlight_icon_key, $after->highlight_icon_key);
         $this->assertSame($before->now_color_key, $after->now_color_key);
@@ -95,6 +101,7 @@ class SettingsPartialUpdateTest extends TestCase
             'nap_event_pattern' => '^nap$',
             'work_event_pattern' => '^work$',
             'school_event_pattern' => '(school|class)',
+            'public_event_pattern' => '(public|community)',
             'highlight_clause_pattern' => '\b(?:with|w\/)\s+(.+)$',
             'highlight_split_pattern' => ',|&',
             'activity_clause_pattern' => '\b(?:at|@)\s+(.+)$',
@@ -148,12 +155,14 @@ class SettingsPartialUpdateTest extends TestCase
             'busy_color_key' => 'purple',
             'work_color_key' => 'red',
             'school_color_key' => 'orange',
+            'public_color_key' => 'silver',
             'sleep_color_key' => 'pink',
             'highlight_color_key' => 'gold',
             'free_icon_key' => 'star',
             'busy_icon_key' => 'bed',
             'work_icon_key' => 'circle-xmark',
             'school_icon_key' => 'circle-check',
+            'public_icon_key' => 'flag',
             'sleep_icon_key' => 'briefcase',
             'highlight_icon_key' => 'graduation-cap',
             'now_color_key' => 'red',
@@ -197,6 +206,7 @@ class SettingsPartialUpdateTest extends TestCase
             'nap_event_pattern' => '^nap$',
             'work_event_pattern' => '^work$',
             'school_event_pattern' => '(school|class)',
+            'public_event_pattern' => '(public|community)',
             'highlight_clause_pattern' => '\b(?:with|w\/)\s+(.+)$',
             'highlight_split_pattern' => ',|&',
             'activity_clause_pattern' => '\b(?:at|@)\s+(.+)$',
@@ -222,12 +232,14 @@ class SettingsPartialUpdateTest extends TestCase
             'busy_color_key' => 'purple',
             'work_color_key' => 'red',
             'school_color_key' => 'orange',
+            'public_color_key' => 'silver',
             'sleep_color_key' => 'pink',
             'highlight_color_key' => 'gold',
             'free_icon_key' => 'star',
             'busy_icon_key' => 'bed',
             'work_icon_key' => 'circle-xmark',
             'school_icon_key' => 'circle-check',
+            'public_icon_key' => 'flag',
             'sleep_icon_key' => 'briefcase',
             'highlight_icon_key' => 'graduation-cap',
             'now_color_key' => 'red',

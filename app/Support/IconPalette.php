@@ -21,6 +21,7 @@ class IconPalette
         'busy' => IconKey::Ban->value,
         'work' => IconKey::Briefcase->value,
         'school' => IconKey::School->value,
+        'public' => IconKey::PeopleGroup->value,
         'sleep' => IconKey::Moon->value,
         'highlighted' => IconKey::Star->value,
     ];

@@ -7,8 +7,8 @@ import { faChevronLeft, faChevronRight, faLock } from '@fortawesome/free-solid-s
  * port — security-sensitive, already-tested code (decrypt flow, key
  * resolution for all three link types). The calendar rendering itself is
  * CalendarView.vue/AgendaView.vue/MonthView.vue, a from-WentTheNuxt port
- * (see CalendarView.vue's header comment) fed the new AvailabilityResult
- * four-array shape directly. CalendarView (desktop/week) and AgendaView
+ * (see CalendarView.vue's header comment) fed AvailabilityResult's flat,
+ * tagged event list directly. CalendarView (desktop/week) and AgendaView
  * (mobile) are both always in the DOM and toggle visibility via CSS
  * breakpoint (same as the source app); MonthView replaces CalendarView
  * entirely when the owner switches to month view — AgendaView keeps
@@ -60,6 +60,7 @@ const props = defineProps<{
     busy: string | null;
     work: string | null;
     school: string | null;
+    public: string | null;
     sleep: string | null;
     highlighted: string | null;
     now: string | null;
@@ -69,6 +70,7 @@ const props = defineProps<{
     busy: string | null;
     work: string | null;
     school: string | null;
+    public: string | null;
     sleep: string | null;
     highlighted: string | null;
   };
@@ -89,6 +91,7 @@ const rootStyle = computed(() => {
   const busy = resolveSwatchHex(props.colors.busy, 'busy', theme);
   const work = resolveSwatchHex(props.colors.work, 'work', theme);
   const school = resolveSwatchHex(props.colors.school, 'school', theme);
+  const publicColor = resolveSwatchHex(props.colors.public, 'public', theme);
   const sleep = resolveSwatchHex(props.colors.sleep, 'sleep', theme);
   const highlighted = resolveSwatchHex(props.colors.highlighted, 'highlighted', theme);
   const alpha = BLOCK_ALPHA[theme];
@@ -105,6 +108,8 @@ const rootStyle = computed(() => {
     '--app-hue-work': work,
     '--app-color-school': hexToRgba(school, alpha.school),
     '--app-hue-school': school,
+    '--app-color-public': hexToRgba(publicColor, alpha.public),
+    '--app-hue-public': publicColor,
     '--app-color-sleep': hexToRgba(sleep, alpha.sleep),
     '--app-hue-sleep': sleep,
     '--app-color-highlighted': hexToRgba(highlighted, alpha.highlighted),
@@ -121,6 +126,7 @@ const resolvedIcons = computed(() => ({
   busy: resolveIcon(props.icons.busy, 'busy'),
   work: resolveIcon(props.icons.work, 'work'),
   school: resolveIcon(props.icons.school, 'school'),
+  public: resolveIcon(props.icons.public, 'public'),
   sleep: resolveIcon(props.icons.sleep, 'sleep'),
   highlighted: resolveIcon(props.icons.highlighted, 'highlighted'),
 }));
@@ -153,14 +159,7 @@ const showCalendar = ref(false);
 const timezoneOffsetNote = ref('');
 const timezone = ref('UTC');
 
-const availability = ref<AvailabilityResponse>({
-  free: [],
-  highlighted: [],
-  unavailable: [],
-  work: [],
-  school: [],
-  sleep: [],
-});
+const availability = ref<AvailabilityResponse>({ events: [] });
 
 function parseViewParam(): 'week' | 'month' {
   return new URLSearchParams(location.search).get('view') === 'month' ? 'month' : 'week';
@@ -250,7 +249,7 @@ const navLabel = computed(() => {
   })} – ${end.toLocaleDateString(tag, { month: 'short', day: 'numeric', year: 'numeric' })}`;
 });
 
-const hasAnyFreeTime = computed(() => availability.value.free.length > 0);
+const hasAnyFreeTime = computed(() => availability.value.events.some(e => e.type === 'free'));
 
 const now = ref(new Date());
 const currentTimePct = computed(() => ((now.value.getHours() * 60 + now.value.getMinutes()) / 1440) * 100);
@@ -543,12 +542,7 @@ onMounted(() => {
                 <CalendarView
                   v-if="viewMode === 'week'"
                   :visible-days="visibleDays"
-                  :free-slots="availability.free"
-                  :highlighted-slots="availability.highlighted"
-                  :unavailable-slots="availability.unavailable"
-                  :work-slots="availability.work"
-                  :school-slots="availability.school"
-                  :sleep-slots="availability.sleep"
+                  :events="availability.events"
                   :icons="resolvedIcons"
                   :pending="showStatus"
                   :has-error="showError"
@@ -561,12 +555,7 @@ onMounted(() => {
                 <MonthView
                   v-else
                   :days="visibleDays"
-                  :free-slots="availability.free"
-                  :highlighted-slots="availability.highlighted"
-                  :unavailable-slots="availability.unavailable"
-                  :work-slots="availability.work"
-                  :school-slots="availability.school"
-                  :sleep-slots="availability.sleep"
+                  :events="availability.events"
                   :pending="showStatus"
                   :has-error="showError"
                   :has-any-free-time="hasAnyFreeTime"
@@ -580,12 +569,7 @@ onMounted(() => {
               </div>
               <AgendaView
                 :days="weekDays"
-                :free-slots="availability.free"
-                :highlighted-slots="availability.highlighted"
-                :unavailable-slots="availability.unavailable"
-                :work-slots="availability.work"
-                :school-slots="availability.school"
-                :sleep-slots="availability.sleep"
+                :events="availability.events"
                 :icons="resolvedIcons"
                 :pending="showStatus"
                 :has-error="showError"

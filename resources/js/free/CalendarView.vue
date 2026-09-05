@@ -25,7 +25,7 @@ import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import { computed } from 'vue';
 import { currentLocale, trans } from 'laravel-vue-i18n';
 import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, isTentativeSuffixShown, tildeTime } from './nuxt-blocks';
-import type { DayBlock, FreeSlot, HighlightedSlot, TentativeSlot } from './nuxt-blocks';
+import type { DayBlock, EventSlot } from './nuxt-blocks';
 import { resolveLocalizedText } from './localizedText';
 
 const BLOCK_TYPE_CLASS: Record<DayBlock['type'], string> = {
@@ -34,6 +34,7 @@ const BLOCK_TYPE_CLASS: Record<DayBlock['type'], string> = {
   highlighted: 'wtf-fcal-highlighted-block',
   work: 'wtf-fcal-work-block',
   school: 'wtf-fcal-school-block',
+  public: 'wtf-fcal-public-block',
   sleep: 'wtf-fcal-sleep-block',
 };
 
@@ -43,6 +44,7 @@ const BLOCK_TYPE_LABEL_KEY: Record<DayBlock['type'], string> = {
   highlighted: 'free.highlightedLabel',
   work: 'free.workLabel',
   school: 'free.schoolLabel',
+  public: 'free.publicLabel',
   sleep: 'free.sleepLabel',
 };
 
@@ -52,19 +54,15 @@ const BLOCK_TYPE_COLOR_VAR: Record<DayBlock['type'], string> = {
   highlighted: '--app-color-highlighted',
   work: '--app-color-work',
   school: '--app-color-school',
+  public: '--app-color-public',
   sleep: '--app-color-sleep',
 };
 
 const props = defineProps<{
   visibleDays: Date[];
-  freeSlots: FreeSlot[];
-  highlightedSlots: HighlightedSlot[];
-  unavailableSlots: TentativeSlot[];
-  workSlots: TentativeSlot[];
-  schoolSlots: TentativeSlot[];
-  sleepSlots: FreeSlot[];
+  events: EventSlot[];
   /** Owner-customizable per block type — already resolved to real FA icons by Free/Show.vue's resolvedIcons (icon-palette.ts). */
-  icons: { free: IconDefinition; busy: IconDefinition; work: IconDefinition; school: IconDefinition; sleep: IconDefinition; highlighted: IconDefinition };
+  icons: { free: IconDefinition; busy: IconDefinition; work: IconDefinition; school: IconDefinition; public: IconDefinition; sleep: IconDefinition; highlighted: IconDefinition };
   pending: boolean;
   hasError: boolean;
   hasAnyFreeTime: boolean;
@@ -84,6 +82,7 @@ const blockTypeIcon = computed<Record<DayBlock['type'], IconDefinition>>(() => (
   highlighted: props.icons.highlighted,
   work: props.icons.work,
   school: props.icons.school,
+  public: props.icons.public,
   sleep: props.icons.sleep,
 }));
 
@@ -98,6 +97,9 @@ function blockLabel(block: DayBlock): string {
     if (roleLabel) return roleLabel;
     if (block.activity) return block.activity;
   }
+  // A public event's `activity` is its full raw title verbatim (no
+  // extraction pattern applied) — see AvailabilityService::compute().
+  if (block.type === 'public' && block.activity) return block.activity;
   return trans(BLOCK_TYPE_LABEL_KEY[block.type]);
 }
 
@@ -124,9 +126,7 @@ function blockTimeText(block: DayBlock): string {
 const dayBlocks = computed(() =>
   props.visibleDays.map(day => ({
     day,
-    blocks: props.showBlocks
-      ? getBlocksForDay(day, props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots, props.schoolSlots)
-      : [],
+    blocks: props.showBlocks ? getBlocksForDay(day, props.events, props.timezone) : [],
   })),
 );
 
@@ -163,7 +163,7 @@ function tentativeFadeStyle(day: Date, blocks: DayBlock[], i: number): Record<st
   if (startFuzzy) {
     const prev = i > 0
       ? blocks[i - 1]
-      : getBlocksForDay(subDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots, props.schoolSlots).at(-1);
+      : getBlocksForDay(subDays(day, 1), props.events, props.timezone).at(-1);
     if (prev) {
       style['--fade-start'] = isTentativeEndDisplay(prev)
         ? `var(${BLOCK_TYPE_COLOR_VAR[block.type]})`
@@ -176,7 +176,7 @@ function tentativeFadeStyle(day: Date, blocks: DayBlock[], i: number): Record<st
   if (endFuzzy) {
     const next = i < blocks.length - 1
       ? blocks[i + 1]
-      : getBlocksForDay(addDays(day, 1), props.freeSlots, props.highlightedSlots, props.unavailableSlots, props.sleepSlots, props.timezone, props.workSlots, props.schoolSlots)[0];
+      : getBlocksForDay(addDays(day, 1), props.events, props.timezone)[0];
     if (next) style['--fade-end'] = `var(${BLOCK_TYPE_COLOR_VAR[next.type]})`;
   } else {
     style['--fade-end'] = `var(${BLOCK_TYPE_COLOR_VAR[block.type]})`;

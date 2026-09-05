@@ -55,7 +55,7 @@ class SettingsIconKeyValidationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        foreach (['free_icon_key', 'busy_icon_key', 'work_icon_key', 'sleep_icon_key', 'highlight_icon_key'] as $field) {
+        foreach (['free_icon_key', 'busy_icon_key', 'work_icon_key', 'sleep_icon_key', 'highlight_icon_key', 'public_icon_key'] as $field) {
             $response = $this->actingAs($user)->patch('/settings', [
                 ...$this->baseSettings(),
                 $field => 'bogus',

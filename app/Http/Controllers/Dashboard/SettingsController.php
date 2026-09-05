@@ -63,6 +63,20 @@ class SettingsController extends Controller
      */
     private const SUGGESTED_SCHOOL_EVENT_PATTERN = '(school|class)';
 
+    /**
+     * Unlike dnd/nap/work/school above, this is a Flag-style pattern —
+     * same treatment as IcsParser's tentative/open-end/open-start
+     * patterns: matched AND stripped out of the title, at parse time
+     * (IcsParser::DEFAULT_PUBLIC_EVENT_TITLE_PATTERN), not evaluated
+     * later against the summary like the boolean patterns above. A match
+     * tags the event as "public" — rendered in its own neutral category
+     * on the /free calendar with its (now marker-stripped) title shown
+     * verbatim to every viewer (no activity_clause_pattern extraction),
+     * instead of the generic "Busy" label an ordinary unavailable block
+     * gets.
+     */
+    private const SUGGESTED_PUBLIC_EVENT_PATTERN = '\(public\)\s*$';
+
     public function edit(Request $request): Response
     {
         /**
@@ -82,6 +96,8 @@ class SettingsController extends Controller
                 'work_event_pattern_preview' => $user->work_event_pattern_preview,
                 'school_event_pattern' => $user->school_event_pattern,
                 'school_event_pattern_preview' => $user->school_event_pattern_preview,
+                'public_event_pattern' => $user->public_event_pattern,
+                'public_event_pattern_preview' => $user->public_event_pattern_preview,
                 'calendar_parsing_mode' => $user->calendar_parsing_mode,
                 'highlight_clause_pattern' => $user->highlight_clause_pattern,
                 'highlight_clause_pattern_preview' => $user->highlight_clause_pattern_preview,
@@ -103,12 +119,14 @@ class SettingsController extends Controller
                 'busy_color_key' => $user->busy_color_key,
                 'work_color_key' => $user->work_color_key,
                 'school_color_key' => $user->school_color_key,
+                'public_color_key' => $user->public_color_key,
                 'free_color_key' => $user->free_color_key,
                 'highlight_color_key' => $user->highlight_color_key,
                 'free_icon_key' => $user->free_icon_key,
                 'busy_icon_key' => $user->busy_icon_key,
                 'work_icon_key' => $user->work_icon_key,
                 'school_icon_key' => $user->school_icon_key,
+                'public_icon_key' => $user->public_icon_key,
                 'sleep_icon_key' => $user->sleep_icon_key,
                 'highlight_icon_key' => $user->highlight_icon_key,
                 'now_color_key' => $user->now_color_key,
@@ -119,6 +137,7 @@ class SettingsController extends Controller
                 'napEventPattern' => self::SUGGESTED_NAP_EVENT_PATTERN,
                 'workEventPattern' => self::SUGGESTED_WORK_EVENT_PATTERN,
                 'schoolEventPattern' => self::SUGGESTED_SCHOOL_EVENT_PATTERN,
+                'publicEventPattern' => self::SUGGESTED_PUBLIC_EVENT_PATTERN,
                 'highlightClausePattern' => HighlightMatcher::DEFAULT_CLAUSE_PATTERN,
                 'highlightSplitPattern' => HighlightMatcher::DEFAULT_SPLIT_PATTERN,
                 'activityClausePattern' => ActivityExtractor::DEFAULT_PATTERN,
@@ -173,6 +192,7 @@ class SettingsController extends Controller
         'nap_event_pattern', 'nap_event_pattern_preview',
         'work_event_pattern', 'work_event_pattern_preview',
         'school_event_pattern', 'school_event_pattern_preview',
+        'public_event_pattern', 'public_event_pattern_preview',
         'highlight_clause_pattern', 'highlight_clause_pattern_preview',
         'highlight_split_pattern', 'highlight_split_pattern_preview',
         'activity_clause_pattern', 'activity_clause_pattern_preview',
@@ -180,8 +200,8 @@ class SettingsController extends Controller
         'open_end_pattern', 'open_end_pattern_preview',
         'open_start_pattern', 'open_start_pattern_preview',
         'accent_color_key', 'secondary_color_key', 'sleep_color_key', 'busy_color_key',
-        'work_color_key', 'school_color_key', 'free_color_key', 'highlight_color_key',
-        'free_icon_key', 'busy_icon_key', 'work_icon_key', 'school_icon_key',
+        'work_color_key', 'school_color_key', 'public_color_key', 'free_color_key', 'highlight_color_key',
+        'free_icon_key', 'busy_icon_key', 'work_icon_key', 'school_icon_key', 'public_icon_key',
         'sleep_icon_key', 'highlight_icon_key', 'now_color_key',
     ];
 

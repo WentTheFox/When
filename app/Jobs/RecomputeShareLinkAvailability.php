@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Domain\Calendar\AvailabilitySlot;
 use App\Models\CalendarDetection;
 use App\Models\ShareLink;
 use App\Models\ShareLinkCache;
@@ -124,6 +125,7 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
             $user->open_end_pattern,
             $user->open_start_pattern,
             $user->calendar_parsing_mode,
+            publicEventTitlePattern: $user->public_event_pattern,
         );
         $timer->lap('parse', ['raw_item_count' => count($rawItems)]);
 
@@ -174,16 +176,12 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
             activityLocalizations: $activityLocalizations,
         );
 
-        $timer->lap('compute_availability', [
-            'free_count' => count($result->free),
-            'highlighted_count' => count($result->highlighted),
-            'unavailable_count' => count($result->unavailable),
-            'work_count' => count($result->work),
-            'school_count' => count($result->school),
-            'sleep_count' => count($result->sleep),
-        ]);
+        $timer->lap('compute_availability', array_merge(
+            ['total_count' => count($result->events)],
+            array_count_values(array_map(fn (AvailabilitySlot $s) => $s->type.'_count', $result->events)),
+        ));
 
-        $resultJson = json_encode($result->toArray());
+        $resultJson = json_encode(['events' => $result->toArray()]);
         $contentKey = HighlightTokenKey::derive($shareLink->highlight_token ?? $shareLink->id);
 
         $ciphertext = AesGcm::encrypt($contentKey, $resultJson);

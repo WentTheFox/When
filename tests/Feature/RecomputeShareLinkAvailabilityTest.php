@@ -76,9 +76,11 @@ class RecomputeShareLinkAvailabilityTest extends TestCase
         $derivedKey = HighlightTokenKey::derive($shareLink->highlight_token);
         $decrypted = json_decode(AesGcm::decrypt($derivedKey, $cache->ciphertext), true);
 
-        $this->assertCount(1, $decrypted['highlighted']);
-        $this->assertSame(['Alice'], $decrypted['highlighted'][0]['highlight_words']);
-        $this->assertCount(1, $decrypted['unavailable']);
+        $highlighted = array_values(array_filter($decrypted['events'], fn ($e) => $e['type'] === 'highlighted'));
+        $unavailable = array_values(array_filter($decrypted['events'], fn ($e) => $e['type'] === 'unavailable'));
+        $this->assertCount(1, $highlighted);
+        $this->assertSame(['Alice'], $highlighted[0]['highlight_words']);
+        $this->assertCount(1, $unavailable);
     }
 
     public function test_recompute_records_a_calendar_detection(): void
@@ -129,8 +131,8 @@ class RecomputeShareLinkAvailabilityTest extends TestCase
         $derivedKey = HighlightTokenKey::derive('highlight-token-for-recompute-test');
         $decrypted = json_decode(AesGcm::decrypt($derivedKey, $cache->ciphertext), true);
 
-        $this->assertCount(1, $decrypted['unavailable']);
-        $this->assertCount(0, $decrypted['highlighted']);
+        $this->assertCount(1, array_values(array_filter($decrypted['events'], fn ($e) => $e['type'] === 'unavailable')));
+        $this->assertCount(0, array_values(array_filter($decrypted['events'], fn ($e) => $e['type'] === 'highlighted')));
     }
 
     public function test_recompute_no_ops_when_the_share_link_no_longer_exists(): void

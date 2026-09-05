@@ -65,6 +65,7 @@
     --app-color-highlighted: rgba(255, 214, 10, 0.35);
     --app-color-work: rgba(139, 94, 52, 0.35);
     --app-color-school: rgba(47, 158, 68, 0.35);
+    --app-color-public: rgba(52, 58, 64, 0.35);
     --app-color-sleep: rgba(111, 66, 193, 0.35);
     /* A plain number, not rgba(var(--app-accent-rgb), 0.12) — a custom
        property whose OWN value embeds another var() freezes that inner
@@ -120,6 +121,7 @@
     --app-color-highlighted: rgba(255, 214, 10, 0.3);
     --app-color-work: rgba(139, 94, 52, 0.3);
     --app-color-school: rgba(47, 158, 68, 0.3);
+    --app-color-public: rgba(52, 58, 64, 0.3);
     --app-color-sleep: rgba(111, 66, 193, 0.3);
     --app-fcal-today-alpha: 0.06;
 }
@@ -159,6 +161,7 @@
     --app-fcal-text-highlighted: color-mix(in srgb, var(--app-hue-highlighted, #ffd60a) 65%, var(--app-text) 35%);
     --app-fcal-text-work: color-mix(in srgb, var(--app-hue-work, #8b5e34) 65%, var(--app-text) 35%);
     --app-fcal-text-school: color-mix(in srgb, var(--app-hue-school, #2f9e44) 65%, var(--app-text) 35%);
+    --app-fcal-text-public: color-mix(in srgb, var(--app-hue-public, #343a40) 65%, var(--app-text) 35%);
     --app-fcal-text-sleep: color-mix(in srgb, var(--app-hue-sleep, #6f42c1) 65%, var(--app-text) 35%);
     color: var(--app-text);
 }
@@ -175,6 +178,7 @@
     --app-fcal-text-highlighted: color-mix(in srgb, var(--app-hue-highlighted, #ffd60a) 65%, var(--app-text) 35%);
     --app-fcal-text-work: color-mix(in srgb, var(--app-hue-work, #8b5e34) 65%, var(--app-text) 35%);
     --app-fcal-text-school: color-mix(in srgb, var(--app-hue-school, #2f9e44) 65%, var(--app-text) 35%);
+    --app-fcal-text-public: color-mix(in srgb, var(--app-hue-public, #343a40) 65%, var(--app-text) 35%);
     --app-fcal-text-sleep: color-mix(in srgb, var(--app-hue-sleep, #6f42c1) 65%, var(--app-text) 35%);
     color: var(--app-text);
 }
@@ -202,6 +206,7 @@
     --app-fcal-text-highlighted: color-mix(in srgb, var(--app-hue-highlighted, #ffd60a) 65%, var(--app-text) 35%);
     --app-fcal-text-work: color-mix(in srgb, var(--app-hue-work, #8b5e34) 65%, var(--app-text) 35%);
     --app-fcal-text-school: color-mix(in srgb, var(--app-hue-school, #2f9e44) 65%, var(--app-text) 35%);
+    --app-fcal-text-public: color-mix(in srgb, var(--app-hue-public, #343a40) 65%, var(--app-text) 35%);
     --app-fcal-text-sleep: color-mix(in srgb, var(--app-hue-sleep, #6f42c1) 65%, var(--app-text) 35%);
 }
 
@@ -823,6 +828,14 @@ hr {
     color: var(--app-fcal-text-school);
 }
 
+.wtf-fcal-public-block {
+    background-color: var(--app-color-public);
+}
+
+.wtf-fcal-public-block .wtf-fcal-block-label {
+    color: var(--app-fcal-text-public);
+}
+
 .wtf-fcal-sleep-block {
     background-color: var(--app-color-sleep);
 }
@@ -898,6 +911,10 @@ hr {
 
 .wtf-fcal-school-block.wtf-fcal-tentative-block::before {
     --own-color: var(--app-color-school);
+}
+
+.wtf-fcal-public-block.wtf-fcal-tentative-block::before {
+    --own-color: var(--app-color-public);
 }
 
 .wtf-fcal-sleep-block.wtf-fcal-tentative-block::before {
@@ -1092,6 +1109,15 @@ hr {
     color: var(--app-fcal-text-school);
 }
 
+.wtf-fagenda-slot-public {
+    background-color: var(--app-color-public);
+}
+
+.wtf-fagenda-slot-public .wtf-fagenda-slot-time,
+.wtf-fagenda-slot-public .wtf-fagenda-slot-label {
+    color: var(--app-fcal-text-public);
+}
+
 .wtf-fagenda-slot-sleep {
     background-color: var(--app-color-sleep);
 }
@@ -1151,6 +1177,10 @@ hr {
 
 .wtf-fagenda-slot-school.wtf-fagenda-slot-tentative::before {
     --own-color: var(--app-color-school);
+}
+
+.wtf-fagenda-slot-public.wtf-fagenda-slot-tentative::before {
+    --own-color: var(--app-color-public);
 }
 
 .wtf-fagenda-slot-sleep.wtf-fagenda-slot-tentative::before {
@@ -1330,6 +1360,11 @@ hr {
     background-color: var(--app-color-school);
 }
 
+.wtf-fmonth-avail-block-public {
+    min-height: 0.4rem;
+    background-color: var(--app-color-public);
+}
+
 .wtf-fmonth-avail-block-sleep {
     min-height: 0.4rem;
     background-color: var(--app-color-sleep);
@@ -1362,6 +1397,10 @@ hr {
 
 .wtf-fmonth-avail-block-school.wtf-fmonth-avail-block-tentative::before {
     --own-color: var(--app-color-school);
+}
+
+.wtf-fmonth-avail-block-public.wtf-fmonth-avail-block-tentative::before {
+    --own-color: var(--app-color-public);
 }
 
 .wtf-fmonth-avail-block-sleep.wtf-fmonth-avail-block-tentative::before {

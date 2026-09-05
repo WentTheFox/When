@@ -23,5 +23,7 @@ final class RawCalendarItem
         public readonly ?string $location = null,
         public readonly bool $tentativeStart = false,
         public readonly bool $tentativeEnd = false,
+        /** Title matched IcsParser's public-event marker pattern — already stripped out of $summary above by the time this is set. */
+        public readonly bool $isPublicEventTitle = false,
     ) {}
 }

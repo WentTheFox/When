@@ -36,6 +36,11 @@ class ColorPalette
         // Green — a common school/education association (chalkboards,
         // classic school-supply green).
         'school' => ColorSwatchKey::Green->value,
+        // Slate, not Charcoal/Silver — a public event should read as
+        // deliberately neutral/monochrome (distinct from both busy's
+        // near-black and secondary's own default gray), while its full
+        // raw title still does the work of conveying what it actually is.
+        'public' => ColorSwatchKey::Slate->value,
     ];
 
     /** Shape consumed by resources/js/free/color-palette.ts's setColorPalette(). */

@@ -8,14 +8,14 @@ use App\Domain\Calendar\ParsedEvent;
 use Carbon\CarbonImmutable;
 
 /**
- * Computes the final free/highlighted/unavailable/sleep result (§5.1),
- * ported from the source app's own AvailabilityController +
- * AvailabilityService to match its API contract exactly rather than our
- * own earlier single-flat-list design: the four
- * output arrays are computed mostly independently and can legitimately
- * overlap (an event that's both busy and highlighted appears in both
- * `unavailable` and `highlighted`) — see AvailabilityResult's doc comment
- * for why that's intentional, not a bug to resolve here.
+ * Computes the final free/highlighted/unavailable/work/school/public/sleep
+ * result (§5.1). The categories are computed mostly independently and can
+ * legitimately overlap (an event that's both busy and highlighted produces
+ * both an `unavailable` and a `highlighted` entry) — see
+ * AvailabilityResult's doc comment for why that's intentional, not a bug to
+ * resolve here. They're flattened into one tagged list only at the very end
+ * (the `return` statement), so each category's own merge/subtract pipeline
+ * above stays untouched.
  *
  * Every rule here has a matching test in
  * tests/Unit/Calendar/AvailabilityServiceTest.php.
@@ -56,6 +56,7 @@ class AvailabilityService
         $unavailable = [];
         $work = [];
         $school = [];
+        $public = [];
         $highlighted = [];
 
         foreach ($events as $event) {
@@ -84,6 +85,22 @@ class AvailabilityService
                 $school[] = ['start' => $event->start, 'end' => $event->end, 'tentativeStart' => $event->tentativeStart, 'tentativeEnd' => $event->tentativeEnd];
             }
 
+            // Same double-bookkeeping as work/school above — but decided by
+            // IcsParser at parse time (isPublicEventTitle), not a plain
+            // matchesEventNamePattern() check here: public_event_pattern is
+            // a Flag-style marker (like tentative/open-end/open-start)
+            // already stripped out of $event->summary by the time this
+            // event reaches us, so there'd be nothing left here to match
+            // against. The activity shown for a public event is the
+            // event's own (already-cleaned) summary verbatim, not run
+            // through activityClausePattern like highlighted's extraction
+            // below — the whole point of "public" is that the owner has
+            // nothing to hide about this event, so its real title (minus
+            // the internal marker) is surfaced as-is.
+            if ($event->isPublicEventTitle) {
+                $public[] = ['start' => $event->start, 'end' => $event->end, 'tentativeStart' => $event->tentativeStart, 'tentativeEnd' => $event->tentativeEnd, 'summary' => $event->summary];
+            }
+
             $highlightMatch = $this->matcher->match($event, $highlightWords, $highlightClausePattern, $highlightSplitPattern, $activityLocalizations);
 
             if ($highlightMatch !== null) {
@@ -100,6 +117,7 @@ class AvailabilityService
                 $highlighted[] = new AvailabilitySlot(
                     start: $event->start,
                     end: $event->end,
+                    type: 'highlighted',
                     tentativeStart: $event->tentativeStart,
                     tentativeEnd: $event->tentativeEnd,
                     activity: $activity,
@@ -123,16 +141,26 @@ class AvailabilityService
         $school = $this->subtractSleepFromEvents($school, $sleepIntervals);
         $school = $this->mergeEventSegments($school);
 
+        // No mergeEventSegments pass here, unlike unavailable/work/school
+        // above — that method's cross-event merging discards everything
+        // but start/end/tentative flags, which would lose each segment's
+        // own `summary` (the whole point of a public event is showing that
+        // verbatim). Two public events overlapping each other is an
+        // unusual edge case; subtractSleepFromEvents already splits each
+        // one around sleep while keeping its own summary attached.
+        $public = $this->subtractSleepFromEvents($public, $sleepIntervals);
+
         $free = $this->computeFreeRanges($weeklyAvailability, $busyIntervals, $rangeStart, $rangeEnd);
 
-        return new AvailabilityResult(
-            free: array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end']), $free),
-            highlighted: $highlighted,
-            unavailable: array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd']), $unavailable),
-            work: array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd']), $work),
-            school: array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd']), $school),
-            sleep: array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end']), $sleepIntervals),
-        );
+        return new AvailabilityResult(events: [
+            ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'free'), $free),
+            ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'unavailable', tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd']), $unavailable),
+            ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'work', tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd']), $work),
+            ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'school', tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd']), $school),
+            ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'public', tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd'], activity: $s['summary']), $public),
+            ...$highlighted,
+            ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'sleep'), $sleepIntervals),
+        ]);
     }
 
     /**
@@ -357,7 +385,9 @@ class AvailabilityService
      * Clips each event against $sleepBlocks so sleep takes precedence over
      * busy time: events fully within a sleep block are dropped, and events
      * straddling one are split around it. Each resulting segment keeps its
-     * originating event's own tentativeStart/tentativeEnd flags.
+     * originating event's own tentativeStart/tentativeEnd flags, plus any
+     * other keys the caller attached to the event (e.g. `summary` for
+     * public events) — passed through unchanged onto every split fragment.
      *
      * @param  array{start: CarbonImmutable, end: CarbonImmutable, tentativeStart: bool, tentativeEnd: bool}[]  $events
      * @param  array{start: CarbonImmutable, end: CarbonImmutable}[]  $sleepBlocks
@@ -369,9 +399,10 @@ class AvailabilityService
 
         foreach ($events as $event) {
             $remaining = $this->subtractIntervals([['start' => $event['start'], 'end' => $event['end']]], $sleepBlocks);
+            $extra = array_diff_key($event, ['start' => null, 'end' => null]);
 
             foreach ($remaining as $slot) {
-                $segments[] = ['start' => $slot['start'], 'end' => $slot['end'], 'tentativeStart' => $event['tentativeStart'], 'tentativeEnd' => $event['tentativeEnd']];
+                $segments[] = [...$extra, 'start' => $slot['start'], 'end' => $slot['end']];
             }
         }
 

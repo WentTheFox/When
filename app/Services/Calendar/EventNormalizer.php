@@ -36,6 +36,7 @@ class EventNormalizer
                 isFreeBusyOnly: $isFreeBusyOnly,
                 tentativeStart: $item->tentativeStart,
                 tentativeEnd: $item->tentativeEnd,
+                isPublicEventTitle: $item->isPublicEventTitle,
             ),
             $items,
         );

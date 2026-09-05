@@ -252,6 +252,55 @@ class IcsParserTest extends TestCase
         $this->assertSame('Maybe lunch (?)', $maybeLunch->summary);
     }
 
+    public function test_a_public_event_pattern_marks_and_strips_the_matched_marker(): void
+    {
+        // Flag-style, same as tentative/open-end/open-start above — matched
+        // AND stripped, not left in the title the way a plain boolean
+        // event-name pattern (dnd/nap/work/school) would.
+        $items = $this->parser->parse(
+            $this->fixture('full_detail.ics'),
+            CarbonImmutable::parse('2026-06-01', 'UTC'),
+            CarbonImmutable::parse('2026-06-10', 'UTC'),
+            publicEventTitlePattern: 'Alice$',
+        );
+
+        $coffee = $items[0];
+        $this->assertSame('Coffee with', $coffee->summary);
+        $this->assertTrue($coffee->isPublicEventTitle);
+
+        // Unaffected events aren't flagged.
+        $maybeLunch = $items[1];
+        $this->assertFalse($maybeLunch->isPublicEventTitle);
+    }
+
+    public function test_a_blank_public_event_pattern_turns_detection_off_entirely(): void
+    {
+        $items = $this->parser->parse(
+            $this->fixture('full_detail.ics'),
+            CarbonImmutable::parse('2026-06-01', 'UTC'),
+            CarbonImmutable::parse('2026-06-10', 'UTC'),
+        );
+
+        $coffee = $items[0];
+        $this->assertSame('Coffee with Alice', $coffee->summary);
+        $this->assertFalse($coffee->isPublicEventTitle);
+    }
+
+    public function test_free_busy_only_mode_also_gates_the_public_event_pattern(): void
+    {
+        $items = $this->parser->parse(
+            $this->fixture('full_detail.ics'),
+            CarbonImmutable::parse('2026-06-01', 'UTC'),
+            CarbonImmutable::parse('2026-06-10', 'UTC'),
+            publicEventTitlePattern: 'Alice$',
+            parsingMode: 'free_busy_only',
+        );
+
+        $coffee = $items[0];
+        $this->assertSame('Coffee with Alice', $coffee->summary);
+        $this->assertFalse($coffee->isPublicEventTitle);
+    }
+
     public function test_a_custom_open_end_pattern_overrides_the_default(): void
     {
         // Starting from the default pattern, "(-?)" is stripped/detected.

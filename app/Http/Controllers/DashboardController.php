@@ -82,6 +82,7 @@ class DashboardController extends Controller
                 $user->open_end_pattern,
                 $user->open_start_pattern,
                 $user->calendar_parsing_mode,
+                publicEventTitlePattern: $user->public_event_pattern,
             );
             $events = $normalizer->normalize($rawItems, $user->calendar_parsing_mode);
 
@@ -142,8 +143,8 @@ class DashboardController extends Controller
         int $days,
     ): array {
         $totalMin = $days * 1440;
-        $sleepMin = $this->sumSlotMinutes($result->sleep, $bucketStart, $bucketEnd);
-        $freeMin = $this->sumSlotMinutes($result->free, $bucketStart, $bucketEnd);
+        $sleepMin = $this->sumSlotMinutes($this->slotsOfType($result, 'sleep'), $bucketStart, $bucketEnd);
+        $freeMin = $this->sumSlotMinutes($this->slotsOfType($result, 'free'), $bucketStart, $bucketEnd);
         $workMin = $this->sumEventMinutes($events, $workEventPattern, $bucketStart, $bucketEnd);
         $schoolMin = $this->sumEventMinutes($events, $schoolEventPattern, $bucketStart, $bucketEnd);
         $windowMin = max(0, $totalMin - $sleepMin);
@@ -240,7 +241,8 @@ class DashboardController extends Controller
                 activityLocalizations: $activityLocalizations,
             );
 
-            $minutes = $this->sumSlotMinutes($linkResult->highlighted, $rangeStart, $rangeEnd);
+            $linkHighlighted = $this->slotsOfType($linkResult, 'highlighted');
+            $minutes = $this->sumSlotMinutes($linkHighlighted, $rangeStart, $rangeEnd);
 
             $connection = $shareLink->connection;
 
@@ -249,7 +251,7 @@ class DashboardController extends Controller
                 'minutes' => $minutes,
                 'connection' => $connection ? ['id' => $connection->id, 'name_ciphertext' => $connection->name_ciphertext] : null,
                 'share_link_label_ciphertext' => $shareLink->label_ciphertext,
-                'events' => $this->matchedSlotsInRange($linkResult->highlighted, $rangeStart, $rangeEnd),
+                'events' => $this->matchedSlotsInRange($linkHighlighted, $rangeStart, $rangeEnd),
             ];
 
             if ($minutes > 0) {
@@ -290,6 +292,12 @@ class DashboardController extends Controller
         usort($inRange, fn (AvailabilitySlot $a, AvailabilitySlot $b) => $a->start <=> $b->start);
 
         return array_map(fn (AvailabilitySlot $slot) => $slot->toArray(), $inRange);
+    }
+
+    /** @return AvailabilitySlot[] */
+    private function slotsOfType(AvailabilityResult $result, string $type): array
+    {
+        return array_values(array_filter($result->events, fn (AvailabilitySlot $s) => $s->type === $type));
     }
 
     /** @param  AvailabilitySlot[]  $slots */

@@ -18,6 +18,8 @@ export interface Settings {
   work_event_pattern_preview: string | null;
   school_event_pattern: string | null;
   school_event_pattern_preview: string | null;
+  public_event_pattern: string | null;
+  public_event_pattern_preview: string | null;
   calendar_parsing_mode: 'full_detail' | 'free_busy_only';
   highlight_clause_pattern: string | null;
   highlight_clause_pattern_preview: string | null;
@@ -39,12 +41,14 @@ export interface Settings {
   busy_color_key: string | null;
   work_color_key: string | null;
   school_color_key: string | null;
+  public_color_key: string | null;
   free_color_key: string | null;
   highlight_color_key: string | null;
   free_icon_key: string | null;
   busy_icon_key: string | null;
   work_icon_key: string | null;
   school_icon_key: string | null;
+  public_icon_key: string | null;
   sleep_icon_key: string | null;
   highlight_icon_key: string | null;
   now_color_key: string | null;
@@ -57,6 +61,7 @@ export interface SettingsDefaults {
   napEventPattern: string;
   workEventPattern: string;
   schoolEventPattern: string;
+  publicEventPattern: string;
   highlightClausePattern: string;
   highlightSplitPattern: string;
   activityClausePattern: string;

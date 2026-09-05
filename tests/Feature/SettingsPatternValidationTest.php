@@ -115,4 +115,29 @@ class SettingsPatternValidationTest extends TestCase
 
         $response->assertSessionHasNoErrors();
     }
+
+    public function test_an_invalid_public_event_pattern_is_rejected(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->patch('/settings', [
+            ...$this->baseSettings(),
+            'public_event_pattern' => '(unterminated',
+        ]);
+
+        $response->assertSessionHasErrors('public_event_pattern');
+    }
+
+    public function test_a_valid_public_event_pattern_is_accepted_and_saved(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->patch('/settings', [
+            ...$this->baseSettings(),
+            'public_event_pattern' => '(public|community)',
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $this->assertSame('(public|community)', $user->fresh()->public_event_pattern);
+    }
 }

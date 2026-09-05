@@ -93,7 +93,7 @@ export interface IconOption {
   categories: IconSlot[];
 }
 
-export type IconSlot = 'free' | 'busy' | 'work' | 'school' | 'sleep' | 'highlighted';
+export type IconSlot = 'free' | 'busy' | 'work' | 'school' | 'public' | 'sleep' | 'highlighted';
 
 /** This app's own key -> the actual FA icon it currently renders as. Keep in sync with App\Support\IconKey's cases (same key set, one entry each). */
 const ICON_KEY_TO_FA: Record<string, IconDefinition> = {
@@ -180,6 +180,7 @@ let defaultKeys: Record<IconSlot, string> = {
   busy: '',
   work: '',
   school: '',
+  public: '',
   sleep: '',
   highlighted: '',
 };

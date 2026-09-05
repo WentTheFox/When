@@ -4,41 +4,34 @@
  * possible (see resources/js/free/CalendarView.vue's header comment for
  * why: this is a deliberate "match the reference exactly" port, not a
  * reimplementation). Consumes App\Domain\Calendar\AvailabilityResult's
- * four-array shape directly (free/highlighted/unavailable/sleep can
- * legitimately overlap — see that class's PHP doc comment) and does all
- * overlap/precedence resolution client-side, exactly like the source app.
+ * flat, tagged event list directly (free/highlighted/unavailable/work/
+ * school/public/sleep can legitimately overlap — see that class's PHP doc
+ * comment) and does all overlap/precedence resolution client-side, exactly
+ * like the source app.
  */
 import { format, parseISO } from 'date-fns';
 import { TZDate } from '@date-fns/tz';
 import { huFromSuffix } from './hu-time-suffix';
 import type { LocalizedText } from './localizedText';
 
-export interface FreeSlot {
+export type EventType = 'free' | 'unavailable' | 'highlighted' | 'work' | 'school' | 'public' | 'sleep';
+
+export interface EventSlot {
   start: string;
   end: string;
-}
-
-export interface TentativeSlot extends FreeSlot {
+  type: EventType;
   tentative_start?: boolean;
   tentative_end?: boolean;
-}
-
-export interface HighlightedSlot extends TentativeSlot {
-  /** Raw, unlocalized freetext preceding "with X"/"w/ X" (e.g. "Dinner") — shown as-is when activity_label below isn't set. See ActivityExtractor. */
+  /** Raw, unlocalized freetext preceding "with X"/"w/ X" (e.g. "Dinner") for a highlighted slot — shown as-is when activity_label below isn't set. See ActivityExtractor. For a public slot, this is instead the event's full raw title verbatim (no extraction pattern applied). */
   activity?: string | null;
-  /** The owner's own configured, localized label for this event's matched ActivityLocalization (e.g. "Visiting"/"Hosting", or any other role an owner defined) — takes precedence over `activity` above when set. Resolve with resolveLocalizedText(). */
+  /** The owner's own configured, localized label for this event's matched ActivityLocalization (e.g. "Visiting"/"Hosting", or any other role an owner defined) — takes precedence over `activity` above when set. Resolve with resolveLocalizedText(). Only ever set for a highlighted slot. */
   activity_label?: LocalizedText | null;
-  /** Every configured highlight word that matched — a clause can name more than one person (e.g. "with Alice, Bob"). */
+  /** Every configured highlight word that matched — a clause can name more than one person (e.g. "with Alice, Bob"). Only ever set for a highlighted slot. */
   highlight_words?: string[];
 }
 
 export interface AvailabilityResponse {
-  free: FreeSlot[];
-  highlighted: HighlightedSlot[];
-  unavailable: TentativeSlot[];
-  work: TentativeSlot[];
-  school: TentativeSlot[];
-  sleep: FreeSlot[];
+  events: EventSlot[];
 }
 
 export interface DayBlock {
@@ -46,7 +39,7 @@ export interface DayBlock {
   heightPct: number;
   startTime: string;
   endTime: string;
-  type: 'free' | 'unavailable' | 'highlighted' | 'work' | 'school' | 'sleep';
+  type: EventType;
   tentativeStart?: boolean;
   tentativeEnd?: boolean;
   activity?: string | null;
@@ -154,7 +147,7 @@ function formatSlotEndTime(end: Date): string {
 }
 
 function slotsToBlocks(
-  slots: HighlightedSlot[],
+  slots: EventSlot[],
   type: DayBlock['type'],
   dayStartTs: number,
   dayEndTs: number,
@@ -270,16 +263,25 @@ function splitByOverlay(base: DayBlock, overlay: DayBlock[]): DayBlock[] {
   return result;
 }
 
-export function getBlocksForDay(
-  day: Date,
-  freeSlots: FreeSlot[],
-  highlightedSlots: HighlightedSlot[],
-  unavailableSlots: TentativeSlot[],
-  sleepSlots: FreeSlot[],
-  timezone: string,
-  workSlots: TentativeSlot[] = [],
-  schoolSlots: TentativeSlot[] = [],
-): DayBlock[] {
+function groupByType(events: EventSlot[]): Partial<Record<EventType, EventSlot[]>> {
+  const groups: Partial<Record<EventType, EventSlot[]>> = {};
+  for (const event of events) {
+    (groups[event.type] ??= []).push(event);
+  }
+  return groups;
+}
+
+// Lower-priority overlays are applied in this order, each one claiming
+// whatever's left after every overlay before it — an already-claimed
+// fragment is left alone rather than re-split (e.g. a highlighted person's
+// event stays highlighted even during the owner's own work hours; work
+// only ever claims plain unavailable/free time). There's no real-world
+// reason to expect one of work/school/public to take precedence over
+// another when an event matches more than one, so first-applied-wins is as
+// good a rule as any.
+const OVERLAY_TYPES: DayBlock['type'][] = ['highlighted', 'work', 'school', 'public'];
+
+export function getBlocksForDay(day: Date, events: EventSlot[], timezone: string): DayBlock[] {
   const tzDay = new TZDate(day, timezone);
   const y = tzDay.getFullYear();
   const mo = tzDay.getMonth();
@@ -291,43 +293,24 @@ export function getBlocksForDay(
   const dayStartTs = dayStart.getTime();
   const dayEndTs = dayEnd.getTime();
 
-  const freeBlocks = mergeOverlappingBlocks(slotsToBlocks(freeSlots, 'free', dayStartTs, dayEndTs, dayMs, timezone));
-  const unavailableBlocks = mergeOverlappingBlocks(slotsToBlocks(unavailableSlots, 'unavailable', dayStartTs, dayEndTs, dayMs, timezone));
-  const highlightedBlocks = mergeOverlappingBlocks(slotsToBlocks(highlightedSlots, 'highlighted', dayStartTs, dayEndTs, dayMs, timezone));
-  const workBlocks = mergeOverlappingBlocks(slotsToBlocks(workSlots, 'work', dayStartTs, dayEndTs, dayMs, timezone));
-  const schoolBlocks = mergeOverlappingBlocks(slotsToBlocks(schoolSlots, 'school', dayStartTs, dayEndTs, dayMs, timezone));
+  const byType = groupByType(events);
+  const blocksOf = (type: EventType) => mergeOverlappingBlocks(slotsToBlocks(byType[type] ?? [], type, dayStartTs, dayEndTs, dayMs, timezone));
+
+  const freeBlocks = blocksOf('free');
+  const unavailableBlocks = blocksOf('unavailable');
   // Sleep ranges fill a gap that's absent from both `free` and `unavailable` rather
   // than overlapping either, so they're their own top-level blocks, not an overlay.
-  const sleepBlocks = mergeOverlappingBlocks(slotsToBlocks(sleepSlots, 'sleep', dayStartTs, dayEndTs, dayMs, timezone));
+  const sleepBlocks = blocksOf('sleep');
 
-  const splitBlocks = highlightedBlocks.length > 0
-    ? [...unavailableBlocks, ...freeBlocks].flatMap(b => splitByOverlay(b, highlightedBlocks))
-    : [...unavailableBlocks, ...freeBlocks];
-  // Splitting can itself produce duplicate fragments (e.g. an `unavailable` entry
-  // whose range exactly matches the highlighted overlay collapses entirely into
-  // a copy of that overlay), so merge once more after splitting.
-  let baseBlocks = mergeOverlappingBlocks(splitBlocks);
+  let baseBlocks = [...unavailableBlocks, ...freeBlocks];
 
-  // Work is a second, lower-priority overlay on top of whatever's left after
-  // highlighted has already carved out its own portion — an already-
-  // `highlighted` fragment is left alone rather than re-split (a highlighted
-  // person's event stays highlighted even during the owner's own work
-  // hours; work only ever claims plain unavailable/free time).
-  if (workBlocks.length > 0) {
+  for (const overlayType of OVERLAY_TYPES) {
+    const overlayBlocks = blocksOf(overlayType);
+    if (overlayBlocks.length === 0) continue;
+
+    const alreadyClaimed = new Set(OVERLAY_TYPES.slice(0, OVERLAY_TYPES.indexOf(overlayType)));
     baseBlocks = mergeOverlappingBlocks(
-      baseBlocks.flatMap(b => (b.type === 'highlighted' ? [b] : splitByOverlay(b, workBlocks))),
-    );
-  }
-
-  // Same lower-priority-overlay treatment as work, applied after it —
-  // leaves an already-highlighted OR already-work fragment alone rather
-  // than re-splitting it (an event that's both work and school-matching
-  // renders as whichever overlay claimed it first; there's no real-world
-  // reason to expect one to take precedence over the other, so first-
-  // applied-wins is as good a rule as any).
-  if (schoolBlocks.length > 0) {
-    baseBlocks = mergeOverlappingBlocks(
-      baseBlocks.flatMap(b => (b.type === 'highlighted' || b.type === 'work' ? [b] : splitByOverlay(b, schoolBlocks))),
+      baseBlocks.flatMap(b => (alreadyClaimed.has(b.type) ? [b] : splitByOverlay(b, overlayBlocks))),
     );
   }
 

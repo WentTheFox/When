@@ -44,6 +44,7 @@ class AvailabilityServiceTest extends TestCase
         bool $isFreeBusyOnly = false,
         bool $tentativeStart = false,
         bool $tentativeEnd = false,
+        bool $isPublicEventTitle = false,
     ): ParsedEvent {
         return new ParsedEvent(
             uid: $uid,
@@ -55,6 +56,7 @@ class AvailabilityServiceTest extends TestCase
             isFreeBusyOnly: $isFreeBusyOnly,
             tentativeStart: $tentativeStart,
             tentativeEnd: $tentativeEnd,
+            isPublicEventTitle: $isPublicEventTitle,
         );
     }
 
@@ -82,7 +84,7 @@ class AvailabilityServiceTest extends TestCase
             $this->rangeEnd,
             activityClausePattern: $activityClausePattern,
             showActivity: $showActivity,
-          activityLocalizations: $activityLocalizations,
+            activityLocalizations: $activityLocalizations,
         );
     }
 
@@ -91,17 +93,29 @@ class AvailabilityServiceTest extends TestCase
         return array_map(fn (AvailabilitySlot $s) => $s->start->toIso8601String(), $slots);
     }
 
+    /**
+     * AvailabilityResult's own array is flat and tagged (`type`), not
+     * split into separate keyed properties any more — this just filters
+     * it back down to one category for readability in these assertions.
+     *
+     * @return AvailabilitySlot[]
+     */
+    private function eventsOfType(AvailabilityResult $result, string $type): array
+    {
+        return array_values(array_filter($result->events, fn (AvailabilitySlot $s) => $s->type === $type));
+    }
+
     public function test_default_sleep_blocks_are_generated_per_weekday_window(): void
     {
         $result = $this->compute(weeklyAvailability: $this->everyWeekday('07:00', '23:00'));
 
-        $this->assertNotEmpty($result->sleep);
+        $this->assertNotEmpty($this->eventsOfType($result, 'sleep'));
 
         // Monday night: 23:00 -> Tuesday 07:00. (The range also starts with a
         // sleep block clipped from the previous Sunday night, since a sleep
         // window can span into the range from just before it starts.)
         $mondayNight = array_values(array_filter(
-            $result->sleep,
+            $this->eventsOfType($result, 'sleep'),
             fn (AvailabilitySlot $s) => $s->start->toIso8601String() === '2026-06-01T23:00:00+00:00',
         ));
         $this->assertCount(1, $mondayNight);
@@ -118,13 +132,13 @@ class AvailabilityServiceTest extends TestCase
             ]],
         );
 
-        foreach ($result->sleep as $slot) {
+        foreach ($this->eventsOfType($result, 'sleep') as $slot) {
             // No sleep block should START on 2026-06-02 (the excepted date).
             $this->assertNotSame('2026-06-02', $slot->start->toDateString());
         }
 
         // The night before (Mon->Tue) and after (Wed->Thu) are unaffected.
-        $starts = array_map(fn (AvailabilitySlot $s) => $s->start->toDateString(), $result->sleep);
+        $starts = array_map(fn (AvailabilitySlot $s) => $s->start->toDateString(), $this->eventsOfType($result, 'sleep'));
         $this->assertContains('2026-06-01', $starts);
         $this->assertContains('2026-06-03', $starts);
     }
@@ -137,7 +151,7 @@ class AvailabilityServiceTest extends TestCase
         );
 
         $napSleep = array_values(array_filter(
-            $result->sleep,
+            $this->eventsOfType($result, 'sleep'),
             fn (AvailabilitySlot $s) => $s->start->toIso8601String() === '2026-06-03T14:00:00+00:00',
         ));
         $this->assertCount(1, $napSleep);
@@ -145,7 +159,7 @@ class AvailabilityServiceTest extends TestCase
 
         // The nap event's own time is entirely subtracted out of unavailable
         // — it doesn't double up as both sleep and busy.
-        $this->assertEmpty($result->unavailable);
+        $this->assertEmpty($this->eventsOfType($result, 'unavailable'));
     }
 
     public function test_dnd_events_are_excluded_entirely_by_default(): void
@@ -155,12 +169,12 @@ class AvailabilityServiceTest extends TestCase
             dndEventPattern: 'Therapy',
         );
 
-        $this->assertEmpty($result->unavailable);
-        $this->assertEmpty($result->highlighted);
+        $this->assertEmpty($this->eventsOfType($result, 'unavailable'));
+        $this->assertEmpty($this->eventsOfType($result, 'highlighted'));
         // Excluded entirely means it doesn't even subtract from free time —
         // the whole day (no wake/sleep configured) is one free block.
         $wednesday = array_values(array_filter(
-            $result->free,
+            $this->eventsOfType($result, 'free'),
             fn (AvailabilitySlot $s) => $s->start->toIso8601String() === '2026-06-03T00:00:00+00:00',
         ));
         $this->assertCount(1, $wednesday);
@@ -177,7 +191,7 @@ class AvailabilityServiceTest extends TestCase
         // Not excluded — the generic "Therapy" text is a coincidence, not a
         // real DND signal, since this event's summary was never real title
         // text to begin with.
-        $this->assertCount(1, $result->unavailable);
+        $this->assertCount(1, $this->eventsOfType($result, 'unavailable'));
     }
 
     public function test_dnd_bypass_share_links_see_the_dnd_event(): void
@@ -188,8 +202,8 @@ class AvailabilityServiceTest extends TestCase
             bypassDnd: true,
         );
 
-        $this->assertCount(1, $result->unavailable);
-        $this->assertSame('2026-06-03T09:00:00+00:00', $result->unavailable[0]->start->toIso8601String());
+        $this->assertCount(1, $this->eventsOfType($result, 'unavailable'));
+        $this->assertSame('2026-06-03T09:00:00+00:00', $this->eventsOfType($result, 'unavailable')[0]->start->toIso8601String());
     }
 
     public function test_sleep_takes_precedence_over_a_conflicting_unavailable_event(): void
@@ -201,12 +215,12 @@ class AvailabilityServiceTest extends TestCase
 
         // The overlapping 30 minutes (23:00-23:30) must be sleep, not
         // unavailable — and the portion before it (22:30-23:00) must survive.
-        $this->assertCount(1, $result->unavailable);
-        $this->assertSame('2026-06-01T22:30:00+00:00', $result->unavailable[0]->start->toIso8601String());
-        $this->assertSame('2026-06-01T23:00:00+00:00', $result->unavailable[0]->end->toIso8601String());
+        $this->assertCount(1, $this->eventsOfType($result, 'unavailable'));
+        $this->assertSame('2026-06-01T22:30:00+00:00', $this->eventsOfType($result, 'unavailable')[0]->start->toIso8601String());
+        $this->assertSame('2026-06-01T23:00:00+00:00', $this->eventsOfType($result, 'unavailable')[0]->end->toIso8601String());
 
         $overnightSleep = array_values(array_filter(
-            $result->sleep,
+            $this->eventsOfType($result, 'sleep'),
             fn (AvailabilitySlot $s) => $s->start->toIso8601String() === '2026-06-01T23:00:00+00:00',
         ));
         $this->assertCount(1, $overnightSleep);
@@ -218,9 +232,9 @@ class AvailabilityServiceTest extends TestCase
             events: [$this->event('maybe', '2026-06-03 15:00', '2026-06-03 16:00', 'Maybe lunch', tentativeStart: true, tentativeEnd: true)],
         );
 
-        $this->assertCount(1, $result->unavailable);
-        $this->assertTrue($result->unavailable[0]->tentativeStart);
-        $this->assertTrue($result->unavailable[0]->tentativeEnd);
+        $this->assertCount(1, $this->eventsOfType($result, 'unavailable'));
+        $this->assertTrue($this->eventsOfType($result, 'unavailable')[0]->tentativeStart);
+        $this->assertTrue($this->eventsOfType($result, 'unavailable')[0]->tentativeEnd);
     }
 
     public function test_a_tentative_slot_is_carved_out_of_an_overlapping_confirmed_one(): void
@@ -230,8 +244,8 @@ class AvailabilityServiceTest extends TestCase
             $this->event('tentative', '2026-06-03 10:00', '2026-06-03 11:00', 'Maybe', tentativeStart: true, tentativeEnd: true),
         ]);
 
-        $tentative = array_values(array_filter($result->unavailable, fn (AvailabilitySlot $s) => $s->tentativeStart && $s->tentativeEnd));
-        $confirmed = array_values(array_filter($result->unavailable, fn (AvailabilitySlot $s) => ! $s->tentativeStart && ! $s->tentativeEnd));
+        $tentative = array_values(array_filter($this->eventsOfType($result, 'unavailable'), fn (AvailabilitySlot $s) => $s->tentativeStart && $s->tentativeEnd));
+        $confirmed = array_values(array_filter($this->eventsOfType($result, 'unavailable'), fn (AvailabilitySlot $s) => ! $s->tentativeStart && ! $s->tentativeEnd));
 
         $this->assertCount(1, $tentative);
         $this->assertSame('2026-06-03T10:00:00+00:00', $tentative[0]->start->toIso8601String());
@@ -253,8 +267,8 @@ class AvailabilityServiceTest extends TestCase
             $this->event('confirmed', '2026-06-03 10:00', '2026-06-03 12:00', 'Meeting'),
         ]);
 
-        $openEnd = array_values(array_filter($result->unavailable, fn (AvailabilitySlot $s) => $s->tentativeEnd && ! $s->tentativeStart));
-        $confirmed = array_values(array_filter($result->unavailable, fn (AvailabilitySlot $s) => ! $s->tentativeStart && ! $s->tentativeEnd));
+        $openEnd = array_values(array_filter($this->eventsOfType($result, 'unavailable'), fn (AvailabilitySlot $s) => $s->tentativeEnd && ! $s->tentativeStart));
+        $confirmed = array_values(array_filter($this->eventsOfType($result, 'unavailable'), fn (AvailabilitySlot $s) => ! $s->tentativeStart && ! $s->tentativeEnd));
 
         // The confirmed event's own span wins the 10:00-11:00 overlap — the
         // open-end event is carved down to just its non-overlapping portion.
@@ -274,8 +288,8 @@ class AvailabilityServiceTest extends TestCase
             $this->event('open-start', '2026-06-03 10:00', '2026-06-03 12:00', 'Party (?-)', tentativeStart: true),
         ]);
 
-        $confirmed = array_values(array_filter($result->unavailable, fn (AvailabilitySlot $s) => ! $s->tentativeStart && ! $s->tentativeEnd));
-        $openStart = array_values(array_filter($result->unavailable, fn (AvailabilitySlot $s) => $s->tentativeStart && ! $s->tentativeEnd));
+        $confirmed = array_values(array_filter($this->eventsOfType($result, 'unavailable'), fn (AvailabilitySlot $s) => ! $s->tentativeStart && ! $s->tentativeEnd));
+        $openStart = array_values(array_filter($this->eventsOfType($result, 'unavailable'), fn (AvailabilitySlot $s) => $s->tentativeStart && ! $s->tentativeEnd));
 
         $this->assertCount(1, $confirmed);
         $this->assertSame('2026-06-03T09:00:00+00:00', $confirmed[0]->start->toIso8601String());
@@ -295,8 +309,8 @@ class AvailabilityServiceTest extends TestCase
             $this->event('tentative', '2026-06-03 10:00', '2026-06-03 12:00', 'Maybe', tentativeStart: true, tentativeEnd: true),
         ]);
 
-        $fullyTentative = array_values(array_filter($result->unavailable, fn (AvailabilitySlot $s) => $s->tentativeStart && $s->tentativeEnd));
-        $openEnd = array_values(array_filter($result->unavailable, fn (AvailabilitySlot $s) => $s->tentativeEnd && ! $s->tentativeStart));
+        $fullyTentative = array_values(array_filter($this->eventsOfType($result, 'unavailable'), fn (AvailabilitySlot $s) => $s->tentativeStart && $s->tentativeEnd));
+        $openEnd = array_values(array_filter($this->eventsOfType($result, 'unavailable'), fn (AvailabilitySlot $s) => $s->tentativeEnd && ! $s->tentativeStart));
 
         // The fully-tentative event's own exact span wins the overlap even
         // against a merely open-edged event, same top-tier precedence as
@@ -317,9 +331,9 @@ class AvailabilityServiceTest extends TestCase
             $this->event('b', '2026-06-03 10:00', '2026-06-03 11:00', 'Meeting B'),
         ]);
 
-        $this->assertCount(1, $result->unavailable);
-        $this->assertSame('2026-06-03T09:00:00+00:00', $result->unavailable[0]->start->toIso8601String());
-        $this->assertSame('2026-06-03T11:00:00+00:00', $result->unavailable[0]->end->toIso8601String());
+        $this->assertCount(1, $this->eventsOfType($result, 'unavailable'));
+        $this->assertSame('2026-06-03T09:00:00+00:00', $this->eventsOfType($result, 'unavailable')[0]->start->toIso8601String());
+        $this->assertSame('2026-06-03T11:00:00+00:00', $this->eventsOfType($result, 'unavailable')[0]->end->toIso8601String());
     }
 
     public function test_overlapping_unavailable_events_merge_into_one_continuous_block(): void
@@ -329,9 +343,9 @@ class AvailabilityServiceTest extends TestCase
             $this->event('b', '2026-06-03 10:00', '2026-06-03 11:00', 'Meeting B'),
         ]);
 
-        $this->assertCount(1, $result->unavailable);
-        $this->assertSame('2026-06-03T09:00:00+00:00', $result->unavailable[0]->start->toIso8601String());
-        $this->assertSame('2026-06-03T11:00:00+00:00', $result->unavailable[0]->end->toIso8601String());
+        $this->assertCount(1, $this->eventsOfType($result, 'unavailable'));
+        $this->assertSame('2026-06-03T09:00:00+00:00', $this->eventsOfType($result, 'unavailable')[0]->start->toIso8601String());
+        $this->assertSame('2026-06-03T11:00:00+00:00', $this->eventsOfType($result, 'unavailable')[0]->end->toIso8601String());
     }
 
     public function test_full_detail_with_clause_matches_a_configured_highlight_word(): void
@@ -341,11 +355,11 @@ class AvailabilityServiceTest extends TestCase
             highlightWords: ['Alice', 'Bob'],
         );
 
-        $this->assertCount(1, $result->highlighted);
-        $this->assertSame(['Alice'], $result->highlighted[0]->highlightWords);
+        $this->assertCount(1, $this->eventsOfType($result, 'highlighted'));
+        $this->assertSame(['Alice'], $this->eventsOfType($result, 'highlighted')[0]->highlightWords);
         // A highlighted event is also present in unavailable — the two arrays
         // legitimately overlap (AvailabilityResult's doc comment).
-        $this->assertCount(1, $result->unavailable);
+        $this->assertCount(1, $this->eventsOfType($result, 'unavailable'));
     }
 
     public function test_a_highlighted_event_carries_no_activity_when_no_pattern_is_configured(): void
@@ -358,7 +372,7 @@ class AvailabilityServiceTest extends TestCase
             highlightWords: ['Alice'],
         );
 
-        $this->assertNull($result->highlighted[0]->activity);
+        $this->assertNull($this->eventsOfType($result, 'highlighted')[0]->activity);
     }
 
     public function test_a_highlighted_event_carries_the_extracted_activity_once_a_pattern_is_configured(): void
@@ -369,7 +383,7 @@ class AvailabilityServiceTest extends TestCase
             activityClausePattern: ActivityExtractor::DEFAULT_PATTERN,
         );
 
-        $this->assertSame('Coffee', $result->highlighted[0]->activity);
+        $this->assertSame('Coffee', $this->eventsOfType($result, 'highlighted')[0]->activity);
     }
 
     public function test_show_activity_false_suppresses_the_activity_field(): void
@@ -381,8 +395,8 @@ class AvailabilityServiceTest extends TestCase
             activityClausePattern: ActivityExtractor::DEFAULT_PATTERN,
         );
 
-        $this->assertSame(['Alice'], $result->highlighted[0]->highlightWords);
-        $this->assertNull($result->highlighted[0]->activity);
+        $this->assertSame(['Alice'], $this->eventsOfType($result, 'highlighted')[0]->highlightWords);
+        $this->assertNull($this->eventsOfType($result, 'highlighted')[0]->activity);
     }
 
     public function test_a_host_prefixed_event_is_highlighted_with_the_configured_role_label(): void
@@ -399,8 +413,8 @@ class AvailabilityServiceTest extends TestCase
             ],
         );
 
-        $this->assertSame(['Alice'], $result->highlighted[0]->highlightWords);
-        $this->assertSame(['default' => 'Visiting'], $result->highlighted[0]->activityLabel);
+        $this->assertSame(['Alice'], $this->eventsOfType($result, 'highlighted')[0]->highlightWords);
+        $this->assertSame(['default' => 'Visiting'], $this->eventsOfType($result, 'highlighted')[0]->activityLabel);
     }
 
     public function test_full_detail_event_with_no_matching_clause_is_plain_unavailable(): void
@@ -410,8 +424,8 @@ class AvailabilityServiceTest extends TestCase
             highlightWords: ['Alice'],
         );
 
-        $this->assertCount(1, $result->unavailable);
-        $this->assertEmpty($result->highlighted);
+        $this->assertCount(1, $this->eventsOfType($result, 'unavailable'));
+        $this->assertEmpty($this->eventsOfType($result, 'highlighted'));
     }
 
     public function test_free_busy_only_event_matches_via_location_not_title(): void
@@ -424,8 +438,8 @@ class AvailabilityServiceTest extends TestCase
             highlightWords: ['Alice'],
         );
 
-        $this->assertCount(1, $result->highlighted);
-        $this->assertSame(['Alice'], $result->highlighted[0]->highlightWords);
+        $this->assertCount(1, $this->eventsOfType($result, 'highlighted'));
+        $this->assertSame(['Alice'], $this->eventsOfType($result, 'highlighted')[0]->highlightWords);
     }
 
     public function test_free_busy_only_event_with_no_signal_is_plain_unavailable_never_fabricated(): void
@@ -435,8 +449,8 @@ class AvailabilityServiceTest extends TestCase
             highlightWords: ['Alice'],
         );
 
-        $this->assertCount(1, $result->unavailable);
-        $this->assertEmpty($result->highlighted);
+        $this->assertCount(1, $this->eventsOfType($result, 'unavailable'));
+        $this->assertEmpty($this->eventsOfType($result, 'highlighted'));
     }
 
     public function test_mixed_feed_applies_full_detail_matching_only_to_events_with_real_content(): void
@@ -449,9 +463,9 @@ class AvailabilityServiceTest extends TestCase
             highlightWords: ['Alice'],
         );
 
-        $this->assertCount(1, $result->highlighted);
-        $this->assertSame(['Alice'], $result->highlighted[0]->highlightWords);
-        $this->assertCount(2, $result->unavailable);
+        $this->assertCount(1, $this->eventsOfType($result, 'highlighted'));
+        $this->assertSame(['Alice'], $this->eventsOfType($result, 'highlighted')[0]->highlightWords);
+        $this->assertCount(2, $this->eventsOfType($result, 'unavailable'));
     }
 
     public function test_free_ranges_are_computed_explicitly_within_the_wake_sleep_window(): void
@@ -463,7 +477,7 @@ class AvailabilityServiceTest extends TestCase
 
         // Wednesday's awake window (08:00-22:00) minus the 09:00-10:00 event.
         $wednesdayFree = array_values(array_filter(
-            $result->free,
+            $this->eventsOfType($result, 'free'),
             fn (AvailabilitySlot $s) => $s->start->toDateString() === '2026-06-03'
                 && $s->start->toIso8601String() === '2026-06-03T08:00:00+00:00',
         ));
@@ -471,7 +485,7 @@ class AvailabilityServiceTest extends TestCase
         $this->assertSame('2026-06-03T09:00:00+00:00', $wednesdayFree[0]->end->toIso8601String());
 
         $afterMeeting = array_values(array_filter(
-            $result->free,
+            $this->eventsOfType($result, 'free'),
             fn (AvailabilitySlot $s) => $s->start->toIso8601String() === '2026-06-03T10:00:00+00:00',
         ));
         $this->assertCount(1, $afterMeeting);
@@ -490,8 +504,8 @@ class AvailabilityServiceTest extends TestCase
         // inversion picked up as a spurious degenerate sleep entry — user-
         // reported as "sleep records added even if no sleep times are
         // configured". Exact midnight-to-midnight windows close that gap.
-        $this->assertEmpty($result->sleep);
-        $this->assertNotEmpty($result->free);
+        $this->assertEmpty($this->eventsOfType($result, 'sleep'));
+        $this->assertNotEmpty($this->eventsOfType($result, 'free'));
     }
 
     public function test_sleep_window_is_anchored_to_the_calendar_timezone_not_utc(): void
@@ -506,10 +520,50 @@ class AvailabilityServiceTest extends TestCase
         $result = $this->compute(weeklyAvailability: $this->everyWeekday('07:00', '23:00'));
 
         $mondayNight = array_values(array_filter(
-            $result->sleep,
+            $this->eventsOfType($result, 'sleep'),
             fn (AvailabilitySlot $s) => $s->start->tz('America/New_York')->format('Y-m-d H:i:s') === '2026-06-01 23:00:00',
         ));
         $this->assertCount(1, $mondayNight);
         $this->assertSame('2026-06-02 07:00:00', $mondayNight[0]->end->tz('America/New_York')->format('Y-m-d H:i:s'));
+    }
+
+    public function test_a_public_event_produces_its_own_tagged_slot_alongside_unavailable(): void
+    {
+        // isPublicEventTitle is decided (and the marker stripped from the
+        // title) by IcsParser at parse time, not matched here — see
+        // IcsParserTest for the stripping behavior itself.
+        $result = $this->compute(
+            events: [$this->event('p1', '2026-06-03 18:00', '2026-06-03 19:00', 'Neighborhood Cleanup', isPublicEventTitle: true)],
+        );
+
+        $public = $this->eventsOfType($result, 'public');
+        $this->assertCount(1, $public);
+        $this->assertSame('2026-06-03T18:00:00+00:00', $public[0]->start->toIso8601String());
+
+        // Same double-bookkeeping as work/school — still counts as ordinary
+        // busy time too.
+        $this->assertCount(1, $this->eventsOfType($result, 'unavailable'));
+    }
+
+    public function test_a_public_event_surfaces_its_title_verbatim_ignoring_the_activity_clause_pattern(): void
+    {
+        $result = $this->compute(
+            events: [$this->event('p1', '2026-06-03 18:00', '2026-06-03 19:00', 'Cleanup with Alice', isPublicEventTitle: true)],
+            // Configured, but must NOT be applied to the public event's
+            // activity — only highlighted events run through extraction.
+            activityClausePattern: ActivityExtractor::DEFAULT_PATTERN,
+        );
+
+        $public = $this->eventsOfType($result, 'public');
+        $this->assertSame('Cleanup with Alice', $public[0]->activity);
+    }
+
+    public function test_a_non_flagged_event_produces_no_public_slot(): void
+    {
+        $result = $this->compute(
+            events: [$this->event('p1', '2026-06-03 18:00', '2026-06-03 19:00', 'Private dinner')],
+        );
+
+        $this->assertEmpty($this->eventsOfType($result, 'public'));
     }
 }

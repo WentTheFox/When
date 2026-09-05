@@ -57,13 +57,28 @@ class IcsParser
     public const DEFAULT_OPEN_START_TITLE_PATTERN = '\(\?-\)\s*$';
 
     /**
+     * Marks an event as "public" — same Flag treatment as the three
+     * tentative/open-edge patterns above (matched AND stripped from the
+     * title), not a plain boolean event-name match like dnd/nap/work/
+     * school. Stripping the marker itself out of the title means a
+     * viewer sees the event's real title cleanly (e.g. "Team meeting"),
+     * not the internal marker used to flag it (e.g. "Team meeting
+     * (public)") — see App\Services\Calendar\AvailabilityService::compute()
+     * for where the resulting flag is consumed. Same suggested-only,
+     * never-auto-applied treatment as the other DEFAULT_*_TITLE_PATTERN
+     * constants.
+     */
+    public const DEFAULT_PUBLIC_EVENT_TITLE_PATTERN = '\(public\)\s*$';
+
+    /**
      * @param  'full_detail'|'free_busy_only'  $parsingMode  Gates only the
-     *                                                       three title-*regex* signals below (tentative/open-end/open-start
-     *                                                       suffixes) — `free_busy_only` skips evaluating and stripping them
-     *                                                       entirely, since a free-busy-only feed's SUMMARY (if present at all)
-     *                                                       is a fake generic placeholder like "Busy", not real title text. Does
-     *                                                       NOT gate the structured ICS STATUS:TENTATIVE / VFREEBUSY
-     *                                                       FBTYPE=BUSY-TENTATIVE signals, which stay honored either way.
+     *                                                       four title-*regex* signals below (tentative/open-end/open-start/
+     *                                                       public-event suffixes) — `free_busy_only` skips evaluating and
+     *                                                       stripping them entirely, since a free-busy-only feed's SUMMARY (if
+     *                                                       present at all) is a fake generic placeholder like "Busy", not real
+     *                                                       title text. Does NOT gate the structured ICS STATUS:TENTATIVE /
+     *                                                       VFREEBUSY FBTYPE=BUSY-TENTATIVE signals, which stay honored either
+     *                                                       way.
      * @return RawCalendarItem[]
      */
     public function parse(
@@ -74,6 +89,7 @@ class IcsParser
         ?string $openEndTitlePattern = null,
         ?string $openStartTitlePattern = null,
         string $parsingMode = 'full_detail',
+        ?string $publicEventTitlePattern = null,
     ): array {
         /** @var VCalendar $calendar */
         $calendar = Reader::read($icsBody, Reader::OPTION_FORGIVING);
@@ -94,7 +110,7 @@ class IcsParser
         $applyTitlePatterns = $parsingMode !== 'free_busy_only';
 
         foreach ($expandedCalendar->select('VEVENT') as $vevent) {
-            $item = $this->parseVEvent($vevent, $tentativeTitlePattern, $openEndTitlePattern, $openStartTitlePattern, $applyTitlePatterns);
+            $item = $this->parseVEvent($vevent, $tentativeTitlePattern, $openEndTitlePattern, $openStartTitlePattern, $publicEventTitlePattern, $applyTitlePatterns);
 
             if ($item !== null && $item->end > $rangeStart && $item->start < $rangeEnd) {
                 $items[] = $item;
@@ -117,6 +133,7 @@ class IcsParser
         ?string $tentativeTitlePattern,
         ?string $openEndTitlePattern,
         ?string $openStartTitlePattern,
+        ?string $publicEventTitlePattern,
         bool $applyTitlePatterns,
     ): ?RawCalendarItem {
         if (! isset($vevent->DTSTART)) {
@@ -134,18 +151,21 @@ class IcsParser
         $isTentativeTitle = false;
         $isOpenEndTitle = false;
         $isOpenStartTitle = false;
+        $isPublicEventTitle = false;
 
         if ($applyTitlePatterns) {
-            // Each of the three patterns is checked and stripped
-            // independently (against the progressively-cleaned summary),
-            // then OR'd into the two directional flags. The three defaults
-            // can never collide with each other (see the
+            // Each of these patterns is checked and stripped independently
+            // (against the progressively-cleaned summary), then the first
+            // three are OR'd into the two directional tentative flags while
+            // the public-event one is carried through on its own. The
+            // default patterns can never collide with each other (see the
             // DEFAULT_*_TITLE_PATTERN doc comments), but a custom owner
             // pattern in principle could match more than one — stripping
             // sequentially keeps that safe either way.
             [$isTentativeTitle, $summary] = $this->matchAndStrip($tentativeTitlePattern, $summary);
             [$isOpenEndTitle, $summary] = $this->matchAndStrip($openEndTitlePattern, $summary);
             [$isOpenStartTitle, $summary] = $this->matchAndStrip($openStartTitlePattern, $summary);
+            [$isPublicEventTitle, $summary] = $this->matchAndStrip($publicEventTitlePattern, $summary);
         }
 
         return new RawCalendarItem(
@@ -158,6 +178,7 @@ class IcsParser
             location: isset($vevent->LOCATION) ? (string) $vevent->LOCATION : null,
             tentativeStart: $isTentativeStatus || $isTentativeTitle || $isOpenStartTitle,
             tentativeEnd: $isTentativeStatus || $isTentativeTitle || $isOpenEndTitle,
+            isPublicEventTitle: $isPublicEventTitle,
         );
     }
 
