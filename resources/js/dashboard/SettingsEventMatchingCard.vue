@@ -311,43 +311,6 @@ function submit(): void {
 
         <div class="row mb-3">
           <div class="col-md-6">
-            <BFormGroup label-for="public_event_pattern" class="mb-0">
-              <template #label>Public event regular expression <BBadge variant="warning" text="dark" class="align-middle">Flag</BBadge></template>
-              <RegexPatternInput id="public_event_pattern" v-model="eventMatchingSettingsForm.public_event_pattern" />
-              <template #description>
-                Same regex-body rules as above. A match renders that event in its own neutral,
-                monochrome category on the /free calendar, shown to every viewer — its activity is
-                extracted the same way as a highlighted event's (see the Activity field below), so
-                "Dinner with Alice (public)" shows as "Dinner" to everyone, falling back to the full
-                title when the Activity pattern isn't configured or doesn't match. A public event
-                that also matches one of a share link's own highlight words still shows as
-                highlighted for that link too, on top of showing as public for everyone else. The
-                matched marker text itself is stripped from the title used for pattern matching, same
-                as the tentative/open-end/open-start fields below. A blank field turns this detection
-                off entirely — the suggested starting point matches a trailing
-                <code>(public)</code>, e.g. "Team meeting (public)" &rarr; "Team meeting".
-                Suggested: <RegexHighlightedCode :pattern="defaults.publicEventPattern" />
-                <BButton variant="link" size="sm" class="p-0 align-baseline ms-1" @click="setFormField('public_event_pattern', defaults.publicEventPattern)">Use suggested</BButton>
-              </template>
-            </BFormGroup>
-          </div>
-          <div class="col-md-6">
-            <div class="wtf-pattern-preview-panel">
-              <p class="small text-muted mb-1">Live preview — <code>{{
-                  eventMatchingSettingsForm.public_event_pattern || PATTERN_DISABLED_TEXT
-                }}</code></p>
-              <PatternPreview
-                v-model="eventMatchingSettingsForm.public_event_pattern_preview"
-                :pattern="eventMatchingSettingsForm.public_event_pattern"
-                :examples="['Dinner with Alice (public)', 'Community potluck (public)', 'Team standup', 'Lunch with Sarah']"
-                mode="match"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div class="row mb-3">
-          <div class="col-md-6">
             <BFormGroup label-for="highlight_clause_pattern" class="mb-0">
               <template #label>Highlight regular expression <BBadge variant="info" text="dark" class="align-middle">Capture</BBadge></template>
               <RegexPatternInput id="highlight_clause_pattern" v-model="eventMatchingSettingsForm.highlight_clause_pattern" :placeholder="defaults.highlightClausePattern" />
@@ -467,6 +430,23 @@ function submit(): void {
           </div>
         </div>
 
+        <BAlert :model-value="true" variant="secondary" class="small">
+          <strong>These four "Flag" fields (Tentative, Open-end, Open-start, Public) run in this
+            fixed order</strong>, each one only ever seeing a title after every field before it has
+          already stripped its own marker. Combining more than one marker on the same event only
+          works if they're nested in that same order in the title — the FIRST of these fields
+          applies to the OUTERMOST (rightmost) marker, the LAST to the INNERMOST (leftmost, closest
+          to the real title): e.g. <code>"Dinner with Alice (public) (?)"</code> is detected as both
+          public AND tentative (Tentative, first in the order, matches the true trailing
+          <code>"(?)"</code>; Public, last, then matches <code>"(public)"</code> underneath it) —
+          but <code>"Dinner with Alice (?) (public)"</code> is not (Tentative never sees
+          <code>"(?)"</code> as the trailing text, since <code>"(public)"</code> is still in the way
+          at that point). Each field's own live preview below reflects this: the markers every
+          earlier field in this order would already have stripped are excluded before this field's
+          own pattern is tested, so a preview line never shows a match this field wouldn't actually
+          get to see.
+        </BAlert>
+
         <div class="row mb-3">
           <div class="col-md-6">
             <BFormGroup label-for="tentative_pattern" class="mb-0">
@@ -528,6 +508,7 @@ function submit(): void {
               <PatternPreview
                 v-model="eventMatchingSettingsForm.open_end_pattern_preview"
                 :pattern="eventMatchingSettingsForm.open_end_pattern"
+                :preceding-patterns="[eventMatchingSettingsForm.tentative_pattern ?? '']"
                 :examples="['Dinner (-?)', 'Team standup', 'Party (-?)', 'Workshop']"
                 mode="match"
               />
@@ -560,7 +541,45 @@ function submit(): void {
               <PatternPreview
                 v-model="eventMatchingSettingsForm.open_start_pattern_preview"
                 :pattern="eventMatchingSettingsForm.open_start_pattern"
+                :preceding-patterns="[eventMatchingSettingsForm.tentative_pattern ?? '', eventMatchingSettingsForm.open_end_pattern ?? '']"
                 :examples="['Dinner (?-)', 'Team standup', 'Party (?-)', 'Workshop']"
+                mode="match"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <BFormGroup label-for="public_event_pattern" class="mb-0">
+              <template #label>Public event regular expression <BBadge variant="warning" text="dark" class="align-middle">Flag</BBadge></template>
+              <RegexPatternInput id="public_event_pattern" v-model="eventMatchingSettingsForm.public_event_pattern" />
+              <template #description>
+                Last of the four Flag fields above — see the callout at the top of this section for
+                the fixed processing order. A match renders that event in its own neutral,
+                monochrome category on the /free calendar, shown to every viewer — its activity is
+                extracted the same way as a highlighted event's (see the Activity field above), so
+                "Dinner with Alice (public)" shows as "Dinner" to everyone, falling back to the full
+                title when the Activity pattern isn't configured or doesn't match. A public event
+                that also matches one of a share link's own highlight words still shows as
+                highlighted for that link too, on top of showing as public for everyone else. A
+                blank field turns this detection off entirely — the suggested starting point matches
+                a trailing <code>(public)</code>, e.g. "Team meeting (public)" &rarr; "Team meeting".
+                Suggested: <RegexHighlightedCode :pattern="defaults.publicEventPattern" />
+                <BButton variant="link" size="sm" class="p-0 align-baseline ms-1" @click="setFormField('public_event_pattern', defaults.publicEventPattern)">Use suggested</BButton>
+              </template>
+            </BFormGroup>
+          </div>
+          <div class="col-md-6">
+            <div class="wtf-pattern-preview-panel">
+              <p class="small text-muted mb-1">Live preview — <code>{{
+                  eventMatchingSettingsForm.public_event_pattern || PATTERN_DISABLED_TEXT
+                }}</code></p>
+              <PatternPreview
+                v-model="eventMatchingSettingsForm.public_event_pattern_preview"
+                :pattern="eventMatchingSettingsForm.public_event_pattern"
+                :preceding-patterns="[eventMatchingSettingsForm.tentative_pattern ?? '', eventMatchingSettingsForm.open_end_pattern ?? '', eventMatchingSettingsForm.open_start_pattern ?? '']"
+                :examples="['Dinner with Alice (public)', 'Community potluck (public)', 'Team standup', 'Lunch with Sarah']"
                 mode="match"
               />
             </div>

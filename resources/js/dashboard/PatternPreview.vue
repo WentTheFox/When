@@ -48,6 +48,34 @@ function tryExec(pattern: string, subject: string): RegExpExecArray | null {
   }
 }
 
+/**
+ * Simulates IcsParser::stripTitleFlags's own fixed-order pipeline for this
+ * field's own live preview: the Tentative/Open-end/Open-start/Public
+ * patterns are applied to a title in that fixed order server-side, each
+ * one stripping its own marker before the NEXT one ever runs — so by the
+ * time (say) Open-start actually gets to look at a title, any marker
+ * Tentative or Open-end already claimed is long gone. Without simulating
+ * that here, this field's own preview would show a match against text a
+ * viewer would never actually see this pattern tested against. Every one
+ * of these patterns is `$`-anchored by convention (matches only at the
+ * true end of the string), so the result of stripping is always a PREFIX
+ * of the original line — meaning a match found in the fully-cascaded text
+ * lines up with the same character offsets in the original, unmodified
+ * line the textarea/overlay actually display.
+ */
+function applyPrecedingPatterns(line: string, precedingPatterns: string[]): string {
+  let cascaded = line;
+
+  for (const pattern of precedingPatterns) {
+    if (!pattern) continue; // blank pattern = that step is genuinely off, same as the server.
+
+    const match = tryExec(pattern, cascaded);
+    if (match) cascaded = cascaded.slice(0, match.index).trimEnd();
+  }
+
+  return cascaded;
+}
+
 /** Same split-and-trim behavior as HighlightMatcher::matchTokens/App\Support\Regex::trySplit — see this file's previous version for the fuller comment. Fails closed to "the whole clause is one token" on an invalid split pattern. */
 function splitIntoTokens(tokenStr: string, splitPattern: string): string[] {
   let rawTokens: string[];
@@ -74,11 +102,24 @@ const props = withDefaults(defineProps<{
   sampleWords?: string[];
   /** Used in 'tokens'/'split' mode — the owner's highlight_split_pattern (or its default). */
   splitPattern?: string;
+  /**
+   * The Flag-pattern fields' own fixed processing order (Tentative,
+   * Open-end, Open-start, Public — see IcsParser::stripTitleFlags) means
+   * each one only ever sees a title AFTER every earlier pattern in that
+   * order has already stripped its own marker. Passed here as every
+   * earlier field's own current pattern value, in that same order, so
+   * this field's 'match' preview reflects the title as it would actually
+   * arrive by the time this pattern runs — not the raw, untouched example
+   * line. Unused (and unnecessary) for every mode/field that isn't one of
+   * those four.
+   */
+  precedingPatterns?: string[];
   showReset?: boolean;
 }>(), {
   sampleWords: undefined,
   placeholder: undefined,
   splitPattern: undefined,
+  precedingPatterns: () => [],
   showReset: true,
 });
 
@@ -143,7 +184,8 @@ function highlightSpans(line: string, ranges: { start: number; end: number; cls:
 
 function resultFor(line: string): LineResult {
   if (props.mode === 'match') {
-    const match = props.pattern ? tryExec(props.pattern, line) : null;
+    const cascaded = props.precedingPatterns.length > 0 ? applyPrecedingPatterns(line, props.precedingPatterns) : line;
+    const match = props.pattern ? tryExec(props.pattern, cascaded) : null;
     if (!match) return { matched: false, spans: [{ text: line }] };
     return {
       matched: true,

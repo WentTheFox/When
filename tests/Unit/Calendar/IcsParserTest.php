@@ -330,4 +330,100 @@ class IcsParserTest extends TestCase
         $this->assertFalse($dinner->tentativeStart);
         $this->assertFalse($dinner->tentativeEnd);
     }
+
+    /** @return string A single-VEVENT ICS body with the given SUMMARY. */
+    private function icsWithSummary(string $summary): string
+    {
+        return <<<ICS
+        BEGIN:VCALENDAR
+        VERSION:2.0
+        PRODID:-//When Test Fixtures//EN
+        BEGIN:VEVENT
+        UID:stacked-markers@example.com
+        DTSTAMP:20260601T000000Z
+        DTSTART:20260603T120000Z
+        DTEND:20260603T130000Z
+        SUMMARY:{$summary}
+        END:VEVENT
+        END:VCALENDAR
+        ICS;
+    }
+
+    /**
+     * Stacking markers on one title requires nesting them in the fixed
+     * processing order (Tentative, Open-end, Open-start, Public — see
+     * IcsParser::stripTitleFlags's own doc comment): each pattern's `$`
+     * anchor only matches the CURRENT trailing text, so the first pattern
+     * in that order must be the outermost/rightmost marker in the raw
+     * title, and the last pattern the innermost/leftmost.
+     */
+    public function test_stacked_markers_are_detected_when_nested_in_the_fixed_processing_order(): void
+    {
+        // Public (last in the order) is the innermost marker; tentative
+        // (first in the order) is outermost.
+        $items = $this->parser->parse(
+            $this->icsWithSummary('Dinner with Alice (public) (?)'),
+            CarbonImmutable::parse('2026-06-01', 'UTC'),
+            CarbonImmutable::parse('2026-06-10', 'UTC'),
+            tentativeTitlePattern: IcsParser::DEFAULT_TENTATIVE_TITLE_PATTERN,
+            publicEventTitlePattern: IcsParser::DEFAULT_PUBLIC_EVENT_TITLE_PATTERN,
+        );
+
+        $event = $items[0];
+        $this->assertSame('Dinner with Alice', $event->summary);
+        $this->assertTrue($event->tentativeStart);
+        $this->assertTrue($event->tentativeEnd);
+        $this->assertTrue($event->isPublicEventTitle);
+    }
+
+    /**
+     * The reverse nesting order strips only the (rightmost, genuinely
+     * trailing) Public marker and leaves the Tentative one stranded,
+     * unstripped, in the visible title — documents exactly why getting the
+     * order backward is worth avoiding: Tentative is checked FIRST, against
+     * the still-untouched raw title, sees "(public)" as the actual trailing
+     * text (not its own "(?)" marker) and never matches; by the time Public
+     * (checked last) strips its own genuinely-trailing marker, Tentative has
+     * already had its one and only chance to match and doesn't get a second
+     * look at the newly-exposed "(?)" underneath.
+     */
+    public function test_stacked_markers_in_the_reverse_order_leave_the_earlier_pattern_unmatched(): void
+    {
+        $items = $this->parser->parse(
+            $this->icsWithSummary('Dinner with Alice (?) (public)'),
+            CarbonImmutable::parse('2026-06-01', 'UTC'),
+            CarbonImmutable::parse('2026-06-10', 'UTC'),
+            tentativeTitlePattern: IcsParser::DEFAULT_TENTATIVE_TITLE_PATTERN,
+            publicEventTitlePattern: IcsParser::DEFAULT_PUBLIC_EVENT_TITLE_PATTERN,
+        );
+
+        $event = $items[0];
+        $this->assertSame('Dinner with Alice (?)', $event->summary);
+        $this->assertFalse($event->tentativeStart);
+        $this->assertFalse($event->tentativeEnd);
+        $this->assertTrue($event->isPublicEventTitle);
+    }
+
+    /** Three markers nested in the fixed order (Open-end, Open-start, Public) all strip correctly in one pass each. */
+    public function test_three_stacked_markers_nested_in_the_fixed_order_are_all_detected(): void
+    {
+        $items = $this->parser->parse(
+            $this->icsWithSummary('Dinner with Alice (public) (?-) (-?)'),
+            CarbonImmutable::parse('2026-06-01', 'UTC'),
+            CarbonImmutable::parse('2026-06-10', 'UTC'),
+            openEndTitlePattern: IcsParser::DEFAULT_OPEN_END_TITLE_PATTERN,
+            openStartTitlePattern: IcsParser::DEFAULT_OPEN_START_TITLE_PATTERN,
+            publicEventTitlePattern: IcsParser::DEFAULT_PUBLIC_EVENT_TITLE_PATTERN,
+        );
+
+        $event = $items[0];
+        $this->assertSame('Dinner with Alice', $event->summary);
+        // Open-end AND open-start both matching (rather than tentative's own
+        // single "(?)") still sets both tentativeStart/tentativeEnd — same
+        // OR'd-together result as a fully-tentative match, just arrived at
+        // via two separate markers instead of one.
+        $this->assertTrue($event->tentativeStart);
+        $this->assertTrue($event->tentativeEnd);
+        $this->assertTrue($event->isPublicEventTitle);
+    }
 }

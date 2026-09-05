@@ -148,25 +148,16 @@ class IcsParser
         $summary = isset($vevent->SUMMARY) ? (string) $vevent->SUMMARY : null;
         $isTentativeStatus = isset($vevent->STATUS) && strtoupper((string) $vevent->STATUS) === 'TENTATIVE';
 
-        $isTentativeTitle = false;
-        $isOpenEndTitle = false;
-        $isOpenStartTitle = false;
-        $isPublicEventTitle = false;
+        $flags = $applyTitlePatterns
+            ? $this->stripTitleFlags($summary, [
+                'tentative' => $tentativeTitlePattern,
+                'openEnd' => $openEndTitlePattern,
+                'openStart' => $openStartTitlePattern,
+                'public' => $publicEventTitlePattern,
+            ])
+            : ['tentative' => false, 'openEnd' => false, 'openStart' => false, 'public' => false, 'summary' => $summary];
 
-        if ($applyTitlePatterns) {
-            // Each of these patterns is checked and stripped independently
-            // (against the progressively-cleaned summary), then the first
-            // three are OR'd into the two directional tentative flags while
-            // the public-event one is carried through on its own. The
-            // default patterns can never collide with each other (see the
-            // DEFAULT_*_TITLE_PATTERN doc comments), but a custom owner
-            // pattern in principle could match more than one — stripping
-            // sequentially keeps that safe either way.
-            [$isTentativeTitle, $summary] = $this->matchAndStrip($tentativeTitlePattern, $summary);
-            [$isOpenEndTitle, $summary] = $this->matchAndStrip($openEndTitlePattern, $summary);
-            [$isOpenStartTitle, $summary] = $this->matchAndStrip($openStartTitlePattern, $summary);
-            [$isPublicEventTitle, $summary] = $this->matchAndStrip($publicEventTitlePattern, $summary);
-        }
+        $summary = $flags['summary'];
 
         return new RawCalendarItem(
             uid: isset($vevent->UID) ? (string) $vevent->UID : bin2hex(random_bytes(8)),
@@ -176,10 +167,43 @@ class IcsParser
             summary: $summary,
             description: isset($vevent->DESCRIPTION) ? (string) $vevent->DESCRIPTION : null,
             location: isset($vevent->LOCATION) ? (string) $vevent->LOCATION : null,
-            tentativeStart: $isTentativeStatus || $isTentativeTitle || $isOpenStartTitle,
-            tentativeEnd: $isTentativeStatus || $isTentativeTitle || $isOpenEndTitle,
-            isPublicEventTitle: $isPublicEventTitle,
+            tentativeStart: $isTentativeStatus || $flags['tentative'] || $flags['openStart'],
+            tentativeEnd: $isTentativeStatus || $flags['tentative'] || $flags['openEnd'],
+            isPublicEventTitle: $flags['public'],
         );
+    }
+
+    /**
+     * Strips each matching marker out of $summary in exactly ONE pass, in
+     * the fixed order $patterns is given in — deliberately not order-
+     * independent. Each pattern's own `$` anchor only ever matches the
+     * CURRENT trailing text (i.e. whatever's left after every earlier
+     * pattern in $patterns already stripped its own marker), so stacking
+     * more than one marker on the same event's title requires nesting them
+     * in that same order: the FIRST pattern in $patterns must be the
+     * OUTERMOST (rightmost) marker in the raw title, the LAST pattern the
+     * INNERMOST (leftmost, closest to the real title text). This method is
+     * called with exactly one fixed order — Tentative, Open-end, Open-
+     * start, Public — surfaced to the owner in Settings so combining
+     * markers isn't a guessing game: e.g. "Dinner with Alice (public) (?)"
+     * (public innermost, tentative outermost) is the one order this
+     * actually detects both flags for; "Dinner with Alice (?) (public)"
+     * does not (Public would need to match "(?)" — the actual trailing
+     * text at that point — which it doesn't, so it's never even attempted
+     * against "(public)" underneath).
+     *
+     * @param  array<string, ?string>  $patterns  Keyed by flag name, in processing order.
+     * @return array<string, bool|?string> The same keys as $patterns (each a bool), plus 'summary' (the fully-cleaned title).
+     */
+    private function stripTitleFlags(?string $summary, array $patterns): array
+    {
+        $flags = [];
+
+        foreach ($patterns as $key => $pattern) {
+            [$flags[$key], $summary] = $this->matchAndStrip($pattern, $summary);
+        }
+
+        return [...$flags, 'summary' => $summary];
     }
 
     /**
