@@ -844,11 +844,22 @@ hr {
     position: relative;
     z-index: 1;
     display: block;
-    font-size: 1rem;
+    /* A short block is almost always the sliver of a multi-day event
+       overhanging into the next day's column, not a genuinely brief event —
+       a fixed font-size either barely fits a 1-hour sliver or looks
+       needlessly cramped on a several-hour one. Scale continuously off the
+       block's own rendered height (cqh, from .wtf-fcal-block's
+       container-type: size) instead of picking one fixed breakpoint: at
+       roughly 1 hour or less (2.25rem, matching the hour-row height below)
+       this bottoms out at half size, and it grows back to full size by
+       roughly 4 hours. .wtf-fcal-block-label-icon's font-size is already
+       relative (em) to this, so it scales along with it automatically.
+    */
+    font-size: clamp(0.5rem, 12cqh, 1rem);
     /* Left padding absorbs what used to be the block's border-left width, now
        that no block (tentative or not) has a border, to keep the transition
        between them seamless. */
-    padding: 4px 7px 4px 10px;
+    padding: clamp(1px, 3cqh, 4px) 7px clamp(1px, 3cqh, 4px) 10px;
     color: var(--app-fcal-text-free);
     line-height: 1em;
     overflow: hidden;
@@ -861,21 +872,6 @@ hr {
 @container (min-height: 2.25rem) {
     .wtf-fcal-block-label-time {
         display: block;
-    }
-}
-
-/* A block sliced this short is almost always the sliver of a multi-day
-   event overhanging into the next day's column, not a genuinely short
-   event — the full-size label barely fits, let alone reads well. Shrink it
-   drastically rather than let it overflow/clip. */
-@container (max-height: 1.5rem) {
-    .wtf-fcal-block-label {
-        font-size: 0.5rem;
-        padding: 1px 4px;
-    }
-
-    .wtf-fcal-block-label-icon {
-        font-size: 0.8em;
     }
 }
 
