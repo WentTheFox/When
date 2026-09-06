@@ -110,39 +110,35 @@ function hideSwatchTooltip(): void {
 }
 
 /**
- * A representative week of made-up events, fed into the exact same
+ * A representative set of made-up events, fed into the exact same
  * CalendarView.vue Free/Show.vue uses for real API data — so this preview
  * is the actual calendar renderer against synthetic input, not a
  * reimplementation of what the real page looks like.
  */
 const exampleDay = new Date();
-// Fixed Monday-first anchor for the mock DATA (which weekday each made-up
-// event falls on never changes) — built as UTC midnight (Date.UTC), not
-// local midnight + toISOString-style drift, since this mock is fed
-// :timezone="'UTC'" below and reads each day via TZDate(day, 'UTC'): a
-// local-midnight Date in any non-UTC environment (e.g. local Monday 00:00
-// in UTC+2 is 22:00 Sunday UTC) would silently display one weekday early.
-const exampleWeekDatesMonFirst = Array.from({ length: 7 }, (_, i) => {
-  const dow = (exampleDay.getDay() + 6) % 7; // Monday = 0
-  return new Date(Date.UTC(exampleDay.getFullYear(), exampleDay.getMonth(), exampleDay.getDate() - dow + i));
-});
+// UTC midnight for "today" — the anchor every made-up event and the
+// visible day range below are offset from (day 0 = today, -1 = yesterday,
+// +1 = tomorrow, etc.), rather than a fixed Monday-first week. Built as
+// UTC directly (Date.UTC), not local midnight + toISOString-style drift,
+// since this mock is fed :timezone="'UTC'" below and reads each day via
+// TZDate(day, 'UTC'): a local-midnight Date in any non-UTC environment
+// (e.g. local midnight in UTC+2 is still 22:00 the day before, in UTC)
+// would silently shift everything a day early.
+const exampleToday = new Date(Date.UTC(exampleDay.getFullYear(), exampleDay.getMonth(), exampleDay.getDate()));
 /**
  * The color-slot preview's own 3-day window (see colorPreviewVisibleDays
- * below) — yesterday/today/tomorrow, centered on the real current day
- * rather than whichever 3 days happen to fall first for the owner's
- * configured week_start. The color preview's whole point is judging how
- * the current-time indicator reads against a chosen color, so the visible
- * window has to actually contain today regardless of what day of the week
- * it is; a week_start-first slice would miss it entirely on, say, a
- * Thursday with week_start=Monday. The made-up events themselves stay
- * exactly where exampleWeekDatesMonFirst already pins them (Monday's
- * "Lunch with Alice" is always Monday's event) — only which 3 real
- * calendar days get displayed shifts here, not the events.
+ * below) shows only yesterday/today/tomorrow — never a full week — so the
+ * made-up events themselves are deliberately pinned to those same three
+ * relative days (-1/0/+1 below), not a fixed weekday. Pinning them to,
+ * say, "Monday" and "Friday" only actually appeared in this preview on the
+ * days of the week that happened to make Monday/Friday fall within
+ * yesterday/today/tomorrow — invisible the rest of the time, which is easy
+ * to miss when eyeballing this panel on any day other than by chance the
+ * right one.
  */
-const colorPreviewExampleDays = computed(() => {
-  const today = exampleWeekDatesMonFirst[(exampleDay.getDay() + 6) % 7]!;
-  return [-1, 0, 1].map((offset) => new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + offset)));
-});
+const colorPreviewExampleDays = computed(() =>
+  [-1, 0, 1].map((offset) => new Date(Date.UTC(exampleToday.getUTCFullYear(), exampleToday.getUTCMonth(), exampleToday.getUTCDate() + offset))),
+);
 /**
  * Live-updates as the Wake & sleep times table is edited (see
  * form.availability), mirroring AvailabilityService's own dayWindow()/
@@ -159,7 +155,7 @@ const exampleAvailability = computed<AvailabilityResponse>(() => {
   // shifts every block by the runtime's own UTC offset (e.g. 12:00 local in
   // UTC+2 serializes to "10:00Z", which a UTC-timezone CalendarView then
   // renders as 10:00, two hours off from what was actually asked for).
-  const base = exampleWeekDatesMonFirst[0]!;
+  const base = exampleToday;
   const at = (dayOffset: number, hours: number, minutes = 0) =>
     new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + dayOffset, hours, minutes, 0, 0)).toISOString();
   const atAbsMinutes = (absoluteMinutes: number) => {
@@ -170,12 +166,11 @@ const exampleAvailability = computed<AvailabilityResponse>(() => {
 
   /** Mirrors AvailabilityService::dayWindow — null means "fully awake all day". */
   function dayWindowMinutes(dayOffset: number): { wakeMin: number; sleepMin: number } | null {
-    // JS's `%` doesn't wrap negative operands the way Python's does
-    // (-1 % 7 === -1, not 6) — dayOffset now legitimately goes negative
-    // (see RANGE_START_DAY below, for the "yesterday" the color preview
-    // needs when today is a Monday), so this has to wrap it into 0..6 by
-    // hand rather than relying on a bare `% 7`.
-    const dow = exampleWeekDatesMonFirst[((dayOffset % 7) + 7) % 7]!.getUTCDay();
+    // The actual weekday `dayOffset` days from today, read directly off a
+    // real Date rather than indexed into a fixed week array — works
+    // uniformly for any offset, negative ones (yesterday) included, with
+    // no modulo-wrapping of its own to get wrong.
+    const dow = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + dayOffset)).getUTCDay();
     const config = props.availabilitySettingsForm.availability[dow];
     if (!config?.wake || !config?.sleep) return null;
 
@@ -199,16 +194,23 @@ const exampleAvailability = computed<AvailabilityResponse>(() => {
   // Single source of truth for every made-up event — free/unavailable/
   // highlighted below are ALL derived from this, each clipped to that
   // day's own wake/sleep window.
+  // Pinned to day -1/0/1 (yesterday/today/tomorrow) — the only three days
+  // colorPreviewVisibleDays ever actually shows (see colorPreviewExampleDays
+  // above) — not spread across a full Monday-Sunday week the way this used
+  // to be pinned. A week-pinned event only ever showed up in this preview
+  // on whichever days of the week happened to land inside the visible
+  // 3-day window, invisible the rest of the time; every category below is
+  // now visible in this panel regardless of what day it actually is.
   const events: { day: number; start: number; end: number; tentativeStart?: boolean; tentativeEnd?: boolean; activity?: string; highlightWords?: string[]; work?: boolean; school?: boolean; public?: boolean }[] = [
-    { day: 0, start: 9 * 60, end: 10 * 60 + 30, school: true }, // Mon: Chemistry class (school)
-    { day: 0, start: 12 * 60, end: 14 * 60, activity: 'Lunch', highlightWords: ['Alice'] }, // Mon: Lunch with Alice
-    { day: 1, start: 9 * 60, end: 11 * 60 + 30 }, // Tue: Team meeting
-    { day: 2, start: 14 * 60, end: 16 * 60, tentativeStart: true, tentativeEnd: true }, // Wed: Maybe call
-    { day: 3, start: 10 * 60, end: 12 * 60, tentativeStart: true, tentativeEnd: true, activity: 'Coffee', highlightWords: ['Bob'] }, // Thu: Coffee with Bob (fully tentative + highlighted)
-    { day: 4, start: 13 * 60, end: 17 * 60, work: true }, // Fri: Workshop (work)
-    { day: 5, start: 10 * 60, end: 12 * 60, public: true, activity: 'Neighborhood cleanup' }, // Sat: public event ("(public)" marker already stripped, shown verbatim)
-    { day: 5, start: 18 * 60, end: 20 * 60, tentativeEnd: true, activity: 'Dinner', highlightWords: ['Alice'] }, // Sat: Dinner with Alice, open end + highlighted
-    { day: 6, start: 15 * 60, end: 17 * 60, tentativeStart: true, activity: 'Call', highlightWords: ['Charlie'] }, // Sun: Call with Charlie, open start + highlighted
+    { day: -1, start: 9 * 60, end: 10 * 60 + 30, school: true }, // Yesterday: Chemistry class (school)
+    { day: -1, start: 12 * 60, end: 14 * 60, activity: 'Lunch', highlightWords: ['Alice'] }, // Yesterday: Lunch with Alice
+    { day: -1, start: 20 * 60, end: 22 * 60, tentativeStart: true, tentativeEnd: true }, // Yesterday: Maybe call
+    { day: 0, start: 9 * 60, end: 11 * 60 + 30 }, // Today: Team meeting
+    { day: 0, start: 13 * 60, end: 17 * 60, work: true }, // Today: Workshop (work)
+    { day: 0, start: 19 * 60, end: 21 * 60, tentativeStart: true, tentativeEnd: true, activity: 'Coffee', highlightWords: ['Bob'] }, // Today: Coffee with Bob (fully tentative + highlighted)
+    { day: 1, start: 10 * 60, end: 12 * 60, public: true, activity: 'Neighborhood cleanup' }, // Tomorrow: public event ("(public)" marker already stripped, shown verbatim)
+    { day: 1, start: 15 * 60, end: 17 * 60, tentativeStart: true, activity: 'Call', highlightWords: ['Charlie'] }, // Tomorrow: Call with Charlie, open start + highlighted
+    { day: 1, start: 18 * 60, end: 20 * 60, tentativeEnd: true, activity: 'Dinner', highlightWords: ['Alice'] }, // Tomorrow: Dinner with Alice, open end + highlighted
   ];
 
   /** This event's [start, end], clamped to its own day's wake/sleep window — null if the window clips it away entirely (e.g. it falls fully inside a since-configured sleep period). */
@@ -221,15 +223,17 @@ const exampleAvailability = computed<AvailabilityResponse>(() => {
     return end > start ? [start, end] : null;
   }
 
-  // Events only ever cover day 0..6 (Mon..Sun), but the computed range now
-  // reaches one day earlier (day -1, i.e. the Sunday before this Monday —
-  // reachable as "yesterday" by colorPreviewExampleDays above whenever
-  // today is itself a Monday) and one day later (day 7, next Monday, kept
-  // for the sleep wraparound below) than that. Both ends are simply
-  // eventless — day -1/day 7 render as fully free/asleep per that day's
-  // own window, same as any other day with no events on it.
-  const RANGE_START_DAY = -1;
-  const RANGE_END_DAY = 8; // exclusive
+  // Events only ever cover day -1..1 (the same 3 days colorPreviewVisibleDays
+  // ever shows), but the computed range reaches one day earlier (-2) and one
+  // day later (+2) than that, same padding reasoning as the real backend's
+  // own LOOKAHEAD_DAYS: CalendarView's tentativeFadeStyle looks a day either
+  // side of what's actually rendered to blend a tentative edge into its
+  // neighbor, and the sleep-block inversion below needs a real awake window
+  // just past both ends of the range to close off cleanly. Both padding
+  // days are simply eventless — they render as fully free/asleep per that
+  // day's own window, same as any other day with no events on it.
+  const RANGE_START_DAY = -2;
+  const RANGE_END_DAY = 3; // exclusive
 
   const free = Array.from({ length: RANGE_END_DAY - RANGE_START_DAY }, (_, i) => {
     const day = RANGE_START_DAY + i;
