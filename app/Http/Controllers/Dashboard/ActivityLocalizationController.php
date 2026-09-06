@@ -22,12 +22,20 @@ use Illuminate\Validation\Rule;
  */
 class ActivityLocalizationController extends Controller
 {
-    /** @return array<int, string> */
+    /**
+     * A role's label is entirely optional now — an owner who only wants an
+     * icon override, no wording change at all, must be able to save one
+     * with a blank label (ActivityLocalizations.vue's "add" flow used to
+     * force a default label here, which this relaxes). `label` may
+     * therefore arrive as `{}` (empty object) or be omitted outright.
+     *
+     * @return array<int, string>
+     */
     private static function localizedTextRules(): array
     {
         return [
-            'label' => ['required', 'array'],
-            'label.default' => ['required', 'string', 'max:255'],
+            'label' => ['sometimes', 'array'],
+            'label.default' => ['nullable', 'string', 'max:255'],
             // Any other key is a language code an owner typed in freely —
             // deliberately not restricted to a fixed list (see
             // LocalizedTextInput.vue), so every key but 'default' is
@@ -50,7 +58,9 @@ class ActivityLocalizationController extends Controller
         // 'label' isn't a real column (see HasLocalizedFields) — outside
         // $fillable/mass assignment on purpose, same as User::calendar_
         // url_ciphertext, so it's pulled out and saved via its own call.
-        $label = $data['label'];
+        // 'sometimes' above means it may not even be present in $data at
+        // all (a genuinely label-less, icon-only role).
+        $label = $data['label'] ?? [];
         unset($data['label']);
 
         $role = $request->user()->activityLocalizations()->create($data);
@@ -69,7 +79,7 @@ class ActivityLocalizationController extends Controller
             ...self::localizedTextRules(),
         ]);
 
-        $label = $data['label'];
+        $label = $data['label'] ?? [];
         unset($data['label']);
 
         $role = $request->user()->activityLocalizations()->where('id', $activityLocalization)->firstOrFail();

@@ -23,6 +23,8 @@ const props = defineProps<{
   label: string;
   /** Purely a UI hint (native `required` on the default input) — actual enforcement is server-side validation, since this component has no idea whether its caller's field is truly required (ActivityLocalization's label is; Public page title isn't, since it already falls back to a computed default). */
   required?: boolean;
+  /** Shown as the default field's own placeholder — a worked example of what belongs there, not a value ever silently saved. */
+  defaultPlaceholder?: string;
 }>();
 
 const model = defineModel<Record<string, string>>({ default: () => ({en:''}) });
@@ -86,6 +88,17 @@ function removeRow(index: number): void {
 <template>
   <div>
     <BFormGroup :label="label" :label-for="id" class="mb-2">
+      <BFormInput
+        :id="id"
+        v-model="defaultValue"
+        type="text"
+        :placeholder="defaultPlaceholder ?? label"
+        :required="required"
+        class="mb-1"
+      />
+      <p class="small text-muted mb-2">
+        The default — shown to a viewer whose own language has no override below.
+      </p>
       <div v-for="(row, i) in rows" :key="i" class="d-flex gap-2 mb-2 align-items-center">
         <BFormSelect v-model="row.code" style="max-width: 10rem" aria-label="Language">
           <option

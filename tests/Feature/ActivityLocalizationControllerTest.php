@@ -53,6 +53,40 @@ class ActivityLocalizationControllerTest extends TestCase
         $this->assertNull($role->icon_key);
     }
 
+    /**
+     * A label is no longer required — an owner can save an icon-only
+     * customization (no wording change at all) with a genuinely empty
+     * label. Covers both an entirely-omitted `label` key and an explicit
+     * empty object, since the frontend always sends the latter.
+     */
+    public function test_the_label_is_optional_and_can_be_left_entirely_blank(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->postJson('/settings/activity-localization', $this->payload([
+            'label' => [],
+            'icon_key' => 'house',
+        ]));
+
+        $response->assertCreated();
+        $role = ActivityLocalization::where('user_id', $user->id)->firstOrFail();
+        $this->assertNull($role->label);
+        $this->assertSame('house', $role->icon_key);
+    }
+
+    public function test_a_blank_label_is_also_accepted_when_the_key_is_omitted_entirely(): void
+    {
+        $user = User::factory()->create();
+        $payload = $this->payload(['icon_key' => 'house']);
+        unset($payload['label']);
+
+        $response = $this->actingAs($user)->postJson('/settings/activity-localization', $payload);
+
+        $response->assertCreated();
+        $role = ActivityLocalization::where('user_id', $user->id)->firstOrFail();
+        $this->assertNull($role->label);
+    }
+
     public function test_an_unknown_icon_key_is_rejected(): void
     {
         $user = User::factory()->create();

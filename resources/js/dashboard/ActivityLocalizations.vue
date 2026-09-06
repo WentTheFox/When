@@ -2,18 +2,30 @@
 /**
  * CRUD list for App\Models\ActivityLocalization — generalizes the old hardcoded
  * "Host X"/"Visit X" convention into an owner-configurable, ordered list
- * of (pattern, localized label) pairs. Each role's own pattern is
+ * of (pattern, localized label, icon) triples. Each role's own pattern is
  * matched the same way highlight_clause_pattern is (see
  * HighlightMatcher) — requires exactly one real capture group, the name
  * portion. Not §0.1 client-vault E2EE — pattern/pattern_preview are §0.2
  * server-runtime Crypt/APP_KEY ciphertext instead (see
  * ActivityLocalization::casts()), transparently handled server-side; this
  * component still only ever sends/receives their plaintext form. label
- * stays genuinely plaintext (a separate localized_texts row).
+ * stays genuinely plaintext (a separate localized_texts row) — and is
+ * entirely optional, unlike pattern: an owner who only wants a matched
+ * event's icon to change, not its wording, can leave every label field
+ * blank.
+ *
+ * Rendered as an accordion (one collapsible item per role) rather than a
+ * flat stack of always-expanded panels — each item's own header shows a
+ * live summary (pattern, configured label language codes, icon) of that
+ * role's current, possibly-unsaved edits, since the header is a slot
+ * bound to the same reactive `role` object the form inside edits
+ * directly, not a snapshot taken at render time.
  */
 import axios from 'axios';
-import { BButton } from 'bootstrap-vue-next';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { BAccordion, BAccordionItem, BButton } from 'bootstrap-vue-next';
 import { ref } from 'vue';
+import { faIconFor } from '../free/icon-palette';
 import ActivityLocalizationForm from './ActivityLocalizationForm.vue';
 
 interface ActivityLocalizationData {
@@ -38,6 +50,11 @@ const newLabel = ref<Record<string, string>>({});
 const newIconKey = ref<string | null>(null);
 const adding = ref(false);
 const addError = ref('');
+
+/** Every language this role's label has been given text for (including "default" itself) — shown in the accordion header as a quick summary of what's actually configured. */
+function labelCodes(label: Record<string, string>): string[] {
+  return Object.keys(label);
+}
 
 async function save(role: ActivityLocalizationData): Promise<void> {
   savingId.value = role.id;
@@ -73,8 +90,11 @@ async function remove(role: ActivityLocalizationData): Promise<void> {
 async function add(): Promise<void> {
   addError.value = '';
 
-  if (!newPattern.value || !newLabel.value.default) {
-    addError.value = 'A pattern and a default label are both required.';
+  // Label is optional (an icon-only customization is a real use case —
+  // see this file's own header comment); only the pattern is genuinely
+  // required, since there's nothing to match without one.
+  if (!newPattern.value) {
+    addError.value = 'A pattern is required.';
     return;
   }
 
@@ -114,25 +134,35 @@ async function add(): Promise<void> {
   <p class="small text-muted">
     Each pattern has the same rules as the fields above: exactly one <code>(…)</code> capture
     group to define the matched name(s). Maps to a label shown to the viewer instead of raw extracted
-    activity text. Besides the possibility to translate activities, another possible use-case could be
-    hosting/visiting — the label can be changed to <em>the viewer's perspective</em>. If an event's
-    title is "Host Alice" that means Alice is visiting the calendar owner, so its label can be
-    changed to "Visiting" when she's reading the calendar.
+    activity text — entirely optional, so a customization can just change the icon instead. Besides
+    the possibility to translate activities, another possible use-case could be hosting/visiting —
+    the label can be changed to <em>the viewer's perspective</em>. If an event's title is "Host
+    Alice" that means Alice is visiting the calendar owner, so its label can be changed to "Visiting"
+    when she's reading the calendar.
   </p>
 
-  <div v-for="role in roles" :key="role.id" class="wtf-pattern-preview-panel mb-3">
-    <ActivityLocalizationForm
-      v-model:pattern="role.pattern"
-      v-model:preview-text="role.pattern_preview"
-      v-model:label="role.label"
-      v-model:icon-key="role.icon_key"
-      :id-prefix="`activity_localization_${role.id}`"
-    />
-    <BButton variant="primary" size="sm" :disabled="savingId === role.id" @click="save(role)">Save</BButton>
-    <BButton variant="outline-danger" size="sm" class="ms-2" @click="remove(role)">Remove</BButton>
-    <span v-if="savedId === role.id" class="small text-success ms-2">Saved</span>
-    <div v-if="errors[role.id]" class="text-danger small mt-1">{{ errors[role.id] }}</div>
-  </div>
+  <BAccordion free class="mb-3">
+    <BAccordionItem v-for="role in roles" :key="role.id">
+      <template #title>
+        <span class="d-flex align-items-center gap-2 flex-wrap">
+          <FontAwesomeIcon v-if="role.icon_key && faIconFor(role.icon_key)" :icon="faIconFor(role.icon_key)!" />
+          <code>{{ role.pattern || '(no pattern yet)' }}</code>
+          <span v-if="labelCodes(role.label).length" class="small text-muted">{{ labelCodes(role.label).join(', ') }}</span>
+        </span>
+      </template>
+      <ActivityLocalizationForm
+        v-model:pattern="role.pattern"
+        v-model:preview-text="role.pattern_preview"
+        v-model:label="role.label"
+        v-model:icon-key="role.icon_key"
+        :id-prefix="`activity_localization_${role.id}`"
+      />
+      <BButton variant="primary" size="sm" :disabled="savingId === role.id" @click="save(role)">Save</BButton>
+      <BButton variant="outline-danger" size="sm" class="ms-2" @click="remove(role)">Remove</BButton>
+      <span v-if="savedId === role.id" class="small text-success ms-2">Saved</span>
+      <div v-if="errors[role.id]" class="text-danger small mt-1">{{ errors[role.id] }}</div>
+    </BAccordionItem>
+  </BAccordion>
 
   <div class="wtf-pattern-preview-panel">
     <p class="small fw-semibold mb-2">Add a customization</p>
@@ -142,7 +172,6 @@ async function add(): Promise<void> {
       v-model:label="newLabel"
       v-model:icon-key="newIconKey"
       id-prefix="new_activity_localization"
-      label-required
     />
     <BButton variant="primary" :disabled="adding" @click="add">Add customization</BButton>
     <div v-if="addError" class="text-danger small mt-1">{{ addError }}</div>

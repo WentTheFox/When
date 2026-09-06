@@ -16,8 +16,6 @@ import RegexPatternInput from './RegexPatternInput.vue';
 
 defineProps<{
   idPrefix: string;
-  /** Only the "Add a customization" block requires a default label — an existing role already has one. */
-  labelRequired?: boolean;
 }>();
 
 const pattern = defineModel<string>('pattern', { required: true });
@@ -73,7 +71,6 @@ function hideIconTooltip(): void {
         :id="`${idPrefix}_label`"
         label="Label shown to the viewer"
         default-placeholder="Visiting"
-        :required="labelRequired"
       />
     </div>
   </div>
@@ -81,7 +78,7 @@ function hideIconTooltip(): void {
   <BFormGroup label="Icon" class="mb-3">
     <template #description>
       Shown on a matching event instead of the regular highlighted icon. Leave unset to keep using
-      that regular icon — picking one here is entirely optional.
+      that regular icon. Picking one here is entirely optional, click again to unselect.
     </template>
     <div class="wtf-swatch-grid">
       <button
