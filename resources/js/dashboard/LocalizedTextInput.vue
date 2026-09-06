@@ -96,6 +96,7 @@ function removeRow(index: number): void {
         :required="required"
         class="mb-1"
       />
+      <!-- TODO Make this optional to allow users to fall back to the matched event name -->
       <p class="small text-muted mb-2">
         The default — shown to a viewer whose own language has no override below.
       </p>
