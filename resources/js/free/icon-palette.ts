@@ -140,6 +140,7 @@ import {
   faUsers,
   faUtensils,
   faVolleyball,
+  faVrCardboard,
   faWarehouse,
   faWrench,
   faXmark,
@@ -290,6 +291,7 @@ const ICON_KEY_TO_FA: Record<string, IconDefinition> = {
   crown: faCrown,
   ring: faRing,
   lightbulb: faLightbulb,
+  vr: faVrCardboard,
 };
 
 let icons: IconOption[] = [];

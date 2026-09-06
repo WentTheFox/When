@@ -14,7 +14,7 @@
  * "House", "job" still finds "Briefcase", etc.) — see matches() below.
  */
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { BDropdown, BFormInput } from 'bootstrap-vue-next';
+import { BDropdown, BFormInput, BInputGroup, BInputGroupText } from 'bootstrap-vue-next';
 import { computed, nextTick, ref } from 'vue';
 import { faIconFor, getIconPalette } from '../free/icon-palette';
 import type { IconOption } from '../free/icon-palette';
@@ -71,54 +71,60 @@ function onShown(): void {
 </script>
 
 <template>
-  <BDropdown
-    ref="dropdownRef"
-    variant="outline-secondary"
-    toggle-class="wtf-icon-picker-toggle"
-    menu-class="wtf-icon-picker-menu"
-    :aria-label="label"
-    @shown="onShown"
-  >
-    <template #button-content>
+  <BInputGroup>
+    <BInputGroupText>
       <FontAwesomeIcon
         v-if="currentIcon"
         :icon="currentIcon"
         class="wtf-icon-picker-toggle-icon"
         :style="activeColor ? { '--app-icon-active-color': activeColor } : undefined"
       />
-      <span class="small">{{ currentLabel ?? 'Choose icon' }}</span>
-    </template>
-    <div class="wtf-icon-picker-body" @click.stop>
-      <BFormInput
-        ref="searchInput"
-        v-model="search"
-        type="search"
-        size="sm"
-        placeholder="Search icons…"
-        class="mb-2"
-      />
-      <div class="wtf-icon-picker-scroll">
-        <p v-if="groups.length === 0" class="small text-muted mb-0">No icons match "{{ search }}".</p>
-        <div v-for="[group, groupIcons] in groups" :key="group" class="mb-2">
-          <p class="small text-muted fw-semibold mb-1">{{ group }}</p>
-          <div class="wtf-swatch-grid">
-            <button
-              v-for="icon in groupIcons"
-              :key="icon.key"
-              type="button"
-              class="wtf-icon-swatch-btn"
-              :class="{ 'wtf-icon-swatch-btn-active': modelValue === icon.key }"
-              :style="{ '--app-icon-active-color': activeColor }"
-              :aria-pressed="modelValue === icon.key"
-              :title="icon.label"
-              @click="select(icon)"
-            >
-              <FontAwesomeIcon v-if="faIconFor(icon.key)" :icon="faIconFor(icon.key)!" />
-              <span class="visually-hidden">{{ icon.label }}</span>
-            </button>
+    </BInputGroupText>
+    <BDropdown
+      ref="dropdownRef"
+      variant="outline-secondary"
+      toggle-class="wtf-icon-picker-toggle"
+      menu-class="wtf-icon-picker-menu"
+      :aria-label="label"
+      @shown="onShown"
+    >
+      <template #button-content>
+        <span class="small">{{ currentLabel ?? 'Choose icon' }}</span>
+      </template>
+      <div class="wtf-icon-picker-body" @click.stop>
+        <BFormInput
+          ref="searchInput"
+          v-model="search"
+          type="search"
+          size="sm"
+          placeholder="Search icons…"
+          class="mb-2"
+        />
+        <div class="wtf-icon-picker-scroll">
+          <p v-if="groups.length === 0" class="small text-muted mb-0">No icons match "{{
+              search
+            }}".</p>
+          <div v-for="[group, groupIcons] in groups" :key="group" class="mb-2">
+            <p class="small text-muted fw-semibold mb-1">{{ group }}</p>
+            <div class="wtf-swatch-grid">
+              <button
+                v-for="icon in groupIcons"
+                :key="icon.key"
+                type="button"
+                class="wtf-icon-swatch-btn"
+                :class="{ 'wtf-icon-swatch-btn-active': modelValue === icon.key }"
+                :style="{ '--app-icon-active-color': activeColor }"
+                :aria-pressed="modelValue === icon.key"
+                :title="icon.label"
+                @click="select(icon)"
+              >
+                <FontAwesomeIcon v-if="faIconFor(icon.key)" :icon="faIconFor(icon.key)!" />
+                <span class="visually-hidden">{{ icon.label }}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </BDropdown>
+    </BDropdown>
+  </BInputGroup>
 </template>

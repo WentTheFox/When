@@ -192,6 +192,7 @@ enum IconKey: string
     case Ticket = 'ticket';
     case MasksTheater = 'masks-theater';
     case ChessKnight = 'chess-knight';
+    case VR = 'vr-cardboard';
 
     // People & social.
     case Baby = 'baby';
@@ -272,7 +273,7 @@ enum IconKey: string
             self::Plane, self::Car, self::Train, self::Ship, self::Rocket, self::PaperPlane, self::Map, self::Globe, self::Anchor => 'Travel & transport',
             self::HeartPulse, self::Pills, self::Stethoscope, self::BriefcaseMedical => 'Health',
             self::Wrench, self::Hammer, self::Key, self::House => 'Home & tools',
-            self::Music, self::Gamepad, self::Book, self::Palette, self::Paintbrush, self::Camera, self::Film, self::Guitar, self::Drum, self::PuzzlePiece, self::Ticket, self::MasksTheater, self::ChessKnight => 'Arts & hobbies',
+            self::Music, self::Gamepad, self::Book, self::Palette, self::Paintbrush, self::Camera, self::Film, self::Guitar, self::Drum, self::PuzzlePiece, self::Ticket, self::MasksTheater, self::ChessKnight, self::VR => 'Arts & hobbies',
             self::Star, self::Heart, self::Gift, self::Bell, self::Flag, self::ThumbsUp, self::Poop, self::Lightbulb => 'Misc',
         };
     }
@@ -330,6 +331,7 @@ enum IconKey: string
             self::MasksTheater => ['theatre', 'drama', 'performance'],
             self::Ticket => ['event', 'show', 'concert'],
             self::Lightbulb => ['idea', 'inspiration'],
+            self::VR => ['goggles', 'virtual', 'reality', 'virtual reality', 'steamvr', 'vrchat'],
             default => [],
         };
     }
