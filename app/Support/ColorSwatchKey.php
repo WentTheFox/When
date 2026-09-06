@@ -169,7 +169,18 @@ enum ColorSwatchKey: string
             self::Steel => '#ced4da',
             self::Silver => '#dee2e6',
             self::Fog => '#e9ecef',
-            self::Brown => '#d9a066',
+            // Darker and more orange (hue ~28°, lightness 0.45) than the
+            // original '#d9a066' (hue ~30°, lightness 0.63) — that one sat
+            // close enough in both hue and lightness to Gold's own dark hex
+            // ('#ffd60a', hue ~50°) that Work (Brown's own default slot) and
+            // Highlighted (Gold's) read as near-indistinguishable warm-
+            // yellow blobs against a dark background. Rechecked against
+            // --app-bg dark (#212529) through the same color-mix(in srgb,
+            // hue 65%, --app-text 35%) formula dark-theme.css's block-label
+            // text actually renders with (--app-text dark is #dee2e6):
+            // contrast 5.86, still comfortably above the 4.5:1 floor every
+            // other swatch here is held to.
+            self::Brown => '#a9713f',
         };
     }
 
