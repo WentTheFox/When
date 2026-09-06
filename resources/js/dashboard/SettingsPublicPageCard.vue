@@ -9,12 +9,13 @@ import CalendarView from '../free/CalendarView.vue';
 import { BLOCK_ALPHA, hexToRgba, hexToRgbTriplet, yiqTextColor } from '../free/color-utils';
 import { getColorPalette, resolveSwatchHex } from '../free/color-palette';
 import type { ColorSlot } from '../free/color-palette';
-import { faIconFor, iconsForSlot, resolveIcon } from '../free/icon-palette';
+import { resolveIcon } from '../free/icon-palette';
 import type { IconSlot } from '../free/icon-palette';
 import { getNowColorPresets, resolveNowColorHex } from '../free/now-color-presets';
 import { useResolvedTheme } from '../composables/useTheme';
 import { resolveLocalizedText } from '../free/localizedText';
 import type { AvailabilityResponse, EventSlot } from '../free/nuxt-blocks';
+import IconPicker from './IconPicker.vue';
 import LocalizedTextInput from './LocalizedTextInput.vue';
 import type { Settings } from './settingsTypes';
 import type {
@@ -504,25 +505,11 @@ function submit(): void {
         <div class="row">
           <div v-for="iconField in iconFields" :key="iconField.field" class="col-md-4 col-6 mb-3">
             <BFormGroup :label="iconField.label">
-              <div class="wtf-swatch-grid">
-                <button
-                  v-for="icon in iconsForSlot(iconField.slot)"
-                  :key="icon.key"
-                  type="button"
-                  class="wtf-icon-swatch-btn"
-                  :class="{ 'wtf-icon-swatch-btn-active': (publicPageSettingsForm as unknown as Record<string, string>)[iconField.field] === icon.key }"
-                  :style="{ '--app-icon-active-color': activeIconColor(iconField) }"
-                  :aria-pressed="(publicPageSettingsForm as unknown as Record<string, string>)[iconField.field] === icon.key"
-                  @click="(publicPageSettingsForm as unknown as Record<string, string>)[iconField.field] = icon.key"
-                  @mouseenter="showSwatchTooltip($event, icon.label)"
-                  @mouseleave="hideSwatchTooltip"
-                  @focus="showSwatchTooltip($event, icon.label)"
-                  @blur="hideSwatchTooltip"
-                >
-                  <FontAwesomeIcon v-if="faIconFor(icon.key)" :icon="faIconFor(icon.key)!" />
-                  <span class="visually-hidden">{{ icon.label }}</span>
-                </button>
-              </div>
+              <IconPicker
+                v-model="(publicPageSettingsForm as unknown as Record<string, string | null>)[iconField.field]"
+                :label="`${iconField.label} icon`"
+                :active-color="activeIconColor(iconField)"
+              />
             </BFormGroup>
           </div>
         </div>

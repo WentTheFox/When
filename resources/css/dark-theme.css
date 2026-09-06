@@ -1495,6 +1495,32 @@ hr {
 }
 
 /*
+ * IconPicker.vue — a single button (BDropdown's own toggle) opening a
+ * search box + grouped, scrollable list of .wtf-icon-swatch-btn buttons
+ * (reused verbatim from the swatch grid above). The scrolling lives on
+ * the inner .wtf-icon-picker-scroll, not the dropdown menu itself, so the
+ * search input stays pinned above it rather than scrolling out of view
+ * with the icons.
+ */
+.wtf-icon-picker-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--app-icon-active-color, inherit);
+}
+
+.wtf-icon-picker-menu {
+    padding: 0.75rem;
+    width: 20rem;
+    max-width: 90vw;
+}
+
+.wtf-icon-picker-scroll {
+    max-height: 16rem;
+    overflow-y: auto;
+}
+
+/*
  * bootstrap-vue-next's v-b-tooltip directive already defaults to
  * `noninteractive` (its own prop name for "can't be clicked/focused as
  * its own element"), but that alone doesn't stop the rendered bubble from
