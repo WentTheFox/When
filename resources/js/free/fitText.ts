@@ -10,6 +10,14 @@ import type { Directive } from 'vue';
  * would've left untouched. Measuring the actual content is exact regardless
  * of why the label doesn't fit (short block, long title, or both).
  *
+ * Tries a fixed ladder of steps off the CSS base size rather than
+ * compounding a percentage shrink every iteration — a compounding shrink
+ * overshoots past the first size that would've actually fit, and produces
+ * a different final size depending on how many steps it took to get there
+ * instead of a small, predictable set of sizes. Never goes below 0.70 of
+ * the base size even if that still clips — a smaller floor (0.5rem was
+ * tried) read as illegible in practice.
+ *
  * Resizes off the label's own parent, not the label itself — observing the
  * label would refire the moment fit() changes its font-size (the label's
  * box shrinks along with the text), which is exactly the kind of
@@ -18,9 +26,7 @@ import type { Directive } from 'vue';
  * (CalendarView.vue), never by its label's content, so watching it is safe.
  */
 
-const MIN_FONT_SIZE_PX = 9;
-const SHRINK_STEP = 0.92;
-const MAX_ITERATIONS = 14;
+const SCALE_STEPS = [1, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7];
 const OVERFLOW_TOLERANCE_PX = 1;
 
 function fit(el: HTMLElement): void {
@@ -34,17 +40,16 @@ function fit(el: HTMLElement): void {
     return;
   }
 
-  let fontSize = baseFontSize;
-  let iterations = 0;
-  while (
-    el.scrollHeight > el.clientHeight + OVERFLOW_TOLERANCE_PX
-    && fontSize > MIN_FONT_SIZE_PX
-    && iterations < MAX_ITERATIONS
-  ) {
-    fontSize = Math.max(MIN_FONT_SIZE_PX, fontSize * SHRINK_STEP);
-    el.style.fontSize = `${fontSize}px`;
-    iterations += 1;
+  for (const step of SCALE_STEPS) {
+    if (step !== 1) {
+      el.style.fontSize = `${baseFontSize * step}px`;
+    }
+    if (el.scrollHeight <= el.clientHeight + OVERFLOW_TOLERANCE_PX) {
+      return;
+    }
   }
+  // None of the steps fit — leave it at the smallest one (already applied
+  // as the last iteration above) rather than shrinking further.
 }
 
 interface FitTextElement extends HTMLElement {
@@ -54,6 +59,15 @@ interface FitTextElement extends HTMLElement {
 export const vFitText: Directive<FitTextElement> = {
   mounted(el) {
     fit(el);
+    // Self-hosted webfont (config/google-fonts.php): on first render its
+    // file may not have finished loading yet, so this initial fit() can
+    // measure against the fallback font's metrics — usually wider/taller —
+    // and shrink text that the real font would've fit at full size. Once
+    // it loads, every already-laid-out element reflows on its own, but
+    // nothing re-runs fit() to notice a shrink is no longer needed; without
+    // this, that wrong shrink is permanent for the rest of the page's life.
+    document.fonts?.ready?.then(() => fit(el)).catch(() => {});
+
     const target = el.parentElement ?? el;
     const observer = new ResizeObserver(() => fit(el));
     observer.observe(target);
