@@ -782,6 +782,22 @@ hr {
     overflow: hidden;
     min-height: 4px;
     container-type: size;
+    /* Vertically centers .wtf-fcal-block-label instead of pinning it to the
+       top edge. column + justify-content (not align-items on a row
+       container) so align-items keeps its default stretch and the label
+       keeps spanning the full width for wrapping — only the main axis
+       (vertical, in column mode) is centered. This matters most on a short
+       single-line block, where the label's own top/bottom padding gets
+       squeezed down (see .wtf-fcal-block-label below) and top-pinned text
+       reads as jammed against the edge; a long, wrapped title on the same
+       short block already fills the available height on its own, so
+       centering it is a no-op there — which is exactly why that label's
+       padding can stay minimal instead of compensating for this. The
+       ::before fade overlay a couple rules down is unaffected: it's
+       position: absolute; inset: 0, so it's already out of flow. */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .wtf-fcal-free-block {
@@ -893,8 +909,13 @@ hr {
    below. */
 .wtf-fcal-tentative-block {
     background-color: transparent !important;
-    display: flex;
-    align-items: center;
+    /* Used to also set display: flex; align-items: center here for its own
+       vertical centering — now redundant, and actively wrong, since
+       .wtf-fcal-block above centers every block's label vertically via
+       flex-direction: column + justify-content. align-items here would
+       instead govern that column container's cross axis (horizontal),
+       shrinking the label to its content width and center-aligning it
+       instead of letting it stretch full-width to wrap correctly. */
 }
 
 .wtf-fcal-tentative-block::before {
