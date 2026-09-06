@@ -864,6 +864,21 @@ hr {
     }
 }
 
+/* A block sliced this short is almost always the sliver of a multi-day
+   event overhanging into the next day's column, not a genuinely short
+   event — the full-size label barely fits, let alone reads well. Shrink it
+   drastically rather than let it overflow/clip. */
+@container (max-height: 1.5rem) {
+    .wtf-fcal-block-label {
+        font-size: 0.5rem;
+        padding: 1px 4px;
+    }
+
+    .wtf-fcal-block-label-icon {
+        font-size: 0.8em;
+    }
+}
+
 .wtf-fcal-block-label-icon {
     font-size: 0.85em;
 }
