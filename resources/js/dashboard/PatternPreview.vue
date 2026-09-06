@@ -59,21 +59,32 @@ function tryExec(pattern: string, subject: string): RegExpExecArray | null {
  * viewer would never actually see this pattern tested against. Every one
  * of these patterns is `$`-anchored by convention (matches only at the
  * true end of the string), so the result of stripping is always a PREFIX
- * of the original line — meaning a match found in the fully-cascaded text
- * lines up with the same character offsets in the original, unmodified
- * line the textarea/overlay actually display.
+ * of the original line — meaning a range found while walking the
+ * progressively-shrinking cascade always lines up with the same character
+ * offsets in the original, unmodified line the textarea/overlay display,
+ * since nothing before that range is ever touched by a later step.
+ *
+ * @return The fully-cascaded (post-stripping) text this field's own
+ * pattern should actually be tested against, plus every range an earlier
+ * pattern claimed along the way — rendered as struck-through/de-emphasized
+ * in the preview (wtf-match-excluded) so the pipeline's effect is visible,
+ * not just its end result.
  */
-function applyPrecedingPatterns(line: string, precedingPatterns: string[]): string {
+function applyPrecedingPatterns(line: string, precedingPatterns: string[]): { cascaded: string; excludedRanges: { start: number; end: number }[] } {
   let cascaded = line;
+  const excludedRanges: { start: number; end: number }[] = [];
 
   for (const pattern of precedingPatterns) {
     if (!pattern) continue; // blank pattern = that step is genuinely off, same as the server.
 
     const match = tryExec(pattern, cascaded);
-    if (match) cascaded = cascaded.slice(0, match.index).trimEnd();
+    if (!match) continue;
+
+    excludedRanges.push({ start: match.index, end: match.index + match[0].length });
+    cascaded = cascaded.slice(0, match.index).trimEnd();
   }
 
-  return cascaded;
+  return { cascaded, excludedRanges };
 }
 
 /** Same split-and-trim behavior as HighlightMatcher::matchTokens/App\Support\Regex::trySplit — see this file's previous version for the fuller comment. Fails closed to "the whole clause is one token" on an invalid split pattern. */
@@ -184,13 +195,15 @@ function highlightSpans(line: string, ranges: { start: number; end: number; cls:
 
 function resultFor(line: string): LineResult {
   if (props.mode === 'match') {
-    const cascaded = props.precedingPatterns.length > 0 ? applyPrecedingPatterns(line, props.precedingPatterns) : line;
+    const { cascaded, excludedRanges } = props.precedingPatterns.length > 0
+      ? applyPrecedingPatterns(line, props.precedingPatterns)
+      : { cascaded: line, excludedRanges: [] };
     const match = props.pattern ? tryExec(props.pattern, cascaded) : null;
-    if (!match) return { matched: false, spans: [{ text: line }] };
-    return {
-      matched: true,
-      spans: highlightSpans(line, [{ start: match.index, end: match.index + match[0].length, cls: 'wtf-match-hit' }]),
-    };
+
+    const ranges = excludedRanges.map((r) => ({ ...r, cls: 'wtf-match-excluded' }));
+    if (match) ranges.push({ start: match.index, end: match.index + match[0].length, cls: 'wtf-match-hit' });
+
+    return { matched: match !== null, spans: highlightSpans(line, ranges) };
   }
 
   if (props.mode === 'extract') {

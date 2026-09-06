@@ -1781,3 +1781,15 @@ hr {
        same information independent of hue. */
     text-decoration: underline;
 }
+
+/* A Flag field's own live preview (PatternPreview's precedingPatterns prop)
+   marks whatever an EARLIER field in the fixed processing order would
+   already have stripped before this field ever sees the title — same
+   de-emphasized gray as a non-capturing group (--app-regex-noncap, not
+   another hue) since this text is inert as far as this field's own pattern
+   is concerned, plus a strikethrough (not the underline the real match
+   above gets) to read as "removed," not "matched." */
+.wtf-match-excluded {
+    color: var(--app-regex-noncap);
+    text-decoration: line-through;
+}

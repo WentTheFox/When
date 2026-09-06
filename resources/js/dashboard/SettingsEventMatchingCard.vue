@@ -431,9 +431,10 @@ function submit(): void {
         </div>
 
         <BAlert :model-value="true" variant="secondary" class="small">
-          <strong>These four "Flag" fields (Tentative, Open-end, Open-start, Public) run in this
-            fixed order</strong>, each one only ever seeing a title after every field before it has
-          already stripped its own marker. Combining more than one marker on the same event only
+          <strong>These four "Flag" fields — numbered 1-4 below, and laid out in that same order —
+            run in a fixed sequence</strong>, each one only ever seeing a title after every field
+          before it has already stripped its own marker. Combining more than one marker on the same
+          event only
           works if they're nested in that same order in the title — the FIRST of these fields
           applies to the OUTERMOST (rightmost) marker, the LAST to the INNERMOST (leftmost, closest
           to the real title): e.g. <code>"Dinner with Alice (public) (?)"</code> is detected as both
@@ -450,7 +451,7 @@ function submit(): void {
         <div class="row mb-3">
           <div class="col-md-6">
             <BFormGroup label-for="tentative_pattern" class="mb-0">
-              <template #label>Tentative regular expression <BBadge variant="warning" text="dark" class="align-middle">Flag</BBadge></template>
+              <template #label><BBadge variant="dark" pill class="align-middle me-1">1</BBadge>Tentative regular expression <BBadge variant="warning" text="dark" class="align-middle">Flag</BBadge></template>
               <RegexPatternInput id="tentative_pattern" v-model="eventMatchingSettingsForm.tentative_pattern" />
               <template #description>
                 Same regex-body rules as above. An event whose title matches this (in addition to
@@ -485,7 +486,7 @@ function submit(): void {
         <div class="row mb-3">
           <div class="col-md-6">
             <BFormGroup label-for="open_end_pattern" class="mb-0">
-              <template #label>Open-end regular expression <BBadge variant="warning" text="dark" class="align-middle">Flag</BBadge></template>
+              <template #label><BBadge variant="dark" pill class="align-middle me-1">2</BBadge>Open-end regular expression <BBadge variant="warning" text="dark" class="align-middle">Flag</BBadge></template>
               <RegexPatternInput id="open_end_pattern" v-model="eventMatchingSettingsForm.open_end_pattern" />
               <template #description>
                 For an event that's definitely happening but has no known end time (e.g. it runs
@@ -509,7 +510,7 @@ function submit(): void {
                 v-model="eventMatchingSettingsForm.open_end_pattern_preview"
                 :pattern="eventMatchingSettingsForm.open_end_pattern"
                 :preceding-patterns="[eventMatchingSettingsForm.tentative_pattern ?? '']"
-                :examples="['Dinner (-?)', 'Team standup', 'Party (-?)', 'Workshop']"
+                :examples="['Dinner (-?)', 'Team standup', 'Party (-?)', 'Workshop', 'Dinner (-?) (?)']"
                 mode="match"
               />
             </div>
@@ -519,7 +520,7 @@ function submit(): void {
         <div class="row mb-3">
           <div class="col-md-6">
             <BFormGroup label-for="open_start_pattern" class="mb-0">
-              <template #label>Open-start regular expression <BBadge variant="warning" text="dark" class="align-middle">Flag</BBadge></template>
+              <template #label><BBadge variant="dark" pill class="align-middle me-1">3</BBadge>Open-start regular expression <BBadge variant="warning" text="dark" class="align-middle">Flag</BBadge></template>
               <RegexPatternInput id="open_start_pattern" v-model="eventMatchingSettingsForm.open_start_pattern" />
               <template #description>
                 Same idea as open-end above, for an event whose start time isn't known but which
@@ -542,7 +543,7 @@ function submit(): void {
                 v-model="eventMatchingSettingsForm.open_start_pattern_preview"
                 :pattern="eventMatchingSettingsForm.open_start_pattern"
                 :preceding-patterns="[eventMatchingSettingsForm.tentative_pattern ?? '', eventMatchingSettingsForm.open_end_pattern ?? '']"
-                :examples="['Dinner (?-)', 'Team standup', 'Party (?-)', 'Workshop']"
+                :examples="['Dinner (?-)', 'Team standup', 'Party (?-)', 'Workshop', 'Dinner (?-) (-?) (?)']"
                 mode="match"
               />
             </div>
@@ -552,7 +553,7 @@ function submit(): void {
         <div class="row mb-3">
           <div class="col-md-6">
             <BFormGroup label-for="public_event_pattern" class="mb-0">
-              <template #label>Public event regular expression <BBadge variant="warning" text="dark" class="align-middle">Flag</BBadge></template>
+              <template #label><BBadge variant="dark" pill class="align-middle me-1">4</BBadge>Public event regular expression <BBadge variant="warning" text="dark" class="align-middle">Flag</BBadge></template>
               <RegexPatternInput id="public_event_pattern" v-model="eventMatchingSettingsForm.public_event_pattern" />
               <template #description>
                 Last of the four Flag fields above — see the callout at the top of this section for
@@ -579,7 +580,7 @@ function submit(): void {
                 v-model="eventMatchingSettingsForm.public_event_pattern_preview"
                 :pattern="eventMatchingSettingsForm.public_event_pattern"
                 :preceding-patterns="[eventMatchingSettingsForm.tentative_pattern ?? '', eventMatchingSettingsForm.open_end_pattern ?? '', eventMatchingSettingsForm.open_start_pattern ?? '']"
-                :examples="['Dinner with Alice (public)', 'Community potluck (public)', 'Team standup', 'Lunch with Sarah']"
+                :examples="['Dinner with Alice (public)', 'Community potluck (public)', 'Team standup', 'Lunch with Sarah', 'Dinner with Alice (public) (?-) (-?) (?)']"
                 mode="match"
               />
             </div>
