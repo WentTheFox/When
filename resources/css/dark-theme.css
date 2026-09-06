@@ -1592,7 +1592,7 @@ hr {
 
 .wtf-color-picker-menu {
     padding: 0.5rem;
-    width: 16rem;
+    width: 22rem;
     max-width: 90vw;
 }
 
@@ -1628,8 +1628,12 @@ hr {
    side by side rather than only whichever half matches the current theme. */
 .wtf-color-picker-chip {
     flex: 1 1 50%;
-    padding: 0.35rem 0.5rem;
-    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: 0.5rem 0.6rem;
+    font-size: 0.9rem;
     text-align: center;
     white-space: nowrap;
     overflow: hidden;
