@@ -99,6 +99,61 @@ class ActivityLocalizationControllerTest extends TestCase
         $response->assertJsonValidationErrors('icon_key');
     }
 
+    public function test_an_owner_can_create_a_role_with_a_color(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->postJson('/settings/activity-localization', $this->payload([
+            'color_key' => 'red',
+        ]));
+
+        $response->assertCreated();
+        $role = ActivityLocalization::where('user_id', $user->id)->firstOrFail();
+        $this->assertSame('red', $role->color_key);
+    }
+
+    public function test_the_color_is_optional_on_create(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->postJson('/settings/activity-localization', $this->payload());
+
+        $response->assertCreated();
+        $role = ActivityLocalization::where('user_id', $user->id)->firstOrFail();
+        $this->assertNull($role->color_key);
+    }
+
+    public function test_an_unknown_color_key_is_rejected(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->postJson('/settings/activity-localization', $this->payload([
+            'color_key' => 'not-a-real-color',
+        ]));
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('color_key');
+    }
+
+    public function test_an_owner_can_clear_a_roles_color_back_to_unset(): void
+    {
+        $user = User::factory()->create();
+        $role = $user->activityLocalizations()->create([
+            'id' => (string) Str::uuid(),
+            'pattern' => '^host\s+(.+)$',
+            'sort_order' => 0,
+            'color_key' => 'red',
+        ]);
+        $role->setLocalizedField('label', ['default' => 'Visiting']);
+
+        $response = $this->actingAs($user)->patchJson("/settings/activity-localization/{$role->id}", $this->payload([
+            'color_key' => null,
+        ]));
+
+        $response->assertOk();
+        $this->assertNull($role->fresh()->color_key);
+    }
+
     public function test_an_owner_can_update_a_roles_icon(): void
     {
         $user = User::factory()->create();

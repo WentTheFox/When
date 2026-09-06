@@ -10,7 +10,7 @@ import { BCard } from 'bootstrap-vue-next';
 import ActivityLocalizations from './ActivityLocalizations.vue';
 
 defineProps<{
-  activityLocalizations: { id: string; pattern: string; pattern_preview: string | null; label: Record<string, string>; sort_order: number; icon_key: string | null }[];
+  activityLocalizations: { id: string; pattern: string; pattern_preview: string | null; label: Record<string, string>; sort_order: number; icon_key: string | null; color_key: string | null }[];
 }>();
 </script>
 

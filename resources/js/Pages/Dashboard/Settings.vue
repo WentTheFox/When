@@ -60,7 +60,8 @@ const props = defineProps<{
     pattern_preview: string | null;
     label: Record<string, string>;
     sort_order: number;
-    icon_key: string | null
+    icon_key: string | null;
+    color_key: string | null;
   }[];
 }>();
 

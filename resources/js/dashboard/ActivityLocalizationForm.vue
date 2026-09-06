@@ -7,6 +7,7 @@
  * out of sync with each other.
  */
 import { BFormGroup } from 'bootstrap-vue-next';
+import ColorPicker from './ColorPicker.vue';
 import IconPicker from './IconPicker.vue';
 import LocalizedTextInput from './LocalizedTextInput.vue';
 import PatternPreview from './PatternPreview.vue';
@@ -21,6 +22,8 @@ const label = defineModel<Record<string, string>>('label', { required: true });
 const previewText = defineModel<string | null>('previewText', { default: null });
 /** Null (the default, and always a valid choice — see the icon row's own description) means "use the regular highlighted icon"; picking one here overrides that just for events this role matches. */
 const iconKey = defineModel<string | null>('iconKey', { default: null });
+/** Same idea as iconKey above, but for the event's color instead of its icon. */
+const colorKey = defineModel<string | null>('colorKey', { default: null });
 </script>
 
 <template>
@@ -53,5 +56,14 @@ const iconKey = defineModel<string | null>('iconKey', { default: null });
       unset it.
     </template>
     <IconPicker v-model="iconKey" label="Role icon" />
+  </BFormGroup>
+
+  <BFormGroup label="Color" class="mb-3">
+    <template #description>
+      Shown on a matching event instead of the regular highlighted color. Leave unset to keep
+      using that regular color. Picking one here is entirely optional — click the selected color
+      again to unset it.
+    </template>
+    <ColorPicker v-model="colorKey" label="Role color" />
   </BFormGroup>
 </template>

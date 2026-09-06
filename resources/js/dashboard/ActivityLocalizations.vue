@@ -36,6 +36,7 @@ interface ActivityLocalizationData {
   label: Record<string, string>;
   sort_order: number;
   icon_key: string | null;
+  color_key: string | null;
 }
 
 const props = defineProps<{ initial: ActivityLocalizationData[] }>();
@@ -49,6 +50,7 @@ const newPattern = ref('');
 const newPatternPreview = ref<string | null>(null);
 const newLabel = ref<Record<string, string>>({});
 const newIconKey = ref<string | null>(null);
+const newColorKey = ref<string | null>(null);
 const adding = ref(false);
 const addError = ref('');
 
@@ -69,6 +71,7 @@ async function save(role: ActivityLocalizationData): Promise<void> {
       label: role.label,
       sort_order: role.sort_order,
       icon_key: role.icon_key,
+      color_key: role.color_key,
     });
     savedId.value = role.id;
   } catch (e) {
@@ -112,15 +115,17 @@ async function add(): Promise<void> {
       label: newLabel.value,
       sort_order: sortOrder,
       icon_key: newIconKey.value,
+      color_key: newColorKey.value,
     });
 
     roles.value.push({
-      id, pattern: newPattern.value, pattern_preview: newPatternPreview.value, label: newLabel.value, sort_order: sortOrder, icon_key: newIconKey.value,
+      id, pattern: newPattern.value, pattern_preview: newPatternPreview.value, label: newLabel.value, sort_order: sortOrder, icon_key: newIconKey.value, color_key: newColorKey.value,
     });
     newPattern.value = '';
     newPatternPreview.value = null;
     newLabel.value = {};
     newIconKey.value = null;
+    newColorKey.value = null;
   } catch (e) {
     console.error(e);
     addError.value = 'Could not add that customization — check the pattern has exactly one capture group.';
@@ -156,6 +161,7 @@ async function add(): Promise<void> {
         v-model:preview-text="role.pattern_preview"
         v-model:label="role.label"
         v-model:icon-key="role.icon_key"
+        v-model:color-key="role.color_key"
         :id-prefix="`activity_localization_${role.id}`"
       />
       <BButton variant="primary" size="sm" :disabled="savingId === role.id" @click="save(role)">Save</BButton>
@@ -172,6 +178,7 @@ async function add(): Promise<void> {
       v-model:preview-text="newPatternPreview"
       v-model:label="newLabel"
       v-model:icon-key="newIconKey"
+      v-model:color-key="newColorKey"
       id-prefix="new_activity_localization"
     />
     <BButton variant="primary" :disabled="adding" @click="add">Add customization</BButton>

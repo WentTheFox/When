@@ -30,6 +30,8 @@ export interface EventSlot {
   highlight_words?: string[];
   /** The matched ActivityLocalization's own icon_key (App\Support\IconKey), when one of the owner's role patterns — not an ordinary "with X"/"w/ X" clause — is what matched. Resolve with resolveIcon(); null/absent means "use the regular highlighted icon," never a value to fall back from itself. Only ever set for a highlighted slot. */
   activity_icon?: string | null;
+  /** Same idea as activity_icon above, but the matched role's own color_key (App\Support\ColorSwatchKey). Resolve with resolveSwatchHex(); null/absent means "use the regular highlighted color." Only ever set for a highlighted slot. */
+  activity_color?: string | null;
 }
 
 export interface AvailabilityResponse {
@@ -48,6 +50,7 @@ export interface DayBlock {
   activityLabel?: LocalizedText | null;
   highlightWords?: string[];
   activityIcon?: string | null;
+  activityColor?: string | null;
 }
 
 export function tildeTime(time: string, tentative?: boolean): string {
@@ -185,6 +188,7 @@ function slotsToBlocks(
       activityLabel: slot.activity_label,
       highlightWords: slot.highlight_words,
       activityIcon: slot.activity_icon,
+      activityColor: slot.activity_color,
     }];
   });
 }
@@ -202,7 +206,7 @@ function mergeOverlappingBlocks(blocks: DayBlock[]): DayBlock[] {
 
   const groups = new Map<string, DayBlock[]>();
   for (const block of blocks) {
-    const key = `${block.type}|${block.tentativeStart ? '1' : '0'}${block.tentativeEnd ? '1' : '0'}|${block.activity ?? ''}|${(block.highlightWords ?? []).join(',')}|${block.activityIcon ?? ''}`;
+    const key = `${block.type}|${block.tentativeStart ? '1' : '0'}${block.tentativeEnd ? '1' : '0'}|${block.activity ?? ''}|${(block.highlightWords ?? []).join(',')}|${block.activityIcon ?? ''}|${block.activityColor ?? ''}`;
     const group = groups.get(key);
     if (group) group.push(block);
     else groups.set(key, [block]);

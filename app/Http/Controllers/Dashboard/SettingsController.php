@@ -178,6 +178,7 @@ class SettingsController extends Controller
                 'label' => $r->label,
                 'sort_order' => $r->sort_order,
                 'icon_key' => $r->icon_key,
+                'color_key' => $r->color_key,
             ]),
         ]);
     }

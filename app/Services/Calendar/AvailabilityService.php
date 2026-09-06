@@ -140,6 +140,7 @@ class AvailabilityService
                     activityLabel: $highlightMatch->activityLabel,
                     highlightWords: $highlightMatch->words,
                     activityIcon: $highlightMatch->activityIcon,
+                    activityColor: $highlightMatch->activityColor,
                 );
             }
         }

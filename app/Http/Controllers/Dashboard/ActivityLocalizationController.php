@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Support\ColorSwatchKey;
 use App\Support\IconKey;
 use App\Support\Regex;
 use Illuminate\Http\JsonResponse;
@@ -52,6 +53,7 @@ class ActivityLocalizationController extends Controller
             'pattern_preview' => ['nullable', 'string', 'max:2000'],
             'sort_order' => ['required', 'integer', 'min:0'],
             'icon_key' => ['nullable', Rule::enum(IconKey::class)],
+            'color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
             ...self::localizedTextRules(),
         ]);
 
@@ -76,6 +78,7 @@ class ActivityLocalizationController extends Controller
             'pattern_preview' => ['nullable', 'string', 'max:2000'],
             'sort_order' => ['required', 'integer', 'min:0'],
             'icon_key' => ['nullable', Rule::enum(IconKey::class)],
+            'color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
             ...self::localizedTextRules(),
         ]);
 

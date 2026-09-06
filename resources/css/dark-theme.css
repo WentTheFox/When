@@ -1570,6 +1570,73 @@ hr {
 }
 
 /*
+ * ColorPicker.vue — same toggle-button layout as .wtf-icon-picker-toggle
+ * above (a small preview + label), but the dropdown body is a plain
+ * scrollable list of rows instead of a searchable grid: the color catalog
+ * is small enough (~24 swatches) that search/grouping would be overkill,
+ * and each row needs room to show its label as actual text against both
+ * its light and dark hex (not just a bare color circle), so a grid tile
+ * doesn't fit the content the way it does for icons.
+ */
+.wtf-color-picker-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.wtf-color-picker-toggle-swatch {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex: none;
+}
+
+.wtf-color-picker-menu {
+    padding: 0.5rem;
+    width: 16rem;
+    max-width: 90vw;
+}
+
+.wtf-color-picker-scroll {
+    max-height: 16rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.wtf-color-picker-row {
+    display: flex;
+    border: none;
+    border-radius: 0.375rem;
+    padding: 0;
+    cursor: pointer;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px var(--app-border);
+    transition: box-shadow 0.1s ease;
+}
+
+.wtf-color-picker-row:hover {
+    box-shadow: 0 0 0 1px var(--app-text-muted);
+}
+
+.wtf-color-picker-row-active {
+    box-shadow: 0 0 0 2px var(--app-text);
+}
+
+/* One label rendered twice, once per theme half — see this file's own
+   header comment on .wtf-swatch-btn for why a light/dark pair is shown
+   side by side rather than only whichever half matches the current theme. */
+.wtf-color-picker-chip {
+    flex: 1 1 50%;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.8rem;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/*
  * bootstrap-vue-next's v-b-tooltip directive already defaults to
  * `noninteractive` (its own prop name for "can't be clicked/focused as
  * its own element"), but that alone doesn't stop the rendered bubble from

@@ -30,6 +30,8 @@ final class AvailabilitySlot
         public readonly array $highlightWords = [],
         /** The matched activity_localization's own icon_key (see App\Models\ActivityLocalization), when a role's pattern — not an ordinary "with X"/"w/ X" clause — is what matched. Null (the common case) means "use the regular highlighted icon" — this never forces the client to fall back to anything itself. Only ever set for a highlighted slot. */
         public readonly ?string $activityIcon = null,
+        /** Same idea as activityIcon above, but the matched role's own color_key. Null means "use the regular highlighted color." Only ever set for a highlighted slot. */
+        public readonly ?string $activityColor = null,
     ) {}
 
     public function toArray(): array
@@ -44,6 +46,7 @@ final class AvailabilitySlot
             'activity_label' => $this->activityLabel,
             'highlight_words' => $this->highlightWords,
             'activity_icon' => $this->activityIcon,
+            'activity_color' => $this->activityColor,
         ];
     }
 }

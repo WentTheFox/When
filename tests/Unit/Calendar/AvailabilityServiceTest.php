@@ -408,7 +408,7 @@ class AvailabilityServiceTest extends TestCase
             events: [$this->event('c1', '2026-06-03 12:00', '2026-06-03 13:00', 'Host Alice')],
             highlightWords: ['Alice'],
             activityLocalizations: [
-                ['pattern' => '^host\s+(.+)$', 'label' => ['default' => 'Visiting'], 'icon_key' => 'house'],
+                ['pattern' => '^host\s+(.+)$', 'label' => ['default' => 'Visiting'], 'icon_key' => 'house', 'color_key' => 'red'],
                 ['pattern' => '^visit\s+(.+)$', 'label' => ['default' => 'Hosting']],
             ],
         );
@@ -416,6 +416,7 @@ class AvailabilityServiceTest extends TestCase
         $this->assertSame(['Alice'], $this->eventsOfType($result, 'highlighted')[0]->highlightWords);
         $this->assertSame(['default' => 'Visiting'], $this->eventsOfType($result, 'highlighted')[0]->activityLabel);
         $this->assertSame('house', $this->eventsOfType($result, 'highlighted')[0]->activityIcon);
+        $this->assertSame('red', $this->eventsOfType($result, 'highlighted')[0]->activityColor);
     }
 
     /**

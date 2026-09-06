@@ -28,7 +28,12 @@ import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUnt
 import type { DayBlock, EventSlot } from './nuxt-blocks';
 import { resolveLocalizedText } from './localizedText';
 import { resolveIcon } from './icon-palette';
+import { resolveSwatchHex } from './color-palette';
+import { BLOCK_ALPHA, hexToRgba } from './color-utils';
+import { useResolvedTheme } from '../composables/useTheme';
 import { vFitText } from './fitText';
+
+const resolvedTheme = useResolvedTheme();
 
 const BLOCK_TYPE_CLASS: Record<DayBlock['type'], string> = {
   free: 'wtf-fcal-free-block',
@@ -106,6 +111,33 @@ function iconFor(block: DayBlock): IconDefinition {
     return resolveIcon(block.activityIcon, 'highlighted');
   }
   return blockTypeIcon.value[block.type];
+}
+
+/**
+ * Same idea as iconFor() above, but for block.activityColor — and more
+ * involved, because color isn't a simple prop swap: the block's background
+ * (--app-color-highlighted) and its label's text tint (--app-fcal-text-
+ * highlighted) are two SEPARATE custom properties, and per CLAUDE.md's own
+ * documented gotcha, a var() nested inside another custom property's value
+ * resolves against the scope where that property was DECLARED, not where
+ * it's used — --app-fcal-text-highlighted's color-mix() formula is declared
+ * once at :root referencing --app-hue-highlighted, so overriding only
+ * --app-hue-highlighted here would never actually change the label's tint.
+ * Redeclaring all three locally (mirroring Free/Show.vue's rootStyle
+ * formula for one swatch instead of the whole page) sidesteps that. The
+ * fade gradient (tentativeFadeStyle above) needs no extra handling: it
+ * already reads var(--app-color-highlighted) by name, so this same local
+ * override flows into it for free.
+ */
+function activityColorStyle(block: DayBlock): Record<string, string> | undefined {
+  if (block.type !== 'highlighted' || !block.activityColor) return undefined;
+  const theme = resolvedTheme.value;
+  const hex = resolveSwatchHex(block.activityColor, 'highlighted', theme);
+  return {
+    '--app-color-highlighted': hexToRgba(hex, BLOCK_ALPHA[theme].highlighted),
+    '--app-hue-highlighted': hex,
+    '--app-fcal-text-highlighted': `color-mix(in srgb, ${hex} 65%, var(--app-text) 35%)`,
+  };
 }
 
 function blockLabel(block: DayBlock): string {
@@ -283,7 +315,7 @@ function formatDay(day: Date, fmt: string): string {
                 :key="i"
                 class="wtf-fcal-block"
                 :class="[BLOCK_TYPE_CLASS[block.type], { 'wtf-fcal-tentative-block': isTentativeStartDisplay(block) || isTentativeEndDisplay(block) }]"
-                :style="{ top: `${block.topPct}%`, height: `${block.heightPct}%`, ...tentativeFadeStyle(day, blocks, i) }"
+                :style="{ top: `${block.topPct}%`, height: `${block.heightPct}%`, ...tentativeFadeStyle(day, blocks, i), ...activityColorStyle(block) }"
               >
                 <span v-fit-text class="wtf-fcal-block-label">
                   <strong><FontAwesomeIcon :icon="iconFor(block)" class="wtf-fcal-block-label-icon me-1" />{{ blockLabel(block) }}{{ isTentativeSuffixShown(block) ? $t('free.tentativeSuffix') : '' }}</strong><span class="wtf-fcal-block-label-time">{{ blockTimeText(block) }}</span>

@@ -24,7 +24,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * App\Support\IconKey value (like every other *_icon_key column) shown on
  * a matched highlighted block instead of the generic highlighted icon —
  * plain, not encrypted, and optional: null just keeps using that generic
- * icon.
+ * icon. `color_key` is the same idea for color: a curated
+ * App\Support\ColorSwatchKey value shown instead of the share link's own
+ * highlight_color_key — plain, not encrypted, optional: null keeps using
+ * that regular highlighted color.
  */
 class ActivityLocalization extends Model
 {
@@ -40,6 +43,7 @@ class ActivityLocalization extends Model
         'pattern_preview',
         'sort_order',
         'icon_key',
+        'color_key',
     ];
 
     protected function casts(): array
