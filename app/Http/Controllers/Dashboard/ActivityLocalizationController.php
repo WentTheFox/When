@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Support\IconKey;
 use App\Support\Regex;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * CRUD for {App\Models\ActivityLocalization} — same "own immediate endpoint, not
@@ -41,6 +43,7 @@ class ActivityLocalizationController extends Controller
             'pattern' => ['required', 'string', 'max:500', Regex::validateSingleCaptureGroup(...)],
             'pattern_preview' => ['nullable', 'string', 'max:2000'],
             'sort_order' => ['required', 'integer', 'min:0'],
+            'icon_key' => ['nullable', Rule::enum(IconKey::class)],
             ...self::localizedTextRules(),
         ]);
 
@@ -62,6 +65,7 @@ class ActivityLocalizationController extends Controller
             'pattern' => ['required', 'string', 'max:500', Regex::validateSingleCaptureGroup(...)],
             'pattern_preview' => ['nullable', 'string', 'max:2000'],
             'sort_order' => ['required', 'integer', 'min:0'],
+            'icon_key' => ['nullable', Rule::enum(IconKey::class)],
             ...self::localizedTextRules(),
         ]);
 

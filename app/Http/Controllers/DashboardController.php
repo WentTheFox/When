@@ -214,7 +214,7 @@ class DashboardController extends Controller
         $noTime = [];
 
         $shareLinks = $user->shareLinks()->where('archived', false)->with('connection')->get();
-        $activityLocalizations = $user->activityLocalizations->map(fn ($r) => ['pattern' => $r->pattern, 'label' => $r->label])->all();
+        $activityLocalizations = $user->activityLocalizations->map(fn ($r) => ['pattern' => $r->pattern, 'label' => $r->label, 'icon_key' => $r->icon_key])->all();
 
         foreach ($shareLinks as $shareLink) {
             $words = $shareLink->words()

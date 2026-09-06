@@ -238,6 +238,7 @@ class AccountExportService
                 'pattern_preview' => $role->pattern_preview,
                 'sort_order' => $role->sort_order,
                 'label' => $role->label,
+                'icon_key' => $role->icon_key,
             ])->all(),
         ];
     }

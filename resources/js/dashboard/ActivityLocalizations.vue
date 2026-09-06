@@ -22,6 +22,7 @@ interface ActivityLocalizationData {
   pattern_preview: string | null;
   label: Record<string, string>;
   sort_order: number;
+  icon_key: string | null;
 }
 
 const props = defineProps<{ initial: ActivityLocalizationData[] }>();
@@ -34,6 +35,7 @@ const errors = ref<Record<string, string>>({});
 const newPattern = ref('');
 const newPatternPreview = ref<string | null>(null);
 const newLabel = ref<Record<string, string>>({});
+const newIconKey = ref<string | null>(null);
 const adding = ref(false);
 const addError = ref('');
 
@@ -48,11 +50,12 @@ async function save(role: ActivityLocalizationData): Promise<void> {
       pattern_preview: role.pattern_preview,
       label: role.label,
       sort_order: role.sort_order,
+      icon_key: role.icon_key,
     });
     savedId.value = role.id;
   } catch (e) {
     console.error(e);
-    errors.value[role.id] = 'Could not save that role — check the pattern has exactly one capture group.';
+    errors.value[role.id] = 'Could not save that customization — check the pattern has exactly one capture group.';
   } finally {
     savingId.value = null;
   }
@@ -87,17 +90,19 @@ async function add(): Promise<void> {
       pattern_preview: newPatternPreview.value,
       label: newLabel.value,
       sort_order: sortOrder,
+      icon_key: newIconKey.value,
     });
 
     roles.value.push({
-      id, pattern: newPattern.value, pattern_preview: newPatternPreview.value, label: newLabel.value, sort_order: sortOrder,
+      id, pattern: newPattern.value, pattern_preview: newPatternPreview.value, label: newLabel.value, sort_order: sortOrder, icon_key: newIconKey.value,
     });
     newPattern.value = '';
     newPatternPreview.value = null;
     newLabel.value = {};
+    newIconKey.value = null;
   } catch (e) {
     console.error(e);
-    addError.value = 'Could not add that role — check the pattern has exactly one capture group.';
+    addError.value = 'Could not add that customization — check the pattern has exactly one capture group.';
   } finally {
     adding.value = false;
   }
@@ -105,7 +110,7 @@ async function add(): Promise<void> {
 </script>
 
 <template>
-  <h2 class="h5 mb-3">Activity localizations</h2>
+  <h2 class="h5 mb-3">Activity customizations</h2>
   <p class="small text-muted">
     Each pattern has the same rules as the fields above: exactly one <code>(…)</code> capture
     group to define the matched name(s). Maps to a label shown to the viewer instead of raw extracted
@@ -120,6 +125,7 @@ async function add(): Promise<void> {
       v-model:pattern="role.pattern"
       v-model:preview-text="role.pattern_preview"
       v-model:label="role.label"
+      v-model:icon-key="role.icon_key"
       :id-prefix="`activity_localization_${role.id}`"
     />
     <BButton variant="primary" size="sm" :disabled="savingId === role.id" @click="save(role)">Save</BButton>
@@ -129,15 +135,16 @@ async function add(): Promise<void> {
   </div>
 
   <div class="wtf-pattern-preview-panel">
-    <p class="small fw-semibold mb-2">Add a localizations</p>
+    <p class="small fw-semibold mb-2">Add a customization</p>
     <ActivityLocalizationForm
       v-model:pattern="newPattern"
       v-model:preview-text="newPatternPreview"
       v-model:label="newLabel"
+      v-model:icon-key="newIconKey"
       id-prefix="new_activity_localization"
       label-required
     />
-    <BButton variant="primary" :disabled="adding" @click="add">Add role</BButton>
+    <BButton variant="primary" :disabled="adding" @click="add">Add customization</BButton>
     <div v-if="addError" class="text-danger small mt-1">{{ addError }}</div>
   </div>
 </template>

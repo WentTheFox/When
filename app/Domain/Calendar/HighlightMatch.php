@@ -22,5 +22,7 @@ final class HighlightMatch
     public function __construct(
         public readonly array $words,
         public readonly ?array $activityLabel = null,
+        /** The matched App\Models\ActivityLocalization's own icon_key, when one of the owner's role patterns (not an ordinary "with X"/"w/ X" clause) is what matched. Null falls back to the regular highlighted icon — see AvailabilityService::compute(). */
+        public readonly ?string $activityIcon = null,
     ) {}
 }

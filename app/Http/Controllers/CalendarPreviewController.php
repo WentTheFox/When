@@ -120,7 +120,7 @@ class CalendarPreviewController extends Controller
             // exceptions), so the owner's already-saved list is what this
             // preview should reflect, same as every other already-saved
             // setting this endpoint doesn't re-accept as an override.
-            activityLocalizations: $user->activityLocalizations->map(fn ($r) => ['pattern' => $r->pattern, 'label' => $r->label])->all(),
+            activityLocalizations: $user->activityLocalizations->map(fn ($r) => ['pattern' => $r->pattern, 'label' => $r->label, 'icon_key' => $r->icon_key])->all(),
         );
 
         $timer->lap('compute_availability', array_merge(

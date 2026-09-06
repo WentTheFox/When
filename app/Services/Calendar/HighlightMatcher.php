@@ -60,8 +60,8 @@ class HighlightMatcher
     public const DEFAULT_SPLIT_PATTERN = '[,&/]';
 
     /**
-     * @param  string[]                                                         $highlightWords        Owner's configured words, already decrypted.
-     * @param  array<int, array{pattern: string, label: array<string, string>}> $activityLocalizations Owner's own configured roles, in display/check order.
+     * @param  string[]  $highlightWords  Owner's configured words, already decrypted.
+     * @param  array<int, array{pattern: string, label: array<string, string>, icon_key?: ?string}>  $activityLocalizations  Owner's own configured roles, in display/check order.
      */
     public function match(ParsedEvent $event, array $highlightWords, ?string $clausePattern = null, ?string $splitPattern = null, array $activityLocalizations = []): ?HighlightMatch
     {
@@ -112,7 +112,7 @@ class HighlightMatcher
             }
 
             if ($words = $this->matchTokens($matches[1], $highlightWords, $splitPattern)) {
-                return new HighlightMatch($words, activityLabel: $role['label']);
+                return new HighlightMatch($words, activityLabel: $role['label'], activityIcon: $role['icon_key'] ?? null);
             }
         }
 

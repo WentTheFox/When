@@ -27,6 +27,7 @@ import { currentLocale, trans } from 'laravel-vue-i18n';
 import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, isTentativeSuffixShown, tildeTime } from './nuxt-blocks';
 import type { DayBlock, EventSlot } from './nuxt-blocks';
 import { resolveLocalizedText } from './localizedText';
+import { resolveIcon } from './icon-palette';
 
 const BLOCK_TYPE_CLASS: Record<DayBlock['type'], string> = {
   free: 'wtf-fcal-free-block',
@@ -87,6 +88,24 @@ const blockTypeIcon = computed<Record<DayBlock['type'], IconDefinition>>(() => (
 }));
 
 const dateFnsLocale = computed(() => resolveDateFnsLocale(currentLocale.value));
+
+/**
+ * A highlighted block whose match came from one of the owner's own
+ * ActivityLocalization roles can carry its own icon (block.activityIcon —
+ * see AvailabilityService::compute()/HighlightMatch's own doc comments),
+ * shown instead of the share link's single flat "highlighted" icon.
+ * block.activityIcon is a raw IconKey string straight off the wire, so it
+ * still needs resolving to a real FA icon the same way every *_icon_key
+ * prop already is — falling back to the regular resolved highlighted icon
+ * (not re-deriving from IconPalette's own hardcoded default) when unset,
+ * so an owner who's never touched a role's icon sees no change at all.
+ */
+function iconFor(block: DayBlock): IconDefinition {
+  if (block.type === 'highlighted' && block.activityIcon) {
+    return resolveIcon(block.activityIcon, 'highlighted');
+  }
+  return blockTypeIcon.value[block.type];
+}
 
 function blockLabel(block: DayBlock): string {
   if (block.type === 'highlighted') {
@@ -266,7 +285,7 @@ function formatDay(day: Date, fmt: string): string {
                 :style="{ top: `${block.topPct}%`, height: `${block.heightPct}%`, ...tentativeFadeStyle(day, blocks, i) }"
               >
                 <span class="wtf-fcal-block-label">
-                  <strong><FontAwesomeIcon :icon="blockTypeIcon[block.type]" class="wtf-fcal-block-label-icon me-1" />{{ blockLabel(block) }}{{ isTentativeSuffixShown(block) ? $t('free.tentativeSuffix') : '' }}</strong><span class="wtf-fcal-block-label-time">{{ blockTimeText(block) }}</span>
+                  <strong><FontAwesomeIcon :icon="iconFor(block)" class="wtf-fcal-block-label-icon me-1" />{{ blockLabel(block) }}{{ isTentativeSuffixShown(block) ? $t('free.tentativeSuffix') : '' }}</strong><span class="wtf-fcal-block-label-time">{{ blockTimeText(block) }}</span>
                 </span>
               </div>
             </template>

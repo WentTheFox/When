@@ -135,12 +135,12 @@ class HighlightMatcherTest extends TestCase
      * explicitly, same as a real caller now has to (see
      * AvailabilityService::compute()).
      *
-     * @return array<int, array{pattern: string, label: array<string, string>}>
+     * @return array<int, array{pattern: string, label: array<string, string>, icon_key?: string}>
      */
     private function hostVisitLocalizations(): array
     {
         return [
-            ['pattern' => '^host\s+(.+)$', 'label' => ['default' => 'Visiting']],
+            ['pattern' => '^host\s+(.+)$', 'label' => ['default' => 'Visiting'], 'icon_key' => 'house'],
             ['pattern' => '^visit\s+(.+)$', 'label' => ['default' => 'Hosting']],
         ];
     }
@@ -150,6 +150,7 @@ class HighlightMatcherTest extends TestCase
         $result = $this->matcher->match($this->event(summary: 'Host Alice'), ['Alice'], activityLocalizations: $this->hostVisitLocalizations());
         $this->assertSame(['Alice'], $result->words);
         $this->assertSame(['default' => 'Visiting'], $result->activityLabel);
+        $this->assertSame('house', $result->activityIcon);
     }
 
     public function test_visit_prefix_localization_sets_the_hosting_label(): void
@@ -157,6 +158,10 @@ class HighlightMatcherTest extends TestCase
         $result = $this->matcher->match($this->event(summary: 'Visit Alice'), ['Alice'], activityLocalizations: $this->hostVisitLocalizations());
         $this->assertSame(['Alice'], $result->words);
         $this->assertSame(['default' => 'Hosting'], $result->activityLabel);
+        // No icon_key configured on this role — falls back to null (the
+        // regular highlighted icon), never an empty string or a stale
+        // value from another role.
+        $this->assertNull($result->activityIcon);
     }
 
     public function test_host_prefix_does_not_match_an_unconfigured_word(): void

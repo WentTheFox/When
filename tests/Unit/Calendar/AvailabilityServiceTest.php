@@ -408,13 +408,37 @@ class AvailabilityServiceTest extends TestCase
             events: [$this->event('c1', '2026-06-03 12:00', '2026-06-03 13:00', 'Host Alice')],
             highlightWords: ['Alice'],
             activityLocalizations: [
-                ['pattern' => '^host\s+(.+)$', 'label' => ['default' => 'Visiting']],
+                ['pattern' => '^host\s+(.+)$', 'label' => ['default' => 'Visiting'], 'icon_key' => 'house'],
                 ['pattern' => '^visit\s+(.+)$', 'label' => ['default' => 'Hosting']],
             ],
         );
 
         $this->assertSame(['Alice'], $this->eventsOfType($result, 'highlighted')[0]->highlightWords);
         $this->assertSame(['default' => 'Visiting'], $this->eventsOfType($result, 'highlighted')[0]->activityLabel);
+        $this->assertSame('house', $this->eventsOfType($result, 'highlighted')[0]->activityIcon);
+    }
+
+    /**
+     * A role's own icon_key (like its label) must never reach a share link
+     * that isn't itself authorized to see this event's highlighted details
+     * — each link's AvailabilityResult is computed with only that link's
+     * own $highlightWords (RecomputeShareLinkAvailability::handle()), so a
+     * link missing the word this event's role would resolve to gets no
+     * `highlighted` slot for it at all, not a `highlighted` slot with the
+     * icon/label stripped out. Same event/roles as the test above, minus
+     * the one highlight word that made it match there.
+     */
+    public function test_a_roles_icon_never_reaches_a_share_link_whose_own_words_do_not_match(): void
+    {
+        $result = $this->compute(
+            events: [$this->event('c1', '2026-06-03 12:00', '2026-06-03 13:00', 'Host Alice')],
+            highlightWords: ['Bob'],
+            activityLocalizations: [
+                ['pattern' => '^host\s+(.+)$', 'label' => ['default' => 'Visiting'], 'icon_key' => 'house'],
+            ],
+        );
+
+        $this->assertEmpty($this->eventsOfType($result, 'highlighted'));
     }
 
     public function test_full_detail_event_with_no_matching_clause_is_plain_unavailable(): void

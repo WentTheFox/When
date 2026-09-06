@@ -20,7 +20,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * separate App\Support\LocalizedText — one row per locale in the shared
  * `localized_texts` table (see HasLocalizedFields), not a column on this
  * model — untouched by that migration, still plain: an owner-chosen
- * display label, not calendar-derived text.
+ * display label, not calendar-derived text. `icon_key` is a curated
+ * App\Support\IconKey value (like every other *_icon_key column) shown on
+ * a matched highlighted block instead of the generic highlighted icon —
+ * plain, not encrypted, and optional: null just keeps using that generic
+ * icon.
  */
 class ActivityLocalization extends Model
 {
@@ -35,6 +39,7 @@ class ActivityLocalization extends Model
         'pattern',
         'pattern_preview',
         'sort_order',
+        'icon_key',
     ];
 
     protected function casts(): array

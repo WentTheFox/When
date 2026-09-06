@@ -321,7 +321,7 @@ function submit(): void {
                 whole-word match, and this comparison is case-<strong>sensitive</strong>) against
                 a share link's own configured highlight words (set per-link, not here). "Dinner
                 with Alice, Bob" checks both "Alice" and "Bob" individually. Any pattern
-                configured under "Activity localizations" below also matches independently of this
+                configured under "Activity customizations" below also matches independently of this
                 field — see that section for details. Leave blank to fall back to
                 the built-in default rather than turning matching off.
                 Default: <RegexHighlightedCode :pattern="defaults.highlightClausePattern" />

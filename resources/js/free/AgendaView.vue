@@ -19,6 +19,7 @@ import { currentLocale, trans } from 'laravel-vue-i18n';
 import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, isTentativeSuffixShown, pctToTime, tildeTime } from './nuxt-blocks';
 import type { DayBlock, EventSlot } from './nuxt-blocks';
 import { resolveLocalizedText } from './localizedText';
+import { resolveIcon } from './icon-palette';
 
 const AGENDA_SLOT_CLASS: Record<DayBlock['type'], string> = {
   free: '',
@@ -75,6 +76,14 @@ const slotTypeIcon = computed<Record<DayBlock['type'], IconDefinition>>(() => ({
 }));
 
 const dateFnsLocale = computed(() => resolveDateFnsLocale(currentLocale.value));
+
+/** Same per-role icon override as CalendarView.vue's own iconFor — see its doc comment. */
+function iconFor(slot: DayBlock): IconDefinition {
+  if (slot.type === 'highlighted' && slot.activityIcon) {
+    return resolveIcon(slot.activityIcon, 'highlighted');
+  }
+  return slotTypeIcon.value[slot.type];
+}
 
 function slotLabel(slot: DayBlock): string {
   if (slot.type === 'highlighted') {
@@ -226,7 +235,7 @@ const agendaEntries = computed(() =>
             :style="{ top: `${currentTimeOffsetPct}%` }"
           />
           <span class="wtf-fagenda-slot-time">{{ slotTimeText(slot) }}</span>
-          <span class="wtf-fagenda-slot-label"><FontAwesomeIcon :icon="slotTypeIcon[slot.type]" class="wtf-fagenda-slot-icon me-1" />{{ slotLabel(slot) }}{{ isTentativeSuffixShown(slot) ? $t('free.tentativeSuffix') : '' }}</span>
+          <span class="wtf-fagenda-slot-label"><FontAwesomeIcon :icon="iconFor(slot)" class="wtf-fagenda-slot-icon me-1" />{{ slotLabel(slot) }}{{ isTentativeSuffixShown(slot) ? $t('free.tentativeSuffix') : '' }}</span>
         </div>
       </div>
     </div>

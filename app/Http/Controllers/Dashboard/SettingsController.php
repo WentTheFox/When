@@ -177,6 +177,7 @@ class SettingsController extends Controller
                 'pattern_preview' => $r->pattern_preview,
                 'label' => $r->label,
                 'sort_order' => $r->sort_order,
+                'icon_key' => $r->icon_key,
             ]),
         ]);
     }
