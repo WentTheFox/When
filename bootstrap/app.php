@@ -22,6 +22,21 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
         ]);
         $middleware->append(AddNoIndexHeader::class);
+        // LanguageSwitcher.vue writes this cookie directly via
+        // document.cookie (plain, unencrypted) before its own navigation
+        // click proceeds, specifically so an explicit switch to the
+        // no-prefix English route beats a stale preference
+        // ShareLinkController::resolvePreferredLocale() would otherwise
+        // re-derive from this same cookie. Without this exception, every
+        // incoming request's default EncryptCookies middleware tries to
+        // decrypt that plaintext value, fails, and silently nulls the
+        // cookie out — resolvePreferredLocale() then never sees the
+        // client's own explicit choice at all and falls through to
+        // Accept-Language, bouncing the visitor straight back to whatever
+        // locale their browser prefers. A locale code is never sensitive
+        // (validated server-side against Locales::isValid() before use
+        // either way), so plaintext is fine here.
+        $middleware->encryptCookies(except: ['wtf-locale']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // `php artisan down` throws a plain 503 HttpException from
