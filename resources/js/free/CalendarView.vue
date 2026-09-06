@@ -28,6 +28,7 @@ import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUnt
 import type { DayBlock, EventSlot } from './nuxt-blocks';
 import { resolveLocalizedText } from './localizedText';
 import { resolveIcon } from './icon-palette';
+import { vFitText } from './fitText';
 
 const BLOCK_TYPE_CLASS: Record<DayBlock['type'], string> = {
   free: 'wtf-fcal-free-block',
@@ -284,7 +285,7 @@ function formatDay(day: Date, fmt: string): string {
                 :class="[BLOCK_TYPE_CLASS[block.type], { 'wtf-fcal-tentative-block': isTentativeStartDisplay(block) || isTentativeEndDisplay(block) }]"
                 :style="{ top: `${block.topPct}%`, height: `${block.heightPct}%`, ...tentativeFadeStyle(day, blocks, i) }"
               >
-                <span class="wtf-fcal-block-label">
+                <span v-fit-text class="wtf-fcal-block-label">
                   <strong><FontAwesomeIcon :icon="iconFor(block)" class="wtf-fcal-block-label-icon me-1" />{{ blockLabel(block) }}{{ isTentativeSuffixShown(block) ? $t('free.tentativeSuffix') : '' }}</strong><span class="wtf-fcal-block-label-time">{{ blockTimeText(block) }}</span>
                 </span>
               </div>
