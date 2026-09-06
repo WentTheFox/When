@@ -27,7 +27,7 @@ import CalendarView from '../free/CalendarView.vue';
 import { resolveIcon } from '../free/icon-palette';
 import { resolveNowColorHex } from '../free/now-color-presets';
 import { resolveSwatchHex } from '../free/color-palette';
-import { BLOCK_ALPHA, hexToRgba, hexToRgbTriplet, yiqTextColor } from '../free/color-utils';
+import { BLOCK_ALPHA, fcalTextVars, hexToRgba, hexToRgbTriplet, yiqTextColor } from '../free/color-utils';
 import { useResolvedTheme } from '../composables/useTheme';
 import type { AvailabilityResponse } from '../free/nuxt-blocks';
 import type {
@@ -134,6 +134,7 @@ function previewStyleFor(theme: 'light' | 'dark') {
     '--app-color-highlighted': hexToRgba(highlighted, alpha.highlighted),
     '--app-hue-highlighted': highlighted,
     '--app-color-now': resolveNowColorHex(props.publicPageSettingsForm.now_color_key, theme),
+    ...fcalTextVars(),
   };
 }
 

@@ -6,7 +6,7 @@ import { BButton, BCard, BFormGroup, BFormInput, BTooltip } from 'bootstrap-vue-
 import { addDays as addDaysFns, startOfWeek as startOfWeekFns } from 'date-fns';
 import { computed, ref } from 'vue';
 import CalendarView from '../free/CalendarView.vue';
-import { BLOCK_ALPHA, hexToRgba, hexToRgbTriplet, yiqTextColor } from '../free/color-utils';
+import { BLOCK_ALPHA, fcalTextVars, hexToRgba, hexToRgbTriplet, yiqTextColor } from '../free/color-utils';
 import { getColorPalette, resolveSwatchHex } from '../free/color-palette';
 import type { ColorSlot } from '../free/color-palette';
 import { resolveIcon } from '../free/icon-palette';
@@ -380,6 +380,7 @@ function previewStyleFor(theme: 'light' | 'dark') {
     '--app-color-highlighted': hexToRgba(highlighted, alpha.highlighted),
     '--app-hue-highlighted': highlighted,
     '--app-color-now': resolveNowColorHex(props.publicPageSettingsForm.now_color_key, theme),
+    ...fcalTextVars(),
   };
 }
 

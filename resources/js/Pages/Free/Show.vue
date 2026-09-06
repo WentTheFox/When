@@ -33,7 +33,7 @@ import SiteHeader from '../../Components/SiteHeader.vue';
 import CalendarView from '../../free/CalendarView.vue';
 import AgendaView from '../../free/AgendaView.vue';
 import MonthView from '../../free/MonthView.vue';
-import { BLOCK_ALPHA, hexToRgba, hexToRgbTriplet, yiqTextColor } from '../../free/color-utils';
+import { BLOCK_ALPHA, fcalTextVars, hexToRgba, hexToRgbTriplet, yiqTextColor } from '../../free/color-utils';
 import { resolveSwatchHex } from '../../free/color-palette';
 import { resolveIcon } from '../../free/icon-palette';
 import { useResolvedTheme } from '../../composables/useTheme';
@@ -115,6 +115,7 @@ const rootStyle = computed(() => {
     '--app-color-highlighted': hexToRgba(highlighted, alpha.highlighted),
     '--app-hue-highlighted': highlighted,
     '--app-color-now': resolveNowColorHex(props.colors.now, theme),
+    ...fcalTextVars(),
   };
 });
 

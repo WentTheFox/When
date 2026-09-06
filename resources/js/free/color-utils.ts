@@ -82,3 +82,37 @@ export function yiqTextColor(hex: string): '#000' | '#fff' {
 
   return yiq >= 150 ? '#000' : '#fff';
 }
+
+/**
+ * dark-theme.css's own --app-fcal-text-* block-label-text formulas,
+ * mirrored here verbatim — CLAUDE.md's own documented gotcha: a custom
+ * property whose value embeds var() resolves against the scope where IT
+ * is declared, not wherever it's later inherited to. Those formulas are
+ * declared once at :root, so they freeze against :root's OWN --app-hue-*
+ * fallback the moment the browser first computes :root's style — any
+ * element that overrides --app-hue-sleep/work/etc. on ITSELF (Free/Show.vue's
+ * rootStyle, SettingsCalendarCard.vue's live preview) never actually
+ * affects that already-frozen, inherited value, so the block's own
+ * background correctly picks up a customized color while its label TEXT
+ * silently keeps rendering in the hardcoded default hue instead.
+ *
+ * The fix is to redeclare the identical formula on that same element too
+ * (spread this into the same style object that sets --app-hue-*), forcing
+ * a fresh evaluation against the --app-hue-* values ALSO set right there.
+ * SettingsPublicPageCard.vue's dual-theme preview doesn't strictly need
+ * this (its .wtf-theme-preview CSS class already redeclares the same
+ * formulas), but includes it anyway for the same reason every other
+ * consumer must: relying on a specific wrapping class to remember this
+ * is exactly the fragile setup that let the other two consumers regress
+ * silently in the first place.
+ */
+export function fcalTextVars(): Record<string, string> {
+  return {
+    '--app-fcal-text-free': 'color-mix(in srgb, var(--app-hue-free, var(--app-accent)) 65%, var(--app-text) 35%)',
+    '--app-fcal-text-highlighted': 'color-mix(in srgb, var(--app-hue-highlighted, #ffd60a) 65%, var(--app-text) 35%)',
+    '--app-fcal-text-work': 'color-mix(in srgb, var(--app-hue-work, #8b5e34) 65%, var(--app-text) 35%)',
+    '--app-fcal-text-school': 'color-mix(in srgb, var(--app-hue-school, #2f9e44) 65%, var(--app-text) 35%)',
+    '--app-fcal-text-public': 'color-mix(in srgb, var(--app-hue-public, #343a40) 65%, var(--app-text) 35%)',
+    '--app-fcal-text-sleep': 'color-mix(in srgb, var(--app-hue-sleep, #6f42c1) 65%, var(--app-text) 35%)',
+  };
+}
