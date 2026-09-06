@@ -80,4 +80,25 @@ class ShareLinkLocaleDetectionTest extends TestCase
             ->assertOk()
             ->assertCookie('wtf-locale', 'hu', false);
     }
+
+    public function test_the_locale_cookie_is_not_http_only(): void
+    {
+        // LanguageSwitcher.vue's primeLocaleCookie() writes this cookie via
+        // plain document.cookie before navigating to the no-prefix English
+        // route. An HttpOnly cookie silently rejects that JS write (no
+        // error — the write is just a no-op), which made "switch to
+        // English" a permanent no-op for any visitor with a stored
+        // non-English preference: the browser kept sending the old
+        // server-set value straight back. Every response that sets this
+        // cookie must leave it JS-writable.
+        $shareLink = ShareLink::factory()->for(User::factory())->create();
+
+        $response = $this->get("/hu/free/{$shareLink->highlight_token}");
+
+        $cookie = collect($response->headers->getCookies())
+            ->first(fn ($c) => $c->getName() === 'wtf-locale');
+
+        $this->assertNotNull($cookie);
+        $this->assertFalse($cookie->isHttpOnly());
+    }
 }

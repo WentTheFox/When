@@ -29,6 +29,17 @@ class ShareLinkController extends Controller
      * locale-prefixed route) doesn't strictly need the priming — the
      * server never re-guesses those — but the switcher primes unconditionally
      * rather than special-casing English alone.
+     *
+     * Every Cookie::queue() call below passes httpOnly: false explicitly —
+     * Laravel's CookieJar defaults httpOnly to true, and an HttpOnly cookie
+     * silently rejects any same-name document.cookie write from JS (no
+     * error, the write is just a no-op). Since the client-side priming
+     * above is exactly such a write, leaving the server's cookie HttpOnly
+     * meant "switch to English" never actually worked: the primed value was
+     * always discarded in favor of whatever the previous response had
+     * already set. A locale code isn't sensitive (validated against
+     * Locales::isValid() before use either way), so there's nothing lost by
+     * making it JS-writable.
      */
     private const LOCALE_COOKIE = 'wtf-locale';
 
@@ -78,7 +89,7 @@ class ShareLinkController extends Controller
             $preferredLocale = $this->resolvePreferredLocale($request, $locale);
 
             if ($preferredLocale !== $locale) {
-                Cookie::queue(self::LOCALE_COOKIE, $preferredLocale, self::LOCALE_COOKIE_MINUTES);
+                Cookie::queue(self::LOCALE_COOKIE, $preferredLocale, self::LOCALE_COOKIE_MINUTES, null, null, null, false);
 
                 $query = $request->getQueryString();
                 $path = $token !== null ? "/{$preferredLocale}/free/{$token}" : "/{$preferredLocale}/free";
@@ -91,7 +102,7 @@ class ShareLinkController extends Controller
             }
         }
 
-        Cookie::queue(self::LOCALE_COOKIE, $locale, self::LOCALE_COOKIE_MINUTES);
+        Cookie::queue(self::LOCALE_COOKIE, $locale, self::LOCALE_COOKIE_MINUTES, null, null, null, false);
 
         $shareLink = $token !== null ? ShareLink::where('highlight_token', $token)->first() : null;
 
