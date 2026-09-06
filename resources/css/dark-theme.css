@@ -851,12 +851,15 @@ hr {
        block's own rendered height (cqh, from .wtf-fcal-block's
        container-type: size) instead of picking one fixed breakpoint: a
        ~1-hour block (2.25rem, matching the hour-row height below) lands
-       near half size, and it's back to full size by ~2 hours — anything
-       longer has plenty of room and should read at the normal size.
-       .wtf-fcal-block-label-icon's font-size is already relative (em) to
-       this, so it scales along with it automatically.
+       close to the 0.7rem floor, and it's back to full size a bit over an
+       hour later — anything longer has plenty of room and should read at
+       the normal size. 0.5rem (an earlier attempt at the floor) turned out
+       unreadably tiny in practice; 0.7rem is still a clear step down from
+       full size without being illegible. .wtf-fcal-block-label-icon's
+       font-size is already relative (em) to this, so it scales along with
+       it automatically.
     */
-    font-size: clamp(0.5rem, 22cqh, 1rem);
+    font-size: clamp(0.7rem, 33cqh, 1rem);
     /* Left padding absorbs what used to be the block's border-left width, now
        that no block (tentative or not) has a border, to keep the transition
        between them seamless. */
