@@ -6,15 +6,25 @@
  * color catalog (getColorPalette()) is small enough (~24 swatches) that it
  * doesn't need IconPicker's search/grouping — but it does need to satisfy a
  * requirement IconPicker never had: showing each swatch's name legibly
- * against BOTH its light and dark hex, the way it'll actually render in
- * either theme, rather than making that discoverable only via hover
- * tooltip (the old always-expanded wtf-swatch-grid's approach, which just
- * shows a color circle and relies on a shared BTooltip for the label).
+ * against BOTH its light and dark hex, rendered THE SAME WAY it'll
+ * actually look on a highlighted calendar block — the translucent
+ * BLOCK_ALPHA wash over that theme's own page background, with the label
+ * tinted via the same color-mix() formula dark-theme.css's own
+ * --app-fcal-text-highlighted uses — not just a flat swatch hex with a
+ * generic black/white YIQ-contrast label.
+ *
+ * Each theme chip carries .wtf-theme-preview + :data-bs-theme so var(
+ * --app-bg)/var(--app-text) below resolve to that FIXED theme's own value
+ * regardless of the page's live theme — the same scoping
+ * SettingsPublicPageCard.vue's dual light/dark preview panels already rely
+ * on (see dark-theme.css's own doc comment on that class for why a plain
+ * nested [data-bs-theme] wouldn't work: --app-bg/--app-text are declared
+ * :root-scoped, Bootstrap's own convention).
  */
 import { BDropdown } from 'bootstrap-vue-next';
 import { computed } from 'vue';
 import { getColorPalette } from '../free/color-palette';
-import { yiqTextColor } from '../free/color-utils';
+import { BLOCK_ALPHA, hexToRgba } from '../free/color-utils';
 
 const props = defineProps<{
   /** Accessible name for the toggle button. */
@@ -30,6 +40,22 @@ const currentSwatch = computed(() => allColors.find((c) => c.key === modelValue.
 /** Clicking the already-selected color again clears it back to unset — same convention as IconPicker.vue's select(). */
 function select(key: string): void {
   modelValue.value = modelValue.value === key ? null : key;
+}
+
+/**
+ * The wash is painted as its own gradient layer over var(--app-bg) (rather
+ * than just setting backgroundColor to the translucent rgba directly)
+ * because this chip isn't necessarily sitting directly on that background
+ * in the real DOM (it's inside a dropdown menu) — layering it explicitly
+ * makes the rendered result match the calendar regardless of what's
+ * actually behind the chip.
+ */
+function chipStyle(hex: string, theme: 'light' | 'dark'): Record<string, string> {
+  const wash = hexToRgba(hex, BLOCK_ALPHA[theme].highlighted);
+  return {
+    background: `linear-gradient(${wash}, ${wash}), var(--app-bg)`,
+    color: `color-mix(in srgb, ${hex} 65%, var(--app-text) 35%)`,
+  };
 }
 </script>
 
@@ -58,8 +84,16 @@ function select(key: string): void {
         :aria-pressed="modelValue === swatch.key"
         @click="select(swatch.key)"
       >
-        <span class="wtf-color-picker-chip" :style="{ backgroundColor: swatch.light, color: yiqTextColor(swatch.light) }">{{ swatch.label }}</span>
-        <span class="wtf-color-picker-chip" :style="{ backgroundColor: swatch.dark, color: yiqTextColor(swatch.dark) }">{{ swatch.label }}</span>
+        <span
+          class="wtf-theme-preview wtf-color-picker-chip"
+          data-bs-theme="light"
+          :style="chipStyle(swatch.light, 'light')"
+        >{{ swatch.label }}</span>
+        <span
+          class="wtf-theme-preview wtf-color-picker-chip"
+          data-bs-theme="dark"
+          :style="chipStyle(swatch.dark, 'dark')"
+        >{{ swatch.label }}</span>
       </button>
     </div>
   </BDropdown>
