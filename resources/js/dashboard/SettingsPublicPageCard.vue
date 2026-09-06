@@ -2,12 +2,12 @@
 /** Settings.vue's "Public page" card — title/colors/icons/current-time-color, all part of the shared `form` Settings.vue owns and saves via its own submit(). */
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
-import { BButton, BCard, BFormGroup, BFormInput, BTooltip } from 'bootstrap-vue-next';
+import { BButton, BCard, BFormGroup, BFormInput } from 'bootstrap-vue-next';
 import { addDays as addDaysFns, startOfWeek as startOfWeekFns } from 'date-fns';
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import CalendarView from '../free/CalendarView.vue';
 import { BLOCK_ALPHA, fcalTextVars, hexToRgba, hexToRgbTriplet, yiqTextColor } from '../free/color-utils';
-import { getColorPalette, resolveSwatchHex } from '../free/color-palette';
+import { resolveSwatchHex } from '../free/color-palette';
 import type { ColorSlot } from '../free/color-palette';
 import { resolveIcon } from '../free/icon-palette';
 import type { IconSlot } from '../free/icon-palette';
@@ -15,6 +15,7 @@ import { getNowColorPresets, resolveNowColorHex } from '../free/now-color-preset
 import { useResolvedTheme } from '../composables/useTheme';
 import { resolveLocalizedText } from '../free/localizedText';
 import type { AvailabilityResponse, EventSlot } from '../free/nuxt-blocks';
+import ColorPicker from './ColorPicker.vue';
 import IconPicker from './IconPicker.vue';
 import LocalizedTextInput from './LocalizedTextInput.vue';
 import type { Settings } from './settingsTypes';
@@ -39,21 +40,26 @@ const props = defineProps<{
  * background); every swatch instead has its own hand-picked light AND dark
  * hex. "Current time" isn't here — it picks from its own, separate
  * curated list (NowColorPresetKey via now-color-presets.ts), rendered
- * below via the same swatch-grid pattern.
+ * below via the same ColorPicker component with its own `options`/
+ * preview="solid" (a marker line has no translucent block wash to preview).
+ *
+ * `preview` says how ColorPicker.vue should render each field's own
+ * candidate swatches: 'wash' for anything that's an actual translucent
+ * calendar block (free/busy/work/school/public/sleep/highlighted), 'solid'
+ * for accent/secondary — both solid fills (a button background, muted
+ * text), never blended over the page background the way a block is.
  */
-const colorFields: { field: keyof Settings; slot: ColorSlot; label: string }[] = [
-  { field: 'accent_color_key', slot: 'accent', label: 'Accent' },
-  { field: 'secondary_color_key', slot: 'secondary', label: 'Secondary' },
-  { field: 'free_color_key', slot: 'free', label: 'Free' },
-  { field: 'busy_color_key', slot: 'busy', label: 'Unavailable' },
-  { field: 'work_color_key', slot: 'work', label: 'Work' },
-  { field: 'school_color_key', slot: 'school', label: 'School' },
-  { field: 'public_color_key', slot: 'public', label: 'Public event' },
-  { field: 'sleep_color_key', slot: 'sleep', label: 'Sleep' },
-  { field: 'highlight_color_key', slot: 'highlighted', label: 'Highlighted' },
+const colorFields: { field: keyof Settings; slot: ColorSlot; label: string; preview: 'wash' | 'solid' }[] = [
+  { field: 'accent_color_key', slot: 'accent', label: 'Accent', preview: 'solid' },
+  { field: 'secondary_color_key', slot: 'secondary', label: 'Secondary', preview: 'solid' },
+  { field: 'free_color_key', slot: 'free', label: 'Free', preview: 'wash' },
+  { field: 'busy_color_key', slot: 'busy', label: 'Unavailable', preview: 'wash' },
+  { field: 'work_color_key', slot: 'work', label: 'Work', preview: 'wash' },
+  { field: 'school_color_key', slot: 'school', label: 'School', preview: 'wash' },
+  { field: 'public_color_key', slot: 'public', label: 'Public event', preview: 'wash' },
+  { field: 'sleep_color_key', slot: 'sleep', label: 'Sleep', preview: 'wash' },
+  { field: 'highlight_color_key', slot: 'highlighted', label: 'Highlighted', preview: 'wash' },
 ];
-
-const colorPalette = getColorPalette();
 
 /**
  * Same curated-KEY-not-arbitrary-value idea as colorFields above, for the
@@ -85,29 +91,6 @@ function activeIconColor(iconField: (typeof iconFields)[number]): string {
   const colorKey = (props.publicPageSettingsForm as unknown as Record<string, string>)[iconField.colorField];
 
   return resolveSwatchHex(colorKey, iconField.slot, resolvedTheme.value);
-}
-
-/**
- * One shared tooltip for every swatch across every color-slot group,
- * instead of a separate v-b-tooltip instance per circle — with ~21
- * swatches per group across several groups, that was well over a hundred
- * always-mounted floating-ui instances, and each one's own bubble sat in
- * the DOM regardless of visibility, easy to have overlap and steal
- * hover/hit-testing from a neighboring swatch. A single tooltip just
- * moves to whichever swatch is currently hovered/focused instead.
- */
-const tooltipVisible = ref(false);
-const activeSwatchTarget = ref<HTMLElement | null>(null);
-const activeSwatchLabel = ref('');
-
-function showSwatchTooltip(event: FocusEvent | MouseEvent, label: string): void {
-  activeSwatchTarget.value = event.currentTarget as HTMLElement;
-  activeSwatchLabel.value = label;
-  tooltipVisible.value = true;
-}
-
-function hideSwatchTooltip(): void {
-  tooltipVisible.value = false;
 }
 
 /**
@@ -454,46 +437,22 @@ function submit(): void {
         <div class="row">
           <div v-for="colorField in colorFields" :key="colorField.field" class="col-md-4 col-6 mb-3">
             <BFormGroup :label="colorField.label">
-              <div class="wtf-swatch-grid">
-                <button
-                  v-for="swatch in colorPalette"
-                  :key="swatch.key"
-                  type="button"
-                  class="wtf-swatch-btn"
-                  :class="{ 'wtf-swatch-btn-active': (publicPageSettingsForm as unknown as Record<string, string>)[colorField.field] === swatch.key }"
-                  :aria-pressed="(publicPageSettingsForm as unknown as Record<string, string>)[colorField.field] === swatch.key"
-                  :style="{ '--app-swatch-light': swatch.light, '--app-swatch-dark': swatch.dark }"
-                  @click="(publicPageSettingsForm as unknown as Record<string, string>)[colorField.field] = swatch.key"
-                  @mouseenter="showSwatchTooltip($event, swatch.label)"
-                  @mouseleave="hideSwatchTooltip"
-                  @focus="showSwatchTooltip($event, swatch.label)"
-                  @blur="hideSwatchTooltip"
-                >
-                  <span class="visually-hidden">{{ swatch.label }}</span>
-                </button>
-              </div>
+              <ColorPicker
+                v-model="(publicPageSettingsForm as unknown as Record<string, string | null>)[colorField.field]"
+                :label="`${colorField.label} color`"
+                :preview="colorField.preview"
+                :preview-slot="colorField.slot"
+              />
             </BFormGroup>
           </div>
           <div class="col-md-4 col-6 mb-3">
             <BFormGroup label="Current time">
-              <div class="wtf-swatch-grid">
-                <button
-                  v-for="preset in nowColorPresets"
-                  :key="preset.key"
-                  type="button"
-                  class="wtf-swatch-btn"
-                  :class="{ 'wtf-swatch-btn-active': publicPageSettingsForm.now_color_key === preset.key }"
-                  :style="{ '--app-swatch-light': preset.light, '--app-swatch-dark': preset.dark }"
-                  :aria-pressed="publicPageSettingsForm.now_color_key === preset.key"
-                  @click="publicPageSettingsForm.now_color_key = preset.key"
-                  @mouseenter="showSwatchTooltip($event, preset.label)"
-                  @mouseleave="hideSwatchTooltip"
-                  @focus="showSwatchTooltip($event, preset.label)"
-                  @blur="hideSwatchTooltip"
-                >
-                  <span class="visually-hidden">{{ preset.label }}</span>
-                </button>
-              </div>
+              <ColorPicker
+                v-model="publicPageSettingsForm.now_color_key"
+                label="Current time color"
+                :options="nowColorPresets"
+                preview="solid"
+              />
               <template #description>
                 Deliberately loud, saturated colors kept out of the normal block-color palette
                 above, to avoid the current-time line blending into a same-colored event block.
@@ -514,17 +473,6 @@ function submit(): void {
             </BFormGroup>
           </div>
         </div>
-
-        <BTooltip
-          v-if="activeSwatchTarget"
-          v-model="tooltipVisible"
-          :target="activeSwatchTarget"
-          no-fade
-          noninteractive
-          placement="top"
-        >
-          {{ activeSwatchLabel }}
-        </BTooltip>
 
         <div class="row">
           <div v-for="theme in (['light', 'dark'] as const)" :key="theme" class="col-md-6 mb-3">

@@ -20,22 +20,43 @@
  * on (see dark-theme.css's own doc comment on that class for why a plain
  * nested [data-bs-theme] wouldn't work: --app-bg/--app-text are declared
  * :root-scoped, Bootstrap's own convention).
+ *
+ * Not every color this picker is used for is a translucent calendar-block
+ * wash, though — accent/secondary/the current-time marker are all solid
+ * fills (a button background, a plain line), never blended over the page
+ * background the way a block is. `preview="solid"` renders those as a
+ * plain opaque swatch with plain black/white contrast text instead of
+ * pretending they're a block; `previewSlot` (only meaningful for
+ * preview="wash", the default) says which BLOCK_ALPHA/label-tint slot to
+ * preview as, so this same component can be reused for every *_color_key
+ * field (SettingsPublicPageCard.vue) instead of just the highlighted-only
+ * case ActivityLocalizationForm.vue needs.
  */
 import { BDropdown } from 'bootstrap-vue-next';
 import { computed } from 'vue';
 import { getColorPalette } from '../free/color-palette';
-import { BLOCK_ALPHA, hexToRgba } from '../free/color-utils';
+import type { ColorSlot, ColorSwatch } from '../free/color-palette';
+import { BLOCK_ALPHA, hexToRgba, yiqTextColor } from '../free/color-utils';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   /** Accessible name for the toggle button. */
   label: string;
-}>();
+  /** Defaults to the main color palette (getColorPalette()) — pass e.g. getNowColorPresets() to pick from a different catalog instead. */
+  options?: ColorSwatch[];
+  preview?: 'wash' | 'solid';
+  /** Which calendar block type to preview the wash/label-tint as — required (and only meaningful) when preview="wash". */
+  previewSlot?: ColorSlot;
+}>(), {
+  options: undefined,
+  preview: 'wash',
+  previewSlot: 'highlighted',
+});
 
 const modelValue = defineModel<string | null>({ default: null });
 
-const allColors = getColorPalette();
+const allColors = computed(() => props.options ?? getColorPalette());
 
-const currentSwatch = computed(() => allColors.find((c) => c.key === modelValue.value));
+const currentSwatch = computed(() => allColors.value.find((c) => c.key === modelValue.value));
 
 /** Clicking the already-selected color again clears it back to unset — same convention as IconPicker.vue's select(). */
 function select(key: string): void {
@@ -43,18 +64,37 @@ function select(key: string): void {
 }
 
 /**
- * The wash is painted as its own gradient layer over var(--app-bg) (rather
- * than just setting backgroundColor to the translucent rgba directly)
- * because this chip isn't necessarily sitting directly on that background
- * in the real DOM (it's inside a dropdown menu) — layering it explicitly
- * makes the rendered result match the calendar regardless of what's
- * actually behind the chip.
+ * "Unavailable" doesn't tint its label toward the swatch's own hue like
+ * every other block type does (see dark-theme.css's own comment on
+ * --app-fcal-text-unavailable) — it's a fixed near-black/near-white
+ * literal regardless of the busy color chosen, so this reads that var
+ * directly (already scoped to the right fixed theme by .wtf-theme-preview)
+ * rather than computing a color-mix() that the real block would never
+ * actually use.
+ *
+ * The wash itself is painted as its own gradient layer over var(--app-bg)
+ * (rather than just setting backgroundColor to the translucent rgba
+ * directly) because this chip isn't necessarily sitting directly on that
+ * background in the real DOM (it's inside a dropdown menu) — layering it
+ * explicitly makes the rendered result match the calendar regardless of
+ * what's actually behind the chip.
  */
 function chipStyle(hex: string, theme: 'light' | 'dark'): Record<string, string> {
-  const wash = hexToRgba(hex, BLOCK_ALPHA[theme].highlighted);
+  if (props.preview === 'solid') {
+    return {
+      backgroundColor: hex,
+      color: yiqTextColor(hex),
+    };
+  }
+
+  const wash = hexToRgba(hex, (BLOCK_ALPHA[theme] as Record<ColorSlot, number>)[props.previewSlot]);
+  const textColor = props.previewSlot === 'busy'
+    ? 'var(--app-fcal-text-unavailable)'
+    : `color-mix(in srgb, ${hex} 65%, var(--app-text) 35%)`;
+
   return {
     background: `linear-gradient(${wash}, ${wash}), var(--app-bg)`,
-    color: `color-mix(in srgb, ${hex} 65%, var(--app-text) 35%)`,
+    color: textColor,
   };
 }
 </script>
