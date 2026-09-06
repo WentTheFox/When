@@ -23,6 +23,7 @@
  */
 import axios from 'axios';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { faLanguage } from '@fortawesome/free-solid-svg-icons';
 import { BAccordion, BAccordionItem, BButton } from 'bootstrap-vue-next';
 import { ref } from 'vue';
 import { faIconFor } from '../free/icon-palette';
@@ -147,7 +148,7 @@ async function add(): Promise<void> {
         <span class="d-flex align-items-center gap-2 flex-wrap">
           <FontAwesomeIcon v-if="role.icon_key && faIconFor(role.icon_key)" :icon="faIconFor(role.icon_key)!" />
           <code>{{ role.pattern || '(no pattern yet)' }}</code>
-          <span v-if="labelCodes(role.label).length" class="small text-muted">{{ labelCodes(role.label).join(', ') }}</span>
+          <span v-if="labelCodes(role.label).length" class="small text-muted"><FontAwesomeIcon :icon="faLanguage" class="me-1"/>{{ labelCodes(role.label).join(', ') }}</span>
         </span>
       </template>
       <ActivityLocalizationForm
