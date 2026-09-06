@@ -22,7 +22,7 @@ import type { IconOption } from '../free/icon-palette';
 const props = defineProps<{
   /** Accessible name for the toggle button. */
   label: string;
-  /** Tints the toggle button's own icon + the active entry in the list — same --app-icon-active-color the old grid used, falls back to --app-accent when unset. */
+  /** Tints ONLY the toggle button's own icon glyph (never its label text) plus the active entry's icon in the list — same --app-icon-active-color the old grid used. Omit entirely for a picker with no real color concept (e.g. a per-role icon) rather than passing a generic accent — this prop existing at all is what turns tinting on. */
   activeColor?: string;
 }>();
 
@@ -74,15 +74,19 @@ function onShown(): void {
   <BDropdown
     ref="dropdownRef"
     variant="outline-secondary"
+    toggle-class="wtf-icon-picker-toggle"
     menu-class="wtf-icon-picker-menu"
     :aria-label="label"
     @shown="onShown"
   >
     <template #button-content>
-      <span class="wtf-icon-picker-toggle" :style="{ '--app-icon-active-color': activeColor }">
-        <FontAwesomeIcon v-if="currentIcon" :icon="currentIcon" />
-        <span class="small">{{ currentLabel ?? 'Choose icon' }}</span>
-      </span>
+      <FontAwesomeIcon
+        v-if="currentIcon"
+        :icon="currentIcon"
+        class="wtf-icon-picker-toggle-icon"
+        :style="activeColor ? { '--app-icon-active-color': activeColor } : undefined"
+      />
+      <span class="small">{{ currentLabel ?? 'Choose icon' }}</span>
     </template>
     <div class="wtf-icon-picker-body" @click.stop>
       <BFormInput

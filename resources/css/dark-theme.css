@@ -1495,17 +1495,39 @@ hr {
 }
 
 /*
- * IconPicker.vue — a single button (BDropdown's own toggle) opening a
- * search box + grouped, scrollable list of .wtf-icon-swatch-btn buttons
- * (reused verbatim from the swatch grid above). The scrolling lives on
- * the inner .wtf-icon-picker-scroll, not the dropdown menu itself, so the
- * search input stays pinned above it rather than scrolling out of view
- * with the icons.
+ * IconPicker.vue — a single button (BDropdown's own toggle, this class
+ * passed via its toggleClass prop so it lands on the real <button> rather
+ * than a wrapping span inside it) opening a search box + grouped,
+ * scrollable list of .wtf-icon-swatch-btn buttons (reused verbatim from
+ * the swatch grid above). The scrolling lives on the inner
+ * .wtf-icon-picker-scroll, not the dropdown menu itself, so the search
+ * input stays pinned above it rather than scrolling out of view with the
+ * icons.
+ *
+ * display: flex (not inline-flex — dropdown-toggle is already a block-
+ * level <button>) + align-items: center on the button ITSELF, not just a
+ * wrapper around its slot content, is what's needed to vertically center
+ * the icon/label against Bootstrap's own ::after caret: that caret is a
+ * sibling of the slot content in the button's box, positioned by
+ * `vertical-align` (a caret-specific Bootstrap rule) which only lines up
+ * with the rest of the button's content once the button is itself a flex
+ * container — otherwise the caret sits on the text baseline while a
+ * flex-centered icon+label sits a few pixels off from it.
  */
 .wtf-icon-picker-toggle {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 0.4rem;
+}
+
+/* Deliberately scoped to the icon glyph alone, not the whole toggle
+   button — a picker with no configured color (e.g. ActivityLocalizationForm's
+   per-role icon) never sets --app-icon-active-color at all, so this falls
+   back to `inherit` (the button's own plain text color) and nothing reads
+   as "colored" there; a picker that DOES have one (SettingsPublicPageCard's
+   per-slot pickers) tints only the icon, leaving the label text beside it
+   in the button's normal color either way. */
+.wtf-icon-picker-toggle-icon {
     color: var(--app-icon-active-color, inherit);
 }
 
