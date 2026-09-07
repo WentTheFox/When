@@ -1699,38 +1699,30 @@ hr {
 .wtf-regex-editor {
     position: relative;
     width: 100%;
-    /* Deliberately NOT overflow:hidden — a native textarea resized wider
-       than this wrapper (via its own resize: horizontal handle) needs to
-       visibly overflow it rather than being clipped; the overlay above it
-       is sized in pixels to match (RegexPatternInput.vue's
-       ResizeObserver), independent of this wrapper's own declared width. */
 }
 
 /* Both layers share .form-control's box model (padding/border-width/
    border-radius/font/line-height) so their text lines up pixel-for-pixel
    — see the header comment above for why there are two stacked elements
-   at all. Every field is forced single-line (RegexPatternInput.vue strips
-   any \n on input) — white-space: pre never wraps, so a pattern longer
-   than the visible box scrolls horizontally (synced between the two
-   layers by syncScroll) instead of wrapping to a second line. */
+   at all. Every field is forced single-line as *typed* (RegexPatternInput.vue
+   strips any \n on input), but a long one still wraps onto more than one
+   visual row (white-space: pre-wrap, overflow-wrap: anywhere so even one
+   long unbroken run of characters wraps rather than overflowing) — the
+   native element's own height then grows to fit
+   (RegexPatternInput.vue's autoGrowHeight()) rather than either scrolling
+   sideways or, worse, letting the field itself be dragged arbitrarily
+   wide via a resize handle (removed entirely: resize: none below). */
 .wtf-regex-highlight,
 .wtf-regex-native {
     margin: 0;
     font-family: var(--bs-font-monospace, monospace);
-    white-space: pre;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
     overflow: hidden;
-    word-wrap: normal;
     resize: none;
 }
 
-/* Only the native element gets a resize handle — an owner drags it wider
-   to see a long pattern in full; RegexPatternInput.vue's ResizeObserver
-   is what keeps the overlay matched to whatever size that resize leaves
-   it at. Height intentionally stays fixed (rows="1" plus no vertical
-   resize) since content is always exactly one line — a taller box
-   wouldn't reveal more of it. */
 .wtf-regex-native.form-control {
-    resize: horizontal;
     min-width: 100%;
 }
 

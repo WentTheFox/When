@@ -2,7 +2,7 @@
 import { faPuzzlePiece } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { BButton } from 'bootstrap-vue-next';
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { requestRegexEdit } from './regexEditorModal';
 import { highlightPatternHtml } from './regexHighlight';
 import { countCapturingGroups, findUnsatisfiableBranches, parsePatternToAst } from './regex-editor/regexAstModel';
@@ -24,10 +24,23 @@ import type { PatternPreviewConfig } from './patternPreviewTypes';
  *
  * Always a <textarea>, not an <input> — every one of these fields is
  * still logically a single line (a newline is stripped on input, see
- * onInput below), but a <textarea> is what gives the native
- * `resize: horizontal` handle a plain single-line input never has, so an
- * owner can drag a field wider to see a long pattern in full instead of
- * scrolling it horizontally a few characters at a time.
+ * onInput below), but a <textarea> is what lets a long pattern wrap onto
+ * more than one visual row instead of overflowing or needing to scroll.
+ * Deliberately NOT resizable (no `resize: horizontal`/`vertical`) — that
+ * let an owner drag the field wide enough to blow out the surrounding
+ * page layout, with no way back short of a manual drag the other way.
+ * Wrapping plus autoGrowHeight() below (grows the native element's own
+ * `style.height` to fit its wrapped content, same idea as GitHub's PR
+ * description box) covers the same "let me see a long pattern in full"
+ * need without that failure mode.
+ *
+ * Also deliberately NOT a contenteditable div, despite that being the
+ * more "let the browser handle wrapping/growing" option: a contenteditable
+ * accepts pasted HTML by default (fonts, colors, whole embedded
+ * structure), which would then have to be stripped back to plain text on
+ * every paste to avoid corrupting the overlay-highlighting illusion below
+ * — a real class of bugs a plain <textarea> (paste always lands as plain
+ * text, natively) never has to worry about in the first place.
  */
 
 const props = withDefaults(
@@ -75,6 +88,23 @@ function onInput(event: Event) {
   const sanitized = target.value.replace(/[\r\n]+/g, '');
   emit('update:modelValue', sanitized);
   syncScroll();
+  autoGrowHeight();
+}
+
+/**
+ * Grows the native textarea's own `style.height` to fit however many
+ * lines its wrapped content now takes — collapsing to 'auto' first is
+ * what lets `scrollHeight` shrink back down too (once measured against a
+ * fixed height, `scrollHeight` never reports less than that height, even
+ * after the content shrinks). The overlay doesn't need its own call here:
+ * it's kept in sync by the ResizeObserver below, which fires for this
+ * height change the same way it already does for a container-driven
+ * width change.
+ */
+function autoGrowHeight(): void {
+  if (!nativeEl.value) return;
+  nativeEl.value.style.height = 'auto';
+  nativeEl.value.style.height = `${nativeEl.value.scrollHeight}px`;
 }
 
 function syncScroll() {
@@ -84,13 +114,13 @@ function syncScroll() {
 }
 
 // The overlay is a plain <div>, not itself resizable — it has to mirror
-// whatever box size the owner just dragged the native textarea to (via
-// its `resize: horizontal` handle) explicitly, rather than via CSS alone:
-// the wrapping .wtf-regex-editor doesn't grow just because a resizable
-// child inside it got wider (a resize handle changes that one element's
-// own box, not its parent's layout), so an absolutely-positioned
-// `inset: 0` overlay would stay clipped to the ORIGINAL width while the
-// native element beneath it kept growing.
+// the native element's own box size explicitly (in pixels) rather than
+// via CSS alone, since an absolutely-positioned `inset: 0` overlay is
+// sized against its nearest positioned ancestor (.wtf-regex-editor), not
+// against the native element sitting beside it. That size changes for two
+// reasons: the container reflowing (a responsive column width change) and
+// autoGrowHeight() above growing the native element's own height as its
+// wrapped content takes more lines — ResizeObserver below picks up both.
 const overlaySize = ref<{ width: string; height: string }>({ width: '100%', height: '100%' });
 let resizeObserver: ResizeObserver | null = null;
 
@@ -103,6 +133,7 @@ function updateOverlaySize(): void {
 }
 
 onMounted(() => {
+  autoGrowHeight();
   updateOverlaySize();
   if (nativeEl.value) {
     resizeObserver = new ResizeObserver(updateOverlaySize);
@@ -124,6 +155,14 @@ const showingPlaceholder = computed(() => text.value === '' && !!props.placehold
 const displayText = computed(() => (showingPlaceholder.value ? props.placeholder! : text.value));
 
 const highlightedHtml = computed(() => highlightPatternHtml(displayText.value));
+
+// Catches every way the visible text can change WITHOUT the native
+// element's own `input` event firing — modelValue set programmatically
+// (Apply from the visual editor, a "Use suggested"/"Use default" button
+// elsewhere on the page) or the placeholder text itself coming/going.
+// nextTick: the native element's `value` binding must have already
+// re-rendered to the new text before `scrollHeight` reflects it.
+watch(displayText, () => nextTick(autoGrowHeight));
 
 /**
  * Client-side echo of the two structural checks App\Support\Regex /
