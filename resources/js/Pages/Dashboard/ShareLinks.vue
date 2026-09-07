@@ -92,7 +92,7 @@ async function createLink(): Promise<void> {
     links.value.unshift(data);
     selectedLinkId.value = data.id;
 
-    createdUrl.value = `${window.location.origin}/free/${id}`;
+    createdUrl.value = `${window.location.origin}/free/${data.highlight_token}`;
 
     newLabel.value = '';
     showNewForm.value = false;
