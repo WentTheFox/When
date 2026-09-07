@@ -15,5 +15,7 @@ Route::get('/share/{token}', [ShareLinkAvailabilityController::class, 'show'])
 // Free/Show.vue. IP-throttled the same as every other unauthenticated
 // share-link surface (see AppServiceProvider::boot()).
 Route::post('/share/{token}/visits', [ShareLinkVisitController::class, 'store'])
-    ->middleware('throttle:share-link-visit')
+    // Web is needed to be able to resolve the currently logged-in user
+    // (Maybe this should move into a regular web endpoint?)
+    ->middleware(['throttle:share-link-visit', 'web'])
     ->name('api.share-links.visits.store');

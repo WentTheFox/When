@@ -7,6 +7,7 @@ use App\Models\ShareLink;
 use App\Models\ShareLinkVisit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -26,6 +27,14 @@ class ShareLinkVisitController extends Controller
 
         if ($shareLink === null || $shareLink->archived) {
             abort(Response::HTTP_NOT_FOUND);
+        }
+
+        $authUser = Auth::user();
+        if ($authUser !== null && $shareLink->user_id === $authUser->id) {
+            // Don't track the user's own page views of their own share links
+            return response()->json([
+                'note' => 'Page views for your own share links are not tracked to let you view your share links without inflating view counts. If you want to test the functionality, log out before opening the share link.'
+            ], Response::HTTP_ACCEPTED);
         }
 
         $data = $request->validate([
