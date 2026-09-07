@@ -27,6 +27,7 @@ class ShareLinkVisit extends Model
     {
         return [
             'visited_at' => 'datetime',
+            'timezone' => 'encrypted',
         ];
     }
 
