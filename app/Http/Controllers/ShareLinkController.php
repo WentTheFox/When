@@ -187,8 +187,15 @@ class ShareLinkController extends Controller
                 'secondary' => $owner?->secondary_color_key,
                 'free' => $owner?->free_color_key,
                 'busy' => $owner?->busy_color_key,
-                'work' => $owner?->work_color_key,
-                'school' => $owner?->school_color_key,
+                // No dedicated work/school setting any more — each block's
+                // own color, if the owner customized it, comes from
+                // whichever activity_localizations category row matched it
+                // (AvailabilitySlot::$activityColor), not a per-user base
+                // key; null here just leaves ColorPalette::DEFAULT_KEYS'
+                // own work/school entries as the fallback for an
+                // uncustomized match.
+                'work' => null,
+                'school' => null,
                 'public' => $owner?->public_color_key,
                 'sleep' => $owner?->sleep_color_key,
                 'highlighted' => $owner?->highlight_color_key,
@@ -199,8 +206,9 @@ class ShareLinkController extends Controller
             'icons' => [
                 'free' => $owner?->free_icon_key,
                 'busy' => $owner?->busy_icon_key,
-                'work' => $owner?->work_icon_key,
-                'school' => $owner?->school_icon_key,
+                // Same reasoning as 'work'/'school' under 'colors' above.
+                'work' => null,
+                'school' => null,
                 'public' => $owner?->public_icon_key,
                 'sleep' => $owner?->sleep_icon_key,
                 'highlighted' => $owner?->highlight_icon_key,

@@ -41,8 +41,6 @@ class CalendarPreviewController extends Controller
             'calendar_parsing_mode' => ['nullable', Rule::enum(CalendarParsingMode::class)],
             'dnd_event_pattern' => ['nullable', 'string'],
             'nap_event_pattern' => ['nullable', 'string'],
-            'work_event_pattern' => ['nullable', 'string'],
-            'school_event_pattern' => ['nullable', 'string'],
             'public_event_pattern' => ['nullable', 'string'],
             'highlight_clause_pattern' => ['nullable', 'string', Regex::validateSingleCaptureGroup(...)],
             'highlight_split_pattern' => ['nullable', 'string'],
@@ -112,9 +110,7 @@ class CalendarPreviewController extends Controller
             highlightClausePattern: $data['highlight_clause_pattern'] ?? null,
             activityClausePattern: $data['activity_clause_pattern'] ?? null,
             showActivity: $data['show_activity'] ?? true,
-            workEventPattern: $data['work_event_pattern'] ?? null,
             highlightSplitPattern: $data['highlight_split_pattern'] ?? null,
-            schoolEventPattern: $data['school_event_pattern'] ?? null,
             // Not part of the request body — activity_localizations are each
             // saved immediately through their own endpoint (like sleep
             // exceptions), so the owner's already-saved list is what this

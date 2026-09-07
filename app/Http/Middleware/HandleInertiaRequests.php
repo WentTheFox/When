@@ -98,8 +98,6 @@ class HandleInertiaRequests extends Middleware
                     // of inventing a second, unrelated color scheme.
                     'sleepColorKey' => $request->user()->sleep_color_key,
                     'busyColorKey' => $request->user()->busy_color_key,
-                    'workColorKey' => $request->user()->work_color_key,
-                    'schoolColorKey' => $request->user()->school_color_key,
                     'publicColorKey' => $request->user()->public_color_key,
                     'freeColorKey' => $request->user()->free_color_key,
                 ] : null,

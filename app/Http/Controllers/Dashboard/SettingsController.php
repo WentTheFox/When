@@ -46,25 +46,7 @@ class SettingsController extends Controller
     private const SUGGESTED_NAP_EVENT_PATTERN = '^nap$';
 
     /**
-     * Same non-functional-fallback caveat as the dnd/nap suggestions above
-     * — a blank pattern matches nothing. Feeds the dashboard time-breakdown
-     * widget's "work" bucket (DashboardController::statsAvailability) and
-     * the /free calendar's own work category.
-     */
-    private const SUGGESTED_WORK_EVENT_PATTERN = '^work$';
-
-    /**
-     * Same non-functional-fallback caveat as dnd/nap/work above. Not
-     * anchored to the whole title like those three, deliberately —
-     * "school" or "class" showing up anywhere in a title (a room number
-     * or teacher's name tacked on, say) should still count, the same
-     * "contains anywhere" default every other event-name/pattern field on
-     * this page already has.
-     */
-    private const SUGGESTED_SCHOOL_EVENT_PATTERN = '(school|class)';
-
-    /**
-     * Unlike dnd/nap/work/school above, this is a Flag-style pattern —
+     * Unlike dnd/nap above, this is a Flag-style pattern —
      * same treatment as IcsParser's tentative/open-end/open-start
      * patterns: matched AND stripped out of the title, at parse time
      * (IcsParser::DEFAULT_PUBLIC_EVENT_TITLE_PATTERN), not evaluated
@@ -97,10 +79,6 @@ class SettingsController extends Controller
                 'dnd_event_pattern_preview' => $user->dnd_event_pattern_preview,
                 'nap_event_pattern' => $user->nap_event_pattern,
                 'nap_event_pattern_preview' => $user->nap_event_pattern_preview,
-                'work_event_pattern' => $user->work_event_pattern,
-                'work_event_pattern_preview' => $user->work_event_pattern_preview,
-                'school_event_pattern' => $user->school_event_pattern,
-                'school_event_pattern_preview' => $user->school_event_pattern_preview,
                 'public_event_pattern' => $user->public_event_pattern,
                 'public_event_pattern_preview' => $user->public_event_pattern_preview,
                 'calendar_parsing_mode' => $user->calendar_parsing_mode,
@@ -122,15 +100,11 @@ class SettingsController extends Controller
                 'secondary_color_key' => $user->secondary_color_key,
                 'sleep_color_key' => $user->sleep_color_key,
                 'busy_color_key' => $user->busy_color_key,
-                'work_color_key' => $user->work_color_key,
-                'school_color_key' => $user->school_color_key,
                 'public_color_key' => $user->public_color_key,
                 'free_color_key' => $user->free_color_key,
                 'highlight_color_key' => $user->highlight_color_key,
                 'free_icon_key' => $user->free_icon_key,
                 'busy_icon_key' => $user->busy_icon_key,
-                'work_icon_key' => $user->work_icon_key,
-                'school_icon_key' => $user->school_icon_key,
                 'public_icon_key' => $user->public_icon_key,
                 'sleep_icon_key' => $user->sleep_icon_key,
                 'highlight_icon_key' => $user->highlight_icon_key,
@@ -140,8 +114,6 @@ class SettingsController extends Controller
             'defaults' => [
                 'dndEventPattern' => self::SUGGESTED_DND_EVENT_PATTERN,
                 'napEventPattern' => self::SUGGESTED_NAP_EVENT_PATTERN,
-                'workEventPattern' => self::SUGGESTED_WORK_EVENT_PATTERN,
-                'schoolEventPattern' => self::SUGGESTED_SCHOOL_EVENT_PATTERN,
                 'publicEventPattern' => self::SUGGESTED_PUBLIC_EVENT_PATTERN,
                 'highlightClausePattern' => HighlightMatcher::DEFAULT_CLAUSE_PATTERN,
                 'highlightSplitPattern' => HighlightMatcher::DEFAULT_SPLIT_PATTERN,
@@ -197,8 +169,6 @@ class SettingsController extends Controller
         'timezone', 'week_start', 'calendar_parsing_mode',
         'dnd_event_pattern', 'dnd_event_pattern_preview',
         'nap_event_pattern', 'nap_event_pattern_preview',
-        'work_event_pattern', 'work_event_pattern_preview',
-        'school_event_pattern', 'school_event_pattern_preview',
         'public_event_pattern', 'public_event_pattern_preview',
         'highlight_clause_pattern', 'highlight_clause_pattern_preview',
         'highlight_split_pattern', 'highlight_split_pattern_preview',
@@ -207,8 +177,8 @@ class SettingsController extends Controller
         'open_end_pattern', 'open_end_pattern_preview',
         'open_start_pattern', 'open_start_pattern_preview',
         'accent_color_key', 'secondary_color_key', 'sleep_color_key', 'busy_color_key',
-        'work_color_key', 'school_color_key', 'public_color_key', 'free_color_key', 'highlight_color_key',
-        'free_icon_key', 'busy_icon_key', 'work_icon_key', 'school_icon_key', 'public_icon_key',
+        'public_color_key', 'free_color_key', 'highlight_color_key',
+        'free_icon_key', 'busy_icon_key', 'public_icon_key',
         'sleep_icon_key', 'highlight_icon_key', 'now_color_key',
     ];
 

@@ -45,17 +45,18 @@ const props = defineProps<{
  *
  * `preview` says how ColorPicker.vue should render each field's own
  * candidate swatches: 'wash' for anything that's an actual translucent
- * calendar block (free/busy/work/school/public/sleep/highlighted), 'solid'
- * for accent/secondary — both solid fills (a button background, muted
- * text), never blended over the page background the way a block is.
+ * calendar block (free/busy/public/sleep/highlighted), 'solid' for accent/
+ * secondary — both solid fills (a button background, muted text), never
+ * blended over the page background the way a block is. Work/school have no
+ * row here any more — an owner customizes those (icon and color both) per
+ * activity_localizations role instead (see ActivityLocalizations.vue), not
+ * as a single per-user base setting.
  */
 const colorFields: { field: keyof Settings; slot: ColorSlot; label: string; preview: 'wash' | 'solid' }[] = [
   { field: 'accent_color_key', slot: 'accent', label: 'Accent', preview: 'solid' },
   { field: 'secondary_color_key', slot: 'secondary', label: 'Secondary', preview: 'solid' },
   { field: 'free_color_key', slot: 'free', label: 'Free', preview: 'wash' },
   { field: 'busy_color_key', slot: 'busy', label: 'Unavailable', preview: 'wash' },
-  { field: 'work_color_key', slot: 'work', label: 'Work', preview: 'wash' },
-  { field: 'school_color_key', slot: 'school', label: 'School', preview: 'wash' },
   { field: 'public_color_key', slot: 'public', label: 'Public event', preview: 'wash' },
   { field: 'sleep_color_key', slot: 'sleep', label: 'Sleep', preview: 'wash' },
   { field: 'highlight_color_key', slot: 'highlighted', label: 'Highlighted', preview: 'wash' },
@@ -75,8 +76,6 @@ const colorFields: { field: keyof Settings; slot: ColorSlot; label: string; prev
 const iconFields: { field: keyof Settings; slot: IconSlot; colorField: keyof Settings; label: string }[] = [
   { field: 'free_icon_key', slot: 'free', colorField: 'free_color_key', label: 'Free' },
   { field: 'busy_icon_key', slot: 'busy', colorField: 'busy_color_key', label: 'Unavailable' },
-  { field: 'work_icon_key', slot: 'work', colorField: 'work_color_key', label: 'Work' },
-  { field: 'school_icon_key', slot: 'school', colorField: 'school_color_key', label: 'School' },
   { field: 'public_icon_key', slot: 'public', colorField: 'public_color_key', label: 'Public event' },
   { field: 'sleep_icon_key', slot: 'sleep', colorField: 'sleep_color_key', label: 'Sleep' },
   { field: 'highlight_icon_key', slot: 'highlighted', colorField: 'highlight_color_key', label: 'Highlighted' },
@@ -338,8 +337,6 @@ function previewStyleFor(theme: 'light' | 'dark') {
   const accent = resolveSwatchHex(props.publicPageSettingsForm.accent_color_key, 'accent', theme);
   const free = resolveSwatchHex(props.publicPageSettingsForm.free_color_key, 'free', theme);
   const busy = resolveSwatchHex(props.publicPageSettingsForm.busy_color_key, 'busy', theme);
-  const work = resolveSwatchHex(props.publicPageSettingsForm.work_color_key, 'work', theme);
-  const school = resolveSwatchHex(props.publicPageSettingsForm.school_color_key, 'school', theme);
   const publicColor = resolveSwatchHex(props.publicPageSettingsForm.public_color_key, 'public', theme);
   const sleep = resolveSwatchHex(props.publicPageSettingsForm.sleep_color_key, 'sleep', theme);
   const highlighted = resolveSwatchHex(props.publicPageSettingsForm.highlight_color_key, 'highlighted', theme);
@@ -352,10 +349,6 @@ function previewStyleFor(theme: 'light' | 'dark') {
     '--app-color-free': hexToRgba(free, alpha.free),
     '--app-hue-free': free,
     '--app-color-busy': hexToRgba(busy, alpha.busy),
-    '--app-color-work': hexToRgba(work, alpha.work),
-    '--app-hue-work': work,
-    '--app-color-school': hexToRgba(school, alpha.school),
-    '--app-hue-school': school,
     '--app-color-public': hexToRgba(publicColor, alpha.public),
     '--app-hue-public': publicColor,
     '--app-color-sleep': hexToRgba(sleep, alpha.sleep),
@@ -381,8 +374,13 @@ const previewSecondaryColorDark = computed(() => resolveSwatchHex(props.publicPa
 const formIcons = computed(() => ({
   free: resolveIcon(props.publicPageSettingsForm.free_icon_key, 'free'),
   busy: resolveIcon(props.publicPageSettingsForm.busy_icon_key, 'busy'),
-  work: resolveIcon(props.publicPageSettingsForm.work_icon_key, 'work'),
-  school: resolveIcon(props.publicPageSettingsForm.school_icon_key, 'school'),
+  // No per-user base work/school icon setting any more — resolveIcon(null,
+  // …) falls back to that slot's own curated default (IconPalette::
+  // DEFAULT_KEYS), and a matched work/school block overrides this via its
+  // own activity_icon when the owner customized that specific role
+  // (CalendarView.vue's iconFor).
+  work: resolveIcon(null, 'work'),
+  school: resolveIcon(null, 'school'),
   public: resolveIcon(props.publicPageSettingsForm.public_icon_key, 'public'),
   sleep: resolveIcon(props.publicPageSettingsForm.sleep_icon_key, 'sleep'),
   highlighted: resolveIcon(props.publicPageSettingsForm.highlight_icon_key, 'highlighted'),
@@ -391,8 +389,8 @@ const formIcons = computed(() => ({
 /** This card's "Reset" button field list, named explicitly for clarity even though publicPageSettingsForm holds only these fields anyway. */
 const PUBLIC_PAGE_FIELDS = [
   'public_page_title',
-  'accent_color_key', 'secondary_color_key', 'free_color_key', 'busy_color_key', 'work_color_key', 'school_color_key', 'public_color_key', 'sleep_color_key', 'highlight_color_key',
-  'free_icon_key', 'busy_icon_key', 'work_icon_key', 'school_icon_key', 'public_icon_key', 'sleep_icon_key', 'highlight_icon_key',
+  'accent_color_key', 'secondary_color_key', 'free_color_key', 'busy_color_key', 'public_color_key', 'sleep_color_key', 'highlight_color_key',
+  'free_icon_key', 'busy_icon_key', 'public_icon_key', 'sleep_icon_key', 'highlight_icon_key',
   'now_color_key',
 ] as const;
 

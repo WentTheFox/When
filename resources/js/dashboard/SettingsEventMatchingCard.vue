@@ -14,7 +14,7 @@ const props = defineProps<{
   defaults: SettingsDefaults;
 }>();
 
-/** Every pattern input's own `id` is set to its Settings field name 1:1 (e.g. `id="work_event_pattern"` on the field bound to `form.work_event_pattern`) — RegexPatternInput.vue forwards that id straight onto its native textarea, so this is enough to reach the actual focusable element without a template ref per field. */
+/** Every pattern input's own `id` is set to its Settings field name 1:1 (e.g. `id="dnd_event_pattern"` on the field bound to `form.dnd_event_pattern`) — RegexPatternInput.vue forwards that id straight onto its native textarea, so this is enough to reach the actual focusable element without a template ref per field. */
 function focusField(field: string): void {
   document.getElementById(field)?.focus();
 }
@@ -36,8 +36,6 @@ function setFormField(field: keyof Settings, value: string): void {
 const EVENT_MATCHING_FIELDS = [
   'dnd_event_pattern', 'dnd_event_pattern_preview',
   'nap_event_pattern', 'nap_event_pattern_preview',
-  'work_event_pattern', 'work_event_pattern_preview',
-  'school_event_pattern', 'school_event_pattern_preview',
   'public_event_pattern', 'public_event_pattern_preview',
   'highlight_clause_pattern', 'highlight_clause_pattern_preview',
   'highlight_split_pattern', 'highlight_split_pattern_preview',
@@ -66,14 +64,6 @@ const dndPreviewConfig: PatternPreviewConfig = {
 const napPreviewConfig: PatternPreviewConfig = {
   mode: 'match',
   examples: ['Nap', 'Afternoon nap', 'NAP TIME', 'Sleep', 'Standup meeting'],
-};
-const workPreviewConfig: PatternPreviewConfig = {
-  mode: 'match',
-  examples: ['Work', 'Work block', 'WFH', 'Team standup', 'Lunch with Sarah'],
-};
-const schoolPreviewConfig: PatternPreviewConfig = {
-  mode: 'match',
-  examples: ['Chemistry class', 'School pickup', 'CLASS 4B', 'Team standup', 'Lunch with Sarah'],
 };
 const highlightClausePreviewConfig = computed<PatternPreviewConfig>(() => ({
   mode: 'tokens',
@@ -322,64 +312,6 @@ function submit(): void {
               :pattern="eventMatchingSettingsForm.nap_event_pattern"
               :blank-label="PATTERN_DISABLED_TEXT"
               :config="napPreviewConfig"
-            />
-          </div>
-        </div>
-
-        <div class="row mb-3">
-          <div class="col-md-6">
-            <BFormGroup label-for="work_event_pattern" class="mb-0">
-              <template #label>Work event regular expression <BBadge variant="secondary" class="align-middle">Boolean</BBadge></template>
-              <RegexPatternInput
-                id="work_event_pattern"
-                field-label="Work event regular expression"
-                v-model="eventMatchingSettingsForm.work_event_pattern"
-                v-model:preview-model-value="eventMatchingSettingsForm.work_event_pattern_preview"
-                :preview-config="workPreviewConfig"
-              />
-              <template #description>
-                A match counts toward the "work" slice of the dashboard's time-breakdown widget and
-                the /free calendar's own work category.
-                Suggested: <RegexHighlightedCode :pattern="defaults.workEventPattern" />
-                <BButton variant="link" size="sm" class="p-0 align-baseline ms-1" @click="setFormField('work_event_pattern', defaults.workEventPattern)">Use suggested</BButton>
-              </template>
-            </BFormGroup>
-          </div>
-          <div class="col-md-6">
-            <PatternPreviewPanel
-              v-model:preview-model-value="eventMatchingSettingsForm.work_event_pattern_preview"
-              :pattern="eventMatchingSettingsForm.work_event_pattern"
-              :blank-label="PATTERN_DISABLED_TEXT"
-              :config="workPreviewConfig"
-            />
-          </div>
-        </div>
-
-        <div class="row mb-3">
-          <div class="col-md-6">
-            <BFormGroup label-for="school_event_pattern" class="mb-0">
-              <template #label>School event regular expression <BBadge variant="secondary" class="align-middle">Boolean</BBadge></template>
-              <RegexPatternInput
-                id="school_event_pattern"
-                field-label="School event regular expression"
-                v-model="eventMatchingSettingsForm.school_event_pattern"
-                v-model:preview-model-value="eventMatchingSettingsForm.school_event_pattern_preview"
-                :preview-config="schoolPreviewConfig"
-              />
-              <template #description>
-                A match counts toward the "school" slice of the dashboard's time-breakdown widget
-                and the /free calendar's own school category.
-                Suggested: <RegexHighlightedCode :pattern="defaults.schoolEventPattern" />
-                <BButton variant="link" size="sm" class="p-0 align-baseline ms-1" @click="setFormField('school_event_pattern', defaults.schoolEventPattern)">Use suggested</BButton>
-              </template>
-            </BFormGroup>
-          </div>
-          <div class="col-md-6">
-            <PatternPreviewPanel
-              v-model:preview-model-value="eventMatchingSettingsForm.school_event_pattern_preview"
-              :pattern="eventMatchingSettingsForm.school_event_pattern"
-              :blank-label="PATTERN_DISABLED_TEXT"
-              :config="schoolPreviewConfig"
             />
           </div>
         </div>

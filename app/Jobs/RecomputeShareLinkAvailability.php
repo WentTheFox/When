@@ -170,9 +170,7 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
             highlightClausePattern: $user->highlight_clause_pattern,
             activityClausePattern: $user->activity_clause_pattern,
             showActivity: $shareLink->show_activity,
-            workEventPattern: $user->work_event_pattern,
             highlightSplitPattern: $user->highlight_split_pattern,
-            schoolEventPattern: $user->school_event_pattern,
             activityLocalizations: $activityLocalizations,
         );
 

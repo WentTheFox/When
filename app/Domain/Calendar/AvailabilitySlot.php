@@ -8,9 +8,9 @@ use Carbon\CarbonImmutable;
  * A single time range in AvailabilityResult's flat, possibly-overlapping
  * event list — see that class's doc comment for why entries overlap and
  * who resolves that. `type` says which category this slot belongs to
- * (free/unavailable/highlighted/work/school/public/sleep); a single event
- * can produce more than one slot with different types covering the same
- * span (e.g. busy AND highlighted).
+ * (free/unavailable/highlighted/public/sleep); a single event can produce
+ * more than one slot with different types covering the same span (e.g.
+ * busy AND highlighted).
  */
 final class AvailabilitySlot
 {
@@ -18,9 +18,9 @@ final class AvailabilitySlot
         public readonly CarbonImmutable $start,
         public readonly CarbonImmutable $end,
         public readonly string $type,
-        /** Start time is unknown/approximate (source title ended in "(?-)", or fully-tentative "(?)"/STATUS:TENTATIVE). Only ever true for unavailable/highlighted/work/school/public types — free/sleep never carry this. */
+        /** Start time is unknown/approximate (source title ended in "(?-)", or fully-tentative "(?)"/STATUS:TENTATIVE). Only ever true for unavailable/highlighted/public types — free/sleep never carry this. */
         public readonly bool $tentativeStart = false,
-        /** End time is unknown/approximate (source title ended in "(-?)", or fully-tentative "(?)"/STATUS:TENTATIVE). Only ever true for unavailable/highlighted/work/school/public types — free/sleep never carry this. */
+        /** End time is unknown/approximate (source title ended in "(-?)", or fully-tentative "(?)"/STATUS:TENTATIVE). Only ever true for unavailable/highlighted/public types — free/sleep never carry this. */
         public readonly bool $tentativeEnd = false,
         /** Freetext preceding "with X"/"w/ X" (e.g. "Dinner"), raw and unlocalized, for a highlighted slot — null unless share_links.show_activity is on for this link, or activityLabel below already covers this event. See ActivityExtractor. A public slot runs through the same extraction unconditionally (never gated behind show_activity, since every visitor sees it), falling back to the full cleaned summary whenever there's no pattern configured or it doesn't match — see AvailabilityService::compute. */
         public readonly ?string $activity = null,

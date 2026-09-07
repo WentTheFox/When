@@ -109,9 +109,9 @@ class DashboardController extends Controller
             );
 
             $rows = [
-                $this->buildRow('Today', $result, $events, $user->work_event_pattern, $user->school_event_pattern, $todayStart, $todayEnd, 1),
-                $this->buildRow('This week', $result, $events, $user->work_event_pattern, $user->school_event_pattern, $weekStart, $weekStart->addDays(7), 7),
-                $this->buildRow('Past '.self::PAST_DAYS.' days', $result, $events, $user->work_event_pattern, $user->school_event_pattern, $past30Start, $todayEnd, self::PAST_DAYS),
+                $this->buildRow('Today', $result, $todayStart, $todayEnd, 1),
+                $this->buildRow('This week', $result, $weekStart, $weekStart->addDays(7), 7),
+                $this->buildRow('Past '.self::PAST_DAYS.' days', $result, $past30Start, $todayEnd, self::PAST_DAYS),
             ];
 
             [$topHighlights, $restHighlights, $noTimeHighlights] = $this->computeHighlightLeaderboard(
@@ -129,15 +129,9 @@ class DashboardController extends Controller
         }
     }
 
-    /**
-     * @param  ParsedEvent[]  $events
-     */
     private function buildRow(
         string $title,
         AvailabilityResult $result,
-        array $events,
-        ?string $workEventPattern,
-        ?string $schoolEventPattern,
         CarbonImmutable $bucketStart,
         CarbonImmutable $bucketEnd,
         int $days,
@@ -145,8 +139,6 @@ class DashboardController extends Controller
         $totalMin = $days * 1440;
         $sleepMin = $this->sumSlotMinutes($this->slotsOfType($result, 'sleep'), $bucketStart, $bucketEnd);
         $freeMin = $this->sumSlotMinutes($this->slotsOfType($result, 'free'), $bucketStart, $bucketEnd);
-        $workMin = $this->sumEventMinutes($events, $workEventPattern, $bucketStart, $bucketEnd);
-        $schoolMin = $this->sumEventMinutes($events, $schoolEventPattern, $bucketStart, $bucketEnd);
         $windowMin = max(0, $totalMin - $sleepMin);
 
         if ($windowMin === 0) {
@@ -154,14 +146,12 @@ class DashboardController extends Controller
                 'title' => $title,
                 'notAvail' => true,
                 'sleepLabel' => '24:00', 'sleepPct' => 100, 'sleepBarPct' => 100,
-                'workLabel' => null, 'workPct' => 0, 'workBarPct' => 0,
-                'schoolLabel' => null, 'schoolPct' => 0, 'schoolBarPct' => 0,
                 'busyLabel' => null, 'busyPct' => 0, 'busyBarPct' => 0,
                 'freeLabel' => null, 'freePct' => null,
             ];
         }
 
-        $busyMin = max(0, $windowMin - $freeMin - $workMin - $schoolMin);
+        $busyMin = max(0, $windowMin - $freeMin);
         $hhmm = fn (int $m) => sprintf('%d:%02d', intdiv($m, 60), $m % 60);
 
         return [
@@ -170,12 +160,6 @@ class DashboardController extends Controller
             'sleepLabel' => $hhmm($sleepMin),
             'sleepPct' => (int) round($sleepMin / $totalMin * 100),
             'sleepBarPct' => (int) round($sleepMin / $totalMin * 100),
-            'workLabel' => $hhmm($workMin),
-            'workPct' => min(100, (int) round($workMin / $windowMin * 100)),
-            'workBarPct' => (int) round($workMin / $totalMin * 100),
-            'schoolLabel' => $hhmm($schoolMin),
-            'schoolPct' => min(100, (int) round($schoolMin / $windowMin * 100)),
-            'schoolBarPct' => (int) round($schoolMin / $totalMin * 100),
             'busyLabel' => $hhmm($busyMin),
             'busyPct' => min(100, (int) round($busyMin / $windowMin * 100)),
             'busyBarPct' => (int) round($busyMin / $totalMin * 100),
@@ -308,31 +292,6 @@ class DashboardController extends Controller
         foreach ($slots as $slot) {
             $start = $slot->start->max($bucketStart);
             $end = $slot->end->min($bucketEnd);
-
-            if ($end->gt($start)) {
-                $minutes += $start->diffInMinutes($end);
-            }
-        }
-
-        return $minutes;
-    }
-
-    /** @param  ParsedEvent[]  $events */
-    private function sumEventMinutes(array $events, ?string $pattern, CarbonImmutable $bucketStart, CarbonImmutable $bucketEnd): int
-    {
-        if ($pattern === null || $pattern === '') {
-            return 0;
-        }
-
-        $minutes = 0;
-
-        foreach ($events as $event) {
-            if (! $event->matchesEventNamePattern($pattern)) {
-                continue;
-            }
-
-            $start = $event->start->max($bucketStart);
-            $end = $event->end->min($bucketEnd);
 
             if ($end->gt($start)) {
                 $minutes += $start->diffInMinutes($end);

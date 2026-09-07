@@ -80,8 +80,10 @@ const currentTimePct = (() => {
 const formIcons = computed(() => ({
   free: resolveIcon(props.publicPageSettingsForm.free_icon_key, 'free'),
   busy: resolveIcon(props.publicPageSettingsForm.busy_icon_key, 'busy'),
-  work: resolveIcon(props.publicPageSettingsForm.work_icon_key, 'work'),
-  school: resolveIcon(props.publicPageSettingsForm.school_icon_key, 'school'),
+  // No per-user base work/school icon setting any more — see
+  // SettingsPublicPageCard.vue's own formIcons comment.
+  work: resolveIcon(null, 'work'),
+  school: resolveIcon(null, 'school'),
   public: resolveIcon(props.publicPageSettingsForm.public_icon_key, 'public'),
   sleep: resolveIcon(props.publicPageSettingsForm.sleep_icon_key, 'sleep'),
   highlighted: resolveIcon(props.publicPageSettingsForm.highlight_icon_key, 'highlighted'),
@@ -109,8 +111,6 @@ function previewStyleFor(theme: 'light' | 'dark') {
   const accent = resolveSwatchHex(props.publicPageSettingsForm.accent_color_key, 'accent', theme);
   const free = resolveSwatchHex(props.publicPageSettingsForm.free_color_key, 'free', theme);
   const busy = resolveSwatchHex(props.publicPageSettingsForm.busy_color_key, 'busy', theme);
-  const work = resolveSwatchHex(props.publicPageSettingsForm.work_color_key, 'work', theme);
-  const school = resolveSwatchHex(props.publicPageSettingsForm.school_color_key, 'school', theme);
   const publicColor = resolveSwatchHex(props.publicPageSettingsForm.public_color_key, 'public', theme);
   const sleep = resolveSwatchHex(props.publicPageSettingsForm.sleep_color_key, 'sleep', theme);
   const highlighted = resolveSwatchHex(props.publicPageSettingsForm.highlight_color_key, 'highlighted', theme);
@@ -123,10 +123,6 @@ function previewStyleFor(theme: 'light' | 'dark') {
     '--app-color-free': hexToRgba(free, alpha.free),
     '--app-hue-free': free,
     '--app-color-busy': hexToRgba(busy, alpha.busy),
-    '--app-color-work': hexToRgba(work, alpha.work),
-    '--app-hue-work': work,
-    '--app-color-school': hexToRgba(school, alpha.school),
-    '--app-hue-school': school,
     '--app-color-public': hexToRgba(publicColor, alpha.public),
     '--app-hue-public': publicColor,
     '--app-color-sleep': hexToRgba(sleep, alpha.sleep),
@@ -163,8 +159,6 @@ async function preview(): Promise<void> {
       calendar_parsing_mode: props.calendarSettingsForm.calendar_parsing_mode,
       dnd_event_pattern: props.eventMatchingSettingsForm.dnd_event_pattern,
       nap_event_pattern: props.eventMatchingSettingsForm.nap_event_pattern,
-      work_event_pattern: props.eventMatchingSettingsForm.work_event_pattern,
-      school_event_pattern: props.eventMatchingSettingsForm.school_event_pattern,
       public_event_pattern: props.eventMatchingSettingsForm.public_event_pattern,
       highlight_clause_pattern: props.eventMatchingSettingsForm.highlight_clause_pattern,
       highlight_split_pattern: props.eventMatchingSettingsForm.highlight_split_pattern,

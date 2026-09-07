@@ -8,8 +8,8 @@ use App\Domain\Calendar\ParsedEvent;
 use Carbon\CarbonImmutable;
 
 /**
- * Computes the final free/highlighted/unavailable/work/school/public/sleep
- * result (§5.1). The categories are computed mostly independently and can
+ * Computes the final free/highlighted/unavailable/public/sleep result
+ * (§5.1). The categories are computed mostly independently and can
  * legitimately overlap (an event that's both busy and highlighted produces
  * both an `unavailable` and a `highlighted` entry) — see
  * AvailabilityResult's doc comment for why that's intentional, not a bug to
@@ -32,6 +32,7 @@ class AvailabilityService
      * @param  array<int, array{wake: ?string, sleep: ?string}>  $weeklyAvailability  Keyed 0 (Sun) .. 6 (Sat).
      * @param  array{start: CarbonImmutable, end: CarbonImmutable}[]  $sleepExceptions  Date-only ranges; suppress the default sleep block.
      * @param  string[]  $highlightWords
+     * @param  array<int, array{pattern: string, label: array<string, string>, icon_key?: ?string, color_key?: ?string}>  $activityLocalizations  Owner's own configured roles, in display/check order.
      */
     public function compute(
         array $events,
@@ -46,16 +47,12 @@ class AvailabilityService
         ?string $highlightClausePattern = null,
         ?string $activityClausePattern = null,
         bool $showActivity = true,
-        ?string $workEventPattern = null,
         ?string $highlightSplitPattern = null,
-        ?string $schoolEventPattern = null,
         array $activityLocalizations = [],
     ): AvailabilityResult {
         $napIntervals = [];
         $busyIntervals = [];
         $unavailable = [];
-        $work = [];
-        $school = [];
         $public = [];
         $highlighted = [];
 
@@ -71,21 +68,7 @@ class AvailabilityService
                 $napIntervals[] = ['start' => $event->start, 'end' => $event->end];
             }
 
-            // Still counted as ordinary busy time above (kept in
-            // $unavailable/$busyIntervals) — this just additionally tags the
-            // same span as "work" so the calendar can render it as its own
-            // category, the same double-bookkeeping AvailabilityResult's own
-            // doc comment already describes for `highlighted`.
-            if ($event->matchesEventNamePattern($workEventPattern)) {
-                $work[] = ['start' => $event->start, 'end' => $event->end, 'tentativeStart' => $event->tentativeStart, 'tentativeEnd' => $event->tentativeEnd];
-            }
-
-            // Same double-bookkeeping as work above.
-            if ($event->matchesEventNamePattern($schoolEventPattern)) {
-                $school[] = ['start' => $event->start, 'end' => $event->end, 'tentativeStart' => $event->tentativeStart, 'tentativeEnd' => $event->tentativeEnd];
-            }
-
-            // Same double-bookkeeping as work/school above — but decided by
+            // Same double-bookkeeping as `highlighted` below — but decided by
             // IcsParser at parse time (isPublicEventTitle), not a plain
             // matchesEventNamePattern() check here: public_event_pattern is
             // a Flag-style marker (like tentative/open-end/open-start)
@@ -153,19 +136,13 @@ class AvailabilityService
         $unavailable = $this->subtractSleepFromEvents($unavailable, $sleepIntervals);
         $unavailable = $this->mergeEventSegments($unavailable);
 
-        $work = $this->subtractSleepFromEvents($work, $sleepIntervals);
-        $work = $this->mergeEventSegments($work);
-
-        $school = $this->subtractSleepFromEvents($school, $sleepIntervals);
-        $school = $this->mergeEventSegments($school);
-
-        // No mergeEventSegments pass here, unlike unavailable/work/school
-        // above — that method's cross-event merging discards everything
-        // but start/end/tentative flags, which would lose each segment's
-        // own `summary` (the whole point of a public event is showing that
-        // verbatim). Two public events overlapping each other is an
-        // unusual edge case; subtractSleepFromEvents already splits each
-        // one around sleep while keeping its own summary attached.
+        // No mergeEventSegments pass here, unlike unavailable above — that
+        // method's cross-event merging discards everything but start/end/
+        // tentative flags, which would lose each segment's own `summary`
+        // (the whole point of a public event is showing that verbatim).
+        // Two public events overlapping each other is an unusual edge
+        // case; subtractSleepFromEvents already splits each one around
+        // sleep while keeping its own summary attached.
         $public = $this->subtractSleepFromEvents($public, $sleepIntervals);
 
         $free = $this->computeFreeRanges($weeklyAvailability, $busyIntervals, $rangeStart, $rangeEnd);
@@ -173,8 +150,6 @@ class AvailabilityService
         return new AvailabilityResult(events: [
             ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'free'), $free),
             ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'unavailable', tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd']), $unavailable),
-            ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'work', tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd']), $work),
-            ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'school', tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd']), $school),
             ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'public', tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd'], activity: $s['summary']), $public),
             ...$highlighted,
             ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'sleep'), $sleepIntervals),

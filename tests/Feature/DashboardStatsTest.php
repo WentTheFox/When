@@ -87,14 +87,13 @@ class DashboardStatsTest extends TestCase
         $response->assertStatus(401);
     }
 
-    public function test_breakdown_rows_classify_a_matching_event_as_work(): void
+    public function test_breakdown_rows_are_returned_for_a_configured_calendar(): void
     {
         $this->mockCalendarResponse($this->icsFixture());
 
         $user = User::factory()->create([
             'calendar_url_ciphertext' => Crypt::encryptString('https://example.com/secret.ics'),
             'timezone' => 'UTC',
-            'work_event_pattern' => 'Work',
             'calendar_parsing_mode' => 'full_detail',
         ]);
 
@@ -106,8 +105,6 @@ class DashboardStatsTest extends TestCase
 
         $today = $rows[0];
         $this->assertFalse($today['notAvail']);
-        $this->assertSame('2:00', $today['workLabel']);
-        $this->assertGreaterThan(0, $today['workPct']);
     }
 
     public function test_a_share_link_with_words_appears_in_the_highlights_leaderboard_labeled_by_its_linked_connection(): void
