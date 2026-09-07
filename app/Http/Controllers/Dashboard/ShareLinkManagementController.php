@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Models\ShareLink;
 use App\Models\ShareLinkCache;
+use App\Models\ShareLinkVisit;
 use App\Models\ShareLinkWord;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -239,6 +240,23 @@ class ShareLinkManagementController extends Controller
         }
 
         return response()->json(['imported' => $imported, 'skipped' => $skipped]);
+    }
+
+    /** Paginated visit history for a link's dashboard card — see ShareLinkCard.vue. */
+    public function visits(Request $request, string $shareLink): JsonResponse
+    {
+        $shareLink = $this->findOwned($request, $shareLink);
+
+        $visits = $shareLink->visits()
+            ->orderByDesc('visited_at')
+            ->paginate(10)
+            ->through(fn (ShareLinkVisit $visit) => [
+                'id' => $visit->id,
+                'visited_at' => $visit->visited_at->toIso8601String(),
+                'timezone' => $visit->timezone,
+            ]);
+
+        return response()->json($visits);
     }
 
     private function findOwned(Request $request, string $id): ShareLink

@@ -32,6 +32,10 @@ class AppServiceProvider extends ServiceProvider
         // is purely an anti-enumeration ceiling, not a load-protection
         // limit — set high enough that no real viewer ever notices it.
         RateLimiter::for('share-link-view', fn (Request $request) => Limit::perMinute(120)->by($request->ip()));
+        // One real POST per page load, so a much tighter ceiling than
+        // share-link-view is fine here — this only needs to absorb a
+        // reasonable amount of genuine traffic, not repeated polling.
+        RateLimiter::for('share-link-visit', fn (Request $request) => Limit::perMinute(20)->by($request->ip()));
         // /login/lookup resolves an identifier to a salt basis before the
         // real login POST — its pseudo-id fallback (see
         // AuthenticatedSessionController::pseudoId()) already keeps a

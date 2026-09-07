@@ -63,6 +63,11 @@ class ShareLink extends Model
         return $this->hasMany(ShareLinkWord::class);
     }
 
+    public function visits(): HasMany
+    {
+        return $this->hasMany(ShareLinkVisit::class);
+    }
+
     public function cache(): HasOne
     {
         return $this->hasOne(ShareLinkCache::class);

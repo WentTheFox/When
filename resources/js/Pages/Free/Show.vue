@@ -16,6 +16,7 @@ import { faChevronLeft, faChevronRight, faLock } from '@fortawesome/free-solid-s
  * isn't a useful mobile view.
  */
 import { Head } from '@inertiajs/vue3';
+import axios from 'axios';
 import { BButton } from 'bootstrap-vue-next';
 import {
   addDays as addDaysFns,
@@ -441,6 +442,20 @@ async function boot(): Promise<void> {
   }
 }
 
+/**
+ * Fire-and-forget page-view record — timestamp plus the viewer's own
+ * browser-reported IANA timezone, so the owner can eyeball time-zone spread
+ * across a link's viewers from the dashboard. Never blocks/affects the
+ * calendar view itself: swallows its own errors.
+ */
+function recordVisit(): void {
+  if (!props.linkFound || !props.token) return;
+
+  axios.post(`/api/share/${props.token}/visits`, {
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  }).catch((error) => console.error(error));
+}
+
 onMounted(() => {
   // /free vs /hu/free decides the whole page's language, not just pageTitle
   // — block labels, durations, date-fns weekday/month names all react to
@@ -454,6 +469,7 @@ onMounted(() => {
   }
 
   boot();
+  recordVisit();
   const timer = setInterval(() => {
     now.value = new Date();
   }, 30_000);

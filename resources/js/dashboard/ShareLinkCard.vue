@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import axios from 'axios';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faCheck, faCopy } from '@fortawesome/free-solid-svg-icons';
-import { BBadge, BButton, BCard, BFormCheckbox, BFormGroup, BFormInput, BFormSelect, BFormTextarea } from 'bootstrap-vue-next';
+import { faCheck, faCopy, faRotateRight } from '@fortawesome/free-solid-svg-icons';
+import { BBadge, BButton, BCard, BFormCheckbox, BFormGroup, BFormInput, BFormSelect, BFormTextarea, BSpinner } from 'bootstrap-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../crypto';
 import { requestConfirm } from './confirmModal';
@@ -127,17 +127,52 @@ const url = computed(() => `${window.location.origin}/free/${props.link.highligh
 onMounted(async () => {
   if (!props.link.label_ciphertext) {
     label.value = '(no label)';
-    return;
+  } else {
+    try {
+      const key = await getRecordKey(props.link.id);
+      label.value = await decryptString(key, props.link.label_ciphertext);
+      editLabel.value = label.value;
+    } catch (error) {
+      console.error(error);
+      label.value = '(could not decrypt)';
+    }
   }
+
+  fetchVisits(1);
+});
+
+interface VisitRow {
+  id: string;
+  visited_at: string;
+  timezone: string;
+}
+
+interface VisitsPage {
+  data: VisitRow[];
+  current_page: number;
+  last_page: number;
+}
+
+const visits = ref<VisitRow[]>([]);
+const visitsPage = ref(1);
+const visitsLastPage = ref(1);
+const loadingVisits = ref(false);
+
+async function fetchVisits(page: number): Promise<void> {
+  loadingVisits.value = true;
   try {
-    const key = await getRecordKey(props.link.id);
-    label.value = await decryptString(key, props.link.label_ciphertext);
-    editLabel.value = label.value;
+    const { data } = await axios.get<VisitsPage>(`/dashboard/share-links/${props.link.id}/visits`, {
+      params: { page },
+    });
+    visits.value = data.data;
+    visitsPage.value = data.current_page;
+    visitsLastPage.value = data.last_page;
   } catch (error) {
     console.error(error);
-    label.value = '(could not decrypt)';
+  } finally {
+    loadingVisits.value = false;
   }
-});
+}
 
 async function save(): Promise<void> {
   try {
@@ -264,6 +299,52 @@ async function remove(): Promise<void> {
         <BFormTextarea v-model="editWords" size="sm" :rows="Math.max(2, editWords.split('\n').length)" />
       </BFormGroup>
       <BButton size="sm" variant="primary" @click="save">Save</BButton>
+    </div>
+
+    <div class="mt-4">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <h6 class="mb-0">Visit history</h6>
+        <BButton variant="outline-secondary" size="sm" title="Reload" :disabled="loadingVisits" @click="fetchVisits(visitsPage)">
+          <FontAwesomeIcon :icon="faRotateRight" :spin="loadingVisits" />
+        </BButton>
+      </div>
+      <BSpinner v-if="loadingVisits && !visits.length" small />
+      <p v-else-if="!visits.length" class="small text-muted mb-0">No visits recorded yet.</p>
+      <template v-else>
+        <table class="table table-sm mb-2">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Visitor timezone</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="visit in visits" :key="visit.id">
+              <td>{{ new Date(visit.visited_at).toLocaleString() }}</td>
+              <td>{{ visit.timezone }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div v-if="visitsLastPage > 1" class="d-flex align-items-center gap-2">
+          <BButton
+            size="sm"
+            variant="outline-secondary"
+            :disabled="visitsPage <= 1"
+            @click="fetchVisits(visitsPage - 1)"
+          >
+            Previous
+          </BButton>
+          <span class="small text-muted">Page {{ visitsPage }} of {{ visitsLastPage }}</span>
+          <BButton
+            size="sm"
+            variant="outline-secondary"
+            :disabled="visitsPage >= visitsLastPage"
+            @click="fetchVisits(visitsPage + 1)"
+          >
+            Next
+          </BButton>
+        </div>
+      </template>
     </div>
   </BCard>
 </template>
