@@ -97,6 +97,108 @@ export function countCapturingGroups(alternation: AlternationNode): number {
   return count;
 }
 
+/** How many times a quantified node's own single iteration is required to repeat at minimum — 1 for no quantifier at all (i.e. "exactly once"). */
+function effectiveMinIterations(quantifier?: QuantifierMod): number {
+  if (!quantifier) return 1;
+  if (quantifier.kind === '*' || quantifier.kind === '?') return 0;
+  if (quantifier.kind === '+') return 1;
+  return quantifier.min ?? 0;
+}
+
+/**
+ * Whether `node` could, on some match, contribute zero characters —
+ * needed to know whether a ^/$ sitting next to it in the same sequence is
+ * actually reachable (see findUnsatisfiableBranches's own doc comment).
+ * `raw` is always treated as "could be empty": it's arbitrary regex
+ * syntax with no block form (a lookaround, say, genuinely zero-width;
+ * plain literal text isn't) — since we can't parse it further here,
+ * assuming the permissive case means this analysis only ever flags a
+ * branch it can actually prove is broken, never one it merely doesn't
+ * understand.
+ */
+export function nodeCanMatchEmpty(node: RegexNode): boolean {
+  if (node.type === 'anchor') return true; // zero-width by definition, and can't carry a quantifier at all
+  if (effectiveMinIterations(node.quantifier) === 0) return true;
+  switch (node.type) {
+    case 'literal': return node.text === '';
+    case 'charClass': return false;
+    case 'raw': return true;
+    case 'group': return alternationCanMatchEmpty(node.body);
+  }
+}
+
+/** Whether at least one of this alternation's own branches could match the empty string — a group's own "can this be skipped" question, one level up from nodeCanMatchEmpty. */
+export function alternationCanMatchEmpty(alternation: AlternationNode): boolean {
+  return alternation.branches.some((branch) => branch.items.every((item) => nodeCanMatchEmpty(item)));
+}
+
+/**
+ * The `key` of every branch (SequenceNode), at any nesting depth, that can
+ * never match anything — a ^ sitting after something that must consume at
+ * least one real character, or a $ sitting before one, both make the
+ * whole branch impossible to satisfy no matter what the rest of the
+ * pattern does (e.g. a capture group's own trailing $ followed by more
+ * required content after that group closes). Walked top-down: a group's
+ * own body inherits whether everything *outside* the group, before/after
+ * it in its parent branch (and beyond, transitively), could itself
+ * collapse to nothing — that's what makes a ^/$ genuinely at "the start"/
+ * "the end" of the overall pattern even when it's nested inside a leading/
+ * trailing group, not just at index 0 of its own immediate sequence.
+ */
+export function findUnsatisfiableBranches(
+  alternation: AlternationNode,
+  canPrecedeEmpty = true,
+  canFollowEmpty = true,
+): Set<string> {
+  const invalid = new Set<string>();
+
+  for (const branch of alternation.branches) {
+    let invalidBranch = false;
+
+    let prefixEmpty = canPrecedeEmpty;
+    for (const item of branch.items) {
+      if (item.type === 'anchor' && item.kind === 'start' && !prefixEmpty) invalidBranch = true;
+      if (!nodeCanMatchEmpty(item)) prefixEmpty = false;
+    }
+
+    let suffixEmpty = canFollowEmpty;
+    for (let i = branch.items.length - 1; i >= 0; i -= 1) {
+      const item = branch.items[i]!;
+      if (item.type === 'anchor' && item.kind === 'end' && !suffixEmpty) invalidBranch = true;
+      if (!nodeCanMatchEmpty(item)) suffixEmpty = false;
+    }
+
+    if (invalidBranch) invalid.add(branch.key);
+
+    // Recurse into every group in this branch, handing its body whether
+    // everything before/after THAT group specifically (within this
+    // branch, chained with whatever surrounds this whole alternation)
+    // could itself be empty.
+    const canPrecedeGroupAt: boolean[] = [];
+    let before = canPrecedeEmpty;
+    for (const item of branch.items) {
+      canPrecedeGroupAt.push(before);
+      if (!nodeCanMatchEmpty(item)) before = false;
+    }
+    const canFollowGroupAt: boolean[] = new Array(branch.items.length);
+    let after = canFollowEmpty;
+    for (let i = branch.items.length - 1; i >= 0; i -= 1) {
+      canFollowGroupAt[i] = after;
+      const item = branch.items[i]!;
+      if (!nodeCanMatchEmpty(item)) after = false;
+    }
+    branch.items.forEach((item, i) => {
+      if (item.type === 'group') {
+        for (const key of findUnsatisfiableBranches(item.body, canPrecedeGroupAt[i], canFollowGroupAt[i])) {
+          invalid.add(key);
+        }
+      }
+    });
+  }
+
+  return invalid;
+}
+
 function wholePatternAsRaw(pattern: string): AlternationNode {
   return { type: 'alternation', branches: [{ key: newBlockKey(), type: 'sequence', items: [{ key: newBlockKey(), type: 'raw', text: pattern }] }] };
 }

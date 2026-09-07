@@ -2079,6 +2079,24 @@ hr {
     user-select: none;
 }
 
+/* A branch findUnsatisfiableBranches() (regexAstModel.ts) has proven can
+   never match anything — e.g. a $ closing a capture group that's followed
+   by more required content. Same red used for form validation errors
+   elsewhere in the app, so it reads as the same kind of "this is broken"
+   signal. */
+.wtf-regex-sequence--invalid {
+    border-color: var(--bs-danger);
+    border-style: solid;
+    background-color: rgba(var(--bs-danger-rgb), 0.08);
+}
+
+.wtf-regex-sequence-invalid-label {
+    margin: 0.25rem 0 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--bs-danger);
+}
+
 .wtf-regex-alternation-branch {
     display: flex;
     align-items: flex-start;

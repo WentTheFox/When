@@ -10,3 +10,13 @@ import type { ComputedRef, InjectionKey } from 'vue';
  * as a prop.
  */
 export const CAPTURE_GROUP_LIMIT_REACHED_KEY: InjectionKey<ComputedRef<boolean>> = Symbol('regexCaptureGroupLimitReached');
+
+/**
+ * Provided once by RegexVisualEditorModal.vue: the `key` of every branch
+ * (SequenceNode, at any nesting depth) that findUnsatisfiableBranches()
+ * (regexAstModel.ts) has proven can never match anything — a ^ or $ sits
+ * somewhere content would have to come before/after it that can't
+ * collapse to zero width. RegexSequenceEditor.vue injects this to
+ * highlight its own sequence red when its key is a member.
+ */
+export const INVALID_BRANCH_KEYS_KEY: InjectionKey<ComputedRef<Set<string>>> = Symbol('regexInvalidBranchKeys');

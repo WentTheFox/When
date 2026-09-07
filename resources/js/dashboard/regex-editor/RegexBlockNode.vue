@@ -23,7 +23,15 @@ import type { CharClassNode, GroupNode, LiteralNode, RawNode, RegexNode } from '
 import RegexAlternationEditor from './RegexAlternationEditor.vue';
 import RegexQuantifierControl from './RegexQuantifierControl.vue';
 
-const props = defineProps<{ node: RegexNode }>();
+const props = withDefaults(defineProps<{
+  node: RegexNode;
+  /** Forwarded straight to this node's own group body (if it has one) — see RegexSequenceEditor.vue's own doc comment on the prop of the same name. Unused for every other node type. */
+  startEligible?: boolean;
+  endEligible?: boolean;
+}>(), {
+  startEligible: true,
+  endEligible: true,
+});
 defineEmits<{ remove: [] }>();
 
 /** blockKindOf() only ever returns undefined for a node shape with no BLOCK_KINDS entry — unreachable here, since every RegexNode variant this tree can actually contain (parsed or hand-built via the palette) has exactly one. */
@@ -138,6 +146,8 @@ function asRaw(n: RegexNode): RawNode {
     <RegexAlternationEditor
       v-if="node.type === 'group'"
       :alternation="asGroup(node).body"
+      :start-eligible="startEligible"
+      :end-eligible="endEligible"
       class="wtf-regex-block-group-body"
     />
   </div>

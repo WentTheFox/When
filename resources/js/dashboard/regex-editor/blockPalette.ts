@@ -130,3 +130,15 @@ export const BLOCK_PALETTE: BlockKind[] = BLOCK_KINDS.filter((kind) => kind.pale
 export function blockKindOf(node: RegexNode): BlockKind | undefined {
   return BLOCK_KINDS.find((kind) => kind.matches(node));
 }
+
+/**
+ * True if `candidate` — either a palette entry about to be cloned in (a
+ * BlockKind, identified by `id`, since the RegexNode it would produce
+ * doesn't exist yet) or an already-in-tree node being moved (a RegexNode,
+ * identified by its own type/kind) — is a start/end anchor of the given
+ * kind. Used by RegexSequenceEditor.vue's vuedraggable `:move` veto to
+ * reject a ^/$ drop into a sequence that isn't start/end-eligible.
+ */
+export function isAnchorCandidate(candidate: RegexNode | BlockKind, kind: 'start' | 'end'): boolean {
+  return 'id' in candidate ? candidate.id === `${kind}-anchor` : candidate.type === 'anchor' && candidate.kind === kind;
+}

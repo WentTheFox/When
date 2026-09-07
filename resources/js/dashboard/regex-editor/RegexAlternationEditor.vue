@@ -13,7 +13,23 @@ import { BButton } from 'bootstrap-vue-next';
 import { emptySequence, type AlternationNode } from './regexAstModel';
 import RegexSequenceEditor from './RegexSequenceEditor.vue';
 
-const props = defineProps<{ alternation: AlternationNode }>();
+const props = withDefaults(defineProps<{
+  alternation: AlternationNode;
+  /**
+   * Whether ^/$ can be dropped into any of this alternation's own branches
+   * — true at the root (RegexVisualEditorModal.vue's own call), or when
+   * this alternation is a group's body sitting at an eligible edge of ITS
+   * OWN parent sequence (see RegexBlockNode.vue/RegexSequenceEditor.vue).
+   * Every branch of an eligible alternation is equally eligible: which
+   * branch actually runs is mutually exclusive with the others, so ^/$ in
+   * one branch doesn't need the other branches to also carry it.
+   */
+  startEligible?: boolean;
+  endEligible?: boolean;
+}>(), {
+  startEligible: true,
+  endEligible: true,
+});
 
 function addBranch(): void {
   props.alternation.branches.push(emptySequence());
@@ -29,7 +45,7 @@ function removeBranch(index: number): void {
     <template v-for="(branch, index) in alternation.branches" :key="branch.key">
       <div v-if="index > 0" class="wtf-regex-alternation-or">OR</div>
       <div class="wtf-regex-alternation-branch">
-        <RegexSequenceEditor :sequence="branch" />
+        <RegexSequenceEditor :sequence="branch" :start-eligible="startEligible" :end-eligible="endEligible" />
         <BButton
           v-if="alternation.branches.length > 1"
           variant="link"

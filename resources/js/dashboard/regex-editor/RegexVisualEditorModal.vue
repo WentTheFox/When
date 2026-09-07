@@ -19,7 +19,7 @@ import draggable from 'vuedraggable';
 import { BLOCK_PALETTE, type BlockKind } from './blockPalette';
 import PatternPreviewPanel from '../PatternPreviewPanel.vue';
 import RegexHighlightedCode from '../RegexHighlightedCode.vue';
-import { CAPTURE_GROUP_LIMIT_REACHED_KEY } from './regexEditorContext';
+import { CAPTURE_GROUP_LIMIT_REACHED_KEY, INVALID_BRANCH_KEYS_KEY } from './regexEditorContext';
 import {
   regexEditorModalFieldLabel,
   regexEditorModalMaxCaptureGroups,
@@ -29,7 +29,14 @@ import {
   regexEditorModalPreviewModelValue,
   settleRegexEditRequests,
 } from '../regexEditorModal';
-import { countCapturingGroups, parsePatternToAst, serializeAst, type AlternationNode, type RegexNode } from './regexAstModel';
+import {
+  countCapturingGroups,
+  findUnsatisfiableBranches,
+  parsePatternToAst,
+  serializeAst,
+  type AlternationNode,
+  type RegexNode,
+} from './regexAstModel';
 import RegexAlternationEditor from './RegexAlternationEditor.vue';
 
 const ast = ref<AlternationNode>(parsePatternToAst(''));
@@ -45,6 +52,9 @@ const captureGroupLimitReached = computed(() => (
   && captureGroupCount.value >= regexEditorModalMaxCaptureGroups.value
 ));
 provide(CAPTURE_GROUP_LIMIT_REACHED_KEY, captureGroupLimitReached);
+
+const invalidBranchKeys = computed(() => findUnsatisfiableBranches(ast.value));
+provide(INVALID_BRANCH_KEYS_KEY, invalidBranchKeys);
 
 /**
  * The palette is itself a <draggable> (sort/put disabled — it's a source,
