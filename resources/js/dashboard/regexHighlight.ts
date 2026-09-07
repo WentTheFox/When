@@ -27,15 +27,24 @@ export type RegexToken = { text: string; cls?: string };
  *
  * A `\` escape only gets its own color when the character after it is a
  * genuine *shorthand* with meaning beyond "match this one character
- * literally" (`\d` "digit", `\w` "word char", `\s` "whitespace", `\b` word
- * boundary, `\n`/`\r`/`\t` control chars, `\1`/`\2`… backreferences —
- * CONTROL_ESCAPE_CHARS below). `\?`, `\[`, `\]`, `\}`, `\.` and so on are
- * just a metacharacter stripped of its special meaning so it matches
- * itself — visually that's plain text, not a distinct regex "feature", so
- * it renders as plain text too (the leading `\` included, since dropping
- * it from the display would misrepresent what's actually stored).
+ * literally" — and that color is whichever one the same construct's own
+ * block gets in the visual block editor (RegexVisualEditorModal.vue),
+ * so a pattern reads as the same colors whichever editor it's viewed in:
+ * `\d`/`\w`/`\s` ("digit"/"word char"/"whitespace") are character-class
+ * shorthands, same green as `[...]`/`.` there (CLASS_ESCAPE_CHARS); `\b`/`\B`
+ * (word boundary/not) are anchors, same pink as `^`/`$` there
+ * (ANCHOR_ESCAPE_CHARS); `\n`/`\r`/`\t`/`\1`/`\2`… (control chars,
+ * backreferences) have no block equivalent at all — same orange as a Raw
+ * regex block, via OTHER_ESCAPE_CHARS. `\?`, `\[`, `\]`, `\}`, `\.` and so
+ * on are just a metacharacter stripped of its special meaning so it
+ * matches itself — visually that's plain text, not a distinct regex
+ * "feature", so it renders as plain text too (the leading `\` included,
+ * since dropping it from the display would misrepresent what's actually
+ * stored).
  */
-const CONTROL_ESCAPE_CHARS = /[dDwWsSbBnrtfv0-9]/;
+const CLASS_ESCAPE_CHARS = /[dDwWsS]/;
+const ANCHOR_ESCAPE_CHARS = /[bB]/;
+const OTHER_ESCAPE_CHARS = /[nrtfv0-9]/;
 
 export function tokenizePattern(pattern: string): RegexToken[] {
   const tokens: RegexToken[] = [];
@@ -56,7 +65,13 @@ export function tokenizePattern(pattern: string): RegexToken[] {
 
     if (ch === '\\' && i + 1 < pattern.length) {
       const next = pattern[i + 1];
-      if (CONTROL_ESCAPE_CHARS.test(next)) {
+      if (CLASS_ESCAPE_CHARS.test(next)) {
+        flushPlain();
+        tokens.push({ text: pattern.slice(i, i + 2), cls: 'wtf-regex-tok-class' });
+      } else if (ANCHOR_ESCAPE_CHARS.test(next)) {
+        flushPlain();
+        tokens.push({ text: pattern.slice(i, i + 2), cls: 'wtf-regex-tok-meta' });
+      } else if (OTHER_ESCAPE_CHARS.test(next)) {
         flushPlain();
         tokens.push({ text: pattern.slice(i, i + 2), cls: 'wtf-regex-tok-escape' });
       } else {
@@ -108,7 +123,17 @@ export function tokenizePattern(pattern: string): RegexToken[] {
       continue;
     }
 
-    if ('^$.|?*+{}'.includes(ch)) {
+    // `.` ("any character") is the plain-text form of the same construct
+    // the Any character charClass block is, so it shares that block's
+    // green rather than the anchor/quantifier metacharacters' pink below.
+    if (ch === '.') {
+      flushPlain();
+      tokens.push({ text: ch, cls: 'wtf-regex-tok-class' });
+      i += 1;
+      continue;
+    }
+
+    if ('^$|?*+{}'.includes(ch)) {
       flushPlain();
       tokens.push({ text: ch, cls: 'wtf-regex-tok-meta' });
       i += 1;

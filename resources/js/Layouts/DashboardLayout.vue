@@ -5,6 +5,7 @@ import ConfirmModal from '../Components/ConfirmModal.vue';
 import ConfirmPasswordModal from '../Components/ConfirmPasswordModal.vue';
 import SiteFooter from '../Components/SiteFooter.vue';
 import SiteHeader from '../Components/SiteHeader.vue';
+import RegexVisualEditorModal from '../dashboard/regex-editor/RegexVisualEditorModal.vue';
 import VaultUnlockModal from '../dashboard/VaultUnlockModal.vue';
 import { provideLiveThemePreview } from '../dashboard/liveThemePreview';
 import { hexToRgbTriplet, yiqTextColor } from '../free/color-utils';
@@ -52,5 +53,6 @@ const accentStyle = computed(() => ({
     <VaultUnlockModal />
     <ConfirmPasswordModal />
     <ConfirmModal />
+    <RegexVisualEditorModal />
   </div>
 </template>

@@ -1939,3 +1939,297 @@ hr {
     color: var(--app-regex-noncap);
     text-decoration: line-through;
 }
+
+/* RegexPatternInput.vue's outer row: the existing .wtf-regex-editor
+   (textarea + highlight overlay) plus the new "open visual editor" button
+   sitting beside it, not on top of it — kept as a separate flex wrapper
+   rather than folding the button into .wtf-regex-editor itself, since that
+   element's own width math (ResizeObserver-synced overlay, see that
+   file's header comment) already assumes it owns the wrapper's full box. */
+.wtf-regex-input-group {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.375rem;
+}
+
+.wtf-regex-editor {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.wtf-regex-visual-editor-btn {
+    flex-shrink: 0;
+}
+
+/*
+ * RegexVisualEditorModal.vue — the Scratch-style visual block editor.
+ * Reuses the same --app-regex-* hues RegexPatternInput.vue's own
+ * plain-text highlighting already uses (.wtf-regex-tok-* above), so a
+ * given construct (a group, a character class, ...) reads as the same
+ * color whether it's shown as colored text or as a block.
+ */
+.wtf-regex-editor-modal {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.wtf-regex-editor-palette {
+    flex: 0 0 14rem;
+}
+
+.wtf-regex-editor-palette-title {
+    font-size: 0.8125rem;
+    color: var(--app-text-muted);
+    margin-bottom: 0.375rem;
+}
+
+.wtf-regex-palette-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+/* A palette entry is colored the same way the block it drops onto the
+   canvas will be (reusing the .wtf-regex-block-<type> label-color rules
+   above), with its own one-line "what this does" hint underneath — so
+   picking a block doesn't require dragging it in first to find out. */
+.wtf-regex-palette-block {
+    cursor: grab;
+    user-select: none;
+    align-items: stretch;
+    gap: 0.125rem;
+}
+
+/* Capture group once a field's own maxCaptureGroups cap is reached (see
+   RegexVisualEditorModal.vue) — greyed out and un-grabbable rather than
+   removed, so an owner can still see it exists and why it's unavailable. */
+.wtf-regex-palette-block--disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.wtf-regex-palette-block-name {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex-wrap: wrap;
+}
+
+.wtf-regex-palette-block-hint {
+    font-size: 0.6875rem;
+    font-weight: 400;
+    color: var(--app-text-muted);
+    white-space: normal;
+}
+
+/* The Capture group entry's own "count/max" badge (see captureGroupBadge()
+   in RegexVisualEditorModal.vue) — sits in front of its hint text rather
+   than replacing it, so the hint always reads the same regardless of
+   whether the field's own maxCaptureGroups cap is currently reached. */
+.wtf-regex-palette-block-badge {
+    font-size: 0.625rem;
+    font-family: var(--bs-font-monospace, monospace);
+    vertical-align: 1px;
+    margin-right: 0.25rem;
+}
+
+.wtf-regex-editor-canvas {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* One block per line, in drop order — not a wrapping row of pills. A
+   wrapped row reads left-to-right-then-down, which doesn't match a
+   pattern's actual left-to-right-only sequence once it's more than a
+   handful of blocks wide; a vertical stack keeps "order in the list" and
+   "order in the pattern" the same axis, and gives a nested group's own
+   body (.wtf-regex-block-group-body, indented) somewhere unambiguous to
+   sit below its own block. */
+.wtf-regex-sequence {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.375rem;
+    min-height: 2.75rem;
+    padding: 0.5rem;
+    border: 1px dashed var(--app-border);
+    border-radius: 0.375rem;
+}
+
+/* Empty state: centers a big, low-opacity label filling the drop target
+   itself, rather than a small caption line easy to miss off to the side
+   below it. */
+.wtf-regex-sequence--empty {
+    min-height: 4.5rem;
+    align-items: stretch;
+    justify-content: center;
+}
+
+.wtf-regex-sequence-empty-label {
+    margin: 0;
+    text-align: center;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--app-text-muted);
+    opacity: 0.6;
+    pointer-events: none;
+    user-select: none;
+}
+
+.wtf-regex-alternation-branch {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.375rem;
+}
+
+.wtf-regex-alternation-branch .wtf-regex-sequence {
+    flex: 1 1 auto;
+}
+
+.wtf-regex-alternation-or {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--app-text-muted);
+    margin: 0.375rem 0;
+    letter-spacing: 0.05em;
+}
+
+.wtf-regex-alternation-add {
+    align-self: flex-start;
+    margin-top: 0.375rem;
+}
+
+/* One block: same pill shape whichever type it is, colored via the
+   type-specific modifier classes below (reusing --app-regex-* so a block
+   always matches the color its own construct gets in the plain-text
+   highlighter). Always a column of [header row, optional body] rather than
+   one flat row — a group's own body sits indented below its header row
+   this way, instead of forcing the header row itself (drag handle,
+   label, quantifier, delete) to also stack vertically the way a flat
+   single-axis flex container would. */
+.wtf-regex-block {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.375rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    background-color: var(--app-bg-elevated);
+    border: 1px solid var(--app-border);
+    font-size: 0.8125rem;
+}
+
+.wtf-regex-block-row {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.wtf-regex-block-ghost {
+    opacity: 0.4;
+}
+
+.wtf-regex-block-handle {
+    cursor: grab;
+    color: var(--app-text-muted);
+}
+
+.wtf-regex-block-label {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Keyed by a block's own colorKey (see BlockColorKey in blockPalette.ts),
+   not its RegexNode type — capturing vs. non-capturing groups share a
+   type ('group') but need different colors, matching the blue/grey split
+   regexHighlight.ts's own wtf-regex-tok-group/wtf-regex-tok-noncap
+   already use for the same two constructs in plain-text patterns. */
+.wtf-regex-block-color-literal .wtf-regex-block-label {
+    color: var(--app-text);
+}
+
+.wtf-regex-block-color-charClass .wtf-regex-block-label {
+    color: var(--app-regex-class);
+}
+
+.wtf-regex-block-color-anchor .wtf-regex-block-label {
+    color: var(--app-regex-meta);
+}
+
+.wtf-regex-block-color-raw .wtf-regex-block-label {
+    color: var(--app-regex-escape);
+}
+
+.wtf-regex-block-color-group .wtf-regex-block-label {
+    color: var(--app-regex-group);
+}
+
+.wtf-regex-block-color-noncap .wtf-regex-block-label {
+    color: var(--app-regex-noncap);
+}
+
+.wtf-regex-block-group-body {
+    margin-left: 1.25rem;
+}
+
+.wtf-regex-block-text {
+    width: auto;
+    min-width: 4rem;
+    font-family: var(--bs-font-monospace, monospace);
+}
+
+.wtf-regex-block-raw-text {
+    min-width: 8rem;
+}
+
+.wtf-regex-block-bracket {
+    font-family: var(--bs-font-monospace, monospace);
+    font-weight: 700;
+    color: var(--app-regex-class);
+}
+
+.wtf-regex-block-negate {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--app-text-muted);
+    white-space: nowrap;
+}
+
+.wtf-regex-block-remove {
+    color: var(--app-text-muted);
+    padding: 0 0.25rem;
+}
+
+.wtf-regex-quantifier {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.wtf-regex-quantifier-select {
+    width: auto;
+}
+
+.wtf-regex-quantifier-number {
+    width: 3.5rem;
+}
+
+.wtf-regex-quantifier-dash {
+    color: var(--app-text-muted);
+}
+
+.wtf-regex-quantifier-greedy {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--app-text-muted);
+    white-space: nowrap;
+}
+

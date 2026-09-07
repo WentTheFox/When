@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faCheck, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { BButton } from 'bootstrap-vue-next';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
+import type { PatternPreviewConfig } from './patternPreviewTypes';
 
 /**
  * The example text is a persisted, optional per-field override (v-model,
@@ -98,33 +99,8 @@ function splitIntoTokens(tokenStr: string, splitPattern: string): string[] {
   return rawTokens.map((t) => t.trim()).filter((t) => t !== '');
 }
 
-const props = withDefaults(defineProps<{
+const props = withDefaults(defineProps<PatternPreviewConfig & {
   pattern: string | null;
-  examples?: string[];
-  placeholder?: string;
-  /**
-   * 'match': DND/nap/work/school/tentative/open-end/open-start — did it match at all?
-   * 'extract': activity clause — what did group 1 capture, verbatim?
-   * 'tokens': highlight clause — split group 1 on the split pattern, does any token contain a configured word (sampleWords)?
-   * 'split': highlight name-split expression — highlights every resulting piece (no configured-word distinction — this field has no such concept), so an owner can see exactly how their clause gets divided.
-   */
-  mode: 'match' | 'extract' | 'tokens' | 'split';
-  /** Used in 'tokens' mode only — stand-in for a share link's own configured highlight words. */
-  sampleWords?: string[];
-  /** Used in 'tokens'/'split' mode — the owner's highlight_split_pattern (or its default). */
-  splitPattern?: string;
-  /**
-   * The Flag-pattern fields' own fixed processing order (Tentative,
-   * Open-end, Open-start, Public — see IcsParser::stripTitleFlags) means
-   * each one only ever sees a title AFTER every earlier pattern in that
-   * order has already stripped its own marker. Passed here as every
-   * earlier field's own current pattern value, in that same order, so
-   * this field's 'match' preview reflects the title as it would actually
-   * arrive by the time this pattern runs — not the raw, untouched example
-   * line. Unused (and unnecessary) for every mode/field that isn't one of
-   * those four.
-   */
-  precedingPatterns?: string[];
   showReset?: boolean;
 }>(), {
   sampleWords: undefined,
@@ -136,10 +112,13 @@ const props = withDefaults(defineProps<{
 
 const DEFAULT_PLACEHOLDER = 'Type here to test pattern matching';
 
-// `examples` is a fixed per-field literal (see every call site in
-// Settings*.vue), never reassigned at runtime — defaultLinesText is just
-// that joined into the same shape the textarea itself uses.
-const defaultLinesText = props.examples?.join('\n') ?? '';
+// `examples` is a fixed per-field literal at every direct Settings*.vue call
+// site, but RegexVisualEditorModal.vue mounts a single PatternPreview
+// instance shared across every field's own edit session and reassigns
+// `examples` (via its previewConfig) each time a different field's editor
+// opens — so this has to stay reactive to the prop, not computed once from
+// its value at setup.
+const defaultLinesText = computed(() => props.examples?.join('\n') ?? '');
 
 const model = defineModel<string | null>({ default: null });
 
@@ -148,7 +127,7 @@ const model = defineModel<string | null>({ default: null });
 // straight through to the model (the parent's own form field), so it
 // survives a save/reload instead of vanishing like this used to.
 const linesText = computed({
-  get: () => model.value ?? defaultLinesText,
+  get: () => model.value ?? defaultLinesText.value,
   set: (value: string) => { model.value = value; },
 });
 const lines = computed(() => linesText.value.split('\n'));

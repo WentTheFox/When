@@ -1,6 +1,11 @@
 <script setup lang="ts">
+import { faPuzzlePiece } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { BButton } from 'bootstrap-vue-next';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { requestRegexEdit } from './regexEditorModal';
 import { highlightPatternHtml } from './regexHighlight';
+import type { PatternPreviewConfig } from './patternPreviewTypes';
 
 /**
  * Lightweight syntax-highlighted editor for the delimiter-free regex
@@ -29,13 +34,23 @@ const props = withDefaults(
     id: string;
     modelValue: string | null;
     placeholder?: string;
+    /** Plain-text field name (e.g. "DND event regular expression") shown in the visual editor modal's own title, so it's clear which field a pattern being built there applies to. */
+    fieldLabel: string;
+    /** The same config driving whichever PatternPreview is rendered next to this field on the page — see patternPreviewTypes.ts. Forwarded to the visual editor modal so its own preview is that exact same component/config, not a second hand-rolled one. */
+    previewConfig: PatternPreviewConfig;
+    /** Caps how many (…) capture groups the visual editor lets this field's block tree contain — see regexEditorModal.ts's own doc comment. Leave unset for a field with no such server-side rule. */
+    maxCaptureGroups?: number;
   }>(),
   {
     placeholder: undefined,
+    maxCaptureGroups: undefined,
   },
 );
 
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
+
+/** The field's own PatternPreview v-model (its persisted example-lines override) — kept in sync so the modal's preview starts from, and Apply writes back to, the same example text as the on-page preview. */
+const previewModelValue = defineModel<string | null>('previewModelValue', { default: null });
 
 const nativeEl = ref<HTMLTextAreaElement | null>(null);
 const highlightEl = ref<HTMLDivElement | null>(null);
@@ -100,31 +115,56 @@ const showingPlaceholder = computed(() => text.value === '' && !!props.placehold
 const displayText = computed(() => (showingPlaceholder.value ? props.placeholder! : text.value));
 
 const highlightedHtml = computed(() => highlightPatternHtml(displayText.value));
+
+async function openVisualEditor(): Promise<void> {
+  const result = await requestRegexEdit({
+    pattern: text.value,
+    fieldLabel: props.fieldLabel,
+    previewConfig: props.previewConfig,
+    previewModelValue: previewModelValue.value,
+    maxCaptureGroups: props.maxCaptureGroups,
+  });
+  if (result === null) return;
+  emit('update:modelValue', result.pattern);
+  previewModelValue.value = result.previewModelValue;
+}
 </script>
 
 <template>
-  <div class="wtf-regex-editor">
-    <div
-      ref="highlightEl"
-      class="form-control wtf-regex-highlight"
-      :class="{ 'wtf-regex-placeholder': showingPlaceholder }"
-      :style="{ width: overlaySize.width, height: overlaySize.height }"
-      aria-hidden="true"
-      v-html="highlightedHtml"
-    />
-    <textarea
-      :id="id"
-      ref="nativeEl"
-      class="form-control wtf-regex-native"
-      rows="1"
-      :placeholder="placeholder"
-      :value="text"
-      spellcheck="false"
-      autocomplete="off"
-      autocapitalize="off"
-      @input="onInput"
-      @scroll="syncScroll"
-      @keydown.enter.prevent
-    />
+  <div class="wtf-regex-input-group">
+    <div class="wtf-regex-editor">
+      <div
+        ref="highlightEl"
+        class="form-control wtf-regex-highlight"
+        :class="{ 'wtf-regex-placeholder': showingPlaceholder }"
+        :style="{ width: overlaySize.width, height: overlaySize.height }"
+        aria-hidden="true"
+        v-html="highlightedHtml"
+      />
+      <textarea
+        :id="id"
+        ref="nativeEl"
+        class="form-control wtf-regex-native"
+        rows="1"
+        :placeholder="placeholder"
+        :value="text"
+        spellcheck="false"
+        autocomplete="off"
+        autocapitalize="off"
+        @input="onInput"
+        @scroll="syncScroll"
+        @keydown.enter.prevent
+      />
+    </div>
+    <BButton
+      variant="outline-secondary"
+      size="sm"
+      class="wtf-regex-visual-editor-btn"
+      title="Open visual editor"
+      aria-label="Open visual editor"
+      @click="openVisualEditor"
+    >
+      <FontAwesomeIcon :icon="faPuzzlePiece" />
+    </BButton>
   </div>
 </template>

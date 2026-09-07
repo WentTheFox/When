@@ -36,6 +36,8 @@
         "date-fns": "^4.4.0",
         "laravel-vue-i18n": "^2.8.0",
         "qrcode": "^1.5.4",
-        "vue": "^3.5.41"
+        "regexpp": "^3.2.0",
+        "vue": "^3.5.41",
+        "vuedraggable": "^4.1.0"
     }
 }

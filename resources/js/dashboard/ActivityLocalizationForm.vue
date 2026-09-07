@@ -30,7 +30,13 @@ const colorKey = defineModel<string | null>('colorKey', { default: null });
   <div class="row mb-3">
     <div class="col-md-6">
       <BFormGroup label="Pattern" :label-for="`${idPrefix}_pattern`" class="mb-2">
-        <RegexPatternInput :id="`${idPrefix}_pattern`" v-model="pattern" />
+        <RegexPatternInput
+          :id="`${idPrefix}_pattern`"
+          field-label="Pattern"
+          v-model="pattern"
+          v-model:preview-model-value="previewText"
+          :preview-config="{ mode: 'tokens' }"
+        />
       </BFormGroup>
       <p class="small text-muted mb-1">Live preview</p>
       <PatternPreview

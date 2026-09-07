@@ -1,7 +1,9 @@
 <script setup lang="ts">
 /** Settings.vue's "Event title matching rules" card — dnd/nap/work/school event-name patterns plus the highlight/activity/tentative/open-end/open-start regex fields, all part of the shared `form` Settings.vue owns and saves via its own submit(). */
 import { BAlert, BBadge, BButton, BCard, BFormGroup } from 'bootstrap-vue-next';
-import PatternPreview from './PatternPreview.vue';
+import { computed } from 'vue';
+import PatternPreviewPanel from './PatternPreviewPanel.vue';
+import type { PatternPreviewConfig } from './patternPreviewTypes';
 import RegexHighlightedCode from './RegexHighlightedCode.vue';
 import RegexPatternInput from './RegexPatternInput.vue';
 import type { Settings, SettingsDefaults } from './settingsTypes';
@@ -46,6 +48,75 @@ const EVENT_MATCHING_FIELDS = [
 ] as const;
 
 const PATTERN_DISABLED_TEXT = '(blank, off)';
+
+/**
+ * One PatternPreviewConfig per field below, each bound with v-bind on both
+ * that field's own on-page PatternPreview *and* forwarded into
+ * RegexPatternInput's `preview-config` prop (which the visual editor modal
+ * then renders that exact same PatternPreview/config with) — a single
+ * source of truth per field instead of the two independently drifting.
+ * Plain objects where nothing reactive feeds in; computed() only where a
+ * config value (splitPattern, precedingPatterns) tracks another field's
+ * live value.
+ */
+const dndPreviewConfig: PatternPreviewConfig = {
+  mode: 'match',
+  examples: ['DND', 'Team DND block', 'dnd - focus time', 'Focus time', 'Lunch with Sarah'],
+};
+const napPreviewConfig: PatternPreviewConfig = {
+  mode: 'match',
+  examples: ['Nap', 'Afternoon nap', 'NAP TIME', 'Sleep', 'Standup meeting'],
+};
+const workPreviewConfig: PatternPreviewConfig = {
+  mode: 'match',
+  examples: ['Work', 'Work block', 'WFH', 'Team standup', 'Lunch with Sarah'],
+};
+const schoolPreviewConfig: PatternPreviewConfig = {
+  mode: 'match',
+  examples: ['Chemistry class', 'School pickup', 'CLASS 4B', 'Team standup', 'Lunch with Sarah'],
+};
+const highlightClausePreviewConfig = computed<PatternPreviewConfig>(() => ({
+  mode: 'tokens',
+  examples: ['Dinner with Alice', 'Call w/ Bob', 'Team sync', 'Dinner with Charlie, Alice, Bob'],
+  sampleWords: ['Alice', 'Bob'],
+  splitPattern: props.eventMatchingSettingsForm.highlight_split_pattern || props.defaults.highlightSplitPattern,
+}));
+const highlightSplitPreviewConfig = computed<PatternPreviewConfig>(() => ({
+  mode: 'split',
+  examples: ['Alicia, Bob', 'Cleo/Damien/Ed', 'Frank & George'],
+  splitPattern: props.eventMatchingSettingsForm.highlight_split_pattern || props.defaults.highlightSplitPattern,
+  livePatternTarget: 'splitPattern',
+}));
+const activityClausePreviewConfig: PatternPreviewConfig = {
+  mode: 'extract',
+  examples: ['Dinner with Alice', 'Call w/ Bob', 'Team sync', 'Coffee then gym with Charlie, Daniel'],
+};
+const tentativePreviewConfig: PatternPreviewConfig = {
+  mode: 'match',
+  examples: ['Maybe lunch (?)', 'Team standup', 'Coffee with Alice (?)', 'Workshop'],
+};
+const openEndPreviewConfig = computed<PatternPreviewConfig>(() => ({
+  mode: 'match',
+  examples: ['Dinner (-?)', 'Team standup', 'Party (-?)', 'Workshop', 'Dinner (-?) (?)'],
+  precedingPatterns: [props.eventMatchingSettingsForm.tentative_pattern ?? ''],
+}));
+const openStartPreviewConfig = computed<PatternPreviewConfig>(() => ({
+  mode: 'match',
+  examples: ['Dinner (?-)', 'Team standup', 'Party (?-)', 'Workshop', 'Dinner (?-) (-?) (?)'],
+  precedingPatterns: [
+    props.eventMatchingSettingsForm.tentative_pattern ?? '',
+    props.eventMatchingSettingsForm.open_end_pattern ?? '',
+  ],
+}));
+const publicEventPreviewConfig = computed<PatternPreviewConfig>(() => ({
+  mode: 'match',
+  examples: ['Dinner with Alice (public)', 'Community potluck (public)', 'Team standup', 'Lunch with Sarah', 'Dinner with Alice (public) (?-) (-?) (?)'],
+  precedingPatterns: [
+    props.eventMatchingSettingsForm.tentative_pattern ?? '',
+    props.eventMatchingSettingsForm.open_end_pattern ?? '',
+    props.eventMatchingSettingsForm.open_start_pattern ?? '',
+  ],
+}));
 
 function submit(): void {
   props.eventMatchingSettingsForm.patch('/settings', {
@@ -203,7 +274,13 @@ function submit(): void {
           <div class="col-md-6">
             <BFormGroup label-for="dnd_event_pattern" class="mb-0">
               <template #label>DND event regular expression <BBadge variant="secondary" class="align-middle">Boolean</BBadge></template>
-              <RegexPatternInput id="dnd_event_pattern" v-model="eventMatchingSettingsForm.dnd_event_pattern" />
+              <RegexPatternInput
+                id="dnd_event_pattern"
+                field-label="DND event regular expression"
+                v-model="eventMatchingSettingsForm.dnd_event_pattern"
+                v-model:preview-model-value="eventMatchingSettingsForm.dnd_event_pattern_preview"
+                :preview-config="dndPreviewConfig"
+              />
               <template #description>
                 A match causes that event's duration to be marked as unavailable, unless a share link bypasses it.
                 Suggested: <RegexHighlightedCode :pattern="defaults.dndEventPattern" />
@@ -212,17 +289,12 @@ function submit(): void {
             </BFormGroup>
           </div>
           <div class="col-md-6">
-            <div class="wtf-pattern-preview-panel">
-              <p class="small text-muted mb-1">Live preview — <code>{{
-                  eventMatchingSettingsForm.dnd_event_pattern || PATTERN_DISABLED_TEXT
-                }}</code></p>
-              <PatternPreview
-                v-model="eventMatchingSettingsForm.dnd_event_pattern_preview"
-                :pattern="eventMatchingSettingsForm.dnd_event_pattern"
-                :examples="['DND', 'Team DND block', 'dnd - focus time', 'Focus time', 'Lunch with Sarah']"
-                mode="match"
-              />
-            </div>
+            <PatternPreviewPanel
+              v-model:preview-model-value="eventMatchingSettingsForm.dnd_event_pattern_preview"
+              :pattern="eventMatchingSettingsForm.dnd_event_pattern"
+              :blank-label="PATTERN_DISABLED_TEXT"
+              :config="dndPreviewConfig"
+            />
           </div>
         </div>
 
@@ -230,7 +302,13 @@ function submit(): void {
           <div class="col-md-6">
             <BFormGroup label-for="nap_event_pattern" class="mb-0">
               <template #label>Nap event regular expression <BBadge variant="secondary" class="align-middle">Boolean</BBadge></template>
-              <RegexPatternInput id="nap_event_pattern" v-model="eventMatchingSettingsForm.nap_event_pattern" />
+              <RegexPatternInput
+                id="nap_event_pattern"
+                field-label="Nap event regular expression"
+                v-model="eventMatchingSettingsForm.nap_event_pattern"
+                v-model:preview-model-value="eventMatchingSettingsForm.nap_event_pattern_preview"
+                :preview-config="napPreviewConfig"
+              />
               <template #description>
                 A match shows the event as sleep instead of busy.
                 Suggested: <RegexHighlightedCode :pattern="defaults.napEventPattern" />
@@ -239,17 +317,12 @@ function submit(): void {
             </BFormGroup>
           </div>
           <div class="col-md-6">
-            <div class="wtf-pattern-preview-panel">
-              <p class="small text-muted mb-1">Live preview — <code>{{
-                  eventMatchingSettingsForm.nap_event_pattern || PATTERN_DISABLED_TEXT
-                }}</code></p>
-              <PatternPreview
-                v-model="eventMatchingSettingsForm.nap_event_pattern_preview"
-                :pattern="eventMatchingSettingsForm.nap_event_pattern"
-                :examples="['Nap', 'Afternoon nap', 'NAP TIME', 'Sleep', 'Standup meeting']"
-                mode="match"
-              />
-            </div>
+            <PatternPreviewPanel
+              v-model:preview-model-value="eventMatchingSettingsForm.nap_event_pattern_preview"
+              :pattern="eventMatchingSettingsForm.nap_event_pattern"
+              :blank-label="PATTERN_DISABLED_TEXT"
+              :config="napPreviewConfig"
+            />
           </div>
         </div>
 
@@ -257,7 +330,13 @@ function submit(): void {
           <div class="col-md-6">
             <BFormGroup label-for="work_event_pattern" class="mb-0">
               <template #label>Work event regular expression <BBadge variant="secondary" class="align-middle">Boolean</BBadge></template>
-              <RegexPatternInput id="work_event_pattern" v-model="eventMatchingSettingsForm.work_event_pattern" />
+              <RegexPatternInput
+                id="work_event_pattern"
+                field-label="Work event regular expression"
+                v-model="eventMatchingSettingsForm.work_event_pattern"
+                v-model:preview-model-value="eventMatchingSettingsForm.work_event_pattern_preview"
+                :preview-config="workPreviewConfig"
+              />
               <template #description>
                 A match counts toward the "work" slice of the dashboard's time-breakdown widget and
                 the /free calendar's own work category.
@@ -267,17 +346,12 @@ function submit(): void {
             </BFormGroup>
           </div>
           <div class="col-md-6">
-            <div class="wtf-pattern-preview-panel">
-              <p class="small text-muted mb-1">Live preview — <code>{{
-                  eventMatchingSettingsForm.work_event_pattern || PATTERN_DISABLED_TEXT
-                }}</code></p>
-              <PatternPreview
-                v-model="eventMatchingSettingsForm.work_event_pattern_preview"
-                :pattern="eventMatchingSettingsForm.work_event_pattern"
-                :examples="['Work', 'Work block', 'WFH', 'Team standup', 'Lunch with Sarah']"
-                mode="match"
-              />
-            </div>
+            <PatternPreviewPanel
+              v-model:preview-model-value="eventMatchingSettingsForm.work_event_pattern_preview"
+              :pattern="eventMatchingSettingsForm.work_event_pattern"
+              :blank-label="PATTERN_DISABLED_TEXT"
+              :config="workPreviewConfig"
+            />
           </div>
         </div>
 
@@ -285,7 +359,13 @@ function submit(): void {
           <div class="col-md-6">
             <BFormGroup label-for="school_event_pattern" class="mb-0">
               <template #label>School event regular expression <BBadge variant="secondary" class="align-middle">Boolean</BBadge></template>
-              <RegexPatternInput id="school_event_pattern" v-model="eventMatchingSettingsForm.school_event_pattern" />
+              <RegexPatternInput
+                id="school_event_pattern"
+                field-label="School event regular expression"
+                v-model="eventMatchingSettingsForm.school_event_pattern"
+                v-model:preview-model-value="eventMatchingSettingsForm.school_event_pattern_preview"
+                :preview-config="schoolPreviewConfig"
+              />
               <template #description>
                 A match counts toward the "school" slice of the dashboard's time-breakdown widget
                 and the /free calendar's own school category.
@@ -295,17 +375,12 @@ function submit(): void {
             </BFormGroup>
           </div>
           <div class="col-md-6">
-            <div class="wtf-pattern-preview-panel">
-              <p class="small text-muted mb-1">Live preview — <code>{{
-                  eventMatchingSettingsForm.school_event_pattern || PATTERN_DISABLED_TEXT
-                }}</code></p>
-              <PatternPreview
-                v-model="eventMatchingSettingsForm.school_event_pattern_preview"
-                :pattern="eventMatchingSettingsForm.school_event_pattern"
-                :examples="['Chemistry class', 'School pickup', 'CLASS 4B', 'Team standup', 'Lunch with Sarah']"
-                mode="match"
-              />
-            </div>
+            <PatternPreviewPanel
+              v-model:preview-model-value="eventMatchingSettingsForm.school_event_pattern_preview"
+              :pattern="eventMatchingSettingsForm.school_event_pattern"
+              :blank-label="PATTERN_DISABLED_TEXT"
+              :config="schoolPreviewConfig"
+            />
           </div>
         </div>
 
@@ -313,7 +388,15 @@ function submit(): void {
           <div class="col-md-6">
             <BFormGroup label-for="highlight_clause_pattern" class="mb-0">
               <template #label>Highlight regular expression <BBadge variant="info" text="dark" class="align-middle">Capture</BBadge></template>
-              <RegexPatternInput id="highlight_clause_pattern" v-model="eventMatchingSettingsForm.highlight_clause_pattern" :placeholder="defaults.highlightClausePattern" />
+              <RegexPatternInput
+                id="highlight_clause_pattern"
+                field-label="Highlight regular expression"
+                v-model="eventMatchingSettingsForm.highlight_clause_pattern"
+                v-model:preview-model-value="eventMatchingSettingsForm.highlight_clause_pattern_preview"
+                :placeholder="defaults.highlightClausePattern"
+                :preview-config="highlightClausePreviewConfig"
+                :max-capture-groups="1"
+              />
               <template #description>
                 Same regex-body rules as above, but everything after "with"/"w/" is captured as a
                 whole (to the end of the title), then split — using the name-split expression
@@ -330,22 +413,11 @@ function submit(): void {
             </BFormGroup>
           </div>
           <div class="col-md-6">
-            <div class="wtf-pattern-preview-panel">
-              <p class="small text-muted mb-1">
-                Live preview — <code>{{
-                  eventMatchingSettingsForm.highlight_clause_pattern || defaults.highlightClausePattern
-                }}</code>
-                <br><span class="text-muted">(against sample configured words "Alice", "Bob")</span>
-              </p>
-              <PatternPreview
-                v-model="eventMatchingSettingsForm.highlight_clause_pattern_preview"
-                :pattern="eventMatchingSettingsForm.highlight_clause_pattern || defaults.highlightClausePattern"
-                :examples="['Dinner with Alice', 'Call w/ Bob', 'Team sync', 'Dinner with Charlie, Alice, Bob']"
-                :sample-words="['Alice', 'Bob']"
-                :split-pattern="eventMatchingSettingsForm.highlight_split_pattern || defaults.highlightSplitPattern"
-                mode="tokens"
-              />
-            </div>
+            <PatternPreviewPanel
+              v-model:preview-model-value="eventMatchingSettingsForm.highlight_clause_pattern_preview"
+              :pattern="eventMatchingSettingsForm.highlight_clause_pattern || defaults.highlightClausePattern"
+              :config="highlightClausePreviewConfig"
+            />
           </div>
         </div>
 
@@ -353,7 +425,14 @@ function submit(): void {
           <div class="col-md-6">
             <BFormGroup label-for="highlight_split_pattern" class="mb-0">
               <template #label>Highlight name-split expression <BBadge variant="primary" class="align-middle">Split</BBadge></template>
-              <RegexPatternInput id="highlight_split_pattern" v-model="eventMatchingSettingsForm.highlight_split_pattern" :placeholder="defaults.highlightSplitPattern" />
+              <RegexPatternInput
+                id="highlight_split_pattern"
+                field-label="Highlight name-split expression"
+                v-model="eventMatchingSettingsForm.highlight_split_pattern"
+                v-model:preview-model-value="eventMatchingSettingsForm.highlight_split_pattern_preview"
+                :placeholder="defaults.highlightSplitPattern"
+                :preview-config="highlightSplitPreviewConfig"
+              />
               <template #description>
                 A clause can name more than one person — this splits the Highlight field's own
                 capture (e.g. "Alice, Bob" from "Dinner with Alice, Bob") into individual names
@@ -370,21 +449,11 @@ function submit(): void {
             </BFormGroup>
           </div>
           <div class="col-md-6">
-            <div class="wtf-pattern-preview-panel">
-              <p class="small text-muted mb-1">
-                Live preview — splitting on
-                <code>{{
-                    eventMatchingSettingsForm.highlight_split_pattern || defaults.highlightSplitPattern
-                  }}</code>
-              </p>
-              <PatternPreview
-                v-model="eventMatchingSettingsForm.highlight_split_pattern_preview"
-                pattern="(.+)"
-                :examples="['Alicia, Bob', 'Cleo/Damien/Ed', 'Frank & George']"
-                :split-pattern="eventMatchingSettingsForm.highlight_split_pattern || defaults.highlightSplitPattern"
-                mode="split"
-              />
-            </div>
+            <PatternPreviewPanel
+              v-model:preview-model-value="eventMatchingSettingsForm.highlight_split_pattern_preview"
+              :pattern="eventMatchingSettingsForm.highlight_split_pattern || defaults.highlightSplitPattern"
+              :config="highlightSplitPreviewConfig"
+            />
           </div>
         </div>
 
@@ -400,7 +469,14 @@ function submit(): void {
                 with Alice" is shown only to Alice's own link. Leave it blank (the default) and
                 nothing is ever extracted or shown, no matter how a matched event's title reads.
               </BAlert>
-              <RegexPatternInput id="activity_clause_pattern" v-model="eventMatchingSettingsForm.activity_clause_pattern" />
+              <RegexPatternInput
+                id="activity_clause_pattern"
+                field-label="Activity regular expression"
+                v-model="eventMatchingSettingsForm.activity_clause_pattern"
+                v-model:preview-model-value="eventMatchingSettingsForm.activity_clause_pattern_preview"
+                :preview-config="activityClausePreviewConfig"
+                :max-capture-groups="1"
+              />
               <template #description>
                 A separate pattern from the highlight clause above — its capture group is the
                 freetext <em>before</em> "with"/"w/" (e.g. "Dinner" in "Dinner with Alice"). Only
@@ -414,19 +490,12 @@ function submit(): void {
             </BFormGroup>
           </div>
           <div class="col-md-6">
-            <div class="wtf-pattern-preview-panel">
-              <p class="small text-muted mb-1">
-                Live preview — <code>{{
-                  eventMatchingSettingsForm.activity_clause_pattern || PATTERN_DISABLED_TEXT
-                }}</code>
-              </p>
-              <PatternPreview
-                v-model="eventMatchingSettingsForm.activity_clause_pattern_preview"
-                :pattern="eventMatchingSettingsForm.activity_clause_pattern"
-                :examples="['Dinner with Alice', 'Call w/ Bob', 'Team sync', 'Coffee then gym with Charlie, Daniel']"
-                mode="extract"
-              />
-            </div>
+            <PatternPreviewPanel
+              v-model:preview-model-value="eventMatchingSettingsForm.activity_clause_pattern_preview"
+              :pattern="eventMatchingSettingsForm.activity_clause_pattern"
+              :blank-label="PATTERN_DISABLED_TEXT"
+              :config="activityClausePreviewConfig"
+            />
           </div>
         </div>
 
@@ -452,7 +521,13 @@ function submit(): void {
           <div class="col-md-6">
             <BFormGroup label-for="tentative_pattern" class="mb-0">
               <template #label><BBadge variant="dark" pill class="align-middle me-1">1</BBadge>Tentative regular expression <BBadge variant="warning" text="dark" class="align-middle">Flag</BBadge></template>
-              <RegexPatternInput id="tentative_pattern" v-model="eventMatchingSettingsForm.tentative_pattern" />
+              <RegexPatternInput
+                id="tentative_pattern"
+                field-label="Tentative regular expression"
+                v-model="eventMatchingSettingsForm.tentative_pattern"
+                v-model:preview-model-value="eventMatchingSettingsForm.tentative_pattern_preview"
+                :preview-config="tentativePreviewConfig"
+              />
               <template #description>
                 Same regex-body rules as above. An event whose title matches this (in addition to
                 any calendar-provided "tentative" status) is shown to viewers as tentative — both
@@ -467,19 +542,12 @@ function submit(): void {
             </BFormGroup>
           </div>
           <div class="col-md-6">
-            <div class="wtf-pattern-preview-panel">
-              <p class="small text-muted mb-1">
-                Live preview — <code>{{
-                  eventMatchingSettingsForm.tentative_pattern || PATTERN_DISABLED_TEXT
-                }}</code>
-              </p>
-              <PatternPreview
-                v-model="eventMatchingSettingsForm.tentative_pattern_preview"
-                :pattern="eventMatchingSettingsForm.tentative_pattern"
-                :examples="['Maybe lunch (?)', 'Team standup', 'Coffee with Alice (?)', 'Workshop']"
-                mode="match"
-              />
-            </div>
+            <PatternPreviewPanel
+              v-model:preview-model-value="eventMatchingSettingsForm.tentative_pattern_preview"
+              :pattern="eventMatchingSettingsForm.tentative_pattern"
+              :blank-label="PATTERN_DISABLED_TEXT"
+              :config="tentativePreviewConfig"
+            />
           </div>
         </div>
 
@@ -487,7 +555,13 @@ function submit(): void {
           <div class="col-md-6">
             <BFormGroup label-for="open_end_pattern" class="mb-0">
               <template #label><BBadge variant="dark" pill class="align-middle me-1">2</BBadge>Open-end regular expression <BBadge variant="warning" text="dark" class="align-middle">Flag</BBadge></template>
-              <RegexPatternInput id="open_end_pattern" v-model="eventMatchingSettingsForm.open_end_pattern" />
+              <RegexPatternInput
+                id="open_end_pattern"
+                field-label="Open-end regular expression"
+                v-model="eventMatchingSettingsForm.open_end_pattern"
+                v-model:preview-model-value="eventMatchingSettingsForm.open_end_pattern_preview"
+                :preview-config="openEndPreviewConfig"
+              />
               <template #description>
                 For an event that's definitely happening but has no known end time (e.g. it runs
                 until whenever it's over). Same regex-body rules as above; matched text is stripped
@@ -500,20 +574,12 @@ function submit(): void {
             </BFormGroup>
           </div>
           <div class="col-md-6">
-            <div class="wtf-pattern-preview-panel">
-              <p class="small text-muted mb-1">
-                Live preview — <code>{{
-                  eventMatchingSettingsForm.open_end_pattern || PATTERN_DISABLED_TEXT
-                }}</code>
-              </p>
-              <PatternPreview
-                v-model="eventMatchingSettingsForm.open_end_pattern_preview"
-                :pattern="eventMatchingSettingsForm.open_end_pattern"
-                :preceding-patterns="[eventMatchingSettingsForm.tentative_pattern ?? '']"
-                :examples="['Dinner (-?)', 'Team standup', 'Party (-?)', 'Workshop', 'Dinner (-?) (?)']"
-                mode="match"
-              />
-            </div>
+            <PatternPreviewPanel
+              v-model:preview-model-value="eventMatchingSettingsForm.open_end_pattern_preview"
+              :pattern="eventMatchingSettingsForm.open_end_pattern"
+              :blank-label="PATTERN_DISABLED_TEXT"
+              :config="openEndPreviewConfig"
+            />
           </div>
         </div>
 
@@ -521,7 +587,13 @@ function submit(): void {
           <div class="col-md-6">
             <BFormGroup label-for="open_start_pattern" class="mb-0">
               <template #label><BBadge variant="dark" pill class="align-middle me-1">3</BBadge>Open-start regular expression <BBadge variant="warning" text="dark" class="align-middle">Flag</BBadge></template>
-              <RegexPatternInput id="open_start_pattern" v-model="eventMatchingSettingsForm.open_start_pattern" />
+              <RegexPatternInput
+                id="open_start_pattern"
+                field-label="Open-start regular expression"
+                v-model="eventMatchingSettingsForm.open_start_pattern"
+                v-model:preview-model-value="eventMatchingSettingsForm.open_start_pattern_preview"
+                :preview-config="openStartPreviewConfig"
+              />
               <template #description>
                 Same idea as open-end above, for an event whose start time isn't known but which
                 definitely ends by a known time. A blank field turns this detection off entirely —
@@ -533,20 +605,12 @@ function submit(): void {
             </BFormGroup>
           </div>
           <div class="col-md-6">
-            <div class="wtf-pattern-preview-panel">
-              <p class="small text-muted mb-1">
-                Live preview — <code>{{
-                  eventMatchingSettingsForm.open_start_pattern || PATTERN_DISABLED_TEXT
-                }}</code>
-              </p>
-              <PatternPreview
-                v-model="eventMatchingSettingsForm.open_start_pattern_preview"
-                :pattern="eventMatchingSettingsForm.open_start_pattern"
-                :preceding-patterns="[eventMatchingSettingsForm.tentative_pattern ?? '', eventMatchingSettingsForm.open_end_pattern ?? '']"
-                :examples="['Dinner (?-)', 'Team standup', 'Party (?-)', 'Workshop', 'Dinner (?-) (-?) (?)']"
-                mode="match"
-              />
-            </div>
+            <PatternPreviewPanel
+              v-model:preview-model-value="eventMatchingSettingsForm.open_start_pattern_preview"
+              :pattern="eventMatchingSettingsForm.open_start_pattern"
+              :blank-label="PATTERN_DISABLED_TEXT"
+              :config="openStartPreviewConfig"
+            />
           </div>
         </div>
 
@@ -554,7 +618,13 @@ function submit(): void {
           <div class="col-md-6">
             <BFormGroup label-for="public_event_pattern" class="mb-0">
               <template #label><BBadge variant="dark" pill class="align-middle me-1">4</BBadge>Public event regular expression <BBadge variant="warning" text="dark" class="align-middle">Flag</BBadge></template>
-              <RegexPatternInput id="public_event_pattern" v-model="eventMatchingSettingsForm.public_event_pattern" />
+              <RegexPatternInput
+                id="public_event_pattern"
+                field-label="Public event regular expression"
+                v-model="eventMatchingSettingsForm.public_event_pattern"
+                v-model:preview-model-value="eventMatchingSettingsForm.public_event_pattern_preview"
+                :preview-config="publicEventPreviewConfig"
+              />
               <template #description>
                 Last of the four Flag fields above — see the callout at the top of this section for
                 the fixed processing order. A match renders that event in its own neutral,
@@ -572,18 +642,12 @@ function submit(): void {
             </BFormGroup>
           </div>
           <div class="col-md-6">
-            <div class="wtf-pattern-preview-panel">
-              <p class="small text-muted mb-1">Live preview — <code>{{
-                  eventMatchingSettingsForm.public_event_pattern || PATTERN_DISABLED_TEXT
-                }}</code></p>
-              <PatternPreview
-                v-model="eventMatchingSettingsForm.public_event_pattern_preview"
-                :pattern="eventMatchingSettingsForm.public_event_pattern"
-                :preceding-patterns="[eventMatchingSettingsForm.tentative_pattern ?? '', eventMatchingSettingsForm.open_end_pattern ?? '', eventMatchingSettingsForm.open_start_pattern ?? '']"
-                :examples="['Dinner with Alice (public)', 'Community potluck (public)', 'Team standup', 'Lunch with Sarah', 'Dinner with Alice (public) (?-) (-?) (?)']"
-                mode="match"
-              />
-            </div>
+            <PatternPreviewPanel
+              v-model:preview-model-value="eventMatchingSettingsForm.public_event_pattern_preview"
+              :pattern="eventMatchingSettingsForm.public_event_pattern"
+              :blank-label="PATTERN_DISABLED_TEXT"
+              :config="publicEventPreviewConfig"
+            />
           </div>
         </div>
 
