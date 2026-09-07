@@ -55,6 +55,7 @@ provide(CAPTURE_GROUP_LIMIT_REACHED_KEY, captureGroupLimitReached);
 
 const invalidBranchKeys = computed(() => findUnsatisfiableBranches(ast.value));
 provide(INVALID_BRANCH_KEYS_KEY, invalidBranchKeys);
+const hasInvalidBranches = computed(() => invalidBranchKeys.value.size > 0);
 
 /**
  * The palette is itself a <draggable> (sort/put disabled — it's a source,
@@ -173,7 +174,11 @@ function onHide(): void {
     </div>
 
     <div class="d-flex gap-2 mt-3">
-      <BButton variant="primary" @click="apply">Apply</BButton>
+      <BButton
+        :variant="hasInvalidBranches ? 'danger' : 'primary'"
+        :title="hasInvalidBranches ? 'At least one branch can never match anything — applying anyway saves the pattern as-is' : undefined"
+        @click="apply"
+      >Apply</BButton>
       <BButton variant="outline-secondary" @click="cancel">Cancel</BButton>
     </div>
   </BModal>

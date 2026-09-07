@@ -76,6 +76,9 @@ function onMove(evt: { draggedContext: { element: RegexNode | BlockKind } }): bo
     :move="onMove"
     @change="pinAnchorsToEdges"
   >
+    <template v-if="isInvalidBranch" #header>
+      <p class="wtf-regex-sequence-invalid-label">This branch can never match anything.</p>
+    </template>
     <template #item="{ element, index }">
       <RegexBlockNode
         :node="element"
@@ -88,5 +91,4 @@ function onMove(evt: { draggedContext: { element: RegexNode | BlockKind } }): bo
       <p class="wtf-regex-sequence-empty-label">Drag blocks here</p>
     </template>
   </draggable>
-  <p v-if="isInvalidBranch" class="wtf-regex-sequence-invalid-label">This branch can never match anything.</p>
 </template>

@@ -2091,7 +2091,7 @@ hr {
 }
 
 .wtf-regex-sequence-invalid-label {
-    margin: 0.25rem 0 0;
+    margin: 0;
     font-size: 0.75rem;
     font-weight: 600;
     color: var(--bs-danger);

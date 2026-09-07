@@ -5,6 +5,7 @@ import { BButton } from 'bootstrap-vue-next';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { requestRegexEdit } from './regexEditorModal';
 import { highlightPatternHtml } from './regexHighlight';
+import { countCapturingGroups, findUnsatisfiableBranches, parsePatternToAst } from './regex-editor/regexAstModel';
 import type { PatternPreviewConfig } from './patternPreviewTypes';
 
 /**
@@ -38,7 +39,15 @@ const props = withDefaults(
     fieldLabel: string;
     /** The same config driving whichever PatternPreview is rendered next to this field on the page — see patternPreviewTypes.ts. Forwarded to the visual editor modal so its own preview is that exact same component/config, not a second hand-rolled one. */
     previewConfig: PatternPreviewConfig;
-    /** Caps how many (…) capture groups the visual editor lets this field's block tree contain — see regexEditorModal.ts's own doc comment. Leave unset for a field with no such server-side rule. */
+    /**
+     * Both a cap the visual editor enforces while building a pattern (see
+     * regexEditorModal.ts's own doc comment) AND the exact count this
+     * field's own hand-typed value is validated against below — every
+     * current caller passes this because the server requires EXACTLY this
+     * many real capture groups (App\Support\Regex::validateSingleCaptureGroup),
+     * not merely "no more than this many". Leave unset for a field with no
+     * such server-side rule.
+     */
     maxCaptureGroups?: number;
   }>(),
   {
@@ -116,6 +125,44 @@ const displayText = computed(() => (showingPlaceholder.value ? props.placeholder
 
 const highlightedHtml = computed(() => highlightPatternHtml(displayText.value));
 
+/**
+ * Client-side echo of the two structural checks App\Support\Regex /
+ * UpdateSettingsRequest enforce server-side on save — surfaced here too
+ * since a pattern can just as easily be hand-typed straight into this
+ * textarea as built via the visual editor modal (which only prevents
+ * *adding* a capture group past the cap; it can't stop someone from
+ * typing a pattern with too few, or hand-editing one to drop below it).
+ * Blank is never flagged: every field here treats it as an intentional
+ * "use the default" or "off" state, not an error.
+ * 1. maxCaptureGroups, when set, isn't just an upper bound in practice —
+ *    both real fields that pass it (highlight_clause_pattern,
+ *    activity_clause_pattern) require EXACTLY that many real capture
+ *    groups server-side (validateSingleCaptureGroup), so a count below it
+ *    is just as invalid as one above.
+ * 2. findUnsatisfiableBranches (regexAstModel.ts) — a ^/$ placed where
+ *    required content still comes before/after it, making the whole
+ *    pattern (or one alternative of it) impossible to ever match.
+ */
+const validationMessage = computed(() => {
+  if (text.value === '') return null;
+  const ast = parsePatternToAst(text.value);
+
+  if (props.maxCaptureGroups !== undefined) {
+    const count = countCapturingGroups(ast);
+    if (count !== props.maxCaptureGroups) {
+      const need = `exactly ${props.maxCaptureGroups} capture group${props.maxCaptureGroups === 1 ? '' : 's'}`;
+      return count === 0 ? `This field requires ${need} — none found.` : `This field requires ${need} — found ${count}.`;
+    }
+  }
+
+  if (findUnsatisfiableBranches(ast).size > 0) {
+    return 'This pattern can never match anything — check where ^ or $ are placed.';
+  }
+
+  return null;
+});
+const isInvalid = computed(() => validationMessage.value !== null);
+
 async function openVisualEditor(): Promise<void> {
   const result = await requestRegexEdit({
     pattern: text.value,
@@ -145,6 +192,7 @@ async function openVisualEditor(): Promise<void> {
         :id="id"
         ref="nativeEl"
         class="form-control wtf-regex-native"
+        :class="{ 'is-invalid': isInvalid }"
         rows="1"
         :placeholder="placeholder"
         :value="text"
@@ -167,4 +215,5 @@ async function openVisualEditor(): Promise<void> {
       <FontAwesomeIcon :icon="faPuzzlePiece" />
     </BButton>
   </div>
+  <div v-if="validationMessage" class="invalid-feedback d-block">{{ validationMessage }}</div>
 </template>
