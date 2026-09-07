@@ -29,6 +29,19 @@ defineEmits<{ remove: [] }>();
 /** blockKindOf() only ever returns undefined for a node shape with no BLOCK_KINDS entry — unreachable here, since every RegexNode variant this tree can actually contain (parsed or hand-built via the palette) has exactly one. */
 const kind = computed(() => blockKindOf(props.node)!);
 
+/*
+ * Each label span below carries its own wtf-regex-label-color-<colorKey>
+ * class directly, rather than one wtf-regex-block-color-<colorKey> class
+ * on this whole block and a `.wtf-regex-block-color-X .wtf-regex-block-label`
+ * descendant-selector rule in CSS — a group's own body renders its child
+ * blocks' labels as *DOM descendants* of the group's wrapper element, so a
+ * descendant selector keyed off the group's own color class would match
+ * (and, depending on stylesheet order, could win over) those children's
+ * own color rules too, painting an unrelated nested block the group's
+ * color. Coloring the label element itself sidesteps that entirely.
+ */
+
+
 function asLiteral(n: RegexNode): LiteralNode {
   return n as LiteralNode;
 }
@@ -44,14 +57,14 @@ function asRaw(n: RegexNode): RawNode {
 </script>
 
 <template>
-  <div class="wtf-regex-block" :class="[`wtf-regex-block-${node.type}`, `wtf-regex-block-color-${kind.colorKey}`]">
+  <div class="wtf-regex-block" :class="`wtf-regex-block-${node.type}`">
     <div class="wtf-regex-block-row">
     <span class="wtf-regex-block-handle" title="Drag to move">
       <FontAwesomeIcon :icon="faGripVertical" />
     </span>
 
     <template v-if="node.type === 'literal'">
-      <span class="wtf-regex-block-label">{{ kind.label }}</span>
+      <span class="wtf-regex-block-label" :class="`wtf-regex-label-color-${kind.colorKey}`">{{ kind.label }}</span>
       <input
         v-model="asLiteral(node).text"
         type="text"
@@ -66,7 +79,7 @@ function asRaw(n: RegexNode): RawNode {
          [not] [ ... ]" reads as a sentence around the bracket editor, where the
          categorical name wouldn't. -->
     <template v-else-if="node.type === 'charClass' && node.kind === 'custom'">
-      <span class="wtf-regex-block-label">Any of</span>
+      <span class="wtf-regex-block-label" :class="`wtf-regex-label-color-${kind.colorKey}`">Any of</span>
       <label class="wtf-regex-block-negate">
         <input v-model="asCharClass(node).negated" type="checkbox">
         not
@@ -83,7 +96,7 @@ function asRaw(n: RegexNode): RawNode {
     </template>
 
     <template v-else-if="node.type === 'charClass'">
-      <span class="wtf-regex-block-label">{{ kind.label }}</span>
+      <span class="wtf-regex-block-label" :class="`wtf-regex-label-color-${kind.colorKey}`">{{ kind.label }}</span>
       <RegexHighlightedCode v-if="kind.symbol" :pattern="kind.symbol" />
       <label v-if="node.kind !== 'any'" class="wtf-regex-block-negate">
         <input v-model="asCharClass(node).negated" type="checkbox">
@@ -92,17 +105,17 @@ function asRaw(n: RegexNode): RawNode {
     </template>
 
     <template v-else-if="node.type === 'anchor'">
-      <span class="wtf-regex-block-label">{{ kind.label }}</span>
+      <span class="wtf-regex-block-label" :class="`wtf-regex-label-color-${kind.colorKey}`">{{ kind.label }}</span>
       <RegexHighlightedCode v-if="kind.symbol" :pattern="kind.symbol" />
     </template>
 
     <template v-else-if="node.type === 'group'">
-      <span class="wtf-regex-block-label">{{ kind.label }}</span>
+      <span class="wtf-regex-block-label" :class="`wtf-regex-label-color-${kind.colorKey}`">{{ kind.label }}</span>
       <RegexHighlightedCode v-if="kind.symbol" :pattern="kind.symbol" />
     </template>
 
     <template v-else-if="node.type === 'raw'">
-      <span class="wtf-regex-block-label" title="Regex syntax with no visual-block equivalent, kept as-is">{{ kind.label }}</span>
+      <span class="wtf-regex-block-label" :class="`wtf-regex-label-color-${kind.colorKey}`" title="Regex syntax with no visual-block equivalent, kept as-is">{{ kind.label }}</span>
       <input
         v-model="asRaw(node).text"
         type="text"

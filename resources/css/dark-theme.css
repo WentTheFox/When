@@ -2146,28 +2146,35 @@ hr {
    not its RegexNode type — capturing vs. non-capturing groups share a
    type ('group') but need different colors, matching the blue/grey split
    regexHighlight.ts's own wtf-regex-tok-group/wtf-regex-tok-noncap
-   already use for the same two constructs in plain-text patterns. */
-.wtf-regex-block-color-literal .wtf-regex-block-label {
+   already use for the same two constructs in plain-text patterns.
+   Applied directly to each label span (RegexBlockNode.vue/
+   RegexVisualEditorModal.vue), never as a `.wtf-regex-block-color-X
+   .wtf-regex-block-label` descendant selector off the block's own
+   wrapper — a group's body renders its child blocks' labels as DOM
+   descendants of the group's own wrapper too, so a descendant selector
+   there would (depending on stylesheet order) also match, and could
+   win over, an unrelated nested child's own label color. */
+.wtf-regex-label-color-literal {
     color: var(--app-text);
 }
 
-.wtf-regex-block-color-charClass .wtf-regex-block-label {
+.wtf-regex-label-color-charClass {
     color: var(--app-regex-class);
 }
 
-.wtf-regex-block-color-anchor .wtf-regex-block-label {
+.wtf-regex-label-color-anchor {
     color: var(--app-regex-meta);
 }
 
-.wtf-regex-block-color-raw .wtf-regex-block-label {
+.wtf-regex-label-color-raw {
     color: var(--app-regex-escape);
 }
 
-.wtf-regex-block-color-group .wtf-regex-block-label {
+.wtf-regex-label-color-group {
     color: var(--app-regex-group);
 }
 
-.wtf-regex-block-color-noncap .wtf-regex-block-label {
+.wtf-regex-label-color-noncap {
     color: var(--app-regex-noncap);
 }
 

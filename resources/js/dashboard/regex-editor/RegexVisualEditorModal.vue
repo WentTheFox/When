@@ -129,11 +129,11 @@ function onHide(): void {
           <template #item="{ element }">
             <div
               class="wtf-regex-block wtf-regex-palette-block"
-              :class="[`wtf-regex-block-${element.type}`, `wtf-regex-block-color-${element.colorKey}`, { 'wtf-regex-palette-block--disabled': isPaletteEntryDisabled(element) }]"
+              :class="[`wtf-regex-block-${element.type}`, { 'wtf-regex-palette-block--disabled': isPaletteEntryDisabled(element) }]"
               :title="isPaletteEntryDisabled(element) ? 'Capture group limit reached — remove one first' : undefined"
             >
               <span class="wtf-regex-palette-block-name">
-                <span class="wtf-regex-block-label">{{ element.label }}</span>
+                <span class="wtf-regex-block-label" :class="`wtf-regex-label-color-${element.colorKey}`">{{ element.label }}</span>
                 <RegexHighlightedCode v-if="element.symbol" :pattern="element.symbol" />
               </span>
               <span class="wtf-regex-palette-block-hint">
