@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\RecomputeShareLinkAvailability;
 use App\Models\ShareLink;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -110,5 +111,46 @@ class ShareLinkAvailabilityController extends Controller
             'timezone' => $shareLink->user->timezone ?? 'UTC',
             'timezone_configured' => $shareLink->user->timezone !== null,
         ]);
+    }
+
+    /**
+     * Owner-only: lets the owner force a recompute from their own /free
+     * preview instead of waiting out CACHE_TTL_MINUTES, e.g. right after
+     * adding a calendar event they want to immediately see reflected. Rate
+     * limited to once per CACHE_TTL_MINUTES *per link* by simply reusing the
+     * same staleness check show() already does — there's deliberately no
+     * separate throttle key to track, since "the cache is still fresh" and
+     * "a manual refresh was already granted recently" are the same fact.
+     */
+    public function refresh(Request $request, string $token): JsonResponse
+    {
+        $shareLink = ShareLink::where('highlight_token', $token)->first();
+
+        if ($shareLink === null || $shareLink->archived) {
+            abort(Response::HTTP_NOT_FOUND);
+        }
+
+        $authUser = $request->user();
+        if ($authUser === null || $shareLink->user_id !== $authUser->id) {
+            abort(Response::HTTP_FORBIDDEN);
+        }
+
+        if ($shareLink->user->calendar_url_ciphertext === null) {
+            return response()->json(['status' => 'unconfigured'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $cache = $shareLink->cache;
+        $nextAllowedAt = $cache?->encrypted_at->addMinutes(self::CACHE_TTL_MINUTES);
+
+        if ($nextAllowedAt !== null && $nextAllowedAt->isFuture()) {
+            return response()->json([
+                'status' => 'throttled',
+                'retry_after_seconds' => now()->diffInSeconds($nextAllowedAt),
+            ], Response::HTTP_TOO_MANY_REQUESTS);
+        }
+
+        RecomputeShareLinkAvailability::dispatch($shareLink->id);
+
+        return response()->json(['status' => 'queued']);
     }
 }

@@ -5,12 +5,14 @@ namespace App\Http\Controllers;
 use App\Domain\Calendar\AvailabilityResult;
 use App\Domain\Calendar\AvailabilitySlot;
 use App\Domain\Calendar\ParsedEvent;
+use App\Models\ShareLinkVisit;
 use App\Models\SleepException;
 use App\Models\User;
 use App\Services\Calendar\AvailabilityService;
 use App\Services\Calendar\CalendarFetcher;
 use App\Services\Calendar\EventNormalizer;
 use App\Services\Calendar\IcsParser;
+use App\Support\Locales;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,6 +24,9 @@ class DashboardController extends Controller
 {
     private const PAST_DAYS = 30;
 
+    /** How many of this owner's most recent visits (across all their share links) get scanned for the unsupported-locale widget below. */
+    private const MAX_VISITS_FOR_LOCALE_SCAN = 1000;
+
     public function index(Request $request): Response
     {
         $user = $request->user();
@@ -31,7 +36,40 @@ class DashboardController extends Controller
             'shareLinkCount' => $user->shareLinks()->where('archived', false)->count(),
             'connectionCount' => $user->connections()->count(),
             'hasCalendarUrl' => $user->calendar_url_ciphertext !== null,
+            'unsupportedVisitorLocales' => $this->unsupportedVisitorLocales($user),
         ]);
+    }
+
+    /**
+     * Real visitors' browser-reported locales (see ShareLinkVisitController)
+     * whose base language subtag isn't one App\Support\Locales knows how to
+     * render the /free page in — surfaced so the owner can see demand for a
+     * language this app doesn't support yet. `locale` is an encrypted cast
+     * (see ShareLinkVisit), so this has to decrypt and group in PHP, not
+     * SQL — capped to the most recent MAX_VISITS_FOR_LOCALE_SCAN visits
+     * across all of this owner's links so a heavily-viewed account can't
+     * turn this into an unbounded scan.
+     *
+     * @return list<array{language: string, count: int}>
+     */
+    private function unsupportedVisitorLocales(User $user): array
+    {
+        $shareLinkIds = $user->shareLinks()->pluck('id');
+
+        return ShareLinkVisit::whereIn('share_link_id', $shareLinkIds)
+            ->latest('visited_at')
+            ->limit(self::MAX_VISITS_FOR_LOCALE_SCAN)
+            ->get(['locale'])
+            ->pluck('locale')
+            ->filter()
+            ->map(fn (string $locale) => strtolower(explode('-', $locale)[0]))
+            ->reject(fn (string $language) => Locales::isValid($language))
+            ->countBy()
+            ->map(fn (int $count, string $language) => ['language' => $language, 'count' => $count])
+            ->values()
+            ->sortByDesc('count')
+            ->values()
+            ->all();
     }
 
     /**

@@ -21,6 +21,7 @@ class ShareLinkVisit extends Model
         'id',
         'share_link_id',
         'timezone',
+        'locale',
     ];
 
     protected function casts(): array
@@ -28,6 +29,7 @@ class ShareLinkVisit extends Model
         return [
             'visited_at' => 'datetime',
             'timezone' => 'encrypted',
+            'locale' => 'encrypted',
         ];
     }
 

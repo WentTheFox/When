@@ -254,6 +254,7 @@ class ShareLinkManagementController extends Controller
                 'id' => $visit->id,
                 'visited_at' => $visit->visited_at->toIso8601String(),
                 'timezone' => $visit->timezone,
+                'locale' => $visit->locale,
             ]);
 
         return response()->json($visits);

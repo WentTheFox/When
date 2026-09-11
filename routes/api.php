@@ -19,3 +19,13 @@ Route::post('/share/{token}/visits', [ShareLinkVisitController::class, 'store'])
     // (Maybe this should move into a regular web endpoint?)
     ->middleware(['throttle:share-link-visit', 'web'])
     ->name('api.share-links.visits.store');
+
+// Owner-only: lets the owner force a recompute from their own /free
+// preview. Needs 'web' for the same reason /visits does — resolving the
+// logged-in user from the session — the controller itself does the
+// ownership check (401/403, not a redirect, since this is a JSON caller).
+// throttle:30,1 is just defense-in-depth; the real per-link rate limit is
+// the cache-staleness check inside the controller.
+Route::post('/share/{token}/refresh', [ShareLinkAvailabilityController::class, 'refresh'])
+    ->middleware(['throttle:30,1', 'web'])
+    ->name('api.share-links.refresh');

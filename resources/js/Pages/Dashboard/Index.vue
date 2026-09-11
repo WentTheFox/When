@@ -7,18 +7,42 @@ import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 
 defineOptions({ layout: DashboardLayout });
 
+interface UnsupportedLocale {
+  language: string;
+  count: number;
+}
+
 defineProps<{
   userName: string;
   shareLinkCount: number;
   connectionCount: number;
   hasCalendarUrl: boolean;
+  unsupportedVisitorLocales: UnsupportedLocale[];
 }>();
+
+/** Best-effort human-readable name for a bare BCP-47 language subtag (e.g. "sq" -> "Albanian") — Intl.DisplayNames can throw on a code it doesn't recognize, so this just falls back to the raw code rather than the widget erroring out. */
+function languageName(code: string): string {
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'language' }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
 </script>
 
 <template>
   <Head title="Dashboard" />
 
   <h1 class="h3 mb-4">Welcome, {{ userName }}</h1>
+
+  <div v-if="unsupportedVisitorLocales.length" class="alert alert-danger">
+    <h2 class="h6 mb-2">Visitors are using languages this app doesn't support yet</h2>
+    <ul class="mb-0">
+      <li v-for="entry in unsupportedVisitorLocales" :key="entry.language">
+        {{ languageName(entry.language) }} ({{ entry.language }}) — {{ entry.count }} visit{{ entry.count === 1 ? '' : 's' }}
+      </li>
+    </ul>
+  </div>
 
   <div v-if="!hasCalendarUrl" class="alert alert-info">
     You haven't added a calendar yet. Head to <Link href="/settings">Settings</Link> to

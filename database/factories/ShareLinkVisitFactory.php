@@ -18,6 +18,7 @@ class ShareLinkVisitFactory extends Factory
         return [
             'share_link_id' => ShareLink::factory(),
             'timezone' => $this->faker->randomElement(['UTC', 'Europe/Budapest', 'America/New_York', 'Asia/Tokyo']),
+            'locale' => $this->faker->randomElement(['en-US', 'hu-HU', 'ja-JP', null]),
         ];
     }
 }

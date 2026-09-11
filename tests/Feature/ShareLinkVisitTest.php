@@ -25,6 +25,83 @@ class ShareLinkVisitTest extends TestCase
         $this->assertSame('Europe/Budapest', $shareLink->visits()->first()->timezone);
     }
 
+    public function test_a_visit_is_recorded_with_the_posted_locale(): void
+    {
+        $shareLink = ShareLink::factory()->for(User::factory())->create();
+
+        $this->postJson(route('api.share-links.visits.store', $shareLink->highlight_token), [
+            'timezone' => 'Europe/Budapest',
+            'locale' => 'hu-HU',
+        ])->assertCreated();
+
+        $this->assertSame('hu-HU', $shareLink->visits()->first()->locale);
+    }
+
+    public function test_a_visit_without_a_locale_stores_null(): void
+    {
+        $shareLink = ShareLink::factory()->for(User::factory())->create();
+
+        $this->postJson(route('api.share-links.visits.store', $shareLink->highlight_token), [
+            'timezone' => 'Europe/Budapest',
+        ])->assertCreated();
+
+        $this->assertNull($shareLink->visits()->first()->locale);
+    }
+
+    public function test_the_owner_viewing_their_own_link_is_not_tracked_but_gets_visitor_timezone_tallies(): void
+    {
+        $owner = User::factory()->create();
+        $shareLink = ShareLink::factory()->for($owner)->create();
+
+        ShareLinkVisit::factory()->for($shareLink)->count(3)->create(['timezone' => 'Europe/Budapest']);
+        ShareLinkVisit::factory()->for($shareLink)->count(1)->create(['timezone' => 'America/New_York']);
+
+        $response = $this->actingAs($owner)->postJson(route('api.share-links.visits.store', $shareLink->highlight_token), [
+            'timezone' => 'Asia/Tokyo',
+        ]);
+
+        $response->assertAccepted();
+        $this->assertSame(4, $shareLink->visits()->count());
+
+        $tallies = $response->json('visitor_timezones');
+        $this->assertSame(['timezone' => 'Europe/Budapest', 'count' => 3], $tallies[0]);
+        $this->assertSame(['timezone' => 'America/New_York', 'count' => 1], $tallies[1]);
+    }
+
+    public function test_the_owner_viewing_their_own_link_gets_visitor_locale_tallies(): void
+    {
+        $owner = User::factory()->create();
+        $shareLink = ShareLink::factory()->for($owner)->create();
+
+        ShareLinkVisit::factory()->for($shareLink)->count(2)->create(['locale' => 'hu-HU']);
+        ShareLinkVisit::factory()->for($shareLink)->count(1)->create(['locale' => 'en-US']);
+        ShareLinkVisit::factory()->for($shareLink)->count(1)->create(['locale' => null]);
+
+        $response = $this->actingAs($owner)->postJson(route('api.share-links.visits.store', $shareLink->highlight_token), [
+            'timezone' => 'Asia/Tokyo',
+        ]);
+
+        $response->assertAccepted();
+        $tallies = $response->json('visitor_locales');
+        $this->assertSame(['locale' => 'hu-HU', 'count' => 2], $tallies[0]);
+        $this->assertSame(['locale' => 'en-US', 'count' => 1], $tallies[1]);
+        $this->assertCount(2, $tallies); // the null-locale visit contributes no entry
+    }
+
+    public function test_the_owner_viewing_a_link_with_no_prior_visits_gets_an_empty_tally(): void
+    {
+        $owner = User::factory()->create();
+        $shareLink = ShareLink::factory()->for($owner)->create();
+
+        $response = $this->actingAs($owner)->postJson(route('api.share-links.visits.store', $shareLink->highlight_token), [
+            'timezone' => 'Asia/Tokyo',
+        ]);
+
+        $response->assertAccepted();
+        $this->assertSame([], $response->json('visitor_timezones'));
+        $this->assertSame(0, $shareLink->visits()->count());
+    }
+
     public function test_an_invalid_timezone_is_rejected(): void
     {
         $shareLink = ShareLink::factory()->for(User::factory())->create();

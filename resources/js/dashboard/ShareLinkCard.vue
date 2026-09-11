@@ -145,6 +145,7 @@ interface VisitRow {
   id: string;
   visited_at: string;
   timezone: string;
+  locale: string | null;
 }
 
 interface VisitsPage {
@@ -316,12 +317,14 @@ async function remove(): Promise<void> {
             <tr>
               <th>When</th>
               <th>Visitor timezone</th>
+              <th>Visitor locale</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="visit in visits" :key="visit.id">
               <td>{{ new Date(visit.visited_at).toLocaleString() }}</td>
               <td>{{ visit.timezone }}</td>
+              <td>{{ visit.locale ?? '—' }}</td>
             </tr>
           </tbody>
         </table>
