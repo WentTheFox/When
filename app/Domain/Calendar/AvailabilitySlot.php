@@ -28,9 +28,9 @@ final class AvailabilitySlot
         public readonly ?array $activityLabel = null,
         /** Every configured highlight word that matched (a clause can name more than one person). Only ever set for a highlighted slot. */
         public readonly array $highlightWords = [],
-        /** The matched activity_localization's own icon_key (see App\Models\ActivityLocalization), when a role's pattern — not an ordinary "with X"/"w/ X" clause — is what matched. Null (the common case) means "use the regular highlighted icon" — this never forces the client to fall back to anything itself. Only ever set for a highlighted slot. */
+        /** The matched activity_localization's own icon_key (see App\Models\ActivityLocalization), when a role's pattern — not an ordinary "with X"/"w/ X" clause — is what matched. Null (the common case) means "use the regular highlighted/public icon" — this never forces the client to fall back to anything itself. Set for a highlighted slot when a highlight-word-gated role match applies (HighlightMatcher::matchClauseText), or a public slot when its title structurally matches a role's pattern (HighlightMatcher::matchActivityRole, ungated — see AvailabilityService::compute). */
         public readonly ?string $activityIcon = null,
-        /** Same idea as activityIcon above, but the matched role's own color_key. Null means "use the regular highlighted color." Only ever set for a highlighted slot. */
+        /** Same idea as activityIcon above, but the matched role's own color_key. Null means "use the regular highlighted/public color." */
         public readonly ?string $activityColor = null,
     ) {}
 

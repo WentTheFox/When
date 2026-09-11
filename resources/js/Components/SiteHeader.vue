@@ -62,8 +62,19 @@ function logout(): void {
       right, next to the hamburger toggle HeaderBar renders after this
       slot. Stays visible at every width — only the nav-link/account
       content below (the #collapsible slot) collapses on mobile.
+
+      order-lg-last: at ≥lg the collapsible slot's nav-links/account
+      content becomes a normal (visible, non-collapsed) flex item in this
+      same .container row, sitting between this div and the (hidden at lg)
+      toggle in DOM order — without an explicit order, ms-auto here just
+      pulls this div to hug the *left* edge of that nav-links content
+      instead of past it, landing it between the brand and the nav links
+      rather than at the actual right edge of the bar. Below lg the
+      collapse is genuinely collapsed/hidden, so order is irrelevant there
+      and this stays right where DOM order already puts it, next to the
+      toggle.
     -->
-    <div class="d-flex align-items-center ms-auto">
+    <div class="d-flex align-items-center ms-auto order-lg-last">
       <LanguageSwitcher
         v-if="isFreePage"
         :locales="page.props.locales"

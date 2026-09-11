@@ -172,6 +172,54 @@ class HighlightMatcherTest extends TestCase
         $this->assertNull($result);
     }
 
+    /**
+     * A role's pattern is checked *before* the default/custom "with X"/
+     * "w/ X" clause — an owner can configure a role whose own pattern is
+     * that same shape specifically to attach a label/icon/color to
+     * ordinary highlighted events. If the generic clause were checked
+     * first (as it used to be), it would always win the race and this
+     * role's icon/label/color would never be reachable.
+     */
+    public function test_a_role_pattern_matching_the_same_shape_as_the_default_clause_still_wins(): void
+    {
+        $localizations = [
+            ['pattern' => HighlightMatcher::DEFAULT_CLAUSE_PATTERN, 'label' => ['default' => 'Meeting'], 'icon_key' => 'handshake', 'color_key' => 'blue'],
+        ];
+
+        $result = $this->matcher->match($this->event(summary: 'Dinner with Alice'), ['Alice'], activityLocalizations: $localizations);
+
+        $this->assertSame(['Alice'], $result->words);
+        $this->assertSame(['default' => 'Meeting'], $result->activityLabel);
+        $this->assertSame('handshake', $result->activityIcon);
+        $this->assertSame('blue', $result->activityColor);
+    }
+
+    public function test_matchactivityrole_finds_a_role_by_pattern_alone_no_highlight_words_needed(): void
+    {
+        $result = $this->matcher->matchActivityRole('Host Alice', $this->hostVisitLocalizations());
+
+        $this->assertSame(['default' => 'Visiting'], $result['label']);
+        $this->assertSame('house', $result['icon']);
+        $this->assertSame('red', $result['color']);
+    }
+
+    public function test_matchactivityrole_returns_null_when_no_role_pattern_matches(): void
+    {
+        $this->assertNull($this->matcher->matchActivityRole('Gym', $this->hostVisitLocalizations()));
+    }
+
+    public function test_matchactivityrole_checked_roles_in_configured_order(): void
+    {
+        $localizations = [
+            ['pattern' => '^gym$', 'label' => ['default' => 'Workout'], 'icon_key' => 'dumbbell'],
+            ['pattern' => '^gym$', 'label' => ['default' => 'Second'], 'icon_key' => 'anchor'],
+        ];
+
+        $result = $this->matcher->matchActivityRole('Gym', $localizations);
+
+        $this->assertSame('dumbbell', $result['icon']);
+    }
+
     public function test_a_localization_pattern_is_never_checked_when_no_localizations_are_configured(): void
     {
         // Same title as test_host_prefix_localization_sets_the_visiting_label, but

@@ -34,7 +34,7 @@ const COLLAPSE_ID = 'site-header-collapse';
 
       <BNavbarToggle v-if="!hideToggle" :target="COLLAPSE_ID" class="d-lg-none ms-2" />
 
-      <BCollapse :id="COLLAPSE_ID" v-model="open" class="navbar-collapse w-100" is-nav>
+      <BCollapse :id="COLLAPSE_ID" v-model="open" class="navbar-collapse" is-nav>
         <slot name="collapsible" :open="open" />
       </BCollapse>
     </div>

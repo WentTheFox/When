@@ -28,9 +28,9 @@ export interface EventSlot {
   activity_label?: LocalizedText | null;
   /** Every configured highlight word that matched — a clause can name more than one person (e.g. "with Alice, Bob"). Only ever set for a highlighted slot. */
   highlight_words?: string[];
-  /** The matched ActivityLocalization's own icon_key (App\Support\IconKey), when one of the owner's role patterns — not an ordinary "with X"/"w/ X" clause — is what matched. Resolve with resolveIcon(); null/absent means "use the regular highlighted icon," never a value to fall back from itself. Only ever set for a highlighted slot. */
+  /** The matched ActivityLocalization's own icon_key (App\Support\IconKey) — for a highlighted slot, when one of the owner's role patterns (not an ordinary "with X"/"w/ X" clause) is what matched; for a public slot, when its title structurally matches a role's pattern (no highlight-word gate — see AvailabilityService::compute). Resolve with resolveIcon(); null/absent means "use the regular highlighted/public icon," never a value to fall back from itself. */
   activity_icon?: string | null;
-  /** Same idea as activity_icon above, but the matched role's own color_key (App\Support\ColorSwatchKey). Resolve with resolveSwatchHex(); null/absent means "use the regular highlighted color." Only ever set for a highlighted slot. */
+  /** Same idea as activity_icon above, but the matched role's own color_key (App\Support\ColorSwatchKey). Resolve with resolveSwatchHex(); null/absent means "use the regular highlighted/public color." */
   activity_color?: string | null;
 }
 

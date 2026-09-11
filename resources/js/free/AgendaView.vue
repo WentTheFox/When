@@ -79,8 +79,8 @@ const dateFnsLocale = computed(() => resolveDateFnsLocale(currentLocale.value));
 
 /** Same per-role icon override as CalendarView.vue's own iconFor — see its doc comment. */
 function iconFor(slot: DayBlock): IconDefinition {
-  if (slot.type === 'highlighted' && slot.activityIcon) {
-    return resolveIcon(slot.activityIcon, 'highlighted');
+  if ((slot.type === 'highlighted' || slot.type === 'public') && slot.activityIcon) {
+    return resolveIcon(slot.activityIcon, slot.type);
   }
   return slotTypeIcon.value[slot.type];
 }

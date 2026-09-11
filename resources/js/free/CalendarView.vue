@@ -96,19 +96,20 @@ const blockTypeIcon = computed<Record<DayBlock['type'], IconDefinition>>(() => (
 const dateFnsLocale = computed(() => resolveDateFnsLocale(currentLocale.value));
 
 /**
- * A highlighted block whose match came from one of the owner's own
- * ActivityLocalization roles can carry its own icon (block.activityIcon —
- * see AvailabilityService::compute()/HighlightMatch's own doc comments),
- * shown instead of the share link's single flat "highlighted" icon.
- * block.activityIcon is a raw IconKey string straight off the wire, so it
- * still needs resolving to a real FA icon the same way every *_icon_key
- * prop already is — falling back to the regular resolved highlighted icon
- * (not re-deriving from IconPalette's own hardcoded default) when unset,
- * so an owner who's never touched a role's icon sees no change at all.
+ * A highlighted or public block whose match came from one of the owner's
+ * own ActivityLocalization roles can carry its own icon (block.activityIcon
+ * — see AvailabilityService::compute()/HighlightMatch's own doc comments),
+ * shown instead of the share link's single flat "highlighted"/"public"
+ * icon. block.activityIcon is a raw IconKey string straight off the wire,
+ * so it still needs resolving to a real FA icon the same way every
+ * *_icon_key prop already is — falling back to the regular resolved icon
+ * for this block's own type (not re-deriving from IconPalette's own
+ * hardcoded default) when unset, so an owner who's never touched a role's
+ * icon sees no change at all.
  */
 function iconFor(block: DayBlock): IconDefinition {
-  if (block.type === 'highlighted' && block.activityIcon) {
-    return resolveIcon(block.activityIcon, 'highlighted');
+  if ((block.type === 'highlighted' || block.type === 'public') && block.activityIcon) {
+    return resolveIcon(block.activityIcon, block.type);
   }
   return blockTypeIcon.value[block.type];
 }
@@ -130,13 +131,13 @@ function iconFor(block: DayBlock): IconDefinition {
  * override flows into it for free.
  */
 function activityColorStyle(block: DayBlock): Record<string, string> | undefined {
-  if (block.type !== 'highlighted' || !block.activityColor) return undefined;
+  if ((block.type !== 'highlighted' && block.type !== 'public') || !block.activityColor) return undefined;
   const theme = resolvedTheme.value;
-  const hex = resolveSwatchHex(block.activityColor, 'highlighted', theme);
+  const hex = resolveSwatchHex(block.activityColor, block.type, theme);
   return {
-    '--app-color-highlighted': hexToRgba(hex, BLOCK_ALPHA[theme].highlighted),
-    '--app-hue-highlighted': hex,
-    '--app-fcal-text-highlighted': `color-mix(in srgb, ${hex} 65%, var(--app-text) 35%)`,
+    [`--app-color-${block.type}`]: hexToRgba(hex, BLOCK_ALPHA[theme][block.type]),
+    [`--app-hue-${block.type}`]: hex,
+    [`--app-fcal-text-${block.type}`]: `color-mix(in srgb, ${hex} 65%, var(--app-text) 35%)`,
   };
 }
 

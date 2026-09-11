@@ -90,6 +90,26 @@ class HighlightMatcher
 
     private function matchClauseText(string $text, array $highlightWords, ?string $clausePattern, ?string $splitPattern, array $activityLocalizations): ?HighlightMatch
     {
+        // Checked FIRST, in the owner's own configured order — the first
+        // role whose pattern matches (and whose captured name contains a
+        // configured highlight word) wins, same "first match wins" spirit
+        // as every other ordered-list matching in this app. This has to run
+        // before the generic default/custom clause pattern below: an owner
+        // is free to configure a role whose own pattern is the *same*
+        // "with X"/"w/ X" shape specifically to attach a label/icon/color to
+        // ordinary highlighted events — checking the generic clause first
+        // would always win that race and the role's icon/label/color would
+        // never be reachable.
+        foreach ($activityLocalizations as $role) {
+            if (($matches = Regex::tryMatch("\x01".$role['pattern']."\x01iu", $text)) === null || ! isset($matches[1])) {
+                continue;
+            }
+
+            if ($words = $this->matchTokens($matches[1], $highlightWords, $splitPattern)) {
+                return new HighlightMatch($words, activityLabel: $role['label'], activityIcon: $role['icon_key'] ?? null, activityColor: $role['color_key'] ?? null);
+            }
+        }
+
         $pattern = $clausePattern ?: self::DEFAULT_CLAUSE_PATTERN;
 
         // \x01 delimiter, same reasoning as ParsedEvent::matchesEventNamePattern:
@@ -99,20 +119,6 @@ class HighlightMatcher
         if (($matches = Regex::tryMatch("\x01".$pattern."\x01iu", $text)) !== null && isset($matches[1])) {
             if ($words = $this->matchTokens($matches[1], $highlightWords, $splitPattern)) {
                 return new HighlightMatch($words);
-            }
-        }
-
-        // Checked in the owner's own configured order — the first role
-        // whose pattern matches (and whose captured name contains a
-        // configured highlight word) wins, same "first match wins" spirit
-        // as every other ordered-list matching in this app.
-        foreach ($activityLocalizations as $role) {
-            if (($matches = Regex::tryMatch("\x01".$role['pattern']."\x01iu", $text)) === null || ! isset($matches[1])) {
-                continue;
-            }
-
-            if ($words = $this->matchTokens($matches[1], $highlightWords, $splitPattern)) {
-                return new HighlightMatch($words, activityLabel: $role['label'], activityIcon: $role['icon_key'] ?? null, activityColor: $role['color_key'] ?? null);
             }
         }
 
@@ -155,6 +161,28 @@ class HighlightMatcher
         }
 
         return $matched;
+    }
+
+    /**
+     * Public events skip the highlight-word gate matchClauseText's own role
+     * loop applies — a public event is shown to every visitor regardless of
+     * which words a given share link happens to be configured with, so all
+     * that matters here is whether the title structurally matches one of
+     * the owner's role patterns, not whom (if anyone) it names. Same "first
+     * configured role wins" order as matchClauseText's own loop.
+     *
+     * @param  array<int, array{pattern: string, label: array<string, string>, icon_key?: ?string, color_key?: ?string}>  $activityLocalizations
+     * @return array{label: array<string, string>, icon: ?string, color: ?string}|null
+     */
+    public function matchActivityRole(string $text, array $activityLocalizations): ?array
+    {
+        foreach ($activityLocalizations as $role) {
+            if (Regex::tryMatch("\x01".$role['pattern']."\x01iu", $text) !== null) {
+                return ['label' => $role['label'], 'icon' => $role['icon_key'] ?? null, 'color' => $role['color_key'] ?? null];
+            }
+        }
+
+        return null;
     }
 
     private function matchFreeBusyOnly(ParsedEvent $event, array $highlightWords): ?HighlightMatch

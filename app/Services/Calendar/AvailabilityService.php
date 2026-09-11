@@ -89,7 +89,25 @@ class AvailabilityService
                     ? ($this->activityExtractor->extract($event->summary, $activityClausePattern) ?? $event->summary)
                     : null;
 
-                $public[] = ['start' => $event->start, 'end' => $event->end, 'tentativeStart' => $event->tentativeStart, 'tentativeEnd' => $event->tentativeEnd, 'summary' => $publicActivity];
+                // Same role-pattern lookup a highlighted event's icon/color
+                // comes from below, but never gated behind a share link's
+                // own $highlightWords — a public event is shown to every
+                // visitor, not just one whose link happens to name someone
+                // this title also mentions, so its icon can't depend on
+                // that either.
+                $publicRole = $event->summary !== null
+                    ? $this->matcher->matchActivityRole($event->summary, $activityLocalizations)
+                    : null;
+
+                $public[] = [
+                    'start' => $event->start,
+                    'end' => $event->end,
+                    'tentativeStart' => $event->tentativeStart,
+                    'tentativeEnd' => $event->tentativeEnd,
+                    'summary' => $publicActivity,
+                    'icon' => $publicRole['icon'] ?? null,
+                    'color' => $publicRole['color'] ?? null,
+                ];
             }
 
             // Public events aren't exempt from also being highlighted — a
@@ -150,7 +168,7 @@ class AvailabilityService
         return new AvailabilityResult(events: [
             ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'free'), $free),
             ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'unavailable', tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd']), $unavailable),
-            ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'public', tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd'], activity: $s['summary']), $public),
+            ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'public', tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd'], activity: $s['summary'], activityIcon: $s['icon'], activityColor: $s['color']), $public),
             ...$highlighted,
             ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'sleep'), $sleepIntervals),
         ]);

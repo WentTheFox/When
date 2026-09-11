@@ -599,6 +599,43 @@ class AvailabilityServiceTest extends TestCase
         $this->assertSame('Neighborhood Cleanup', $this->eventsOfType($result, 'public')[0]->activity);
     }
 
+    /**
+     * A public event is shown to every visitor regardless of which words a
+     * given share link is configured with — its icon/color has to come
+     * from a role's pattern matching the title structurally
+     * (HighlightMatcher::matchActivityRole), not from the highlight-word
+     * gate that a highlighted slot's own role match requires. No
+     * $highlightWords passed at all here, on purpose.
+     */
+    public function test_a_public_event_matching_a_role_pattern_carries_that_roles_icon_and_color(): void
+    {
+        $result = $this->compute(
+            events: [$this->event('p1', '2026-06-03 18:00', '2026-06-03 19:00', 'Host Alice', isPublicEventTitle: true)],
+            activityLocalizations: [
+                ['pattern' => '^host\s+(.+)$', 'label' => ['default' => 'Visiting'], 'icon_key' => 'house', 'color_key' => 'red'],
+            ],
+        );
+
+        $public = $this->eventsOfType($result, 'public');
+        $this->assertCount(1, $public);
+        $this->assertSame('house', $public[0]->activityIcon);
+        $this->assertSame('red', $public[0]->activityColor);
+    }
+
+    public function test_a_public_event_with_no_matching_role_pattern_carries_no_icon_or_color(): void
+    {
+        $result = $this->compute(
+            events: [$this->event('p1', '2026-06-03 18:00', '2026-06-03 19:00', 'Neighborhood Cleanup', isPublicEventTitle: true)],
+            activityLocalizations: [
+                ['pattern' => '^host\s+(.+)$', 'label' => ['default' => 'Visiting'], 'icon_key' => 'house', 'color_key' => 'red'],
+            ],
+        );
+
+        $public = $this->eventsOfType($result, 'public');
+        $this->assertNull($public[0]->activityIcon);
+        $this->assertNull($public[0]->activityColor);
+    }
+
     public function test_a_public_event_matching_a_highlight_word_also_produces_a_highlighted_slot(): void
     {
         // "Dinner with Alice (public)" — public to every visitor as
