@@ -331,15 +331,18 @@
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255, 255, 255, 0.92)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
 }
 
-/* The collapsed panel drops open below the sticky header, over page
-   content — without its own background it would be transparent and show
-   that content bleeding through behind the open mobile menu. */
-.wtf-brand-header .navbar-collapse {
-    background: linear-gradient(var(--app-header-overlay), var(--app-header-overlay)), rgba(var(--app-accent-rgb), 0.9);
-}
-
 @media (max-width: 991.98px) {
+    /* Below the navbar-expand-lg breakpoint the collapsed panel drops open
+       below the sticky header, over page content — without its own
+       background it would be transparent and show that content bleeding
+       through behind the open mobile menu. At lg+ the nav links render
+       inline as part of the header bar itself, which already paints this
+       same background — giving .navbar-collapse its own copy there just
+       double-paints a visibly separate patch behind the nav links,
+       breaking the header's single continuous blurred-glass look, so this
+       is scoped to the mobile dropdown case only. */
     .wtf-brand-header .navbar-collapse {
+        background: linear-gradient(var(--app-header-overlay), var(--app-header-overlay)), rgba(var(--app-accent-rgb), 0.9);
         margin-top: 0.75rem;
         padding-bottom: 0.75rem;
     }
