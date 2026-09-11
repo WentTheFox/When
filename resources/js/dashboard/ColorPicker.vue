@@ -113,6 +113,18 @@ function chipStyle(hex: string, theme: 'light' | 'dark'): Record<string, string>
         :style="{ '--app-swatch-light': currentSwatch.light, '--app-swatch-dark': currentSwatch.dark }"
       />
       <span class="small">{{ currentSwatch?.label ?? 'Choose color' }}</span>
+      <!-- Same effect as clicking the already-selected swatch again inside
+           the menu (select()'s own toggle-to-clear) — this is just a more
+           discoverable way to reach it without having to open the dropdown
+           and re-find that exact swatch. @click.stop keeps it from also
+           toggling the dropdown itself open/closed. -->
+      <button
+        v-if="currentSwatch"
+        type="button"
+        class="btn-close wtf-color-picker-clear"
+        aria-label="Clear color"
+        @click.stop="modelValue = null"
+      />
     </template>
     <div class="wtf-color-picker-scroll" @click.stop>
       <button

@@ -82,6 +82,29 @@ async function save(role: ActivityLocalizationData): Promise<void> {
   }
 }
 
+const addPanel = ref<HTMLElement | null>(null);
+
+/**
+ * Copies an existing role's pattern/preview/label/icon/color into the "Add
+ * a customization" form below, for the common case of wanting a near-
+ * duplicate of an existing rule (e.g. the same pattern shape for a
+ * different name, or the same icon/label under a different pattern)
+ * instead of re-entering every field from scratch. Doesn't save anything
+ * itself — the owner still edits the copy and clicks "Add customization"
+ * like any other new role. `label` is spread into a new object so editing
+ * the copy can never mutate the role it was copied from.
+ */
+function cloneToNew(role: ActivityLocalizationData): void {
+  newPattern.value = role.pattern;
+  newPatternPreview.value = role.pattern_preview;
+  newLabel.value = { ...role.label };
+  newIconKey.value = role.icon_key;
+  newColorKey.value = role.color_key;
+  addError.value = '';
+
+  addPanel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 async function remove(role: ActivityLocalizationData): Promise<void> {
   try {
     await axios.delete(`/settings/activity-localization/${role.id}`);
@@ -165,13 +188,14 @@ async function add(): Promise<void> {
         :id-prefix="`activity_localization_${role.id}`"
       />
       <BButton variant="primary" size="sm" :disabled="savingId === role.id" @click="save(role)">Save</BButton>
+      <BButton variant="outline-secondary" size="sm" class="ms-2" @click="cloneToNew(role)">Copy to new</BButton>
       <BButton variant="outline-danger" size="sm" class="ms-2" @click="remove(role)">Remove</BButton>
       <span v-if="savedId === role.id" class="small text-success ms-2">Saved</span>
       <div v-if="errors[role.id]" class="text-danger small mt-1">{{ errors[role.id] }}</div>
     </BAccordionItem>
   </BAccordion>
 
-  <div class="wtf-pattern-preview-panel">
+  <div ref="addPanel" class="wtf-pattern-preview-panel">
     <p class="small fw-semibold mb-2">Add a customization</p>
     <ActivityLocalizationForm
       v-model:pattern="newPattern"

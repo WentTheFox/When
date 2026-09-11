@@ -15,6 +15,13 @@ import { setNowColorPresets } from './free/now-color-presets';
 const langJsonImporters = import.meta.glob<{ default: Record<string, string> }>('../../lang/*.json');
 
 createInertiaApp({
+  // Every <Head :title="..."> shorthand usage across the app runs through
+  // this — a raw <title> child element (About.vue's own, which already
+  // renders the app name itself) bypasses it entirely, so that page needs
+  // no separate handling. An empty/falsy title (a page that never set one)
+  // still gets the bare suffix rather than an empty tab title.
+  // TODO Use the APP_NAME as the suffix here, or at least deduplicate it
+  title: (title) => `${title ? `${title} · ` : ''}When?`,
   resolve: (name) => {
     const pages = import.meta.glob<{ default: DefineComponent }>('./Pages/**/*.vue', { eager: true });
     const page = pages[`./Pages/${name}.vue`];

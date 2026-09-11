@@ -291,7 +291,7 @@ const ICON_KEY_TO_FA: Record<string, IconDefinition> = {
   crown: faCrown,
   ring: faRing,
   lightbulb: faLightbulb,
-  vr: faVrCardboard,
+  'vr-cardboard': faVrCardboard,
 };
 
 let icons: IconOption[] = [];

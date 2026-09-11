@@ -1590,6 +1590,15 @@ hr {
     flex: none;
 }
 
+/* Discoverable alternative to select()'s own "click the already-selected
+   swatch again" toggle-to-clear — this sits right on the closed toggle
+   button, so clearing an override never requires reopening the dropdown
+   and re-finding that exact swatch in the list. */
+.wtf-color-picker-clear {
+    font-size: 0.65rem;
+    margin-left: 0.1rem;
+}
+
 .wtf-color-picker-menu {
     padding: 0.5rem;
     width: 22rem;
