@@ -105,14 +105,18 @@ ordinary password). See `resources/js/crypto/argon2.ts`.
 
 Two independent git remotes:
 - `git push origin main` → GitHub, code hosting only.
-- `git push production main` → a **non-bare** repo on a remote SSH host
-  with `receive.denyCurrentBranch=updateInstead`, so pushing directly updates the
-  working tree. Triggers `setup/post-receive.sh`: fetch → (composer install if
-  `composer.lock` changed) → `artisan down` → `artisan migrate --force` → (pnpm install
-  if lockfile changed) → `pnpm build` (if `resources/` changed) → `artisan optimize` →
-  restart `when-horizon.service` → `artisan up`. Live at `https://when.went.tf`.
+- `git push deploy main` → a bare repo on a remote host, via
+  [git-deploy-toolkit](https://github.com/WentTheFox/GitDeployToolkit) (a shared
+  post-receive hook, generalized across all apps on that host). `deploy.conf` at the
+  repo root defines this app's own `deploy_build`/`deploy_restart`, ported from the
+  same logic the old hand-rolled `setup/post-receive.sh` used: fetch → (composer
+  install if `composer.lock` changed) → `artisan down` (unless already down) →
+  `artisan migrate --force` → (google-fonts:fetch if relevant) → (pnpm install if
+  lockfile changed) → `pnpm build` (if `resources/` changed, non-fatal on failure) →
+  `artisan optimize` → restart `when-horizon.service` → `artisan up` (unless it was
+  already down). Live at `https://when.went.tf`.
 
-Pushing to `production` deploys immediately and takes the app down briefly during
+Pushing to `deploy` deploys immediately and takes the app down briefly during
 migrate/build — never push there without the user's explicit go-ahead for that specific
 push, even if `origin` was already approved.
 
