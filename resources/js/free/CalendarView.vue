@@ -28,8 +28,7 @@ import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUnt
 import type { DayBlock, EventSlot } from './nuxt-blocks';
 import { resolveLocalizedText } from './localizedText';
 import { resolveIcon } from './icon-palette';
-import { resolveSwatchHex } from './color-palette';
-import { BLOCK_ALPHA, hexToRgba } from './color-utils';
+import { activityColorStyle as activityColorStyleFor, blockFadeColor } from './blockColors';
 import { useResolvedTheme } from '../composables/useTheme';
 import { vFitText } from './fitText';
 
@@ -53,16 +52,6 @@ const BLOCK_TYPE_LABEL_KEY: Record<DayBlock['type'], string> = {
   school: 'free.schoolLabel',
   public: 'free.publicLabel',
   sleep: 'free.sleepLabel',
-};
-
-const BLOCK_TYPE_COLOR_VAR: Record<DayBlock['type'], string> = {
-  free: '--app-color-free',
-  unavailable: '--app-color-busy',
-  highlighted: '--app-color-highlighted',
-  work: '--app-color-work',
-  school: '--app-color-school',
-  public: '--app-color-public',
-  sleep: '--app-color-sleep',
 };
 
 const props = defineProps<{
@@ -115,30 +104,16 @@ function iconFor(block: DayBlock): IconDefinition {
 }
 
 /**
- * Same idea as iconFor() above, but for block.activityColor — and more
- * involved, because color isn't a simple prop swap: the block's background
- * (--app-color-highlighted) and its label's text tint (--app-fcal-text-
- * highlighted) are two SEPARATE custom properties, and per CLAUDE.md's own
- * documented gotcha, a var() nested inside another custom property's value
- * resolves against the scope where that property was DECLARED, not where
- * it's used — --app-fcal-text-highlighted's color-mix() formula is declared
- * once at :root referencing --app-hue-highlighted, so overriding only
- * --app-hue-highlighted here would never actually change the label's tint.
- * Redeclaring all three locally (mirroring Free/Show.vue's rootStyle
- * formula for one swatch instead of the whole page) sidesteps that. The
- * fade gradient (tentativeFadeStyle above) needs no extra handling: it
- * already reads var(--app-color-highlighted) by name, so this same local
- * override flows into it for free.
+ * Same idea as iconFor() above, but for block.activityColor. See
+ * blockColors.ts's own doc comments for why this needs its own handling
+ * (three separate custom properties, one of them declared once at :root)
+ * and why the fade gradient (tentativeFadeStyle below) needs the
+ * *separate* blockFadeColor rather than reusing this — an inline custom
+ * property set here only cascades to this block's own descendants, never
+ * sideways to a neighboring block's element.
  */
 function activityColorStyle(block: DayBlock): Record<string, string> | undefined {
-  if ((block.type !== 'highlighted' && block.type !== 'public') || !block.activityColor) return undefined;
-  const theme = resolvedTheme.value;
-  const hex = resolveSwatchHex(block.activityColor, block.type, theme);
-  return {
-    [`--app-color-${block.type}`]: hexToRgba(hex, BLOCK_ALPHA[theme][block.type]),
-    [`--app-hue-${block.type}`]: hex,
-    [`--app-fcal-text-${block.type}`]: `color-mix(in srgb, ${hex} 65%, var(--app-text) 35%)`,
-  };
+  return activityColorStyleFor(block, resolvedTheme.value);
 }
 
 function blockLabel(block: DayBlock): string {
@@ -219,20 +194,20 @@ function tentativeFadeStyle(day: Date, blocks: DayBlock[], i: number): Record<st
       : getBlocksForDay(subDays(day, 1), props.events, props.timezone).at(-1);
     if (prev) {
       style['--fade-start'] = isTentativeEndDisplay(prev)
-        ? `var(${BLOCK_TYPE_COLOR_VAR[block.type]})`
-        : `var(${BLOCK_TYPE_COLOR_VAR[prev.type]})`;
+        ? blockFadeColor(block, resolvedTheme.value)
+        : blockFadeColor(prev, resolvedTheme.value);
     }
   } else {
-    style['--fade-start'] = `var(${BLOCK_TYPE_COLOR_VAR[block.type]})`;
+    style['--fade-start'] = blockFadeColor(block, resolvedTheme.value);
   }
 
   if (endFuzzy) {
     const next = i < blocks.length - 1
       ? blocks[i + 1]
       : getBlocksForDay(addDays(day, 1), props.events, props.timezone)[0];
-    if (next) style['--fade-end'] = `var(${BLOCK_TYPE_COLOR_VAR[next.type]})`;
+    if (next) style['--fade-end'] = blockFadeColor(next, resolvedTheme.value);
   } else {
-    style['--fade-end'] = `var(${BLOCK_TYPE_COLOR_VAR[block.type]})`;
+    style['--fade-end'] = blockFadeColor(block, resolvedTheme.value);
   }
 
   return style;
