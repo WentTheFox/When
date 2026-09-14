@@ -700,7 +700,7 @@ onMounted(() => {
               <span v-if="refreshMessage" class="small text-muted">{{ refreshMessage }}</span>
             </div>
 
-            <p  class="small text-center text-warning mb-3">
+            <p v-if="!showOwnerCustomizations" class="small text-center text-warning mb-3">
           <FontAwesomeIcon :icon="faLock" class="me-2" />{{ $t('free.personalizedWarning') }}
             </p>
           </template>
