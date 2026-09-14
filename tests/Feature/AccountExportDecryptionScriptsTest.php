@@ -100,9 +100,11 @@ class AccountExportDecryptionScriptsTest extends TestCase
         $connection = Connection::create(['user_id' => $user->id, 'name_ciphertext' => 'placeholder']);
         $plaintexts['connection_name'] = 'Connection Name';
         $plaintexts['connection_notes'] = 'Connection Notes';
+        $plaintexts['connection_introduced_by'] = 'Connection Introduced By';
         $connection->forceFill([
             'name_ciphertext' => $this->encryptFor($connection->id, $plaintexts['connection_name']),
             'notes_ciphertext' => $this->encryptFor($connection->id, $plaintexts['connection_notes']),
+            'introduced_by_ciphertext' => $this->encryptFor($connection->id, $plaintexts['connection_introduced_by']),
         ])->save();
         $connection->sources()->attach($source->id);
 
@@ -189,6 +191,7 @@ class AccountExportDecryptionScriptsTest extends TestCase
         $connections = collect($decryptedFiles['connections/connections']['records']);
         $this->assertSame($plaintexts['connection_name'], $connections->firstWhere('name', $plaintexts['connection_name'])['name']);
         $this->assertSame($plaintexts['connection_notes'], $connections->firstWhere('notes', $plaintexts['connection_notes'])['notes']);
+        $this->assertSame($plaintexts['connection_introduced_by'], $connections->firstWhere('introduced_by', $plaintexts['connection_introduced_by'])['introduced_by']);
 
         $this->assertSame($plaintexts['source_name'], collect($decryptedFiles['connections/sources']['records'])->first()['name'] ?? null);
         $this->assertContains($plaintexts['category_name'], collect($decryptedFiles['connections/source-categories']['records'])->pluck('name'));

@@ -18,6 +18,7 @@ class Connection extends Model
         'user_id',
         'name_ciphertext',
         'notes_ciphertext',
+        'introduced_by_ciphertext',
         'share_link_id',
         'archived',
     ];

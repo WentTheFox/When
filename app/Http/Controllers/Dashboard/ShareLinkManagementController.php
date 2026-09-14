@@ -47,7 +47,9 @@ class ShareLinkManagementController extends Controller
             // For the "tie to a connection" picker on each card — name is
             // still ciphertext (client-vault tier, §0.1), decrypted in the
             // browser same as everywhere else a connection name is shown.
-            'connections' => $request->user()->connections()->get(['id', 'name_ciphertext']),
+            // share_link_id rides along so the frontend can hide connections
+            // that are already tied to a (different) link from these pickers.
+            'connections' => $request->user()->connections()->get(['id', 'name_ciphertext', 'share_link_id']),
         ]);
     }
 

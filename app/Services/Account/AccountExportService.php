@@ -306,12 +306,13 @@ class AccountExportService
         return [
             'tier' => 'e2ee',
             'records' => $user->connections()
-                ->get(['id', 'share_link_id', 'name_ciphertext', 'notes_ciphertext', 'archived', 'created_at'])
+                ->get(['id', 'share_link_id', 'name_ciphertext', 'notes_ciphertext', 'introduced_by_ciphertext', 'archived', 'created_at'])
                 ->map(fn ($c) => [
                     'id' => $c->id,
                     'share_link_id' => $c->share_link_id,
                     'name_ciphertext' => $c->name_ciphertext,
                     'notes_ciphertext' => $c->notes_ciphertext,
+                    'introduced_by_ciphertext' => $c->introduced_by_ciphertext,
                     'key_ring_id' => $c->id,
                     'archived' => $c->archived,
                     'created_at' => $c->created_at,

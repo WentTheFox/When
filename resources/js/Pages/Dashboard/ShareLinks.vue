@@ -3,7 +3,7 @@ import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faArchive, faBolt } from '@fortawesome/free-solid-svg-icons';
-import { BAlert, BButton, BCard, BFormGroup, BFormInput } from 'bootstrap-vue-next';
+import { BAlert, BButton, BCard, BFormGroup, BFormInput, BFormSelect } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../../crypto';
 import ShareLinkCard, { type ShareLinkRow } from '../../dashboard/ShareLinkCard.vue';
@@ -15,13 +15,14 @@ defineOptions({ layout: DashboardLayout });
 
 const props = defineProps<{
   shareLinks: ShareLinkRow[];
-  connections: { id: string; name_ciphertext: string }[];
+  connections: { id: string; name_ciphertext: string; share_link_id: string | null }[];
 }>();
 const { createRecordKey, getRecordKey, vaultUnlocked } = useVault();
 
 const links = ref<ShareLinkRow[]>(props.shareLinks);
 const showNewForm = ref(false);
 const newLabel = ref('');
+const newConnectionId = ref('');
 const newLinkError = ref('');
 const createdUrl = ref('');
 const creating = ref(false);
@@ -75,6 +76,20 @@ function select(id: string): void {
   selectedLinkId.value = id;
 }
 
+/**
+ * "(none)" first, then every connection that isn't already tied to a link,
+ * sorted by its decrypted name — a brand-new link has no existing tie to
+ * preserve, so unlike ShareLinkCard.vue's picker there's no exception to
+ * keep an already-linked connection selectable here.
+ */
+const newConnectionOptions = computed(() => [
+  { value: '', text: '(none)' },
+  ...props.connections
+    .filter((c) => !c.share_link_id)
+    .map((c) => ({ value: c.id, text: decryptedConnectionNames.value[c.id] ?? '…' }))
+    .sort((a, b) => a.text.localeCompare(b.text)),
+]);
+
 async function createLink(): Promise<void> {
   newLinkError.value = '';
   creating.value = true;
@@ -89,12 +104,19 @@ async function createLink(): Promise<void> {
     }
 
     const { data } = await axios.post('/dashboard/share-links', { id, label_ciphertext: labelCiphertext });
+
+    if (newConnectionId.value) {
+      await axios.patch(`/dashboard/connections/${newConnectionId.value}`, { share_link_id: data.id });
+      data.connection_id = newConnectionId.value;
+    }
+
     links.value.unshift(data);
     selectedLinkId.value = data.id;
 
     createdUrl.value = `${window.location.origin}/free/${data.highlight_token}`;
 
     newLabel.value = '';
+    newConnectionId.value = '';
     showNewForm.value = false;
   } catch (error) {
     console.error(error);
@@ -171,8 +193,15 @@ async function importLinks(event: Event): Promise<void> {
   <VaultGate>
     <BCard v-if="showNewForm" class="mb-4">
       <h2 class="h5 mb-3">New share link</h2>
+      <BFormGroup label="Tie to connection (optional)" class="mb-3" style="max-width: 20rem;">
+        <BFormSelect v-model="newConnectionId" :options="newConnectionOptions" />
+      </BFormGroup>
       <BFormGroup label="Label (private, only you can see it)" class="mb-3">
-        <BFormInput v-model="newLabel" type="text" placeholder="For Mom" />
+        <BFormInput
+          v-model="newLabel"
+          type="text"
+          :placeholder="newConnectionId ? 'Leave blank to use the connection\'s name' : 'For Mom'"
+        />
       </BFormGroup>
       <BButton variant="primary" :disabled="creating" @click="createLink">Create</BButton>
       <div class="text-danger small mt-2">{{ newLinkError }}</div>

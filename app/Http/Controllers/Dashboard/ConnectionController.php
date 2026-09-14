@@ -28,7 +28,7 @@ class ConnectionController extends Controller
 
         return Inertia::render('Dashboard/Connections', [
             'connections' => $user->connections()->with(['attributeValues', 'sources'])->get([
-                'id', 'name_ciphertext', 'notes_ciphertext', 'share_link_id', 'archived',
+                'id', 'name_ciphertext', 'notes_ciphertext', 'introduced_by_ciphertext', 'share_link_id', 'archived',
             ])->map(fn (Connection $c) => $this->serialize($c)),
             'sources' => $user->connectionSources()->get(['id', 'category_id', 'name_ciphertext']),
             'categories' => $user->connectionSourceCategories()->get(['id', 'name_ciphertext', 'color_key']),
@@ -60,6 +60,7 @@ class ConnectionController extends Controller
                 'id' => $data['id'],
                 'name_ciphertext' => $data['name_ciphertext'],
                 'notes_ciphertext' => $data['notes_ciphertext'] ?? null,
+                'introduced_by_ciphertext' => $data['introduced_by_ciphertext'] ?? null,
                 'share_link_id' => $data['share_link_id'] ?? null,
                 'archived' => $data['archived'] ?? false,
             ]);
@@ -85,6 +86,7 @@ class ConnectionController extends Controller
             $connection->fill(array_filter([
                 'name_ciphertext' => $data['name_ciphertext'] ?? null,
                 'notes_ciphertext' => $data['notes_ciphertext'] ?? null,
+                'introduced_by_ciphertext' => $data['introduced_by_ciphertext'] ?? null,
                 'archived' => $data['archived'] ?? null,
             ], fn ($value) => $value !== null))->save();
 
@@ -123,6 +125,7 @@ class ConnectionController extends Controller
             'source_ids' => $connection->sources->pluck('id'),
             'name_ciphertext' => $connection->name_ciphertext,
             'notes_ciphertext' => $connection->notes_ciphertext,
+            'introduced_by_ciphertext' => $connection->introduced_by_ciphertext,
             'share_link_id' => $connection->share_link_id,
             'archived' => $connection->archived,
             'attribute_values' => $connection->attributeValues()->get(['attribute_definition_id', 'value_ciphertext']),
@@ -160,6 +163,7 @@ class ConnectionController extends Controller
             'source_ids.*' => ['uuid', Rule::exists('connection_sources', 'id')->where('user_id', $userId)],
             'name_ciphertext' => $requireId ? ['required', 'string'] : ['sometimes', 'string'],
             'notes_ciphertext' => ['nullable', 'string'],
+            'introduced_by_ciphertext' => ['nullable', 'string'],
             'share_link_id' => ['nullable', 'uuid', Rule::exists('share_links', 'id')->where('user_id', $userId)],
             'archived' => ['nullable', 'boolean'],
             'attribute_values' => ['nullable', 'array'],

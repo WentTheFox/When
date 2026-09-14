@@ -22,6 +22,7 @@ export interface ShareLinkRow {
 export interface ConnectionOption {
   id: string;
   name_ciphertext: string;
+  share_link_id: string | null;
 }
 
 const props = defineProps<{ link: ShareLinkRow; connections: ConnectionOption[] }>();
@@ -59,9 +60,14 @@ watch(vaultUnlocked, (unlocked) => {
   if (unlocked) decryptConnectionNames();
 }, { immediate: true });
 
+// A connection already tied to a *different* link is hidden — picking it
+// here would silently steal it from that other link (see onConnectionChange
+// below). The link's own currently-tied connection stays selectable so its
+// existing tie is still visible/editable.
 const connectionOptions = computed(() => [
   { value: '', text: '(none)' },
   ...props.connections
+    .filter((c) => !c.share_link_id || c.share_link_id === props.link.id)
     .map((c) => ({ value: c.id, text: decryptedConnectionNames.value[c.id] ?? '…' }))
     .sort((a, b) => a.text.localeCompare(b.text)),
 ]);
