@@ -238,4 +238,35 @@ class Regex
                 : 'The :attribute must have exactly one capture group, found '.$count.'. Change any extra ones to a non-capturing group (?:…) instead of (…).');
         }
     }
+
+    /**
+     * Same shape as validateSingleCaptureGroup, but for a field whose
+     * caller can fall back to *someone else's* capture group when this
+     * pattern doesn't have its own — currently only App\Models\
+     * ActivityLocalization::pattern (see HighlightMatcher::
+     * matchClauseText, which falls back to the owner's default/custom
+     * highlight clause pattern when a role's own pattern has none). A
+     * pattern with no capture group is therefore valid here (it only
+     * gates whether the role applies at all, e.g. `^gaming`) — only 2+ is
+     * rejected, since every group past the first would still be silently
+     * ignored by `$matches[1]`.
+     */
+    public static function validateAtMostOneCaptureGroup(string $attribute, mixed $value, \Closure $fail): void
+    {
+        if ($value === null || $value === '') {
+            return;
+        }
+
+        $count = self::countCaptureGroups($value);
+
+        if ($count === null) {
+            $fail('The :attribute is not a valid regular expression.');
+
+            return;
+        }
+
+        if ($count > 1) {
+            $fail('The :attribute must have at most one capture group, found '.$count.'. Change any extra ones to a non-capturing group (?:…) instead of (…).');
+        }
+    }
 }

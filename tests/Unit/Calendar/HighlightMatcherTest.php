@@ -282,4 +282,74 @@ class HighlightMatcherTest extends TestCase
         $this->assertNotNull($result);
         $this->assertSame(['ia, Bob'], $result->words);
     }
+
+    /**
+     * A role's own capture group is now optional (App\Support\Regex::
+     * validateAtMostOneCaptureGroup) — `has_capture_group: false` means the
+     * role's pattern only gates whether it applies at all (e.g. `^gaming`),
+     * and the actual name(s) are captured via the default/custom highlight
+     * clause pattern instead, exactly like an ordinary highlighted event.
+     * This is what lets an owner write `^gaming` instead of duplicating
+     * "with X, Y, Z" inside every role's own pattern.
+     */
+    public function test_a_role_pattern_with_no_capture_group_falls_back_to_the_default_clause_pattern(): void
+    {
+        $localizations = [
+            ['pattern' => '^gaming', 'label' => ['default' => 'Gaming'], 'has_capture_group' => false],
+        ];
+
+        $result = $this->matcher->match($this->event(summary: 'Gaming with Alice'), ['Alice'], activityLocalizations: $localizations);
+
+        $this->assertNotNull($result);
+        $this->assertSame(['Alice'], $result->words);
+        $this->assertSame(['default' => 'Gaming'], $result->activityLabel);
+    }
+
+    public function test_a_role_pattern_with_no_capture_group_falls_back_to_a_custom_clause_pattern(): void
+    {
+        $localizations = [
+            ['pattern' => '^gaming', 'label' => ['default' => 'Gaming'], 'has_capture_group' => false],
+        ];
+
+        $result = $this->matcher->match($this->event(summary: 'Gaming w: Alice'), ['Alice'], 'w:\s+(.+)$', activityLocalizations: $localizations);
+
+        $this->assertNotNull($result);
+        $this->assertSame(['Alice'], $result->words);
+        $this->assertSame(['default' => 'Gaming'], $result->activityLabel);
+    }
+
+    public function test_a_role_pattern_with_no_capture_group_does_not_match_without_a_clause_to_fall_back_on(): void
+    {
+        $localizations = [
+            ['pattern' => '^gaming', 'label' => ['default' => 'Gaming'], 'has_capture_group' => false],
+        ];
+
+        // "Gaming night" structurally matches the role's own `^gaming`
+        // pattern, but has no "with X"/"w/ X" clause at all — there's
+        // nothing for the default clause pattern to capture, so this
+        // correctly falls through to no match rather than a PHP notice or
+        // a false positive on an empty capture.
+        $result = $this->matcher->match($this->event(summary: 'Gaming night'), ['Alice'], activityLocalizations: $localizations);
+
+        $this->assertNull($result);
+    }
+
+    /**
+     * A pattern that DOES have a capture group keeps using it directly,
+     * even when `has_capture_group` is missing from the array entirely —
+     * every real caller populates it now, but this confirms the implicit
+     * default doesn't regress the original (pre-optional-group) behavior
+     * for a caller that doesn't.
+     */
+    public function test_a_role_pattern_with_a_capture_group_still_uses_its_own_capture_when_the_flag_is_absent(): void
+    {
+        $localizations = [
+            ['pattern' => '^host\s+(.+)$', 'label' => ['default' => 'Visiting']],
+        ];
+
+        $result = $this->matcher->match($this->event(summary: 'Host Alice'), ['Alice'], activityLocalizations: $localizations);
+
+        $this->assertNotNull($result);
+        $this->assertSame(['Alice'], $result->words);
+    }
 }

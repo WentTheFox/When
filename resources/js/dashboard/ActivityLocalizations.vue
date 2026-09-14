@@ -3,9 +3,13 @@
  * CRUD list for App\Models\ActivityLocalization — generalizes the old hardcoded
  * "Host X"/"Visit X" convention into an owner-configurable, ordered list
  * of (pattern, localized label, icon) triples. Each role's own pattern is
- * matched the same way highlight_clause_pattern is (see
- * HighlightMatcher) — requires exactly one real capture group, the name
- * portion. Not §0.1 client-vault E2EE — pattern/pattern_preview are §0.2
+ * matched the same way highlight_clause_pattern is (see HighlightMatcher)
+ * — its capture group (the name portion) is optional: a pattern with none
+ * (e.g. `^gaming`) just gates whether the role applies, and the actual
+ * name(s) are then captured via the owner's default/custom highlight
+ * clause pattern instead, same as an ordinary highlighted event. A pattern
+ * with a capture group still uses it directly, and 2+ is still rejected.
+ * Not §0.1 client-vault E2EE — pattern/pattern_preview are §0.2
  * server-runtime Crypt/APP_KEY ciphertext instead (see
  * ActivityLocalization::casts()), transparently handled server-side; this
  * component still only ever sends/receives their plaintext form. label
@@ -76,7 +80,7 @@ async function save(role: ActivityLocalizationData): Promise<void> {
     savedId.value = role.id;
   } catch (e) {
     console.error(e);
-    errors.value[role.id] = 'Could not save that customization — check the pattern has exactly one capture group.';
+    errors.value[role.id] = 'Could not save that customization — check the pattern is valid and has at most one capture group.';
   } finally {
     savingId.value = null;
   }
@@ -151,7 +155,7 @@ async function add(): Promise<void> {
     newColorKey.value = null;
   } catch (e) {
     console.error(e);
-    addError.value = 'Could not add that customization — check the pattern has exactly one capture group.';
+    addError.value = 'Could not add that customization — check the pattern is valid and has at most one capture group.';
   } finally {
     adding.value = false;
   }
@@ -161,9 +165,11 @@ async function add(): Promise<void> {
 <template>
   <h2 class="h5 mb-3">Activity customizations</h2>
   <p class="small text-muted">
-    Each pattern has the same rules as the fields above: exactly one <code>(…)</code> capture
-    group to define the matched name(s). Maps to a label shown to the viewer instead of raw extracted
-    activity text — entirely optional, so a customization can just change the icon instead. Besides
+    Each pattern can optionally include one <code>(…)</code> capture group to define the matched
+    name(s) — leave it out (e.g. <code>^gaming</code>) and the name(s) are captured the same way an
+    ordinary highlighted event's are instead, so you don't need to repeat that part of the pattern
+    yourself. Maps to a label shown to the viewer instead of raw extracted activity text — entirely
+    optional, so a customization can just change the icon instead. Besides
     the possibility to translate activities, another possible use-case could be hosting/visiting —
     the label can be changed to <em>the viewer's perspective</em>. If an event's title is "Host
     Alice" that means Alice is visiting the calendar owner, so its label can be changed to "Visiting"

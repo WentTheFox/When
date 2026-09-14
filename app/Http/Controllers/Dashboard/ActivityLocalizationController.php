@@ -49,7 +49,7 @@ class ActivityLocalizationController extends Controller
     {
         $data = $request->validate([
             'id' => ['required', 'uuid', 'unique:activity_localizations,id'],
-            'pattern' => ['required', 'string', 'max:500', Regex::validateSingleCaptureGroup(...)],
+            'pattern' => ['required', 'string', 'max:500', Regex::validateAtMostOneCaptureGroup(...)],
             'pattern_preview' => ['nullable', 'string', 'max:2000'],
             'sort_order' => ['required', 'integer', 'min:0'],
             'icon_key' => ['nullable', Rule::enum(IconKey::class)],
@@ -65,6 +65,8 @@ class ActivityLocalizationController extends Controller
         $label = $data['label'] ?? [];
         unset($data['label']);
 
+        $data['has_capture_group'] = Regex::countCaptureGroups($data['pattern']) === 1;
+
         $role = $request->user()->activityLocalizations()->create($data);
         $role->setLocalizedField('label', $label);
 
@@ -74,7 +76,7 @@ class ActivityLocalizationController extends Controller
     public function update(Request $request, string $activityLocalization): JsonResponse
     {
         $data = $request->validate([
-            'pattern' => ['required', 'string', 'max:500', Regex::validateSingleCaptureGroup(...)],
+            'pattern' => ['required', 'string', 'max:500', Regex::validateAtMostOneCaptureGroup(...)],
             'pattern_preview' => ['nullable', 'string', 'max:2000'],
             'sort_order' => ['required', 'integer', 'min:0'],
             'icon_key' => ['nullable', Rule::enum(IconKey::class)],
@@ -84,6 +86,8 @@ class ActivityLocalizationController extends Controller
 
         $label = $data['label'] ?? [];
         unset($data['label']);
+
+        $data['has_capture_group'] = Regex::countCaptureGroups($data['pattern']) === 1;
 
         $role = $request->user()->activityLocalizations()->where('id', $activityLocalization)->firstOrFail();
         $role->update($data);

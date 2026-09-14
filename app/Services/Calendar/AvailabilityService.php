@@ -32,7 +32,7 @@ class AvailabilityService
      * @param  array<int, array{wake: ?string, sleep: ?string}>  $weeklyAvailability  Keyed 0 (Sun) .. 6 (Sat).
      * @param  array{start: CarbonImmutable, end: CarbonImmutable}[]  $sleepExceptions  Date-only ranges; suppress the default sleep block.
      * @param  string[]  $highlightWords
-     * @param  array<int, array{pattern: string, label: array<string, string>, icon_key?: ?string, color_key?: ?string}>  $activityLocalizations  Owner's own configured roles, in display/check order.
+     * @param  array<int, array{pattern: string, label: array<string, string>, icon_key?: ?string, color_key?: ?string, has_capture_group?: bool}>  $activityLocalizations  Owner's own configured roles, in display/check order.
      */
     public function compute(
         array $events,

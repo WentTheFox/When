@@ -27,7 +27,15 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * icon. `color_key` is the same idea for color: a curated
  * App\Support\ColorSwatchKey value shown instead of the share link's own
  * highlight_color_key — plain, not encrypted, optional: null keeps using
- * that regular highlighted color.
+ * that regular highlighted color. `has_capture_group` is computed once at
+ * validation time (ActivityLocalizationController, via App\Support\Regex::
+ * countCaptureGroups) rather than re-derived from `pattern` on every
+ * match — `pattern`'s capture group is now optional (0 or 1, never 2+):
+ * a pattern with none (e.g. `^gaming`) only gates whether this role
+ * applies at all, and HighlightMatcher::matchClauseText falls back to the
+ * owner's default/custom highlight clause pattern to actually capture the
+ * highlighted name(s) instead of forcing every role's own pattern to
+ * duplicate that "with X, Y, Z" capturing itself.
  */
 class ActivityLocalization extends Model
 {
@@ -41,6 +49,7 @@ class ActivityLocalization extends Model
         'user_id',
         'pattern',
         'pattern_preview',
+        'has_capture_group',
         'sort_order',
         'icon_key',
         'color_key',
@@ -52,6 +61,7 @@ class ActivityLocalization extends Model
             'sort_order' => 'integer',
             'pattern' => 'encrypted',
             'pattern_preview' => 'encrypted',
+            'has_capture_group' => 'boolean',
         ];
     }
 

@@ -207,6 +207,51 @@ class ActivityLocalizationControllerTest extends TestCase
         $response->assertNotFound();
     }
 
+    public function test_a_pattern_with_a_capture_group_is_flagged_as_having_one(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->postJson('/settings/activity-localization', $this->payload([
+            'pattern' => '^host\s+(.+)$',
+        ]));
+
+        $response->assertCreated();
+        $role = ActivityLocalization::where('user_id', $user->id)->firstOrFail();
+        $this->assertTrue($role->has_capture_group);
+    }
+
+    /**
+     * A role's capture group is now optional — a pattern with none (e.g.
+     * `^gaming`) still saves, and HighlightMatcher falls back to the
+     * owner's own default/custom highlight clause pattern to capture the
+     * actual name(s). `has_capture_group` is computed here at save time
+     * rather than re-derived from the pattern on every match.
+     */
+    public function test_a_pattern_with_no_capture_group_is_accepted_and_flagged_accordingly(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->postJson('/settings/activity-localization', $this->payload([
+            'pattern' => '^gaming',
+        ]));
+
+        $response->assertCreated();
+        $role = ActivityLocalization::where('user_id', $user->id)->firstOrFail();
+        $this->assertFalse($role->has_capture_group);
+    }
+
+    public function test_a_pattern_with_two_capture_groups_is_rejected(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->postJson('/settings/activity-localization', $this->payload([
+            'pattern' => '^(host)\s+(.+)$',
+        ]));
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('pattern');
+    }
+
     public function test_an_owner_can_delete_a_role(): void
     {
         $user = User::factory()->create();

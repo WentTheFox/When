@@ -61,7 +61,7 @@ class HighlightMatcher
 
     /**
      * @param  string[]  $highlightWords  Owner's configured words, already decrypted.
-     * @param  array<int, array{pattern: string, label: array<string, string>, icon_key?: ?string, color_key?: ?string}>  $activityLocalizations  Owner's own configured roles, in display/check order.
+     * @param  array<int, array{pattern: string, label: array<string, string>, icon_key?: ?string, color_key?: ?string, has_capture_group?: bool}>  $activityLocalizations  Owner's own configured roles, in display/check order.
      */
     public function match(ParsedEvent $event, array $highlightWords, ?string $clausePattern = null, ?string $splitPattern = null, array $activityLocalizations = []): ?HighlightMatch
     {
@@ -101,28 +101,60 @@ class HighlightMatcher
         // would always win that race and the role's icon/label/color would
         // never be reachable.
         foreach ($activityLocalizations as $role) {
-            if (($matches = Regex::tryMatch("\x01".$role['pattern']."\x01iu", $text)) === null || ! isset($matches[1])) {
+            if (($matches = Regex::tryMatch("\x01".$role['pattern']."\x01iu", $text)) === null) {
                 continue;
             }
 
-            if ($words = $this->matchTokens($matches[1], $highlightWords, $splitPattern)) {
+            // A role's own capture group is optional (App\Support\Regex::
+            // validateAtMostOneCaptureGroup) — `has_capture_group` is
+            // computed once at validation time (see
+            // ActivityLocalizationController) rather than re-derived from
+            // the pattern here on every match. A pattern with none (e.g.
+            // `^gaming`) only gates whether this role applies at all; the
+            // actual name(s) to check are then captured the same way an
+            // ordinary highlighted event would be, via the owner's default/
+            // custom clause pattern below — this is what lets an owner
+            // write `^gaming` instead of duplicating "with X, Y, Z" inside
+            // every role's own pattern just to reach the highlight words.
+            $tokenSource = ($role['has_capture_group'] ?? true) && isset($matches[1])
+                ? $matches[1]
+                : $this->captureClauseText($text, $clausePattern);
+
+            if ($tokenSource === null) {
+                continue;
+            }
+
+            if ($words = $this->matchTokens($tokenSource, $highlightWords, $splitPattern)) {
                 return new HighlightMatch($words, activityLabel: $role['label'], activityIcon: $role['icon_key'] ?? null, activityColor: $role['color_key'] ?? null);
             }
         }
 
+        if (($tokenSource = $this->captureClauseText($text, $clausePattern)) !== null) {
+            if ($words = $this->matchTokens($tokenSource, $highlightWords, $splitPattern)) {
+                return new HighlightMatch($words);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The owner's default/custom "with X, Y, Z" highlight clause pattern,
+     * run against $text and returning its captured group — factored out of
+     * matchClauseText so a capture-group-less role pattern (see above) can
+     * reuse the exact same extraction instead of duplicating it.
+     */
+    private function captureClauseText(string $text, ?string $clausePattern): ?string
+    {
         $pattern = $clausePattern ?: self::DEFAULT_CLAUSE_PATTERN;
 
         // \x01 delimiter, same reasoning as ParsedEvent::matchesEventNamePattern:
         // lets an owner's pattern contain any printable character freely.
         // An invalid pattern fails closed (no match) rather than throwing —
         // a mistyped custom pattern shouldn't break every viewer's page.
-        if (($matches = Regex::tryMatch("\x01".$pattern."\x01iu", $text)) !== null && isset($matches[1])) {
-            if ($words = $this->matchTokens($matches[1], $highlightWords, $splitPattern)) {
-                return new HighlightMatch($words);
-            }
-        }
+        $matches = Regex::tryMatch("\x01".$pattern."\x01iu", $text);
 
-        return null;
+        return $matches !== null && isset($matches[1]) ? $matches[1] : null;
     }
 
     /**
