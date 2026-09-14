@@ -31,7 +31,7 @@
     "free.refreshTimedOut": "Trvá to déle, než se očekávalo — zkontroluj to za chvíli znovu.",
     "free.refreshFailed": "Teď se nepodařilo obnovit — zkus to prosím znovu.",
     "free.visitorLocalesLabel": "Zaznamenané jazyky návštěvníků:",
-    "free.ownerPreviewNotice": "Toto zobrazení vidíš jako vlastník — porovnání časových pásem, jazyky návštěvníků a tlačítko obnovení níže jsou personalizované jen pro tebe.",
+    "free.ownerPreviewNotice": "Toto zobrazení vidíš jako vlastník.",
     "free.ownerPreviewDisable": "Náhled jako návštěvník",
     "free.ownerPreviewEnable": "Zobrazit pohled vlastníka",
     "free.personalizedWarning": "Tento odkaz je pro tebe personalizovaný. Nesdílej ho prosím s ostatními.",

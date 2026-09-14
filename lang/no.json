@@ -31,7 +31,7 @@
     "free.refreshTimedOut": "Dette tar lengre tid enn forventet — sjekk igjen om litt.",
     "free.refreshFailed": "Kunne ikke oppdatere akkurat nå — prøv igjen.",
     "free.visitorLocalesLabel": "Observerte besøksspråk:",
-    "free.ownerPreviewNotice": "Du ser dette som eier — tidssonesammenligningen, besøksspråkene og oppdater-knappen nedenfor er personlig tilpasset bare for deg.",
+    "free.ownerPreviewNotice": "Du ser dette som eier.",
     "free.ownerPreviewDisable": "Forhåndsvis som besøkende",
     "free.ownerPreviewEnable": "Vis eiervisning",
     "free.personalizedWarning": "Denne lenken er personlig for deg. Ikke del den med andre.",

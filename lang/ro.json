@@ -31,7 +31,7 @@
     "free.refreshTimedOut": "Durează mai mult decât era de așteptat — revino peste puțin timp.",
     "free.refreshFailed": "Nu s-a putut reîmprospăta acum — te rugăm să încerci din nou.",
     "free.visitorLocalesLabel": "Limbi ale vizitatorilor observate:",
-    "free.ownerPreviewNotice": "Vezi această pagină ca proprietar — comparația fusului orar, limbile vizitatorilor și butonul de reîmprospătare de mai jos sunt personalizate doar pentru tine.",
+    "free.ownerPreviewNotice": "Vezi această pagină ca proprietar.",
     "free.ownerPreviewDisable": "Previzualizare ca vizitator",
     "free.ownerPreviewEnable": "Afișează vizualizarea proprietarului",
     "free.personalizedWarning": "Acest link este personalizat pentru tine. Te rugăm să nu-l distribui altora.",

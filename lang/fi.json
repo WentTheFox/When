@@ -31,7 +31,7 @@
     "free.refreshTimedOut": "Tämä kestää odotettua kauemmin — tarkista hetken kuluttua uudelleen.",
     "free.refreshFailed": "Päivitys ei onnistunut juuri nyt — yritä uudelleen.",
     "free.visitorLocalesLabel": "Nähdyt vierailijoiden kielet:",
-    "free.ownerPreviewNotice": "Näet tämän omistajana — alla oleva aikavyöhykevertailu, vierailijoiden kielet ja päivityspainike on personoitu vain sinulle.",
+    "free.ownerPreviewNotice": "Näet tämän omistajana.",
     "free.ownerPreviewDisable": "Esikatsele vierailijana",
     "free.ownerPreviewEnable": "Näytä omistajan näkymä",
     "free.personalizedWarning": "Tämä linkki on sinulle henkilökohtainen. Älä jaa sitä muiden kanssa.",

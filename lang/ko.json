@@ -31,7 +31,7 @@
     "free.refreshTimedOut": "예상보다 오래 걸리고 있습니다 — 잠시 후 다시 확인해 주세요.",
     "free.refreshFailed": "지금은 새로고침할 수 없습니다 — 다시 시도해 주세요.",
     "free.visitorLocalesLabel": "확인된 방문자 언어:",
-    "free.ownerPreviewNotice": "지금 소유자로 보고 계십니다 — 아래의 시간대 비교, 방문자 언어, 새로고침 버튼은 회원님만을 위해 개인화되어 있습니다.",
+    "free.ownerPreviewNotice": "지금 소유자로 보고 계십니다.",
     "free.ownerPreviewDisable": "방문자로 미리보기",
     "free.ownerPreviewEnable": "소유자 보기 표시",
     "free.personalizedWarning": "이 링크는 회원님을 위해 개인화되었습니다. 다른 사람과 공유하지 마세요.",

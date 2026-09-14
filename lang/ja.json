@@ -31,7 +31,7 @@
     "free.refreshTimedOut": "予想より時間がかかっています — しばらくしてからもう一度確認してください。",
     "free.refreshFailed": "現在更新できませんでした — もう一度お試しください。",
     "free.visitorLocalesLabel": "閲覧された訪問者の言語:",
-    "free.ownerPreviewNotice": "これはオーナーとして表示しています — 以下のタイムゾーン比較、訪問者の言語、更新ボタンはあなた専用にパーソナライズされています。",
+    "free.ownerPreviewNotice": "これはオーナーとして表示しています。",
     "free.ownerPreviewDisable": "訪問者としてプレビュー",
     "free.ownerPreviewEnable": "オーナービューを表示",
     "free.personalizedWarning": "このリンクはあなた専用です。他の人と共有しないでください。",

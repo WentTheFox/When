@@ -31,7 +31,7 @@
     "free.refreshTimedOut": "Cela prend plus de temps que prévu — reviens un peu plus tard.",
     "free.refreshFailed": "Impossible d'actualiser pour le moment — merci de réessayer.",
     "free.visitorLocalesLabel": "Langues des visiteurs observées :",
-    "free.ownerPreviewNotice": "Tu vois ceci en tant que propriétaire — la comparaison de fuseau horaire, les langues des visiteurs et le bouton d'actualisation ci-dessous sont personnalisés rien que pour toi.",
+    "free.ownerPreviewNotice": "Tu vois ceci en tant que propriétaire.",
     "free.ownerPreviewDisable": "Aperçu en tant que visiteur",
     "free.ownerPreviewEnable": "Afficher la vue propriétaire",
     "free.personalizedWarning": "Ce lien t'est personnalisé. Merci de ne pas le partager avec d'autres.",

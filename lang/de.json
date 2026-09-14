@@ -31,7 +31,7 @@
     "free.refreshTimedOut": "Das dauert länger als erwartet — schau später noch einmal vorbei.",
     "free.refreshFailed": "Aktualisierung gerade nicht möglich — bitte versuche es erneut.",
     "free.visitorLocalesLabel": "Gesehene Besuchersprachen:",
-    "free.ownerPreviewNotice": "Du siehst dies als Eigentümer — der Zeitzonenvergleich, die Besuchersprachen und die Aktualisieren-Schaltfläche unten sind nur für dich personalisiert.",
+    "free.ownerPreviewNotice": "Du siehst dies als Eigentümer.",
     "free.ownerPreviewDisable": "Als Besucher ansehen",
     "free.ownerPreviewEnable": "Eigentümeransicht anzeigen",
     "free.personalizedWarning": "Dieser Link ist für dich personalisiert. Bitte teile ihn nicht mit anderen.",

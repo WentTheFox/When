@@ -31,7 +31,7 @@
     "free.refreshTimedOut": "Det här tar längre tid än väntat — kolla igen om en liten stund.",
     "free.refreshFailed": "Det gick inte att uppdatera just nu — försök igen.",
     "free.visitorLocalesLabel": "Sedda besökarspråk:",
-    "free.ownerPreviewNotice": "Du ser det här som ägare — tidszonsjämförelsen, besökarspråken och uppdateringsknappen nedan är personliga bara för dig.",
+    "free.ownerPreviewNotice": "Du ser det här som ägare.",
     "free.ownerPreviewDisable": "Förhandsgranska som besökare",
     "free.ownerPreviewEnable": "Visa ägarvy",
     "free.personalizedWarning": "Den här länken är personlig för dig. Dela den inte med andra.",

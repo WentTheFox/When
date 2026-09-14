@@ -31,7 +31,7 @@
     "free.refreshTimedOut": "Bu beklenenden uzun sürüyor — birazdan tekrar kontrol et.",
     "free.refreshFailed": "Şu anda yenilenemedi — lütfen tekrar dene.",
     "free.visitorLocalesLabel": "Görülen ziyaretçi dilleri:",
-    "free.ownerPreviewNotice": "Bunu sahibi olarak görüntülüyorsun — aşağıdaki saat dilimi karşılaştırması, ziyaretçi dilleri ve yenile düğmesi yalnızca senin için kişiselleştirilmiştir.",
+    "free.ownerPreviewNotice": "Bunu sahibi olarak görüntülüyorsun.",
     "free.ownerPreviewDisable": "Ziyaretçi olarak önizle",
     "free.ownerPreviewEnable": "Sahip görünümünü göster",
     "free.personalizedWarning": "Bu bağlantı size özel olarak kişiselleştirilmiştir. Lütfen başkalarıyla paylaşmayın.",

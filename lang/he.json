@@ -31,7 +31,7 @@
     "free.refreshTimedOut": "זה לוקח יותר זמן מהצפוי — בדוק שוב בעוד רגע.",
     "free.refreshFailed": "לא ניתן היה לרענן כרגע — נסה שוב.",
     "free.visitorLocalesLabel": "שפות מבקרים שנצפו:",
-    "free.ownerPreviewNotice": "אתה צופה בזה כבעלים — השוואת אזורי הזמן, שפות המבקרים וכפתור הרענון למטה מותאמים אישית רק עבורך.",
+    "free.ownerPreviewNotice": "אתה צופה בזה כבעלים.",
     "free.ownerPreviewDisable": "תצוגה מקדימה כמבקר",
     "free.ownerPreviewEnable": "הצג תצוגת בעלים",
     "free.personalizedWarning": "קישור זה מותאם אישית עבורך. אנא אל תשתף אותו עם אחרים.",

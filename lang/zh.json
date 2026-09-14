@@ -31,7 +31,7 @@
     "free.refreshTimedOut": "这比预期花费的时间更长——请稍后再查看。",
     "free.refreshFailed": "现在无法刷新——请重试。",
     "free.visitorLocalesLabel": "已看到的访客语言：",
-    "free.ownerPreviewNotice": "你正在以所有者身份查看此页面——下面的时区比较、访客语言和刷新按钮仅为你个性化显示。",
+    "free.ownerPreviewNotice": "你正在以所有者身份查看此页面。",
     "free.ownerPreviewDisable": "以访客身份预览",
     "free.ownerPreviewEnable": "显示所有者视图",
     "free.personalizedWarning": "此链接是为你个人定制的，请勿与他人分享。",

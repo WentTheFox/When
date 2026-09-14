@@ -31,7 +31,7 @@
     "free.refreshTimedOut": "يستغرق هذا وقتًا أطول من المتوقع — تحقق مرة أخرى بعد قليل.",
     "free.refreshFailed": "تعذّر التحديث الآن — يرجى المحاولة مرة أخرى.",
     "free.visitorLocalesLabel": "لغات الزوار التي شوهدت:",
-    "free.ownerPreviewNotice": "أنت تشاهد هذا كمالك — مقارنة المنطقة الزمنية ولغات الزوار وزر التحديث أدناه مخصصة لك فقط.",
+    "free.ownerPreviewNotice": "أنت تشاهد هذا كمالك.",
     "free.ownerPreviewDisable": "معاينة كزائر",
     "free.ownerPreviewEnable": "إظهار عرض المالك",
     "free.personalizedWarning": "هذا الرابط مخصص لك. يرجى عدم مشاركته مع الآخرين.",
