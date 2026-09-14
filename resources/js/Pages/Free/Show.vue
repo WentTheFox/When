@@ -658,7 +658,16 @@ onMounted(() => {
             </div>
 
             <p class="small text-center text-muted mt-n2 mb-3">
-              {{ $t('free.timezoneLocalNote') }}
+              <!-- Owner-only, purely informational — no picker, since there's
+                   no "match" concept for locale the way there is for a
+                   timezone offset. -->
+              <template v-if="showOwnerCustomizations && visitorLocaleOptions.length">
+                {{ $t('free.visitorLocalesLabel') }}
+                {{ visitorLocaleOptions.map((o) => `${o.locale} (${o.count})`).join(', ') }}
+              </template>
+              <template v-else>
+                {{ $t('free.timezoneLocalNote') }}
+              </template>
               <span v-if="timezoneOffsetNote">&bull; {{ timezoneOffsetNote }}</span>
             </p>
 
@@ -681,14 +690,6 @@ onMounted(() => {
                 </option>
               </BFormSelect>
             </div>
-
-            <!-- Owner-only, purely informational — no picker, since there's
-                 no "match" concept for locale the way there is for a
-                 timezone offset. -->
-            <p v-if="showOwnerCustomizations && visitorLocaleOptions.length" class="small text-center text-muted mb-3">
-              {{ $t('free.visitorLocalesLabel') }}
-              {{ visitorLocaleOptions.map((o) => `${o.locale} (${o.count})`).join(', ') }}
-            </p>
 
             <!-- Owner-only: same signal as the picker above. -->
             <div v-if="showOwnerCustomizations" class="d-flex flex-column align-items-center mb-3" style="gap: 0.25rem;">
