@@ -668,7 +668,7 @@ onMounted(() => {
               <template v-else>
                 {{ $t('free.timezoneLocalNote') }}
               </template>
-              <span v-if="timezoneOffsetNote">&bull; {{ timezoneOffsetNote }}</span>
+              <span v-if="timezoneOffsetNote"> &bull; {{ timezoneOffsetNote }}</span>
             </p>
 
             <!-- Owner-only: shown when recordVisit()'s 202 response carries
