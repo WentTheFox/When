@@ -2,14 +2,17 @@ name: Lang parity
 
 # Guards against exactly the regression that slipped through in 9cbcc4a:
 # a commit that adds a new UI string only to lang/en.json and never to
-# the other 24 lang/*.json files, which laravel-vue-i18n silently papers
-# over at runtime (fallbackLang: 'en' in resources/js/app.ts) — so every
-# non-English viewer quietly sees English text for that string until
-# someone notices by eye. tests/Unit/LangParityTest.php is the actual
-# check; this workflow just makes sure it always runs. It's a plain
-# PHPUnit\Framework\TestCase (no Laravel bootstrap, no DB — see that
-# file's own doc comment), so this job needs nothing beyond Composer's
-# dev dependencies.
+# the other 24 lang/*.json files — a viewer on any of those locales then
+# saw the raw translation key itself (e.g. "free.refreshNow") rather than
+# English text, since resources/js/app.ts's `fallbackLang: 'en'` alone
+# doesn't cover an individual missing key within an otherwise-loaded
+# locale (see that file's `fallbackMissingTranslations: true`, added
+# alongside this as the runtime safety net — this workflow is the
+# source-of-truth check that catches it at commit time instead).
+# tests/Unit/LangParityTest.php is the actual check; this workflow just
+# makes sure it always runs. It's a plain PHPUnit\Framework\TestCase (no
+# Laravel bootstrap, no DB — see that file's own doc comment), so this
+# job needs nothing beyond Composer's dev dependencies.
 on:
   push:
     paths:

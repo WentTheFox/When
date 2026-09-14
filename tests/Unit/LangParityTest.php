@@ -7,12 +7,16 @@ use PHPUnit\Framework\TestCase;
 /**
  * Enforcement point for lang/*.json staying in sync with lang/en.json —
  * the source of truth every other locale is measured against. Nothing
- * else in the app catches a locale silently missing a key: laravel-vue-i18n
- * falls back to English for a missing key (see resources/js/app.ts's
- * `fallbackLang: 'en'`), so a translator or a commit that only touches
- * en.json never breaks the build, it just quietly regresses UX for every
- * non-English viewer until someone notices by eye (see the free.* keys
- * added by 9cbcc4a and left untranslated everywhere else for days).
+ * else in the app catches a locale silently missing a key: a commit that
+ * only touches en.json never breaks the build, it just quietly regresses
+ * UX for every non-English viewer until someone notices (see the free.*
+ * keys added by 9cbcc4a and left untranslated everywhere else for days —
+ * noticed only because the viewer saw the raw key itself, e.g.
+ * "free.refreshNow", not English text: resources/js/app.ts's
+ * `fallbackLang: 'en'` alone only covers a locale that fails to resolve
+ * entirely, not an individual missing key within an otherwise-loaded
+ * locale — that needs `fallbackMissingTranslations: true` too, now set
+ * there as the runtime safety net this test doesn't replace).
  *
  * Deliberately a plain PHPUnit\Framework\TestCase (no Laravel bootstrap,
  * no DB) — same reasoning as HighlightMatcherTest: this is pure file

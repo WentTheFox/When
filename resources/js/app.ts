@@ -81,6 +81,16 @@ createInertiaApp({
       .use(i18nVue, {
         lang: initialLocale,
         fallbackLang: 'en',
+        // Without this, `fallbackLang` only covers a locale that fails to
+        // resolve entirely — an individual key missing from an otherwise-
+        // loaded locale (e.g. a new string added to lang/en.json before
+        // every other lang/*.json caught up) renders as the raw key
+        // (`free.refreshNow`) instead of falling back to its English text.
+        // tests/Unit/LangParityTest.php now catches that gap at the source,
+        // but this is the runtime safety net for whatever slips through
+        // anyway (a key added and used in the same PR, an in-flight
+        // Crowdin translation, etc).
+        fallbackMissingTranslations: true,
         resolve: async (lang: string) => {
           const path = `../../lang/${lang}.json`;
           const importer = langJsonImporters[path];
