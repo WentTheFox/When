@@ -1,0 +1,48 @@
+name: Lang parity
+
+# Guards against exactly the regression that slipped through in 9cbcc4a:
+# a commit that adds a new UI string only to lang/en.json and never to
+# the other 24 lang/*.json files, which laravel-vue-i18n silently papers
+# over at runtime (fallbackLang: 'en' in resources/js/app.ts) — so every
+# non-English viewer quietly sees English text for that string until
+# someone notices by eye. tests/Unit/LangParityTest.php is the actual
+# check; this workflow just makes sure it always runs. It's a plain
+# PHPUnit\Framework\TestCase (no Laravel bootstrap, no DB — see that
+# file's own doc comment), so this job needs nothing beyond Composer's
+# dev dependencies.
+on:
+  push:
+    paths:
+      - 'lang/**'
+      - 'tests/Unit/LangParityTest.php'
+  pull_request:
+    paths:
+      - 'lang/**'
+      - 'tests/Unit/LangParityTest.php'
+
+jobs:
+  lang-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Run lang parity checks
+        run: vendor/bin/phpunit tests/Unit/LangParityTest.php
