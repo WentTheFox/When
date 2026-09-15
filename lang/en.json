@@ -31,7 +31,7 @@
     "free.refreshTimedOut": "This is taking longer than expected — check back in a bit.",
     "free.refreshFailed": "Couldn't refresh right now — please try again.",
     "free.visitorLocalesLabel": "Visitor locales seen:",
-    "free.ownerPreviewNotice": "You're viewing this as the owner — the timezone comparison, visitor locales, and refresh button below are personalized just for you.",
+    "free.ownerPreviewNotice": "You're viewing this as the owner.",
     "free.ownerPreviewDisable": "Preview as a visitor",
     "free.ownerPreviewEnable": "Show owner view",
     "free.personalizedWarning": "This link is personalized to you. Please don't share it with others.",
