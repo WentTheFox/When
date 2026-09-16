@@ -143,27 +143,6 @@ function onDeleted(id: string): void {
   if (selectedLinkId.value === id) selectedLinkId.value = null;
 }
 
-async function exportLinks(): Promise<void> {
-  const { data } = await axios.get('/dashboard/share-links/export');
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  window.open(url, '_blank');
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-}
-
-async function importLinks(event: Event): Promise<void> {
-  const file = (event.target as HTMLInputElement).files?.[0];
-  if (!file) return;
-
-  try {
-    const text = await file.text();
-    await axios.post('/dashboard/share-links/import', JSON.parse(text));
-    window.location.reload();
-  } catch (error) {
-    console.error(error);
-    window.alert('Import failed. Check the file and try again.');
-  }
-}
 </script>
 
 <template>
@@ -173,14 +152,9 @@ async function importLinks(event: Event): Promise<void> {
     <div class="d-flex justify-content-between align-items-center">
       <div>
         <h1 class="h3 mb-1">Share links</h1>
-        <span class="text-muted small">Create, export, or import your share links.</span>
+        <span class="text-muted small">Create and manage your share links.</span>
       </div>
       <div>
-        <BButton variant="outline-secondary" size="sm" @click="exportLinks">Export</BButton>
-        <label class="btn btn-outline-secondary btn-sm mb-0">
-          Import
-          <input type="file" accept="application/json" hidden @change="importLinks">
-        </label>
         <BButton variant="primary" size="sm" @click="showNewForm = !showNewForm">New link</BButton>
       </div>
     </div>

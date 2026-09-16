@@ -187,63 +187,6 @@ class ShareLinkManagementController extends Controller
         return response()->json(null, 204);
     }
 
-    /**
-     * Exports each link's plaintext-tier config (words/tags/bypass_dnd/
-     * show_activity) plus
-     * the label as still-encrypted ciphertext — "adjusted for encrypted
-     * shapes" per PLAN.md, since this controller has no way to decrypt a
-     * client-vault-encrypted label and shouldn't gain one.
-     */
-    public function export(Request $request): JsonResponse
-    {
-        $shareLinks = $request->user()->shareLinks()->with('words')->get();
-
-        return response()->json([
-            'share_links' => $shareLinks->map(fn (ShareLink $shareLink) => [
-                'id' => $shareLink->id,
-                'label_ciphertext' => $shareLink->label_ciphertext,
-                'bypass_dnd' => $shareLink->bypass_dnd,
-                'show_activity' => $shareLink->show_activity,
-                'highlight_words' => $shareLink->words->map(
-                    fn (ShareLinkWord $word) => Crypt::decryptString($word->word_ciphertext),
-                )->all(),
-            ])->all(),
-        ]);
-    }
-
-    /** Re-imports {@see export()}'s shape onto matching, already-existing links (by id). Never creates new links. */
-    public function import(Request $request): JsonResponse
-    {
-        $data = $request->validate([
-            'share_links' => ['required', 'array'],
-            'share_links.*.id' => ['required', 'uuid'],
-            'share_links.*.label_ciphertext' => ['nullable', 'string'],
-            'share_links.*.bypass_dnd' => ['nullable', 'boolean'],
-            'share_links.*.show_activity' => ['nullable', 'boolean'],
-            'share_links.*.highlight_words' => ['nullable', 'array'],
-            'share_links.*.highlight_words.*' => ['string'],
-        ]);
-
-        $imported = 0;
-        $skipped = 0;
-
-        foreach ($data['share_links'] as $row) {
-            $shareLink = $request->user()->shareLinks()->where('id', $row['id'])->first();
-
-            if ($shareLink === null) {
-                $skipped++;
-
-                continue;
-            }
-
-            $this->applyUpdate($shareLink, $row);
-
-            $imported++;
-        }
-
-        return response()->json(['imported' => $imported, 'skipped' => $skipped]);
-    }
-
     /** Paginated visit history for a link's dashboard card — see ShareLinkCard.vue. */
     public function visits(Request $request, string $shareLink): JsonResponse
     {
