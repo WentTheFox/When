@@ -40,10 +40,15 @@ concurrency:
 
 jobs:
   deploy:
-    # git-deploy-toolkit convention: ONE runner per server, labeled
-    # "git-deploy", shared by every app on that server — not one runner
-    # per app. See git-deploy-toolkit's README before registering a
-    # second runner thinking this app needs its own.
+    # git-deploy-toolkit convention: every app's own runner instance uses
+    # the "git-deploy" label, so every app's deploy.yml looks identical —
+    # but this repo is under a personal GitHub account (no Organization),
+    # so a runner registration can't be shared across repos: this app
+    # needs its own runner registered specifically to it, even if it
+    # shares a physical server with other apps' runners. See
+    # git-deploy-toolkit's README ("Triggering deploys from GitHub
+    # Actions") before assuming a runner registered for another app
+    # already covers this one.
     runs-on: [self-hosted, git-deploy]
     # Optional extra gate on top of the confirm input above: create a
     # "production" environment (Settings -> Environments) and add
