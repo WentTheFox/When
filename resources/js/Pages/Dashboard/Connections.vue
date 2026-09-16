@@ -16,7 +16,14 @@ defineOptions({ layout: DashboardLayout });
 
 interface SourceRow { id: string; category_id: string | null; name_ciphertext: string }
 interface CategoryRow { id: string; color_key: string | null; name_ciphertext: string }
-interface DefinitionRow { id: string; label_ciphertext: string; type: string; options_ciphertext: string | null }
+interface DefinitionRow {
+  id: string;
+  label_ciphertext: string;
+  type: string;
+  options_ciphertext: string | null;
+  is_e2ee: boolean;
+  purpose: string | null;
+}
 interface EdgeRow { id: string; from_connection_id: string; to_connection_id: string; label_ciphertext: string | null }
 
 const props = defineProps<{
@@ -32,7 +39,9 @@ const { createRecordKey, getRecordKey, vaultUnlocked } = useVault();
 const connections = ref<ConnectionRow[]>(props.connections);
 const sources = ref<{ id: string; category_id: string | null; label: string }[]>([]);
 const categories = ref<{ id: string; color_key: string | null; label: string }[]>([]);
-const definitions = ref<{ id: string; label: string; type: string; options: string[] }[]>([]);
+const definitions = ref<
+  { id: string; label: string; type: string; options: string[]; isE2ee: boolean; purpose: string | null }[]
+>([]);
 const edges = ref<{ id: string; from_connection_id: string; to_connection_id: string; label: string }[]>([]);
 
 const showNewForm = ref(false);
@@ -118,6 +127,8 @@ watch(vaultUnlocked, async (unlocked) => {
         label: await decryptString(key, definition.label_ciphertext),
         type: definition.type,
         options,
+        isE2ee: definition.is_e2ee,
+        purpose: definition.purpose,
       });
     } catch (error) {
       console.error(error);
@@ -300,9 +311,17 @@ async function removeCategory(id: string): Promise<void> {
   }
 }
 
-async function addDefinition(label: string, type: string, choices: string[]): Promise<void> {
+async function addDefinition(
+  label: string,
+  type: string,
+  choices: string[],
+  isE2ee: boolean,
+  purpose: string | null,
+): Promise<void> {
   try {
     const id = crypto.randomUUID();
+    // Label/options stay E2EE regardless of isE2ee — that flag only governs
+    // this definition's *values* (see ConnectionCard.vue's save()).
     const key = await createRecordKey(id);
     const optionsCiphertext = type === 'radio' ? await encryptString(key, JSON.stringify({ choices })) : null;
     await axios.post('/dashboard/connection-attribute-definitions', {
@@ -310,8 +329,10 @@ async function addDefinition(label: string, type: string, choices: string[]): Pr
       label_ciphertext: await encryptString(key, label),
       type,
       options_ciphertext: optionsCiphertext,
+      is_e2ee: isE2ee,
+      purpose,
     });
-    definitions.value.push({ id, label, type, options: choices });
+    definitions.value.push({ id, label, type, options: choices, isE2ee, purpose });
   } catch (error) {
     console.error(error);
   }

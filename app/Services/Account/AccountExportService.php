@@ -66,6 +66,7 @@ class AccountExportService
         $zip->addFile('connections/source-categories.json', $this->json($this->connectionSourceCategories($user)));
         $zip->addFile('connections/attribute-definitions.json', $this->json($this->connectionAttributeDefinitions($user)));
         $zip->addFile('connections/attribute-values.json', $this->json($this->connectionAttributeValues($user)));
+        $zip->addFile('connections/attribute-values-plaintext.json', $this->json($this->connectionAttributeValuesPlaintext($user)));
         $zip->addFile('connections/edges.json', $this->json($this->connectionEdges($user)));
         $zip->addFile('connections/source-links.json', $this->json($this->connectionSourceLinks($user)));
     }
@@ -351,40 +352,83 @@ class AccountExportService
         ];
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * is_e2ee/purpose are plaintext schema shape (same footing as `type`
+     * above them), not user-authored content, so they need no ciphertext
+     * suffix even though the rest of this file is tier 'e2ee' — the
+     * decrypt scripts only ever touch *_ciphertext-suffixed keys.
+     *
+     * @return array<string, mixed>
+     */
     private function connectionAttributeDefinitions(User $user): array
     {
         return [
             'tier' => 'e2ee',
             'records' => $user->connectionAttributeDefinitions()
-                ->get(['id', 'label_ciphertext', 'type', 'options_ciphertext'])
+                ->get(['id', 'label_ciphertext', 'type', 'options_ciphertext', 'is_e2ee', 'purpose'])
                 ->map(fn ($def) => [
                     'id' => $def->id,
                     'label_ciphertext' => $def->label_ciphertext,
                     'type' => $def->type,
                     'options_ciphertext' => $def->options_ciphertext,
+                    'is_e2ee' => $def->is_e2ee,
+                    'purpose' => $def->purpose,
                     'key_ring_id' => $def->id,
                 ])->all(),
         ];
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * Only values whose parent definition kept E2EE on — a value from a
+     * definition with is_e2ee false has no value_ciphertext at all (see
+     * connections/attribute-values-plaintext.json instead).
+     *
+     * @return array<string, mixed>
+     */
     private function connectionAttributeValues(User $user): array
     {
         $connectionIds = $user->connections()->pluck('id');
 
         $values = ConnectionAttributeValue::whereIn('connection_id', $connectionIds)
+            ->whereNotNull('value_ciphertext')
             ->get(['id', 'connection_id', 'attribute_definition_id', 'value_ciphertext']);
 
         return [
             'tier' => 'e2ee',
-            'note' => 'key_ring_id is the PARENT connection\'s id, not this record\'s own id.',
+            'note' => 'key_ring_id is the PARENT connection\'s id, not this record\'s own id. Values from a field with E2EE disabled are in attribute-values-plaintext.json instead.',
             'records' => $values->map(fn ($v) => [
                 'id' => $v->id,
                 'connection_id' => $v->connection_id,
                 'attribute_definition_id' => $v->attribute_definition_id,
                 'value_ciphertext' => $v->value_ciphertext,
                 'key_ring_id' => $v->connection_id,
+            ])->all(),
+        ];
+    }
+
+    /**
+     * The other half of connectionAttributeValues() — values whose parent
+     * definition (see attribute-definitions.json's "is_e2ee") deliberately
+     * disabled E2EE. §0.2 tier: was Crypt::encryptString/APP_KEY ciphertext
+     * at rest, decrypted here the same as account/calendar-url.json.
+     *
+     * @return array<string, mixed>
+     */
+    private function connectionAttributeValuesPlaintext(User $user): array
+    {
+        $connectionIds = $user->connections()->pluck('id');
+
+        $values = ConnectionAttributeValue::whereIn('connection_id', $connectionIds)
+            ->whereNotNull('value_appkey_ciphertext')
+            ->get(['id', 'connection_id', 'attribute_definition_id', 'value_appkey_ciphertext']);
+
+        return [
+            'tier' => 'server-decrypted',
+            'records' => $values->map(fn ($v) => [
+                'id' => $v->id,
+                'connection_id' => $v->connection_id,
+                'attribute_definition_id' => $v->attribute_definition_id,
+                'value' => Crypt::decryptString($v->value_appkey_ciphertext),
             ])->all(),
         ];
     }
@@ -496,6 +540,11 @@ class AccountExportService
             Note: connections/attribute-values.json's records use their PARENT
             connection's id as "key_ring_id", not their own id — an attribute
             value's key ring entry is shared with the connection it belongs to.
+            connections/attribute-values-plaintext.json holds values from a
+            field that deliberately disabled end-to-end encryption at
+            creation (see attribute-definitions.json's "is_e2ee"/"purpose")
+            — it's "server-decrypted" tier, already readable, like
+            account/calendar-url.json.
 
             About share_link_cache: see share-links/share-link-cache-note.txt — it
             is not included here and cannot be decrypted with anything in this zip.

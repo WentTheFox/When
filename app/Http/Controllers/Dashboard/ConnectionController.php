@@ -4,10 +4,14 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\Connection;
+use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionAttributeValue;
+use App\Support\CustomFieldPurpose;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,6 +23,13 @@ use Inertia\Response;
  * controller only ever moves ciphertext blobs it cannot open. See
  * vault.ts's createRecordKey for how the client derives each record's key
  * before calling store().
+ *
+ * One exception: an attribute value whose definition has is_e2ee false is
+ * §0.2 tier, not §0.1 — the client sends/receives it as plain `value`
+ * (never `value_ciphertext`), and this controller is the one that calls
+ * Crypt::encryptString/decryptString on it, same pattern as
+ * SettingsController::updateCalendarUrl(). See syncAttributeValues() and
+ * serialize() below.
  */
 class ConnectionController extends Controller
 {
@@ -32,7 +43,7 @@ class ConnectionController extends Controller
             ])->map(fn (Connection $c) => $this->serialize($c)),
             'sources' => $user->connectionSources()->get(['id', 'category_id', 'name_ciphertext']),
             'categories' => $user->connectionSourceCategories()->get(['id', 'name_ciphertext', 'color_key']),
-            'attributeDefinitions' => $user->connectionAttributeDefinitions()->get(['id', 'label_ciphertext', 'type', 'options_ciphertext']),
+            'attributeDefinitions' => $user->connectionAttributeDefinitions()->get(['id', 'label_ciphertext', 'type', 'options_ciphertext', 'is_e2ee', 'purpose']),
             'edges' => $user->connectionEdges()->get(['id', 'from_connection_id', 'to_connection_id', 'label_ciphertext']),
         ]);
     }
@@ -128,7 +139,17 @@ class ConnectionController extends Controller
             'introduced_by_ciphertext' => $connection->introduced_by_ciphertext,
             'share_link_id' => $connection->share_link_id,
             'archived' => $connection->archived,
-            'attribute_values' => $connection->attributeValues()->get(['attribute_definition_id', 'value_ciphertext']),
+            'attribute_values' => $connection->attributeValues()
+                ->get(['attribute_definition_id', 'value_ciphertext', 'value_appkey_ciphertext'])
+                ->map(fn (ConnectionAttributeValue $value) => [
+                    'attribute_definition_id' => $value->attribute_definition_id,
+                    'value_ciphertext' => $value->value_ciphertext,
+                    // §0.2 tier — decrypted here for the owner's own view,
+                    // same as calendar_url_ciphertext elsewhere; never E2EE.
+                    'value' => $value->value_appkey_ciphertext === null
+                        ? null
+                        : Crypt::decryptString($value->value_appkey_ciphertext),
+                ]),
         ];
     }
 
@@ -168,7 +189,12 @@ class ConnectionController extends Controller
             'archived' => ['nullable', 'boolean'],
             'attribute_values' => ['nullable', 'array'],
             'attribute_values.*.attribute_definition_id' => ['required', 'uuid', Rule::exists('connection_attribute_definitions', 'id')->where('user_id', $userId)],
-            'attribute_values.*.value_ciphertext' => ['required', 'string'],
+            // Exactly one of these two is required per row, decided by the
+            // referenced definition's is_e2ee — enforced in
+            // e2eeAttributeRow()/serversideAttributeRow() below, since a
+            // static rule here can't see the definition it belongs to.
+            'attribute_values.*.value_ciphertext' => ['nullable', 'string'],
+            'attribute_values.*.value' => ['nullable', 'string'],
         ]);
     }
 
@@ -178,15 +204,68 @@ class ConnectionController extends Controller
             return;
         }
 
+        $definitions = ConnectionAttributeDefinition::whereIn(
+            'id',
+            collect($attributeValues)->pluck('attribute_definition_id')
+        )->get(['id', 'is_e2ee', 'purpose'])->keyBy('id');
+
+        $rows = [];
+        foreach ($attributeValues as $value) {
+            // Already guarded by validateConnection()'s ownership-scoped
+            // Rule::exists — a missing definition here would mean the id
+            // vanished between validation and this query, defensive only.
+            $definition = $definitions->get($value['attribute_definition_id']);
+            if ($definition === null) {
+                continue;
+            }
+
+            $rows[] = $definition->is_e2ee
+                ? $this->e2eeAttributeRow($connection, $definition, $value)
+                : $this->serversideAttributeRow($connection, $definition, $value);
+        }
+
         $connection->attributeValues()->delete();
 
-        foreach ($attributeValues as $value) {
-            ConnectionAttributeValue::create([
-                'connection_id' => $connection->id,
-                'attribute_definition_id' => $value['attribute_definition_id'],
-                'value_ciphertext' => $value['value_ciphertext'],
-            ]);
+        foreach ($rows as $row) {
+            ConnectionAttributeValue::create($row);
         }
+    }
+
+    /** @param  array<string, mixed>  $value */
+    private function e2eeAttributeRow(Connection $connection, ConnectionAttributeDefinition $definition, array $value): array
+    {
+        Validator::make($value, ['value_ciphertext' => ['required', 'string']])->validate();
+
+        return [
+            'connection_id' => $connection->id,
+            'attribute_definition_id' => $definition->id,
+            'value_ciphertext' => $value['value_ciphertext'],
+            'value_appkey_ciphertext' => null,
+        ];
+    }
+
+    /**
+     * §0.2 tier — the value travels as plaintext in this request (never
+     * client-encrypted) and is encrypted here with Crypt::encryptString
+     * (APP_KEY), same pattern as SettingsController::updateCalendarUrl().
+     * purpose (App\Support\CustomFieldPurpose) adds format rules on top of
+     * the base ones, e.g. a "discord" field must look like a Discord
+     * username.
+     *
+     * @param  array<string, mixed>  $value
+     */
+    private function serversideAttributeRow(Connection $connection, ConnectionAttributeDefinition $definition, array $value): array
+    {
+        Validator::make($value, [
+            'value' => array_merge(['required', 'string', 'max:255'], CustomFieldPurpose::valueRules($definition->purpose)),
+        ])->validate();
+
+        return [
+            'connection_id' => $connection->id,
+            'attribute_definition_id' => $definition->id,
+            'value_ciphertext' => null,
+            'value_appkey_ciphertext' => Crypt::encryptString($value['value']),
+        ];
     }
 
     private function findOwned(Request $request, string $id): Connection

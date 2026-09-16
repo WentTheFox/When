@@ -14,6 +14,10 @@ class ConnectionAttributeValue extends Model
         'connection_id',
         'attribute_definition_id',
         'value_ciphertext',
+        // §0.2 tier — Crypt/APP_KEY, populated instead of value_ciphertext
+        // when the parent ConnectionAttributeDefinition has is_e2ee false.
+        // See ConnectionController::serversideAttributeRow().
+        'value_appkey_ciphertext',
     ];
 
     public function connection(): BelongsTo

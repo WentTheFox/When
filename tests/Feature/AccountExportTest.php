@@ -100,6 +100,19 @@ class AccountExportTest extends TestCase
         $definition = ConnectionAttributeDefinition::create(['user_id' => $user->id, 'label_ciphertext' => 'opaque-attr-label', 'type' => 'text']);
         ConnectionAttributeValue::create(['connection_id' => $connection->id, 'attribute_definition_id' => $definition->id, 'value_ciphertext' => 'opaque-attr-value']);
 
+        $plaintextDefinition = ConnectionAttributeDefinition::create([
+            'user_id' => $user->id,
+            'label_ciphertext' => 'opaque-discord-label',
+            'type' => 'text',
+            'is_e2ee' => false,
+            'purpose' => 'discord',
+        ]);
+        ConnectionAttributeValue::create([
+            'connection_id' => $connection->id,
+            'attribute_definition_id' => $plaintextDefinition->id,
+            'value_appkey_ciphertext' => Crypt::encryptString('some.user'),
+        ]);
+
         $other = Connection::create(['user_id' => $user->id, 'name_ciphertext' => 'opaque-name-2']);
         ConnectionEdge::create(['user_id' => $user->id, 'from_connection_id' => $connection->id, 'to_connection_id' => $other->id, 'label_ciphertext' => 'opaque-edge-label']);
 
@@ -138,6 +151,7 @@ class AccountExportTest extends TestCase
             'connections/source-categories.json',
             'connections/attribute-definitions.json',
             'connections/attribute-values.json',
+            'connections/attribute-values-plaintext.json',
             'connections/edges.json',
             'connections/source-links.json',
         ];
@@ -158,8 +172,20 @@ class AccountExportTest extends TestCase
         $this->assertArrayNotHasKey('source_id', $exportedConnection);
 
         $attributeValues = json_decode($zip->getFromName('connections/attribute-values.json'), true);
+        $this->assertSame('e2ee', $attributeValues['tier']);
         $exportedValue = $attributeValues['records'][0];
         $this->assertSame($connection->id, $exportedValue['key_ring_id'], 'attribute value key_ring_id must be the parent connection id');
+
+        $attributeDefinitions = json_decode($zip->getFromName('connections/attribute-definitions.json'), true);
+        $exportedPlaintextDefinition = collect($attributeDefinitions['records'])->firstWhere('id', $plaintextDefinition->id);
+        $this->assertFalse($exportedPlaintextDefinition['is_e2ee']);
+        $this->assertSame('discord', $exportedPlaintextDefinition['purpose']);
+
+        $plaintextValues = json_decode($zip->getFromName('connections/attribute-values-plaintext.json'), true);
+        $this->assertSame('server-decrypted', $plaintextValues['tier']);
+        $exportedPlaintextValue = $plaintextValues['records'][0];
+        $this->assertSame('some.user', $exportedPlaintextValue['value']);
+        $this->assertSame($plaintextDefinition->id, $exportedPlaintextValue['attribute_definition_id']);
 
         $shareLinkWords = json_decode($zip->getFromName('share-links/share-link-words.json'), true);
         $this->assertSame('server-decrypted', $shareLinkWords['tier']);

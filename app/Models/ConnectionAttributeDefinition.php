@@ -18,7 +18,17 @@ class ConnectionAttributeDefinition extends Model
         'label_ciphertext',
         'type',
         'options_ciphertext',
+        'is_e2ee',
+        'purpose',
     ];
+
+    /** @return array<string, string> */
+    protected function casts(): array
+    {
+        return [
+            'is_e2ee' => 'boolean',
+        ];
+    }
 
     public function user(): BelongsTo
     {

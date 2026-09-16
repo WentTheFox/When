@@ -22,7 +22,11 @@ import { useVault } from './useVault';
 
 interface AttributeValue {
   attribute_definition_id: string;
-  value_ciphertext: string;
+  value_ciphertext: string | null;
+  // §0.2 tier — already decrypted server-side (Crypt/APP_KEY) when the
+  // parent definition has E2EE disabled; null when value_ciphertext is
+  // populated instead. See ConnectionController::serialize().
+  value: string | null;
 }
 
 export interface ConnectionRow {
@@ -43,10 +47,19 @@ export interface EdgeRow {
   label: string;
 }
 
+interface AttributeDefinitionRow {
+  id: string;
+  label: string;
+  type: string;
+  options: string[];
+  isE2ee: boolean;
+  purpose: string | null;
+}
+
 const props = defineProps<{
   connection: ConnectionRow;
   sources: { id: string; label: string }[];
-  attributeDefinitions: { id: string; label: string; type: string; options: string[] }[];
+  attributeDefinitions: AttributeDefinitionRow[];
   edges: EdgeRow[];
   connectionOptions: { id: string; label: string }[];
 }>();
@@ -139,7 +152,12 @@ async function decryptAll(): Promise<void> {
 
     const values: Record<string, string> = {};
     for (const attributeValue of props.connection.attribute_values) {
-      values[attributeValue.attribute_definition_id] = await decryptString(key, attributeValue.value_ciphertext);
+      const definition = props.attributeDefinitions.find((d) => d.id === attributeValue.attribute_definition_id);
+      // §0.2 tier — already plaintext from the server (Crypt/APP_KEY, not
+      // vault-key E2EE), nothing to decrypt here.
+      values[attributeValue.attribute_definition_id] = definition && !definition.isE2ee
+        ? (attributeValue.value ?? '')
+        : await decryptString(key, attributeValue.value_ciphertext as string);
     }
     attributeValues.value = values;
   } catch (error) {
@@ -163,6 +181,11 @@ function inputType(type: string): InputType {
   return INPUT_TYPE[type] ?? (type as InputType);
 }
 
+const PURPOSE_PLACEHOLDER: Record<string, string> = { discord: 'Discord username', vrchat: 'VRChat username' };
+function purposePlaceholder(definition: AttributeDefinitionRow): string | undefined {
+  return definition.purpose ? PURPOSE_PLACEHOLDER[definition.purpose] : undefined;
+}
+
 function startEdit(): void {
   editName.value = name.value;
   editNotes.value = notes.value;
@@ -180,12 +203,15 @@ async function save(): Promise<void> {
     const values = [];
     for (const definition of props.attributeDefinitions) {
       const value = editAttributeValues.value[definition.id];
-      if (value) {
-        values.push({
-          attribute_definition_id: definition.id,
-          value_ciphertext: await encryptString(key, value),
-        });
-      }
+      if (!value) continue;
+
+      values.push(
+        definition.isE2ee
+          ? { attribute_definition_id: definition.id, value_ciphertext: await encryptString(key, value) }
+          // §0.2 tier — sent as plaintext; the server encrypts it with
+          // Crypt/APP_KEY on write (ConnectionController::serversideAttributeRow()).
+          : { attribute_definition_id: definition.id, value },
+      );
     }
 
     const { data } = await axios.patch(`/dashboard/connections/${props.connection.id}`, {
@@ -285,7 +311,11 @@ async function remove(): Promise<void> {
         <BFormTextarea v-model="editNotes" size="sm" rows="2" />
       </BFormGroup>
       <BFormCheckbox :id="`archived-${connection.id}`" v-model="editArchived" class="mb-3">Archived</BFormCheckbox>
-      <BFormGroup v-for="definition in attributeDefinitions" :key="definition.id" :label="definition.label" class="mb-3">
+      <BFormGroup v-for="definition in attributeDefinitions" :key="definition.id" class="mb-3">
+        <template #label>
+          {{ definition.label }}
+          <span v-if="!definition.isE2ee" class="badge text-bg-warning ms-1">not encrypted</span>
+        </template>
         <BFormTextarea
           v-if="definition.type === 'textarea'"
           v-model="editAttributeValues[definition.id]"
@@ -314,6 +344,7 @@ async function remove(): Promise<void> {
           v-else
           v-model="editAttributeValues[definition.id]"
           :type="inputType(definition.type)"
+          :placeholder="purposePlaceholder(definition)"
           size="sm"
         />
       </BFormGroup>

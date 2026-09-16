@@ -34,6 +34,16 @@ const page = usePage();
     The encryption key is derived from your master password entirely
     client-side and never leaves your browser in any form.
   </p>
+  <p class="mb-4">
+    One deliberate, opt-in exception: when you create a custom attribute,
+    you can choose to disable end-to-end encryption on that field's
+    <em>value</em> (its label always stays encrypted as above). That's for
+    an identifier a future feature needs to read server-side &mdash; e.g.
+    a Discord or VRChat username, so a visitor can verify their account
+    against it. A field created this way falls under the "ciphertext at
+    rest, not full E2EE" tier described just below instead, and this
+    choice can't be changed after the field is created.
+  </p>
 
   <h2 class="h5">
     <span class="badge text-bg-warning text-dark me-2">Ciphertext at rest, not full E2EE</span>
@@ -84,13 +94,15 @@ const page = usePage();
   <p class="mb-2">
     You can download a copy of everything tied to your account from your
     account page, after re-confirming your master password. Some fields
-    (your name, your calendar URL, two-factor recovery codes) are included
-    in plain text, because the server can already read them day to day —
-    the download flags these clearly since they're sensitive on their own
-    terms. Your Connections CRM data and share-link labels stay encrypted
-    in the download exactly as they're stored; a plaintext instructions
-    file explains how to decrypt them yourself, offline, using your master
-    password. This is rate-limited to 5 downloads per day.
+    (your name, your calendar URL, two-factor recovery codes, and any
+    custom attribute value you chose to store without end-to-end
+    encryption) are included in plain text, because the server can already
+    read them day to day — the download flags these clearly since some are
+    sensitive on their own terms. Your Connections CRM data and share-link
+    labels otherwise stay encrypted in the download exactly as they're
+    stored; a plaintext instructions file explains how to decrypt them
+    yourself, offline, using your master password. This is rate-limited to
+    5 downloads per day.
   </p>
   <p class="mb-4">
     Deleting your account also requires re-confirming your master password,
