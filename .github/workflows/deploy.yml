@@ -1,34 +1,46 @@
+# Copied from git-deploy-toolkit's template/deploy.yml.example — see that
+# repo's README ("Triggering deploys from GitHub Actions") for the
+# one-time, per-server self-hosted runner setup this depends on, and
+# don't let this drift from the template without updating both.
+#
+# Gives a button-triggered "deploy" in GitHub's Actions tab that does
+# exactly what you'd otherwise type by hand — `git push deploy main` —
+# from a self-hosted runner living on the same server `deploy` pushes to.
+# No new deploy logic and no third-party CI/deploy subscription: the
+# runner just hands off to deploy.conf via the same post-receive hook
+# every ordinary push already goes through.
+#
+# workflow_dispatch only, never on push — deploying briefly takes the
+# site down during deploy_build/deploy_restart, so it should always be a
+# deliberate, in-the-moment decision, never automatic off a merge.
+
 name: Deploy
 
-# Manual only, never on push to main — deploying takes the site down
-# briefly during migrate/build (see deploy.conf), so it always needs a
-# deliberate, in-the-moment decision, never an automatic one from a merge.
-#
-# Runs on a self-hosted runner living on the production host itself
-# (github.com/actions/runner registered with the "when-deploy" label —
-# see the repo's deploy docs for setup), specifically so no deploy
-# credential ever has to leave that host and no GitHub-hosted runner
-# needs inbound network access to it. The runner just does exactly what a
-# human normally does from their own machine: `git push deploy main`,
-# which hands off to git-deploy-toolkit's existing post-receive hook
-# (deploy.conf's deploy_build/deploy_restart) — this workflow adds no new
-# deploy logic of its own, only a different, auditable way to trigger the
-# same one.
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: 'Type "deploy" to confirm — this takes the site down briefly during migrate/build.'
+        description: 'Type "deploy" to confirm.'
         required: true
+
+# Only one deploy of this app at a time — a second click while one is
+# still running waits for it rather than racing it.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    runs-on: [self-hosted, when-deploy]
+    # git-deploy-toolkit convention: ONE runner per server, labeled
+    # "git-deploy", shared by every app on that server — not one runner
+    # per app. See git-deploy-toolkit's README before registering a
+    # second runner thinking this app needs its own.
+    runs-on: [self-hosted, git-deploy]
     steps:
       - name: Confirm
         run: |
           if [ "${{ github.event.inputs.confirm }}" != "deploy" ]; then
-            echo "Confirmation text didn't match 'deploy' — aborting." >&2
+            echo 'Confirmation text didn'"'"'t match "deploy" — aborting.' >&2
             exit 1
           fi
 
