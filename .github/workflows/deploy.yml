@@ -13,6 +13,15 @@
 # workflow_dispatch only, never on push — deploying briefly takes the
 # site down during deploy_build/deploy_restart, so it should always be a
 # deliberate, in-the-moment decision, never automatic off a merge.
+#
+# SECURITY: this repo is public (see /about). NEVER add a `pull_request`
+# (or `pull_request_target`, or `push` from an untrusted branch) trigger
+# to ANY workflow that targets the "git-deploy" runner label, and never
+# change this workflow's own `on:` to include one — that's the textbook
+# self-hosted-runner-on-a-public-repo hole: a stranger's fork/PR could
+# then run arbitrary code on the real server. workflow_dispatch is safe
+# here specifically because triggering it requires repo *write* access —
+# keep it that way.
 
 name: Deploy
 
@@ -36,6 +45,14 @@ jobs:
     # per app. See git-deploy-toolkit's README before registering a
     # second runner thinking this app needs its own.
     runs-on: [self-hosted, git-deploy]
+    # Optional extra gate on top of the confirm input above: create a
+    # "production" environment (Settings -> Environments) and add
+    # required reviewers there to require an approval, from someone other
+    # than whoever clicked "Run workflow", before this job actually runs
+    # on the runner. A no-op until reviewers are configured — GitHub
+    # auto-creates an unprotected environment the first time this runs if
+    # one doesn't exist yet.
+    environment: production
     steps:
       - name: Confirm
         run: |
