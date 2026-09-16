@@ -1,0 +1,38 @@
+name: Deploy
+
+# Manual only, never on push to main — deploying takes the site down
+# briefly during migrate/build (see deploy.conf), so it always needs a
+# deliberate, in-the-moment decision, never an automatic one from a merge.
+#
+# Runs on a self-hosted runner living on the production host itself
+# (github.com/actions/runner registered with the "when-deploy" label —
+# see the repo's deploy docs for setup), specifically so no deploy
+# credential ever has to leave that host and no GitHub-hosted runner
+# needs inbound network access to it. The runner just does exactly what a
+# human normally does from their own machine: `git push deploy main`,
+# which hands off to git-deploy-toolkit's existing post-receive hook
+# (deploy.conf's deploy_build/deploy_restart) — this workflow adds no new
+# deploy logic of its own, only a different, auditable way to trigger the
+# same one.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm — this takes the site down briefly during migrate/build.'
+        required: true
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, when-deploy]
+    steps:
+      - name: Confirm
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "deploy" ]; then
+            echo "Confirmation text didn't match 'deploy' — aborting." >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - name: Push to the deploy remote
+        run: git push "${{ secrets.DEPLOY_REMOTE_URL }}" HEAD:main
