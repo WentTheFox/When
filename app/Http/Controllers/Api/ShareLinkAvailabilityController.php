@@ -52,13 +52,6 @@ class ShareLinkAvailabilityController extends Controller
             abort(Response::HTTP_NOT_FOUND);
         }
 
-        if ($shareLink->archived) {
-            // 401, not 404: the link *was* valid — this is the "link
-            // expired" signal the frontend renders a distinct state for,
-            // matching the source app's convention, not "never existed."
-            return response()->json(['error' => 'This share link has expired.'], 401);
-        }
-
         if ($shareLink->user->calendar_url_ciphertext === null) {
             // Distinct terminal status, not "pending": there is nothing to
             // fetch, and never will be until the owner sets a calendar URL,
