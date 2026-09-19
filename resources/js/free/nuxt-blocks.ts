@@ -295,6 +295,10 @@ function groupByType(events: EventSlot[]): Partial<Record<EventType, EventSlot[]
 // good a rule as any.
 const OVERLAY_TYPES: DayBlock['type'][] = ['highlighted', 'work', 'school', 'public'];
 
+// Sleep takes precedence over every other overlay (the API already subtracts
+// it from public events), except a highlighted event, which shows on top of it.
+const SLEEP_OVERLAY_TYPES = new Set<DayBlock['type']>(['highlighted']);
+
 export function getBlocksForDay(day: Date, events: EventSlot[], timezone: string): DayBlock[] {
   const tzDay = new TZDate(day, timezone);
   const y = tzDay.getFullYear();
@@ -313,10 +317,12 @@ export function getBlocksForDay(day: Date, events: EventSlot[], timezone: string
   const freeBlocks = blocksOf('free');
   const unavailableBlocks = blocksOf('unavailable');
   // Sleep ranges fill a gap that's absent from both `free` and `unavailable` rather
-  // than overlapping either, so they're their own top-level blocks, not an overlay.
+  // than overlapping either, so they start out as their own top-level blocks. The
+  // API doesn't carve highlighted events out of sleep, so `highlighted` (and only
+  // it — see SLEEP_OVERLAY_TYPES) is also applied over them below.
   const sleepBlocks = blocksOf('sleep');
 
-  let baseBlocks = [...unavailableBlocks, ...freeBlocks];
+  let baseBlocks = [...unavailableBlocks, ...freeBlocks, ...sleepBlocks];
 
   for (const overlayType of OVERLAY_TYPES) {
     const overlayBlocks = blocksOf(overlayType);
@@ -324,9 +330,13 @@ export function getBlocksForDay(day: Date, events: EventSlot[], timezone: string
 
     const alreadyClaimed = new Set(OVERLAY_TYPES.slice(0, OVERLAY_TYPES.indexOf(overlayType)));
     baseBlocks = mergeOverlappingBlocks(
-      baseBlocks.flatMap(b => (alreadyClaimed.has(b.type) ? [b] : splitByOverlay(b, overlayBlocks))),
+      baseBlocks.flatMap(b => (
+        alreadyClaimed.has(b.type) || (b.type === 'sleep' && !SLEEP_OVERLAY_TYPES.has(overlayType))
+          ? [b]
+          : splitByOverlay(b, overlayBlocks)
+      )),
     );
   }
 
-  return [...baseBlocks, ...sleepBlocks].sort((a, b) => a.topPct - b.topPct);
+  return baseBlocks.sort((a, b) => a.topPct - b.topPct);
 }
