@@ -158,6 +158,12 @@ const dayBlocks = computed(() =>
   })),
 );
 
+// Where two fuzzy edges meet, both sides fade to the same midpoint color, so
+// the seam is one continuous gradient instead of two clashing ones.
+function seamColor(a: string, b: string): string {
+  return `color-mix(in srgb, ${a} 50%, ${b})`;
+}
+
 // Blocks tile the day with no gaps, so the previous/next array entry is the
 // immediately-adjacent block in time. Only an edge that's actually fuzzy
 // (tentativeStart/tentativeEnd, independently) gets a gradient at all — the
@@ -194,7 +200,7 @@ function tentativeFadeStyle(day: Date, blocks: DayBlock[], i: number): Record<st
       : getBlocksForDay(subDays(day, 1), props.events, props.timezone).at(-1);
     if (prev) {
       style['--fade-start'] = isTentativeEndDisplay(prev)
-        ? blockFadeColor(block, resolvedTheme.value)
+        ? seamColor(blockFadeColor(prev, resolvedTheme.value), blockFadeColor(block, resolvedTheme.value))
         : blockFadeColor(prev, resolvedTheme.value);
     }
   } else {
@@ -205,7 +211,11 @@ function tentativeFadeStyle(day: Date, blocks: DayBlock[], i: number): Record<st
     const next = i < blocks.length - 1
       ? blocks[i + 1]
       : getBlocksForDay(addDays(day, 1), props.events, props.timezone)[0];
-    if (next) style['--fade-end'] = blockFadeColor(next, resolvedTheme.value);
+    if (next) {
+      style['--fade-end'] = isTentativeStartDisplay(next)
+        ? seamColor(blockFadeColor(block, resolvedTheme.value), blockFadeColor(next, resolvedTheme.value))
+        : blockFadeColor(next, resolvedTheme.value);
+    }
   } else {
     style['--fade-end'] = blockFadeColor(block, resolvedTheme.value);
   }

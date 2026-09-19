@@ -171,6 +171,12 @@ const dayStatuses = computed(() => {
   });
 });
 
+// Where two fuzzy edges meet, both sides fade to the same midpoint color, so
+// the seam is one continuous gradient instead of two clashing ones.
+function seamColor(a: string, b: string): string {
+  return `color-mix(in srgb, ${a} 50%, ${b})`;
+}
+
 // Same neighbor-blending idea as the week/agenda views: only an edge that's
 // actually fuzzy (tentativeStart/tentativeEnd, independently) blends into
 // the adjacent block's color — the other edge renders as a hard line at its
@@ -193,7 +199,11 @@ function tentativeFadeStyle(cell: DayStatus, i: number): Record<string, string> 
     const prev = i > 0
       ? blocks[i - 1]
       : getBlocksForDay(subDays(cell.day, 1), props.events, props.timezone).at(-1);
-    if (prev) style['--fade-start'] = `var(${AVAIL_BLOCK_COLOR_VAR[prev.type]})`;
+    if (prev) {
+      style['--fade-start'] = isTentativeEndDisplay(prev)
+        ? seamColor(`var(${AVAIL_BLOCK_COLOR_VAR[prev.type]})`, `var(${AVAIL_BLOCK_COLOR_VAR[block.type]})`)
+        : `var(${AVAIL_BLOCK_COLOR_VAR[prev.type]})`;
+    }
   } else {
     style['--fade-start'] = `var(${AVAIL_BLOCK_COLOR_VAR[block.type]})`;
   }
@@ -202,7 +212,11 @@ function tentativeFadeStyle(cell: DayStatus, i: number): Record<string, string> 
     const next = i < blocks.length - 1
       ? blocks[i + 1]
       : getBlocksForDay(addDays(cell.day, 1), props.events, props.timezone)[0];
-    if (next) style['--fade-end'] = `var(${AVAIL_BLOCK_COLOR_VAR[next.type]})`;
+    if (next) {
+      style['--fade-end'] = isTentativeStartDisplay(next)
+        ? seamColor(`var(${AVAIL_BLOCK_COLOR_VAR[block.type]})`, `var(${AVAIL_BLOCK_COLOR_VAR[next.type]})`)
+        : `var(${AVAIL_BLOCK_COLOR_VAR[next.type]})`;
+    }
   } else {
     style['--fade-end'] = `var(${AVAIL_BLOCK_COLOR_VAR[block.type]})`;
   }

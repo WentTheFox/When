@@ -135,6 +135,12 @@ function slotHeightStyle(heightPct: number): Record<string, string> {
   };
 }
 
+// Where two fuzzy edges meet, both sides fade to the same midpoint color, so
+// the seam is one continuous gradient instead of two clashing ones.
+function seamColor(a: string, b: string): string {
+  return `color-mix(in srgb, ${a} 50%, ${b})`;
+}
+
 // Same neighbor-blending idea as the week view: only an edge that's actually
 // fuzzy (tentativeStart/tentativeEnd, independently) blends into the
 // adjacent slot's color — the other edge renders as a hard line at its own
@@ -158,7 +164,11 @@ function tentativeFadeStyle(day: Date, slots: DayBlock[], i: number): Record<str
     const prev = i > 0
       ? slots[i - 1]
       : getBlocksForDay(subDays(day, 1), props.events, props.timezone).at(-1);
-    if (prev) style['--fade-start'] = `var(${AGENDA_SLOT_COLOR_VAR[prev.type]})`;
+    if (prev) {
+      style['--fade-start'] = isTentativeEndDisplay(prev)
+        ? seamColor(`var(${AGENDA_SLOT_COLOR_VAR[prev.type]})`, `var(${AGENDA_SLOT_COLOR_VAR[slot.type]})`)
+        : `var(${AGENDA_SLOT_COLOR_VAR[prev.type]})`;
+    }
   } else {
     style['--fade-start'] = `var(${AGENDA_SLOT_COLOR_VAR[slot.type]})`;
   }
@@ -167,7 +177,11 @@ function tentativeFadeStyle(day: Date, slots: DayBlock[], i: number): Record<str
     const next = i < slots.length - 1
       ? slots[i + 1]
       : getBlocksForDay(addDays(day, 1), props.events, props.timezone)[0];
-    if (next) style['--fade-end'] = `var(${AGENDA_SLOT_COLOR_VAR[next.type]})`;
+    if (next) {
+      style['--fade-end'] = isTentativeStartDisplay(next)
+        ? seamColor(`var(${AGENDA_SLOT_COLOR_VAR[slot.type]})`, `var(${AGENDA_SLOT_COLOR_VAR[next.type]})`)
+        : `var(${AGENDA_SLOT_COLOR_VAR[next.type]})`;
+    }
   } else {
     style['--fade-end'] = `var(${AGENDA_SLOT_COLOR_VAR[slot.type]})`;
   }
