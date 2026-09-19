@@ -148,7 +148,7 @@ interface ApiResponse {
   computed_range_end?: string;
   stale?: boolean;
   timezone: string;
-  /** False when the owner has never set a timezone — `timezone` above is still a valid IANA zone (defaults to 'UTC') for rendering, but that's a guess, not a real comparison point, so the match/offset note is suppressed rather than shown against it. */
+  /** False when the owner has never set a timezone — `timezone` above is still a valid IANA zone (defaults to 'UTC'), but that's a guess, not a real comparison point, so the match/offset note is suppressed rather than shown against it. */
   timezone_configured: boolean;
 }
 
@@ -159,7 +159,6 @@ const showExpired = ref(false);
 const showStatus = ref(true);
 const statusText = ref(trans('free.loading'));
 const showCalendar = ref(false);
-const timezone = ref('UTC');
 
 const availability = ref<AvailabilityResponse>({ events: [] });
 
@@ -375,6 +374,16 @@ const showOwnerCustomizations = computed(() => isOwnerPreview.value && ownerCust
  */
 const comparisonTimezone = computed(() => (showOwnerCustomizations.value ? selectedVisitorTimezone.value : viewerBrowserTimezone));
 
+/**
+ * The timezone the calendar grid renders in: always the viewer's own browser
+ * timezone (as the "Times shown in your local time" note promises), except
+ * for the owner previewing their own link with customizations on, where it
+ * follows the visitor timezone picked below so they see what that visitor
+ * sees. The computed slots are fixed instants, so this only changes which
+ * hours the columns/labels line up with.
+ */
+const timezone = computed(() => (showOwnerCustomizations.value && selectedVisitorTimezone.value) || viewerBrowserTimezone);
+
 const timezoneOffsetNote = computed(() => {
   const info = ownerTimezoneInfo.value;
   if (info === null || !info.timezoneConfigured || comparisonTimezone.value === null) {
@@ -457,16 +466,6 @@ async function fetchWithPolling(): Promise<ApiResponse> {
 
 /** Shared by boot() and the owner's forceRefresh() poll below — decrypts and applies a 'ready' response, without touching the loading/error UI state either of those two callers manage differently. */
 async function applyReadyResponse(response: ApiResponse): Promise<void> {
-  // response.timezone is a guessed 'UTC' when the owner has never
-  // configured one (see ApiResponse['timezone_configured']) — rendering
-  // the grid in that guess would misalign it against the viewer's own
-  // wall-clock hours for no reason, so render in the viewer's own
-  // detected browser timezone instead in that case. This only affects
-  // which hours the calendar grid's columns/labels line up with — the
-  // underlying computed slots are already fixed instants either way.
-  timezone.value = response.timezone_configured
-    ? response.timezone
-    : viewerBrowserTimezone;
   ownerTimezoneInfo.value = { timezone: response.timezone, timezoneConfigured: response.timezone_configured };
 
   const key = await resolveContentKey();
