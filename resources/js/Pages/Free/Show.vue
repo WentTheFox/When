@@ -34,6 +34,7 @@ import SiteHeader from '../../Components/SiteHeader.vue';
 import CalendarView from '../../free/CalendarView.vue';
 import AgendaView from '../../free/AgendaView.vue';
 import MonthView from '../../free/MonthView.vue';
+import ViewErrorBoundary from '../../free/ViewErrorBoundary.vue';
 import { BLOCK_ALPHA, fcalTextVars, hexToRgba, hexToRgbTriplet, yiqTextColor } from '../../free/color-utils';
 import { resolveSwatchHex } from '../../free/color-palette';
 import { resolveIcon } from '../../free/icon-palette';
@@ -764,6 +765,7 @@ onMounted(() => {
               </p>
 
               <div class="wtf-desktop-only">
+                <ViewErrorBoundary label="calendar">
                 <CalendarView
                   v-if="viewMode === 'week'"
                   :visible-days="visibleDays"
@@ -791,7 +793,9 @@ onMounted(() => {
                   :week-start="props.weekStart"
                   @week-click="onWeekClick"
                 />
+                </ViewErrorBoundary>
               </div>
+              <ViewErrorBoundary label="agenda">
               <AgendaView
                 :days="weekDays"
                 :events="availability.events"
@@ -803,6 +807,7 @@ onMounted(() => {
                 :show-current-time="true"
                 :current-time-pct="currentTimePct"
               />
+              </ViewErrorBoundary>
             </template>
           </div>
         </div>

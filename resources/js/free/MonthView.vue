@@ -13,7 +13,7 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { computed } from 'vue';
 import { currentLocale } from 'laravel-vue-i18n';
-import { getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay } from './nuxt-blocks';
+import { lastOf, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay } from './nuxt-blocks';
 import type { DayBlock, EventSlot } from './nuxt-blocks';
 
 const AVAIL_BLOCK_CLASS: Record<DayBlock['type'], string> = {
@@ -76,7 +76,7 @@ const firstDayOffset = computed(() => {
  */
 const lastDayOffset = computed(() => {
   if (props.days.length === 0) return 0;
-  const tzDay = new TZDate(props.days.at(-1)!, props.timezone);
+  const tzDay = new TZDate(props.days[props.days.length - 1]!, props.timezone);
   const dow = getDay(tzDay);
   return (props.weekStart - dow - 1 + 7) % 7;
 });
@@ -98,7 +98,7 @@ const paddedDays = computed(() => {
   const leading = Array.from({ length: firstDayOffset.value }, (_, i) =>
     subDays(props.days[0]!, firstDayOffset.value - i));
   const trailing = Array.from({ length: lastDayOffset.value }, (_, i) =>
-    addDays(props.days.at(-1)!, i + 1));
+    addDays(props.days[props.days.length - 1]!, i + 1));
 
   return [...leading, ...props.days, ...trailing];
 });
@@ -140,7 +140,7 @@ type DayStatus = {
 
 const dayStatuses = computed(() => {
   const monthStart = props.days[0];
-  const monthEnd = props.days.at(-1);
+  const monthEnd = props.days[props.days.length - 1];
 
   return paddedDays.value.map((day): DayStatus => {
     const blocks = props.showBlocks
@@ -198,7 +198,7 @@ function tentativeFadeStyle(cell: DayStatus, i: number): Record<string, string> 
   if (startFuzzy) {
     const prev = i > 0
       ? blocks[i - 1]
-      : getBlocksForDay(subDays(cell.day, 1), props.events, props.timezone).at(-1);
+      : lastOf(getBlocksForDay(subDays(cell.day, 1), props.events, props.timezone));
     if (prev) {
       style['--fade-start'] = isTentativeEndDisplay(prev)
         ? seamColor(`var(${AVAIL_BLOCK_COLOR_VAR[prev.type]})`, `var(${AVAIL_BLOCK_COLOR_VAR[block.type]})`)

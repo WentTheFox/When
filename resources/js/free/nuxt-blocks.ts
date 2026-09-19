@@ -140,6 +140,12 @@ export function isTentativeSuffixShown(block: DayBlock): boolean {
   return !!block.tentativeStart || !!block.tentativeEnd;
 }
 
+// Array.prototype.at() throws on Safari < 15.4 (older iPhones), which took the
+// whole free page's render down with it — plain indexing works everywhere.
+export function lastOf<T>(items: T[]): T | undefined {
+  return items[items.length - 1];
+}
+
 export function pctToTime(pct: number): string {
   const totalMinutes = Math.round((pct / 100) * 1440);
   const h = Math.floor(totalMinutes / 60) % 24;

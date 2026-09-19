@@ -16,7 +16,7 @@ import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import { computed } from 'vue';
 import { currentLocale, trans } from 'laravel-vue-i18n';
-import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, isTentativeSuffixShown, pctToTime, tildeTime } from './nuxt-blocks';
+import { lastOf, formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, isTentativeSuffixShown, pctToTime, tildeTime } from './nuxt-blocks';
 import type { DayBlock, EventSlot } from './nuxt-blocks';
 import { resolveLocalizedText } from './localizedText';
 import { resolveIcon } from './icon-palette';
@@ -163,7 +163,7 @@ function tentativeFadeStyle(day: Date, slots: DayBlock[], i: number): Record<str
   if (startFuzzy) {
     const prev = i > 0
       ? slots[i - 1]
-      : getBlocksForDay(subDays(day, 1), props.events, props.timezone).at(-1);
+      : lastOf(getBlocksForDay(subDays(day, 1), props.events, props.timezone));
     if (prev) {
       style['--fade-start'] = isTentativeEndDisplay(prev)
         ? seamColor(`var(${AGENDA_SLOT_COLOR_VAR[prev.type]})`, `var(${AGENDA_SLOT_COLOR_VAR[slot.type]})`)
