@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getBlocksForDay, type EventSlot } from '../nuxt-blocks';
+import { getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, type EventSlot } from '../nuxt-blocks';
 
 const TZ = 'UTC';
 const day = new Date('2026-03-10T12:00:00Z');
@@ -42,5 +42,38 @@ describe('getBlocksForDay', () => {
     ], TZ);
 
     expect(blocks.map(b => b.type)).toEqual(['sleep']);
+  });
+});
+
+describe('getBlocksForDay sleep edges cut by a highlighted event', () => {
+  const hl = (start: string, end: string, tentativeStart: boolean, tentativeEnd: boolean): EventSlot => ({
+    ...slot('highlighted', start, end), tentative_start: tentativeStart, tentative_end: tentativeEnd,
+  } as EventSlot);
+
+  it('hardens the sleep edge next to an event with a known start, keeps the other soft', () => {
+    const blocks = getBlocksForDay(day, [
+      slot('sleep', '00:00', '14:00'),
+      hl('02:00', '05:00', false, true),
+    ], TZ);
+
+    const [before, event, after] = blocks;
+    expect(before!.type).toBe('sleep');
+    expect(isTentativeStartDisplay(before!)).toBe(true);
+    expect(isTentativeEndDisplay(before!)).toBe(false);
+    expect(isTentativeStartDisplay(event!)).toBe(false);
+    expect(isTentativeEndDisplay(event!)).toBe(true);
+    // The event's end is fuzzy, so the sleep resuming after it stays soft too.
+    expect(isTentativeStartDisplay(after!)).toBe(true);
+    expect(isTentativeEndDisplay(after!)).toBe(true);
+  });
+
+  it('hardens the resuming sleep edge when the event has a known end', () => {
+    const blocks = getBlocksForDay(day, [
+      slot('sleep', '00:00', '14:00'),
+      hl('02:00', '05:00', true, false),
+    ], TZ);
+
+    expect(isTentativeEndDisplay(blocks[0]!)).toBe(true);
+    expect(isTentativeStartDisplay(blocks[2]!)).toBe(false);
   });
 });

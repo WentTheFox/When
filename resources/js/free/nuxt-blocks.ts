@@ -46,6 +46,9 @@ export interface DayBlock {
   type: EventType;
   tentativeStart?: boolean;
   tentativeEnd?: boolean;
+  /** Only ever set on a sleep fragment: that edge was cut by a highlighted event with a known edge there, so it's a hard line rather than sleep's usual inferred/fuzzy one. See splitByOverlay(). */
+  hardStart?: boolean;
+  hardEnd?: boolean;
   activity?: string | null;
   activityLabel?: LocalizedText | null;
   highlightWords?: string[];
@@ -121,13 +124,15 @@ export function formatUntilTime(endTime: string, locale: string): string {
 // Sleep ranges are inferred rather than confirmed, so they always get the
 // tentative fade/dashed-border treatment on both edges, even though the API
 // never marks them tentative (those flags only exist on highlighted/
-// unavailable slots).
+// unavailable slots). The exception is an edge that a highlighted event with a
+// known edge there cut into the sleep range (hardStart/hardEnd) — that boundary
+// is the event's, not an inferred one.
 export function isTentativeStartDisplay(block: DayBlock): boolean {
-  return !!block.tentativeStart || block.type === 'sleep';
+  return !!block.tentativeStart || (block.type === 'sleep' && !block.hardStart);
 }
 
 export function isTentativeEndDisplay(block: DayBlock): boolean {
-  return !!block.tentativeEnd || block.type === 'sleep';
+  return !!block.tentativeEnd || (block.type === 'sleep' && !block.hardEnd);
 }
 
 // Same tentative-ness the fade/dashed-border styling above reacts to, minus
@@ -212,7 +217,7 @@ function mergeOverlappingBlocks(blocks: DayBlock[]): DayBlock[] {
 
   const groups = new Map<string, DayBlock[]>();
   for (const block of blocks) {
-    const key = `${block.type}|${block.tentativeStart ? '1' : '0'}${block.tentativeEnd ? '1' : '0'}|${block.activity ?? ''}|${(block.highlightWords ?? []).join(',')}|${block.activityIcon ?? ''}|${block.activityColor ?? ''}`;
+    const key = `${block.type}|${block.tentativeStart ? '1' : '0'}${block.tentativeEnd ? '1' : '0'}|${block.activity ?? ''}|${(block.highlightWords ?? []).join(',')}|${block.activityIcon ?? ''}|${block.activityColor ?? ''}|${block.hardStart ? '1' : '0'}${block.hardEnd ? '1' : '0'}`;
     const group = groups.get(key);
     if (group) group.push(block);
     else groups.set(key, [block]);
@@ -257,6 +262,7 @@ function splitByOverlay(base: DayBlock, overlay: DayBlock[]): DayBlock[] {
 
   const result: DayBlock[] = [];
   let cursor = base.topPct;
+  let prev: DayBlock | undefined;
 
   for (const o of overlapping) {
     const oEnd = o.topPct + o.heightPct;
@@ -264,14 +270,33 @@ function splitByOverlay(base: DayBlock, overlay: DayBlock[]): DayBlock[] {
     const clippedEnd = Math.min(oEnd, baseEnd);
 
     if (clippedStart > cursor) {
-      result.push({ ...base, topPct: cursor, heightPct: clippedStart - cursor, startTime: pctToTime(cursor), endTime: pctToTime(clippedStart) });
+      // Sleep's edges are always fuzzy, but one a highlighted event cuts into
+      // it is that event's own edge — hard when the event knows that edge.
+      const isSleep = base.type === 'sleep';
+      result.push({
+        ...base,
+        topPct: cursor,
+        heightPct: clippedStart - cursor,
+        startTime: pctToTime(cursor),
+        endTime: pctToTime(clippedStart),
+        ...(isSleep && prev && !prev.tentativeEnd && { hardStart: true }),
+        ...(isSleep && !o.tentativeStart && { hardEnd: true }),
+      });
     }
     result.push({ ...o, topPct: clippedStart, heightPct: clippedEnd - clippedStart });
     cursor = clippedEnd;
+    prev = o;
   }
 
   if (baseEnd - cursor > 0.001) {
-    result.push({ ...base, topPct: cursor, heightPct: baseEnd - cursor, startTime: pctToTime(cursor), endTime: pctToTime(baseEnd) });
+    result.push({
+      ...base,
+      topPct: cursor,
+      heightPct: baseEnd - cursor,
+      startTime: pctToTime(cursor),
+      endTime: pctToTime(baseEnd),
+      ...(base.type === 'sleep' && prev && !prev.tentativeEnd && { hardStart: true }),
+    });
   }
 
   return result;
