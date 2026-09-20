@@ -26,6 +26,8 @@
     "free.timezoneMatch": "Az időzónáink megegyeznek!",
     "free.timezoneAhead": "Te :offset-val előrébb vagy hozzá képest",
     "free.timezoneBehind": "Te :offset-val hátrébb vagy hozzá képest",
+    "free.timezoneFriendAhead": "A barátod :offset-val előrébb van hozzád képest",
+    "free.timezoneFriendBehind": "A barátod :offset-val hátrébb van hozzád képest",
     "free.compareTimezoneLabel": "Összehasonlítás egy valódi látogató időzónájával",
     "free.compareTimezoneView": "megtekintés",
     "free.compareTimezoneViews": "megtekintés",

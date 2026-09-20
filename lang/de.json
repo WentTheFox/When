@@ -26,6 +26,8 @@
     "free.timezoneMatch": "Unsere Zeitzonen stimmen überein!",
     "free.timezoneAhead": "Du bist :offset voraus im Vergleich zu ihnen",
     "free.timezoneBehind": "Du bist :offset zurück im Vergleich zu ihnen",
+    "free.timezoneFriendAhead": "Dein Gegenüber ist :offset voraus im Vergleich zu dir",
+    "free.timezoneFriendBehind": "Dein Gegenüber ist :offset zurück im Vergleich zu dir",
     "free.compareTimezoneLabel": "Mit der Zeitzone eines echten Besuchers vergleichen",
     "free.compareTimezoneView": "Aufruf",
     "free.compareTimezoneViews": "Aufrufe",

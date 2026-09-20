@@ -26,6 +26,8 @@
     "free.timezoneMatch": "Οι ζώνες ώρας μας ταιριάζουν!",
     "free.timezoneAhead": "Είσαι :offset μπροστά σε σύγκριση με αυτούς",
     "free.timezoneBehind": "Είσαι :offset πίσω σε σύγκριση με αυτούς",
+    "free.timezoneFriendAhead": "Ο φίλος σου είναι :offset μπροστά σε σύγκριση με εσένα",
+    "free.timezoneFriendBehind": "Ο φίλος σου είναι :offset πίσω σε σύγκριση με εσένα",
     "free.compareTimezoneLabel": "Σύγκριση με τη ζώνη ώρας ενός πραγματικού επισκέπτη",
     "free.compareTimezoneView": "προβολή",
     "free.compareTimezoneViews": "προβολές",

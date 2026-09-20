@@ -26,6 +26,8 @@
     "free.timezoneMatch": "مناطقنا الزمنية متطابقة!",
     "free.timezoneAhead": "أنت متقدّم بمقدار :offset مقارنةً بهم",
     "free.timezoneBehind": "أنت متأخر بمقدار :offset مقارنةً بهم",
+    "free.timezoneFriendAhead": "صديقك متقدّم بمقدار :offset مقارنةً بك",
+    "free.timezoneFriendBehind": "صديقك متأخر بمقدار :offset مقارنةً بك",
     "free.compareTimezoneLabel": "قارن مع المنطقة الزمنية لزائر حقيقي",
     "free.compareTimezoneView": "مشاهدة",
     "free.compareTimezoneViews": "مشاهدات",

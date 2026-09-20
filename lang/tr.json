@@ -26,6 +26,8 @@
     "free.timezoneMatch": "Saat dilimlerimiz eşleşiyor!",
     "free.timezoneAhead": "Onlara göre :offset ilerdesin",
     "free.timezoneBehind": "Onlara göre :offset gerideysin",
+    "free.timezoneFriendAhead": "Arkadaşın sana göre :offset ilerde",
+    "free.timezoneFriendBehind": "Arkadaşın sana göre :offset geride",
     "free.compareTimezoneLabel": "Gerçek bir ziyaretçinin saat dilimiyle karşılaştır",
     "free.compareTimezoneView": "görüntüleme",
     "free.compareTimezoneViews": "görüntüleme",

@@ -26,6 +26,8 @@
     "free.timezoneMatch": "Naše časová pásma se shodují!",
     "free.timezoneAhead": "Jsi :offset napřed oproti nim",
     "free.timezoneBehind": "Jsi :offset pozadu oproti nim",
+    "free.timezoneFriendAhead": "Tvůj kamarád je :offset napřed oproti tobě",
+    "free.timezoneFriendBehind": "Tvůj kamarád je :offset pozadu oproti tobě",
     "free.compareTimezoneLabel": "Porovnat s časovým pásmem skutečného návštěvníka",
     "free.compareTimezoneView": "zobrazení",
     "free.compareTimezoneViews": "zobrazení",

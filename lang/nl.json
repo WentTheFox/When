@@ -26,6 +26,8 @@
     "free.timezoneMatch": "Onze tijdzones komen overeen!",
     "free.timezoneAhead": "Je loopt :offset voor op hen",
     "free.timezoneBehind": "Je loopt :offset achter op hen",
+    "free.timezoneFriendAhead": "Je vriend loopt :offset voor op jou",
+    "free.timezoneFriendBehind": "Je vriend loopt :offset achter op jou",
     "free.compareTimezoneLabel": "Vergelijken met de tijdzone van een echte bezoeker",
     "free.compareTimezoneView": "weergave",
     "free.compareTimezoneViews": "weergaven",

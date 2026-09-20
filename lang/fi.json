@@ -26,6 +26,8 @@
     "free.timezoneMatch": "Aikavyöhykkeemme täsmäävät!",
     "free.timezoneAhead": "Olet :offset edellä heihin verrattuna",
     "free.timezoneBehind": "Olet :offset jäljessä heihin verrattuna",
+    "free.timezoneFriendAhead": "Ystäväsi on :offset edellä sinuun verrattuna",
+    "free.timezoneFriendBehind": "Ystäväsi on :offset jäljessä sinuun verrattuna",
     "free.compareTimezoneLabel": "Vertaa oikean vierailijan aikavyöhykkeeseen",
     "free.compareTimezoneView": "katselukerta",
     "free.compareTimezoneViews": "katselukertaa",

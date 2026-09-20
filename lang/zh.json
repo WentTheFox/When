@@ -26,6 +26,8 @@
     "free.timezoneMatch": "我们的时区一致！",
     "free.timezoneAhead": "与对方相比，你早 :offset",
     "free.timezoneBehind": "与对方相比，你晚 :offset",
+    "free.timezoneFriendAhead": "与你相比，你的朋友早 :offset",
+    "free.timezoneFriendBehind": "与你相比，你的朋友晚 :offset",
     "free.compareTimezoneLabel": "与真实访客的时区进行比较",
     "free.compareTimezoneView": "次",
     "free.compareTimezoneViews": "次",

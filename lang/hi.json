@@ -26,6 +26,8 @@
     "free.timezoneMatch": "हमारे समय क्षेत्र मेल खाते हैं!",
     "free.timezoneAhead": "आप उनकी तुलना में :offset आगे हैं",
     "free.timezoneBehind": "आप उनकी तुलना में :offset पीछे हैं",
+    "free.timezoneFriendAhead": "आपका दोस्त आपकी तुलना में :offset आगे है",
+    "free.timezoneFriendBehind": "आपका दोस्त आपकी तुलना में :offset पीछे है",
     "free.compareTimezoneLabel": "किसी वास्तविक विज़िटर के समय क्षेत्र से तुलना करें",
     "free.compareTimezoneView": "दृश्य",
     "free.compareTimezoneViews": "दृश्य",
