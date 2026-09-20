@@ -377,14 +377,25 @@ const showOwnerCustomizations = computed(() => isOwnerPreview.value && ownerCust
 const comparisonTimezone = computed(() => (isOwnerPreview.value ? selectedVisitorTimezone.value : viewerBrowserTimezone));
 
 /**
- * The timezone the calendar grid renders in: always the viewer's own browser
- * timezone (as the "Times shown in your local time" note promises), except
- * for the owner previewing their own link, where it follows the recorded
- * visitor timezone so they see what that visitor sees. The computed slots
- * are fixed instants, so this only changes which hours the columns/labels
- * line up with.
+ * The timezone the calendar grid renders in. An ordinary viewer always gets
+ * their own browser timezone (as the "Times shown in your local time" note
+ * promises). The owner previewing their own link sees their own calendar's
+ * configured timezone in the owner view (customizations on), and the
+ * recorded visitor timezone picked for the offset note when previewing
+ * "as a visitor" (customizations off), so they see what that visitor sees.
+ * Either falls back to the browser timezone when there's nothing better —
+ * the owner never configured one, or no visit has been recorded yet. The
+ * computed slots are fixed instants, so this only changes which hours the
+ * columns/labels line up with.
  */
-const timezone = computed(() => comparisonTimezone.value ?? viewerBrowserTimezone);
+const timezone = computed(() => {
+  if (!isOwnerPreview.value) return viewerBrowserTimezone;
+  if (showOwnerCustomizations.value) {
+    const owner = ownerTimezoneInfo.value;
+    return owner?.timezoneConfigured ? owner.timezone : viewerBrowserTimezone;
+  }
+  return comparisonTimezone.value ?? viewerBrowserTimezone;
+});
 
 const timezoneOffsetNote = computed(() => {
   const info = ownerTimezoneInfo.value;
