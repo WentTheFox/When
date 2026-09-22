@@ -56,7 +56,33 @@ class ShareLinkRefreshApiTest extends TestCase
         Bus::assertDispatched(RecomputeShareLinkAvailability::class);
     }
 
-    public function test_a_refresh_is_throttled_while_the_cache_is_still_fresh(): void
+    public function test_a_second_refresh_is_throttled_within_the_manual_cooldown(): void
+    {
+        Bus::fake();
+
+        $owner = $this->userWithCalendar();
+        $shareLink = ShareLink::factory()->for($owner)->create();
+
+        $this->actingAs($owner)->postJson(route('api.share-links.refresh', $shareLink->highlight_token))
+            ->assertOk()->assertJson(['status' => 'queued']);
+
+        $response = $this->actingAs($owner)->postJson(route('api.share-links.refresh', $shareLink->highlight_token));
+
+        $response->assertStatus(429)->assertJson(['status' => 'throttled']);
+        $this->assertGreaterThan(0, $response->json('retry_after_seconds'));
+        Bus::assertDispatchedTimes(RecomputeShareLinkAvailability::class, 1);
+    }
+
+    /**
+     * Regression test for the bug this cooldown key was split out to fix:
+     * an ordinary *viewer* loading the page can land a background recompute
+     * via ShareLinkAvailabilityController::show() too, which bumps
+     * share_link_cache.encrypted_at exactly the same way a manual refresh
+     * used to. Before this cooldown moved to its own cache key, that alone
+     * throttled the owner's very first manual refresh click, even though
+     * they'd never used the button.
+     */
+    public function test_a_fresh_cache_from_ordinary_viewer_traffic_does_not_throttle_the_owners_first_manual_refresh(): void
     {
         Bus::fake();
 
@@ -67,14 +93,13 @@ class ShareLinkRefreshApiTest extends TestCase
             'ciphertext' => 'fresh-ciphertext-blob',
             'computed_range_start' => now(),
             'computed_range_end' => now()->addDays(60),
-            'encrypted_at' => now()->subMinutes(5), // well within the 15-minute TTL
+            'encrypted_at' => now()->subMinute(), // fresh, but never granted via a manual refresh
         ]);
 
         $response = $this->actingAs($owner)->postJson(route('api.share-links.refresh', $shareLink->highlight_token));
 
-        $response->assertStatus(429)->assertJson(['status' => 'throttled']);
-        $this->assertGreaterThan(0, $response->json('retry_after_seconds'));
-        Bus::assertNotDispatched(RecomputeShareLinkAvailability::class);
+        $response->assertOk()->assertJson(['status' => 'queued']);
+        Bus::assertDispatched(RecomputeShareLinkAvailability::class);
     }
 
     public function test_a_stranger_cannot_force_a_refresh(): void

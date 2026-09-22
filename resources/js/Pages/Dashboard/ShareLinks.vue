@@ -2,7 +2,7 @@
 import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faArchive, faBolt } from '@fortawesome/free-solid-svg-icons';
+import { faArchive, faBolt, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
 import { BAlert, BButton, BCard, BFormGroup, BFormInput, BFormSelect } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../../crypto';
@@ -223,6 +223,12 @@ async function importLinks(event: Event): Promise<void> {
               {{ decryptedLabels[link.id] ?? '…' }}
               <FontAwesomeIcon v-if="link.archived" :icon="faArchive" class="ms-2 text-muted" title="Archived" />
               <FontAwesomeIcon v-if="link.bypass_dnd" :icon="faBolt" class="ms-2 text-warning" title="Bypasses do not disturb" />
+              <FontAwesomeIcon
+                v-if="!link.highlight_words.length"
+                :icon="faTriangleExclamation"
+                class="ms-2 text-warning"
+                title="No highlight words configured — nothing will ever be highlighted on this link"
+              />
             </button>
           </div>
         </div>

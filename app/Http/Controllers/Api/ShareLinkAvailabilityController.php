@@ -38,6 +38,13 @@ class ShareLinkAvailabilityController extends Controller
     private const DISPATCH_DEBOUNCE_SECONDS = 30;
 
     /**
+     * Owner-only manual refresh cooldown (see refresh() below) — deliberately
+     * its own, much shorter window than CACHE_TTL_MINUTES, tracked under its
+     * own cache key rather than reusing share_link_cache.encrypted_at.
+     */
+    private const MANUAL_REFRESH_COOLDOWN_SECONDS = 120;
+
+    /**
      * Plain string token, not Eloquent route-model-binding — same reasoning
      * as ShareLinkController::show: looked up by highlight_token (every
      * share link gets one at creation — see
@@ -109,11 +116,20 @@ class ShareLinkAvailabilityController extends Controller
     /**
      * Owner-only: lets the owner force a recompute from their own /free
      * preview instead of waiting out CACHE_TTL_MINUTES, e.g. right after
-     * adding a calendar event they want to immediately see reflected. Rate
-     * limited to once per CACHE_TTL_MINUTES *per link* by simply reusing the
-     * same staleness check show() already does — there's deliberately no
-     * separate throttle key to track, since "the cache is still fresh" and
-     * "a manual refresh was already granted recently" are the same fact.
+     * adding a calendar event they want to immediately see reflected.
+     *
+     * Rate limited to once per MANUAL_REFRESH_COOLDOWN_SECONDS *per link*,
+     * tracked under its own cache key — this used to just reuse show()'s own
+     * staleness check (cache.encrypted_at vs. CACHE_TTL_MINUTES) on the
+     * theory that "the cache is still fresh" and "a manual refresh was
+     * already granted recently" were the same fact. They're not: any
+     * ordinary *viewer* loading the page can land a background recompute via
+     * show() too, which bumps encrypted_at exactly the same way a manual
+     * refresh would — so an owner who'd never actually used this button
+     * could still find it throttled for up to CACHE_TTL_MINUTES because
+     * someone else's page load happened to refresh the cache first. Tracking
+     * this cooldown separately means it only ever reflects the owner's own
+     * clicks, and can be much shorter than the passive viewer TTL besides.
      */
     public function refresh(Request $request, string $token): JsonResponse
     {
@@ -132,13 +148,17 @@ class ShareLinkAvailabilityController extends Controller
             return response()->json(['status' => 'unconfigured'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $cache = $shareLink->cache;
-        $nextAllowedAt = $cache?->encrypted_at->addMinutes(self::CACHE_TTL_MINUTES);
+        $cooldownKey = "manual-refresh:{$shareLink->id}";
+        $nextAllowedAt = now()->addSeconds(self::MANUAL_REFRESH_COOLDOWN_SECONDS);
 
-        if ($nextAllowedAt !== null && $nextAllowedAt->isFuture()) {
+        // Cache::add, not a get-then-put: atomically claims the cooldown
+        // window itself, the same pattern show() uses for its dispatch
+        // debounce — two rapid clicks (or an owner with two tabs open) must
+        // only ever let one of them through.
+        if (! Cache::add($cooldownKey, $nextAllowedAt, self::MANUAL_REFRESH_COOLDOWN_SECONDS)) {
             return response()->json([
                 'status' => 'throttled',
-                'retry_after_seconds' => now()->diffInSeconds($nextAllowedAt),
+                'retry_after_seconds' => now()->diffInSeconds(Cache::get($cooldownKey, $nextAllowedAt)),
             ], Response::HTTP_TOO_MANY_REQUESTS);
         }
 

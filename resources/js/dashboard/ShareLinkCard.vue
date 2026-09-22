@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import axios from 'axios';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faCheck, faCopy, faRotateRight } from '@fortawesome/free-solid-svg-icons';
+import { faCheck, faCopy, faRotateRight, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
 import { BBadge, BButton, BCard, BFormCheckbox, BFormGroup, BFormInput, BFormSelect, BFormTextarea, BSpinner } from 'bootstrap-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../crypto';
@@ -129,6 +129,9 @@ const displayLabel = computed(() => {
  * trip) is the whole URL.
  */
 const url = computed(() => `${window.location.origin}/free/${props.link.highlight_token}`);
+
+/** Reacts to the draft textarea, not just the last-saved words, so the warning clears the moment the owner types one in, not only after Save. */
+const hasHighlightWords = computed(() => editWords.value.split('\n').some((w) => w.trim().length > 0));
 
 onMounted(async () => {
   if (!props.link.label_ciphertext) {
@@ -304,6 +307,10 @@ async function remove(): Promise<void> {
       </BFormCheckbox>
       <BFormGroup label="Highlight words (one per line)" class="mb-3">
         <BFormTextarea v-model="editWords" size="sm" :rows="Math.max(2, editWords.split('\n').length)" />
+        <div v-if="!hasHighlightWords" class="small text-warning mt-1">
+          <FontAwesomeIcon :icon="faTriangleExclamation" class="me-1" />
+          No highlight words configured — nothing will ever be highlighted on this link.
+        </div>
       </BFormGroup>
       <BButton size="sm" variant="primary" @click="save">Save</BButton>
     </div>
