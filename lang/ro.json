@@ -26,6 +26,8 @@
     "free.timezoneMatch": "Fusurile noastre orare coincid!",
     "free.timezoneAhead": "Ești :offset înaintea lor",
     "free.timezoneBehind": "Ești :offset în urma lor",
+    "free.timezoneFriendAhead": "Prietenul tău este :offset înaintea ta",
+    "free.timezoneFriendBehind": "Prietenul tău este :offset în urma ta",
     "free.compareTimezoneLabel": "Compară cu fusul orar al unui vizitator real",
     "free.compareTimezoneView": "vizualizare",
     "free.compareTimezoneViews": "vizualizări",

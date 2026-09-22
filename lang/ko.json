@@ -26,6 +26,8 @@
     "free.timezoneMatch": "우리의 시간대가 일치합니다!",
     "free.timezoneAhead": "상대방보다 :offset 앞서 있습니다",
     "free.timezoneBehind": "상대방보다 :offset 뒤처져 있습니다",
+    "free.timezoneFriendAhead": "친구는 당신보다 :offset 앞서 있습니다",
+    "free.timezoneFriendBehind": "친구는 당신보다 :offset 뒤처져 있습니다",
     "free.compareTimezoneLabel": "실제 방문자의 시간대와 비교",
     "free.compareTimezoneView": "회",
     "free.compareTimezoneViews": "회",

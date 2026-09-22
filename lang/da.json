@@ -26,6 +26,8 @@
     "free.timezoneMatch": "Vores tidszoner stemmer overens!",
     "free.timezoneAhead": "Du er :offset foran sammenlignet med dem",
     "free.timezoneBehind": "Du er :offset bagud sammenlignet med dem",
+    "free.timezoneFriendAhead": "Din ven er :offset foran sammenlignet med dig",
+    "free.timezoneFriendBehind": "Din ven er :offset bagud sammenlignet med dig",
     "free.compareTimezoneLabel": "Sammenlign med en rigtig besøgendes tidszone",
     "free.compareTimezoneView": "visning",
     "free.compareTimezoneViews": "visninger",

@@ -26,6 +26,8 @@
     "free.timezoneMatch": "אזורי הזמן שלנו תואמים!",
     "free.timezoneAhead": "אתה :offset לפניהם",
     "free.timezoneBehind": "אתה :offset אחריהם",
+    "free.timezoneFriendAhead": "החבר שלך :offset לפניך",
+    "free.timezoneFriendBehind": "החבר שלך :offset אחריך",
     "free.compareTimezoneLabel": "השווה לאזור הזמן של מבקר אמיתי",
     "free.compareTimezoneView": "צפייה",
     "free.compareTimezoneViews": "צפיות",

@@ -26,6 +26,8 @@
     "free.timezoneMatch": "タイムゾーンが一致しています！",
     "free.timezoneAhead": "相手より :offset 進んでいます",
     "free.timezoneBehind": "相手より :offset 遅れています",
+    "free.timezoneFriendAhead": "お友達はあなたより :offset 進んでいます",
+    "free.timezoneFriendBehind": "お友達はあなたより :offset 遅れています",
     "free.compareTimezoneLabel": "実際の訪問者のタイムゾーンと比較",
     "free.compareTimezoneView": "回",
     "free.compareTimezoneViews": "回",

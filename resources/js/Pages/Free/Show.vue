@@ -403,10 +403,10 @@ const timezoneOffsetNote = computed(() => {
     return '';
   }
 
+  // getTimezoneOffsetMinutes is east-positive (UTC+2 → +120), so a positive
+  // difference means the visitor's clock is ahead of the owner's.
   const now = new Date();
-  const viewerOffset = -getTimezoneOffsetMinutes(now, comparisonTimezone.value);
-  const ownerOffset = -getTimezoneOffsetMinutes(now, info.timezone);
-  const diffMinutes = viewerOffset - ownerOffset;
+  const diffMinutes = getTimezoneOffsetMinutes(now, comparisonTimezone.value) - getTimezoneOffsetMinutes(now, info.timezone);
 
   if (diffMinutes === 0) {
     return trans('free.timezoneMatch');
@@ -415,8 +415,16 @@ const timezoneOffsetNote = computed(() => {
   const abs = Math.abs(diffMinutes);
   const hours = Math.floor(abs / 60);
   const minutes = abs % 60;
-  const offsetText = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-  return trans(diffMinutes > 0 ? 'free.timezoneAhead' : 'free.timezoneBehind', { offset: offsetText });
+  const offset = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  const visitorAhead = diffMinutes > 0;
+
+  // The owner view talks about the visitor ("Your friend is ..."), anyone
+  // else (a real visitor, or the owner previewing as one) is addressed as
+  // the visitor ("You are ...").
+  if (showOwnerCustomizations.value) {
+    return trans(visitorAhead ? 'free.timezoneFriendAhead' : 'free.timezoneFriendBehind', { offset });
+  }
+  return trans(visitorAhead ? 'free.timezoneAhead' : 'free.timezoneBehind', { offset });
 });
 
 function getTimezoneOffsetMinutes(date: Date, timeZone: string): number {
