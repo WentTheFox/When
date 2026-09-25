@@ -116,9 +116,16 @@ Two independent git remotes:
   `artisan optimize` → restart `when-horizon.service` → `artisan up` (unless it was
   already down). Live at `https://when.went.tf`.
 
-Pushing to `deploy` deploys immediately and takes the app down briefly during
-migrate/build — never push there without the user's explicit go-ahead for that specific
-push, even if `origin` was already approved.
+The same deploy can also be started from GitHub: Actions → Deploy → Run workflow
+(`.github/workflows/deploy.yml`, from git-deploy-toolkit's template). It runs on a
+GitHub-hosted runner and only creates a GitHub Deployment; the server's
+git-deploy-webhook listener picks that up and runs this same `deploy.conf`. Either way
+— button or `git push deploy main` — the deploy is recorded on GitHub as a Deployment
+in the `production` environment, with its status and a summary log.
+
+Pushing to `deploy` (or running the Deploy workflow) deploys immediately and takes the
+app down briefly during migrate/build — never do either without the user's explicit
+go-ahead for that specific deploy, even if `origin` was already approved.
 
 The project was renamed from "WhenTheFox" to "When" (GitHub repo, app name, systemd
 service). The production directory (`/var/www/WhenTheFox`), Postgres database
