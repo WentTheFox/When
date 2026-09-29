@@ -1,4 +1,6 @@
-import type { DayBlock } from './nuxt-blocks';
+import { addDays, subDays } from 'date-fns';
+import { getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, lastOf } from './nuxt-blocks';
+import type { DayBlock, EventSlot } from './nuxt-blocks';
 import { resolveSwatchHex } from './color-palette';
 import { BLOCK_ALPHA, hexToRgba } from './color-utils';
 
@@ -77,4 +79,82 @@ export function activityColorStyle(block: DayBlock, theme: 'light' | 'dark'): Re
  */
 export function blockFadeColor(block: DayBlock, theme: 'light' | 'dark'): string {
   return activityColorOverride(block, theme)?.rgba ?? `var(${BLOCK_TYPE_COLOR_VAR[block.type]})`;
+}
+
+// Where two fuzzy edges meet, both sides fade to the same midpoint color, so
+// the seam is one continuous gradient instead of two clashing ones.
+function seamColor(a: string, b: string): string {
+  return `color-mix(in srgb, ${a} 50%, ${b})`;
+}
+
+/**
+ * The --fade-start/--fade-end custom properties for a tentative block's
+ * edge gradients, shared by CalendarView.vue and AgendaView.vue so both
+ * views blend (including activityColor overrides, via blockFadeColor)
+ * identically.
+ *
+ * Blocks tile the day with no gaps, so the previous/next array entry is the
+ * immediately-adjacent block in time. Only an edge that's actually fuzzy
+ * (tentativeStart/tentativeEnd, independently) gets a gradient at all — the
+ * other edge renders as a hard line at its own solid color. For a run of
+ * consecutive tentative blocks, each block's bottom edge still fades toward
+ * the next block's color — but the block below never fades in at its own
+ * top when its predecessor's bottom edge is also fuzzy, so a shared seam
+ * only ever fades once (attributed to the block above), not twice meeting
+ * in the middle. That was a previous bug: both sides independently faded
+ * toward each other's nominal color, producing a mismatched double-fade
+ * "pinch" at every internal boundary instead of one continuous cascade
+ * down the run.
+ *
+ * At the very top/bottom of a day's own blocks, the neighbor carries over
+ * from the previous/next calendar day's last/first block, computed
+ * directly rather than looked up in the rendered day list — the visible
+ * range can trim a day (e.g. past-day filtering on the current week)
+ * while the API still returns that day's data, padded a day either side
+ * of the requested range — falling back to transparent only where there's
+ * truly no data for the adjacent day (a hard, non-fuzzy edge never falls
+ * back to transparent, since it always renders its own solid color).
+ */
+export function tentativeFadeStyle(
+  day: Date,
+  blocks: DayBlock[],
+  i: number,
+  events: EventSlot[],
+  timezone: string,
+  theme: 'light' | 'dark',
+): Record<string, string> {
+  const block = blocks[i]!;
+  const startFuzzy = isTentativeStartDisplay(block);
+  const endFuzzy = isTentativeEndDisplay(block);
+  if (!startFuzzy && !endFuzzy) return {};
+
+  const style: Record<string, string> = {};
+
+  if (startFuzzy) {
+    const prev = i > 0
+      ? blocks[i - 1]
+      : lastOf(getBlocksForDay(subDays(day, 1), events, timezone));
+    if (prev) {
+      style['--fade-start'] = isTentativeEndDisplay(prev)
+        ? seamColor(blockFadeColor(prev, theme), blockFadeColor(block, theme))
+        : blockFadeColor(prev, theme);
+    }
+  } else {
+    style['--fade-start'] = blockFadeColor(block, theme);
+  }
+
+  if (endFuzzy) {
+    const next = i < blocks.length - 1
+      ? blocks[i + 1]
+      : getBlocksForDay(addDays(day, 1), events, timezone)[0];
+    if (next) {
+      style['--fade-end'] = isTentativeStartDisplay(next)
+        ? seamColor(blockFadeColor(block, theme), blockFadeColor(next, theme))
+        : blockFadeColor(next, theme);
+    }
+  } else {
+    style['--fade-end'] = blockFadeColor(block, theme);
+  }
+
+  return style;
 }

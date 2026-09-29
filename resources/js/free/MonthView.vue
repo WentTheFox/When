@@ -13,8 +13,12 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { computed } from 'vue';
 import { currentLocale } from 'laravel-vue-i18n';
-import { lastOf, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay } from './nuxt-blocks';
+import { getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay } from './nuxt-blocks';
 import type { DayBlock, EventSlot } from './nuxt-blocks';
+import { activityColorStyle as activityColorStyleFor, tentativeFadeStyle } from './blockColors';
+import { useResolvedTheme } from '../composables/useTheme';
+
+const resolvedTheme = useResolvedTheme();
 
 const AVAIL_BLOCK_CLASS: Record<DayBlock['type'], string> = {
   free: 'wtf-fmonth-avail-block-free',
@@ -24,16 +28,6 @@ const AVAIL_BLOCK_CLASS: Record<DayBlock['type'], string> = {
   school: 'wtf-fmonth-avail-block-school',
   public: 'wtf-fmonth-avail-block-public',
   sleep: 'wtf-fmonth-avail-block-sleep',
-};
-
-const AVAIL_BLOCK_COLOR_VAR: Record<DayBlock['type'], string> = {
-  free: '--app-color-free',
-  unavailable: '--app-color-busy',
-  highlighted: '--app-color-highlighted',
-  work: '--app-color-work',
-  school: '--app-color-school',
-  public: '--app-color-public',
-  sleep: '--app-color-sleep',
 };
 
 const props = defineProps<{
@@ -89,7 +83,7 @@ const lastDayOffset = computed(() => {
  * fill it out instead. Data-wise this is safe: the availability API's own
  * computed range already extends well past either end of any single
  * viewed month (§5.1's LOOKAHEAD_DAYS), so blocks exist for these days
- * the same way tentativeFadeStyle below already reaches a day past the
+ * the same way tentativeFadeStyle (blockColors.ts) already reaches a day past the
  * rendered list.
  */
 const paddedDays = computed(() => {
@@ -171,57 +165,14 @@ const dayStatuses = computed(() => {
   });
 });
 
-// Where two fuzzy edges meet, both sides fade to the same midpoint color, so
-// the seam is one continuous gradient instead of two clashing ones.
-function seamColor(a: string, b: string): string {
-  return `color-mix(in srgb, ${a} 50%, ${b})`;
+/** Same activityColor override as CalendarView.vue/AgendaView.vue — see blockColors.ts. */
+function activityColorStyle(block: DayBlock): Record<string, string> | undefined {
+  return activityColorStyleFor(block, resolvedTheme.value);
 }
 
-// Same neighbor-blending idea as the week/agenda views: only an edge that's
-// actually fuzzy (tentativeStart/tentativeEnd, independently) blends into
-// the adjacent block's color — the other edge renders as a hard line at its
-// own solid color. At the very top/bottom of a day's own blocks, it carries over
-// from the previous/next calendar day's last/first block, computed directly
-// rather than looked up in the rendered day list — even with paddedDays
-// filling out both ends of the grid, a tentative block right at the very
-// first/last rendered day still has no rendered neighbor to look up,
-// falling back to transparent only where there's truly no data at all.
-function tentativeFadeStyle(cell: DayStatus, i: number): Record<string, string> {
-  const blocks = cell.allBlocks;
-  const block = blocks[i]!;
-  const startFuzzy = isTentativeStartDisplay(block);
-  const endFuzzy = isTentativeEndDisplay(block);
-  if (!startFuzzy && !endFuzzy) return {};
-
-  const style: Record<string, string> = {};
-
-  if (startFuzzy) {
-    const prev = i > 0
-      ? blocks[i - 1]
-      : lastOf(getBlocksForDay(subDays(cell.day, 1), props.events, props.timezone));
-    if (prev) {
-      style['--fade-start'] = isTentativeEndDisplay(prev)
-        ? seamColor(`var(${AVAIL_BLOCK_COLOR_VAR[prev.type]})`, `var(${AVAIL_BLOCK_COLOR_VAR[block.type]})`)
-        : `var(${AVAIL_BLOCK_COLOR_VAR[prev.type]})`;
-    }
-  } else {
-    style['--fade-start'] = `var(${AVAIL_BLOCK_COLOR_VAR[block.type]})`;
-  }
-
-  if (endFuzzy) {
-    const next = i < blocks.length - 1
-      ? blocks[i + 1]
-      : getBlocksForDay(addDays(cell.day, 1), props.events, props.timezone)[0];
-    if (next) {
-      style['--fade-end'] = isTentativeStartDisplay(next)
-        ? seamColor(`var(${AVAIL_BLOCK_COLOR_VAR[block.type]})`, `var(${AVAIL_BLOCK_COLOR_VAR[next.type]})`)
-        : `var(${AVAIL_BLOCK_COLOR_VAR[next.type]})`;
-    }
-  } else {
-    style['--fade-end'] = `var(${AVAIL_BLOCK_COLOR_VAR[block.type]})`;
-  }
-
-  return style;
+/** Same edge-fade blending as CalendarView.vue/AgendaView.vue — see blockColors.ts's tentativeFadeStyle. */
+function fadeStyle(cell: DayStatus, i: number): Record<string, string> {
+  return tentativeFadeStyle(cell.day, cell.allBlocks, i, props.events, props.timezone, resolvedTheme.value);
 }
 
 // dayStatuses is paddedDays run through the same per-day computation, so
@@ -289,7 +240,7 @@ const weekRows = computed(() => {
                   :key="i"
                   class="wtf-fmonth-avail-block"
                   :class="[AVAIL_BLOCK_CLASS[block.type], { 'wtf-fmonth-avail-block-tentative': isTentativeStartDisplay(block) || isTentativeEndDisplay(block) }]"
-                  :style="{ '--flex': block.heightPct, ...tentativeFadeStyle(cell, i) }"
+                  :style="{ '--flex': block.heightPct, ...fadeStyle(cell, i), ...activityColorStyle(block) }"
                 >
                   <div
                     v-if="i === cell.currentBlockIndex"

@@ -16,7 +16,7 @@
  * The template structure, class names (wtf-fcal-* here vs the source's CSS
  * module names), and all rendering logic are otherwise unchanged.
  */
-import { addDays, format, subDays } from 'date-fns';
+import { format } from 'date-fns';
 import { resolveDateFnsLocale } from './dateFnsLocale';
 import { TZDate } from '@date-fns/tz';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
@@ -24,11 +24,11 @@ import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import { computed } from 'vue';
 import { currentLocale, trans } from 'laravel-vue-i18n';
-import { lastOf, formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, isTentativeSuffixShown, tildeTime } from './nuxt-blocks';
+import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, isTentativeSuffixShown, tildeTime } from './nuxt-blocks';
 import type { DayBlock, EventSlot } from './nuxt-blocks';
 import { resolveLocalizedText } from './localizedText';
 import { resolveIcon } from './icon-palette';
-import { activityColorStyle as activityColorStyleFor, blockFadeColor } from './blockColors';
+import { activityColorStyle as activityColorStyleFor, tentativeFadeStyle } from './blockColors';
 import { useResolvedTheme } from '../composables/useTheme';
 import { vFitText } from './fitText';
 
@@ -107,7 +107,7 @@ function iconFor(block: DayBlock): IconDefinition {
  * Same idea as iconFor() above, but for block.activityColor. See
  * blockColors.ts's own doc comments for why this needs its own handling
  * (three separate custom properties, one of them declared once at :root)
- * and why the fade gradient (tentativeFadeStyle below) needs the
+ * and why the fade gradient (blockColors.ts's tentativeFadeStyle) needs the
  * *separate* blockFadeColor rather than reusing this — an inline custom
  * property set here only cascades to this block's own descendants, never
  * sideways to a neighboring block's element.
@@ -158,69 +158,8 @@ const dayBlocks = computed(() =>
   })),
 );
 
-// Where two fuzzy edges meet, both sides fade to the same midpoint color, so
-// the seam is one continuous gradient instead of two clashing ones.
-function seamColor(a: string, b: string): string {
-  return `color-mix(in srgb, ${a} 50%, ${b})`;
-}
-
-// Blocks tile the day with no gaps, so the previous/next array entry is the
-// immediately-adjacent block in time. Only an edge that's actually fuzzy
-// (tentativeStart/tentativeEnd, independently) gets a gradient at all — the
-// other edge renders as a hard line at its own solid color. A fuzzy edge's
-// gradient blends into that neighbor's color via a CSS var. For a run of
-// consecutive tentative blocks, each block's bottom edge still fades toward
-// the next block's color — but the block below never fades in at its own
-// top when its predecessor's bottom edge is also fuzzy, so a shared seam
-// only ever fades once (attributed to the block above), not twice meeting
-// in the middle. That was a previous bug: both sides independently faded
-// toward each other's nominal color, producing a mismatched double-fade
-// "pinch" at every internal boundary instead of one continuous cascade
-// down the run.
-//
-// At the very top/bottom of a day's own blocks, the neighbor carries over
-// from the previous/next calendar day's last/first block, computed
-// directly rather than looked up in the rendered day list — the visible
-// range can trim a day (e.g. past-day filtering on the current week)
-// while the API still returns that day's data, padded a day either side
-// of the requested range — falling back to transparent only where there's
-// truly no data for the adjacent day (a hard, non-fuzzy edge never falls
-// back to transparent, since it always renders its own solid color).
-function tentativeFadeStyle(day: Date, blocks: DayBlock[], i: number): Record<string, string> {
-  const block = blocks[i]!;
-  const startFuzzy = isTentativeStartDisplay(block);
-  const endFuzzy = isTentativeEndDisplay(block);
-  if (!startFuzzy && !endFuzzy) return {};
-
-  const style: Record<string, string> = {};
-
-  if (startFuzzy) {
-    const prev = i > 0
-      ? blocks[i - 1]
-      : lastOf(getBlocksForDay(subDays(day, 1), props.events, props.timezone));
-    if (prev) {
-      style['--fade-start'] = isTentativeEndDisplay(prev)
-        ? seamColor(blockFadeColor(prev, resolvedTheme.value), blockFadeColor(block, resolvedTheme.value))
-        : blockFadeColor(prev, resolvedTheme.value);
-    }
-  } else {
-    style['--fade-start'] = blockFadeColor(block, resolvedTheme.value);
-  }
-
-  if (endFuzzy) {
-    const next = i < blocks.length - 1
-      ? blocks[i + 1]
-      : getBlocksForDay(addDays(day, 1), props.events, props.timezone)[0];
-    if (next) {
-      style['--fade-end'] = isTentativeStartDisplay(next)
-        ? seamColor(blockFadeColor(block, resolvedTheme.value), blockFadeColor(next, resolvedTheme.value))
-        : blockFadeColor(next, resolvedTheme.value);
-    }
-  } else {
-    style['--fade-end'] = blockFadeColor(block, resolvedTheme.value);
-  }
-
-  return style;
+function fadeStyle(day: Date, blocks: DayBlock[], i: number): Record<string, string> {
+  return tentativeFadeStyle(day, blocks, i, props.events, props.timezone, resolvedTheme.value);
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -301,7 +240,7 @@ function formatDay(day: Date, fmt: string): string {
                 :key="i"
                 class="wtf-fcal-block"
                 :class="[BLOCK_TYPE_CLASS[block.type], { 'wtf-fcal-tentative-block': isTentativeStartDisplay(block) || isTentativeEndDisplay(block) }]"
-                :style="{ top: `${block.topPct}%`, height: `${block.heightPct}%`, ...tentativeFadeStyle(day, blocks, i), ...activityColorStyle(block) }"
+                :style="{ top: `${block.topPct}%`, height: `${block.heightPct}%`, ...fadeStyle(day, blocks, i), ...activityColorStyle(block) }"
               >
                 <span v-fit-text class="wtf-fcal-block-label">
                   <strong><FontAwesomeIcon :icon="iconFor(block)" class="wtf-fcal-block-label-icon me-1" />{{ blockLabel(block) }}{{ isTentativeSuffixShown(block) ? $t('free.tentativeSuffix') : '' }}</strong><span class="wtf-fcal-block-label-time">{{ blockTimeText(block) }}</span>

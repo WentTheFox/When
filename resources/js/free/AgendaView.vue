@@ -8,7 +8,7 @@
  * .wtf-mobile-only below md, same breakpoint CalendarView.vue hides itself
  * at) — a per-day list instead of a side-by-side week grid.
  */
-import { addDays, format, subDays } from 'date-fns';
+import { format } from 'date-fns';
 import { resolveDateFnsLocale } from './dateFnsLocale';
 import { TZDate } from '@date-fns/tz';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
@@ -16,10 +16,14 @@ import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import { computed } from 'vue';
 import { currentLocale, trans } from 'laravel-vue-i18n';
-import { lastOf, formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, isTentativeSuffixShown, pctToTime, tildeTime } from './nuxt-blocks';
+import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, isTentativeSuffixShown, pctToTime, tildeTime } from './nuxt-blocks';
 import type { DayBlock, EventSlot } from './nuxt-blocks';
 import { resolveLocalizedText } from './localizedText';
 import { resolveIcon } from './icon-palette';
+import { activityColorStyle as activityColorStyleFor, tentativeFadeStyle } from './blockColors';
+import { useResolvedTheme } from '../composables/useTheme';
+
+const resolvedTheme = useResolvedTheme();
 
 const AGENDA_SLOT_CLASS: Record<DayBlock['type'], string> = {
   free: '',
@@ -39,16 +43,6 @@ const AGENDA_SLOT_LABEL_KEY: Record<DayBlock['type'], string> = {
   school: 'free.schoolLabel',
   public: 'free.publicLabel',
   sleep: 'free.sleepLabel',
-};
-
-const AGENDA_SLOT_COLOR_VAR: Record<DayBlock['type'], string> = {
-  free: '--app-color-free',
-  unavailable: '--app-color-busy',
-  highlighted: '--app-color-highlighted',
-  work: '--app-color-work',
-  school: '--app-color-school',
-  public: '--app-color-public',
-  sleep: '--app-color-sleep',
 };
 
 const props = defineProps<{
@@ -135,58 +129,14 @@ function slotHeightStyle(heightPct: number): Record<string, string> {
   };
 }
 
-// Where two fuzzy edges meet, both sides fade to the same midpoint color, so
-// the seam is one continuous gradient instead of two clashing ones.
-function seamColor(a: string, b: string): string {
-  return `color-mix(in srgb, ${a} 50%, ${b})`;
+/** Same activityColor override as CalendarView.vue's own activityColorStyle — see blockColors.ts. */
+function activityColorStyle(slot: DayBlock): Record<string, string> | undefined {
+  return activityColorStyleFor(slot, resolvedTheme.value);
 }
 
-// Same neighbor-blending idea as the week view: only an edge that's actually
-// fuzzy (tentativeStart/tentativeEnd, independently) blends into the
-// adjacent slot's color — the other edge renders as a hard line at its own
-// solid color. At the very top/bottom of a day's own slots, the neighbor
-// carries over from the previous/next calendar day's last/first slot,
-// computed directly rather than looked up in the rendered day list — the
-// visible range can trim a day (e.g. past-day filtering) while the API
-// still returns that day's data, padded a day either side of the requested
-// range — falling back to transparent only where there's truly no data for
-// the adjacent day (a hard, non-fuzzy edge never falls back to transparent,
-// since it always renders its own solid color).
-function tentativeFadeStyle(day: Date, slots: DayBlock[], i: number): Record<string, string> {
-  const slot = slots[i]!;
-  const startFuzzy = isTentativeStartDisplay(slot);
-  const endFuzzy = isTentativeEndDisplay(slot);
-  if (!startFuzzy && !endFuzzy) return {};
-
-  const style: Record<string, string> = {};
-
-  if (startFuzzy) {
-    const prev = i > 0
-      ? slots[i - 1]
-      : lastOf(getBlocksForDay(subDays(day, 1), props.events, props.timezone));
-    if (prev) {
-      style['--fade-start'] = isTentativeEndDisplay(prev)
-        ? seamColor(`var(${AGENDA_SLOT_COLOR_VAR[prev.type]})`, `var(${AGENDA_SLOT_COLOR_VAR[slot.type]})`)
-        : `var(${AGENDA_SLOT_COLOR_VAR[prev.type]})`;
-    }
-  } else {
-    style['--fade-start'] = `var(${AGENDA_SLOT_COLOR_VAR[slot.type]})`;
-  }
-
-  if (endFuzzy) {
-    const next = i < slots.length - 1
-      ? slots[i + 1]
-      : getBlocksForDay(addDays(day, 1), props.events, props.timezone)[0];
-    if (next) {
-      style['--fade-end'] = isTentativeStartDisplay(next)
-        ? seamColor(`var(${AGENDA_SLOT_COLOR_VAR[slot.type]})`, `var(${AGENDA_SLOT_COLOR_VAR[next.type]})`)
-        : `var(${AGENDA_SLOT_COLOR_VAR[next.type]})`;
-    }
-  } else {
-    style['--fade-end'] = `var(${AGENDA_SLOT_COLOR_VAR[slot.type]})`;
-  }
-
-  return style;
+/** Same edge-fade blending as CalendarView.vue — see blockColors.ts's tentativeFadeStyle. */
+function fadeStyle(day: Date, slots: DayBlock[], i: number): Record<string, string> {
+  return tentativeFadeStyle(day, slots, i, props.events, props.timezone, resolvedTheme.value);
 }
 
 const agendaEntries = computed(() =>
@@ -241,7 +191,7 @@ const agendaEntries = computed(() =>
           :key="i"
           class="wtf-fagenda-slot"
           :class="[AGENDA_SLOT_CLASS[slot.type], { 'wtf-fagenda-slot-tentative': isTentativeStartDisplay(slot) || isTentativeEndDisplay(slot) }]"
-          :style="{ ...slotHeightStyle(slot.heightPct), ...tentativeFadeStyle(day, slots, i) }"
+          :style="{ ...slotHeightStyle(slot.heightPct), ...fadeStyle(day, slots, i), ...activityColorStyle(slot) }"
         >
           <div
             v-if="i === currentTimeSlotIndex"
