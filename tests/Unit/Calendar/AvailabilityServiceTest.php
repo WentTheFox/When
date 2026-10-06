@@ -206,22 +206,23 @@ class AvailabilityServiceTest extends TestCase
         $this->assertSame('2026-06-03T09:00:00+00:00', $this->eventsOfType($result, 'unavailable')[0]->start->toIso8601String());
     }
 
-    public function test_sleep_takes_precedence_over_a_conflicting_unavailable_event(): void
+    public function test_sleep_is_the_lowest_layer_and_is_carved_around_a_conflicting_unavailable_event(): void
     {
         $result = $this->compute(
             events: [$this->event('late-call', '2026-06-01 22:30', '2026-06-01 23:30', 'Late call')],
             weeklyAvailability: $this->everyWeekday('07:00', '23:00'),
         );
 
-        // The overlapping 30 minutes (23:00-23:30) must be sleep, not
-        // unavailable — and the portion before it (22:30-23:00) must survive.
+        // The event keeps its full span, even the 23:00-23:30 part that
+        // overlaps the default sleep window...
         $this->assertCount(1, $this->eventsOfType($result, 'unavailable'));
         $this->assertSame('2026-06-01T22:30:00+00:00', $this->eventsOfType($result, 'unavailable')[0]->start->toIso8601String());
-        $this->assertSame('2026-06-01T23:00:00+00:00', $this->eventsOfType($result, 'unavailable')[0]->end->toIso8601String());
+        $this->assertSame('2026-06-01T23:30:00+00:00', $this->eventsOfType($result, 'unavailable')[0]->end->toIso8601String());
 
+        // ...and sleep only resumes once the event is over.
         $overnightSleep = array_values(array_filter(
             $this->eventsOfType($result, 'sleep'),
-            fn (AvailabilitySlot $s) => $s->start->toIso8601String() === '2026-06-01T23:00:00+00:00',
+            fn (AvailabilitySlot $s) => $s->start->toIso8601String() === '2026-06-01T23:30:00+00:00',
         ));
         $this->assertCount(1, $overnightSleep);
     }

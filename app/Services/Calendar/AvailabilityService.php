@@ -146,12 +146,14 @@ class AvailabilityService
             }
         }
 
-        $sleepIntervals = $this->mergeIntervals([
-            ...$this->computeSleepBlocks($weeklyAvailability, $sleepExceptions, $rangeStart, $rangeEnd),
-            ...$napIntervals,
-        ]);
+        // Sleep is the lowest layer: every event-derived block (unavailable,
+        // public, highlighted) renders at its own spot even inside a default
+        // sleep window, and the sleep block is carved around it. The one
+        // exception is a nap event — it *is* the sleep, so it's still
+        // subtracted from the event layers (and kept as sleep) as before.
+        $napIntervals = $this->mergeIntervals($napIntervals);
 
-        $unavailable = $this->subtractSleepFromEvents($unavailable, $sleepIntervals);
+        $unavailable = $this->subtractSleepFromEvents($unavailable, $napIntervals);
         $unavailable = $this->mergeEventSegments($unavailable);
 
         // No mergeEventSegments pass here, unlike unavailable above — that
@@ -160,8 +162,25 @@ class AvailabilityService
         // (the whole point of a public event is showing that verbatim).
         // Two public events overlapping each other is an unusual edge
         // case; subtractSleepFromEvents already splits each one around
-        // sleep while keeping its own summary attached.
-        $public = $this->subtractSleepFromEvents($public, $sleepIntervals);
+        // a nap while keeping its own summary attached.
+        $public = $this->subtractSleepFromEvents($public, $napIntervals);
+
+        $eventLayers = array_map(
+            fn ($s) => ['start' => $s['start'], 'end' => $s['end']],
+            [
+                ...$unavailable,
+                ...$public,
+                ...array_map(fn ($h) => ['start' => $h->start, 'end' => $h->end], $highlighted),
+            ],
+        );
+
+        $sleepIntervals = $this->mergeIntervals([
+            ...$this->subtractIntervals(
+                $this->computeSleepBlocks($weeklyAvailability, $sleepExceptions, $rangeStart, $rangeEnd),
+                $eventLayers,
+            ),
+            ...$napIntervals,
+        ]);
 
         $free = $this->computeFreeRanges($weeklyAvailability, $busyIntervals, $rangeStart, $rangeEnd);
 
