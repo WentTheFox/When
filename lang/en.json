@@ -40,6 +40,7 @@
     "free.ownerPreviewNotice": "You're viewing this as the owner.",
     "free.ownerPreviewDisable": "Preview as a visitor",
     "free.ownerPreviewEnable": "Show owner view",
+    "free.ownerPreviewClearMarker": "Clear owner marker",
     "free.personalizedWarning": "This link is personalized to you. Please don't share it with others.",
     "free.loading": "Loading…",
     "free.fetchingFirstTime": "Your friend's calendar is being fetched for the first time — this can take a moment…",

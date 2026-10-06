@@ -262,6 +262,21 @@ class ShareLinkManagementController extends Controller
         return response()->json($visits);
     }
 
+    public function destroyVisit(Request $request, string $shareLink, string $visit): JsonResponse
+    {
+        $this->findOwned($request, $shareLink)->visits()->where('id', $visit)->firstOrFail()->delete();
+
+        return response()->json(null, 204);
+    }
+
+    /** Removes every recorded visit for the link in one go. */
+    public function destroyVisits(Request $request, string $shareLink): JsonResponse
+    {
+        $this->findOwned($request, $shareLink)->visits()->delete();
+
+        return response()->json(null, 204);
+    }
+
     private function findOwned(Request $request, string $id): ShareLink
     {
         return $request->user()->shareLinks()->where('id', $id)->firstOrFail();

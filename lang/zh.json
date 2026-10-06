@@ -40,6 +40,7 @@
     "free.ownerPreviewNotice": "你正在以所有者身份查看此页面。",
     "free.ownerPreviewDisable": "以访客身份预览",
     "free.ownerPreviewEnable": "显示所有者视图",
+    "free.ownerPreviewClearMarker": "清除所有者标记",
     "free.personalizedWarning": "此链接是为你个人定制的，请勿与他人分享。",
     "free.loading": "加载中…",
     "free.fetchingFirstTime": "正在首次获取你朋友的日历 — 这可能需要一点时间…",

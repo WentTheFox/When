@@ -40,6 +40,7 @@
     "free.ownerPreviewNotice": "Toto vidíš ako vlastník.",
     "free.ownerPreviewDisable": "Náhľad ako návštevník",
     "free.ownerPreviewEnable": "Zobraziť pohľad vlastníka",
+    "free.ownerPreviewClearMarker": "Vymazať značku vlastníka",
     "free.personalizedWarning": "Tento odkaz je pre teba personalizovaný. Nezdieľaj ho prosím s ostatnými.",
     "free.loading": "Načítava sa…",
     "free.fetchingFirstTime": "Kalendár tvojho priateľa sa načítava prvýkrát — môže to chvíľu trvať…",

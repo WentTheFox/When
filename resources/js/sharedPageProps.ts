@@ -53,5 +53,6 @@ export interface SharedPageProps {
   flash: {
     status: string | null;
     recoveryCodes: string[] | null;
+    ownerMarker: string | null;
   };
 }

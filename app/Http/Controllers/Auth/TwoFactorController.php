@@ -103,6 +103,7 @@ class TwoFactorController extends Controller
         $request->session()->forget(self::SESSION_KEY);
         Auth::login($user);
         $request->session()->regenerate();
+        $request->session()->flash('ownerMarker', $user->ownerMarker());
 
         return redirect()->intended(route('dashboard'));
     }

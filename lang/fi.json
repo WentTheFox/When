@@ -40,6 +40,7 @@
     "free.ownerPreviewNotice": "Näet tämän omistajana.",
     "free.ownerPreviewDisable": "Esikatsele vierailijana",
     "free.ownerPreviewEnable": "Näytä omistajan näkymä",
+    "free.ownerPreviewClearMarker": "Tyhjennä omistajamerkki",
     "free.personalizedWarning": "Tämä linkki on sinulle henkilökohtainen. Älä jaa sitä muiden kanssa.",
     "free.loading": "Ladataan…",
     "free.fetchingFirstTime": "Ystäväsi kalenteria haetaan ensimmäistä kertaa — tämä voi kestää hetken…",

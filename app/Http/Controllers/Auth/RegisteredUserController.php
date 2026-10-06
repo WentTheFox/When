@@ -126,6 +126,7 @@ class RegisteredUserController extends Controller
         event(new Registered($user));
 
         Auth::login($user);
+        $request->session()->flash('ownerMarker', $user->ownerMarker());
 
         return redirect()->intended(route('dashboard'));
     }

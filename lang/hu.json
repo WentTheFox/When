@@ -40,6 +40,7 @@
     "free.ownerPreviewNotice": "Ezt tulajdonosként látod.",
     "free.ownerPreviewDisable": "Előnézet látogatóként",
     "free.ownerPreviewEnable": "Tulajdonosi nézet megjelenítése",
+    "free.ownerPreviewClearMarker": "Tulajdonosi jelölő törlése",
     "free.personalizedWarning": "Ez a link neked személyre szabott. Kérlek, ne oszd meg másokkal.",
     "free.loading": "Betöltés…",
     "free.fetchingFirstTime": "A barátod naptára most kerül lekérésre először — ez eltarthat egy pillanatig…",

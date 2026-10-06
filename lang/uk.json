@@ -40,6 +40,7 @@
     "free.ownerPreviewNotice": "Ти переглядаєш це як власник.",
     "free.ownerPreviewDisable": "Переглянути як відвідувач",
     "free.ownerPreviewEnable": "Показати вигляд власника",
+    "free.ownerPreviewClearMarker": "Очистити мітку власника",
     "free.personalizedWarning": "Це посилання персоналізоване для тебе. Будь ласка, не діліться ним з іншими.",
     "free.loading": "Завантаження…",
     "free.fetchingFirstTime": "Календар твого друга завантажується вперше — це може зайняти деякий час…",

@@ -40,6 +40,7 @@
     "free.ownerPreviewNotice": "これはオーナーとして表示しています。",
     "free.ownerPreviewDisable": "訪問者としてプレビュー",
     "free.ownerPreviewEnable": "オーナービューを表示",
+    "free.ownerPreviewClearMarker": "オーナーマーカーを消去",
     "free.personalizedWarning": "このリンクはあなた専用です。他の人と共有しないでください。",
     "free.loading": "読み込み中…",
     "free.fetchingFirstTime": "お友達のカレンダーを初めて取得しています — 少し時間がかかる場合があります…",

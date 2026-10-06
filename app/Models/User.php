@@ -199,6 +199,19 @@ class User extends Authenticatable
     }
 
     /**
+     * Opaque, stable per-user value the browser keeps in localStorage after
+     * the owner has logged in (flashed once at login, never shared per-request) (see resources/js/ownerMarker.ts), so a
+     * later *logged-out* view of their own share link can be recognised and
+     * skipped by ShareLinkVisitController instead of inflating visit counts.
+     * HMAC of the user id under APP_KEY: nothing stored, not guessable
+     * without the key, and it grants nothing beyond "don't record my visits".
+     */
+    public function ownerMarker(): string
+    {
+        return hash_hmac('sha256', 'owner-marker:'.$this->id, config('app.key'));
+    }
+
+    /**
      * Gravatar only ever sees an MD5 of the email (its own lookup key, not
      * something this app invented) — never the plaintext, and never sent to
      * the browser either; this URL is built server-side from the decrypted

@@ -156,4 +156,58 @@ class ShareLinkVisitTest extends TestCase
             ->getJson("/dashboard/share-links/{$shareLink->id}/visits")
             ->assertNotFound();
     }
+
+    public function test_a_logged_out_visit_carrying_the_owners_marker_is_not_recorded_or_revealing(): void
+    {
+        $owner = User::factory()->create();
+        $shareLink = ShareLink::factory()->for($owner)->create();
+
+        $this->postJson(route('api.share-links.visits.store', $shareLink->highlight_token), [
+            'timezone' => 'Europe/Budapest',
+            'owner_markers' => ['bogus', $owner->ownerMarker()],
+        ])->assertNoContent();
+
+        $this->assertSame(0, $shareLink->visits()->count());
+    }
+
+    public function test_another_users_marker_does_not_suppress_a_visit(): void
+    {
+        $shareLink = ShareLink::factory()->for(User::factory())->create();
+
+        $this->postJson(route('api.share-links.visits.store', $shareLink->highlight_token), [
+            'timezone' => 'Europe/Budapest',
+            'owner_markers' => [User::factory()->create()->ownerMarker()],
+        ])->assertCreated();
+    }
+
+    public function test_the_owner_can_delete_one_or_all_visits_but_not_someone_elses(): void
+    {
+        $owner = User::factory()->create();
+        $shareLink = ShareLink::factory()->for($owner)->create();
+        $visits = ShareLinkVisit::factory()->for($shareLink)->count(3)->create();
+
+        $this->actingAs(User::factory()->create())
+            ->deleteJson(route('dashboard.share-links.visits.destroy', [$shareLink->id, $visits[0]->id]))
+            ->assertNotFound();
+
+        $this->actingAs($owner)
+            ->deleteJson(route('dashboard.share-links.visits.destroy', [$shareLink->id, $visits[0]->id]))
+            ->assertNoContent();
+        $this->assertSame(2, $shareLink->visits()->count());
+
+        $this->actingAs($owner)
+            ->deleteJson(route('dashboard.share-links.visits.destroy-all', $shareLink->id))
+            ->assertNoContent();
+        $this->assertSame(0, $shareLink->visits()->count());
+    }
+
+    public function test_the_owner_marker_is_only_flashed_at_login_not_on_ordinary_requests(): void
+    {
+        $user = User::factory()->create(['password' => bcrypt('verifier'), 'email' => 'marker@example.com']);
+
+        $this->post('/login', ['identifier' => 'marker@example.com', 'password' => 'verifier'])
+            ->assertSessionHas('ownerMarker', $user->ownerMarker());
+
+        $this->actingAs($user)->get(route('dashboard'))->assertSessionMissing('ownerMarker');
+    }
 }

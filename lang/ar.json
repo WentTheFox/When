@@ -40,6 +40,7 @@
     "free.ownerPreviewNotice": "أنت تشاهد هذا كمالك.",
     "free.ownerPreviewDisable": "معاينة كزائر",
     "free.ownerPreviewEnable": "إظهار عرض المالك",
+    "free.ownerPreviewClearMarker": "مسح علامة المالك",
     "free.personalizedWarning": "هذا الرابط مخصص لك. يرجى عدم مشاركته مع الآخرين.",
     "free.loading": "جارٍ التحميل…",
     "free.fetchingFirstTime": "يتم جلب تقويم صديقك للمرة الأولى — قد يستغرق هذا لحظة…",

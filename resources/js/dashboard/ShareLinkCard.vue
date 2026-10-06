@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import axios from 'axios';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faCheck, faCopy, faRotateRight, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
+import { faCheck, faCopy, faRotateRight, faTrash, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
 import { BBadge, BButton, BCard, BFormCheckbox, BFormGroup, BFormInput, BFormSelect, BFormTextarea, BSpinner } from 'bootstrap-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../crypto';
@@ -184,6 +184,32 @@ async function fetchVisits(page: number): Promise<void> {
   }
 }
 
+async function deleteVisit(visit: VisitRow): Promise<void> {
+  try {
+    await axios.delete(`/dashboard/share-links/${props.link.id}/visits/${visit.id}`);
+    // Step back a page if that was the last row of a later page.
+    await fetchVisits(visits.value.length === 1 && visitsPage.value > 1 ? visitsPage.value - 1 : visitsPage.value);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+async function deleteAllVisits(): Promise<void> {
+  const confirmed = await requestConfirm({
+    title: 'Delete all visits?',
+    message: 'Every recorded visit for this link will be permanently removed.',
+    confirmText: 'Delete all',
+    variant: 'danger',
+  });
+  if (!confirmed) return;
+  try {
+    await axios.delete(`/dashboard/share-links/${props.link.id}/visits`);
+    await fetchVisits(1);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 async function save(): Promise<void> {
   try {
     let labelCiphertext: string | undefined;
@@ -321,6 +347,7 @@ async function remove(): Promise<void> {
         <BButton variant="outline-secondary" size="sm" title="Reload" :disabled="loadingVisits" @click="fetchVisits(visitsPage)">
           <FontAwesomeIcon :icon="faRotateRight" :spin="loadingVisits" />
         </BButton>
+        <BButton v-if="visits.length" variant="outline-danger" size="sm" @click="deleteAllVisits">Delete all</BButton>
       </div>
       <BSpinner v-if="loadingVisits && !visits.length" small />
       <p v-else-if="!visits.length" class="small text-muted mb-0">No visits recorded yet.</p>
@@ -331,6 +358,7 @@ async function remove(): Promise<void> {
               <th>When</th>
               <th>Visitor timezone</th>
               <th>Visitor locale</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -338,6 +366,11 @@ async function remove(): Promise<void> {
               <td>{{ new Date(visit.visited_at).toLocaleString() }}</td>
               <td>{{ visit.timezone }}</td>
               <td>{{ visit.locale ?? '—' }}</td>
+              <td class="text-end">
+                <BButton variant="outline-danger" size="sm" title="Delete this visit" @click="deleteVisit(visit)">
+                  <FontAwesomeIcon :icon="faTrash" />
+                </BButton>
+              </td>
             </tr>
           </tbody>
         </table>

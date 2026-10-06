@@ -40,6 +40,7 @@
     "free.ownerPreviewNotice": "Du siehst dies als Eigentümer.",
     "free.ownerPreviewDisable": "Als Besucher ansehen",
     "free.ownerPreviewEnable": "Eigentümeransicht anzeigen",
+    "free.ownerPreviewClearMarker": "Eigentümer-Markierung löschen",
     "free.personalizedWarning": "Dieser Link ist für dich personalisiert. Bitte teile ihn nicht mit anderen.",
     "free.loading": "Wird geladen…",
     "free.fetchingFirstTime": "Der Kalender deines Freundes wird zum ersten Mal abgerufen — das kann einen Moment dauern…",

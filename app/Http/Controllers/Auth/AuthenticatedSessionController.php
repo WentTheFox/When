@@ -89,6 +89,7 @@ class AuthenticatedSessionController extends Controller
 
         Auth::login($user, $request->boolean('remember'));
         $request->session()->regenerate();
+        $request->session()->flash('ownerMarker', $user->ownerMarker());
 
         return redirect()->intended(route('dashboard'));
     }

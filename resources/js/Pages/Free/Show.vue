@@ -16,6 +16,7 @@ import { faChevronLeft, faChevronRight, faLock, faRotateRight } from '@fortaweso
  * isn't a useful mobile view.
  */
 import { Head } from '@inertiajs/vue3';
+import { clearOwnerMarkers, getOwnerMarkers } from '../../ownerMarker';
 import axios from 'axios';
 import { BButton, BFormSelect } from 'bootstrap-vue-next';
 import {
@@ -543,6 +544,14 @@ async function boot(): Promise<void> {
  * highest-viewed one is selected by default; the picker in the template
  * (v-model="selectedVisitorTimezone") lets the owner override that.
  */
+/** Whether this browser still holds an owner marker — drives the "clear marker" button. */
+const hasOwnerMarker = ref(getOwnerMarkers().length > 0);
+
+function clearMarker(): void {
+  clearOwnerMarkers();
+  hasOwnerMarker.value = false;
+}
+
 async function recordVisit(): Promise<void> {
   if (!props.linkFound || !props.token) return;
 
@@ -550,6 +559,7 @@ async function recordVisit(): Promise<void> {
     const response = await axios.post(`/api/share/${props.token}/visits`, {
       timezone: viewerBrowserTimezone,
       locale: Intl.DateTimeFormat().resolvedOptions().locale,
+      owner_markers: getOwnerMarkers(),
     });
 
     if (response.status === 202) {
@@ -673,9 +683,14 @@ onMounted(() => {
                  comparison target) reacts to that via showOwnerCustomizations. -->
             <div v-if="isOwnerPreview" class="alert alert-info d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
               <span class="small">{{ $t('free.ownerPreviewNotice') }}</span>
-              <BButton variant="outline-secondary" size="sm" @click="ownerCustomizationsEnabled = !ownerCustomizationsEnabled">
-                {{ ownerCustomizationsEnabled ? $t('free.ownerPreviewDisable') : $t('free.ownerPreviewEnable') }}
-              </BButton>
+              <span class="d-flex flex-wrap gap-2">
+                <BButton variant="outline-secondary" size="sm" @click="ownerCustomizationsEnabled = !ownerCustomizationsEnabled">
+                  {{ ownerCustomizationsEnabled ? $t('free.ownerPreviewDisable') : $t('free.ownerPreviewEnable') }}
+                </BButton>
+                <BButton v-if="hasOwnerMarker" variant="outline-secondary" size="sm" @click="clearMarker">
+                  {{ $t('free.ownerPreviewClearMarker') }}
+                </BButton>
+              </span>
             </div>
 
             <p class="small text-center text-muted mt-n2 mb-3">

@@ -180,6 +180,10 @@ Route::middleware('auth')->group(function () {
         ->name('dashboard.share-links.regenerate-token');
     Route::get('/dashboard/share-links/{shareLink}/visits', [ShareLinkManagementController::class, 'visits'])
         ->name('dashboard.share-links.visits');
+    Route::delete('/dashboard/share-links/{shareLink}/visits', [ShareLinkManagementController::class, 'destroyVisits'])
+        ->name('dashboard.share-links.visits.destroy-all');
+    Route::delete('/dashboard/share-links/{shareLink}/visits/{visit}', [ShareLinkManagementController::class, 'destroyVisit'])
+        ->name('dashboard.share-links.visits.destroy');
     Route::get('/dashboard/share-links/export', [ShareLinkManagementController::class, 'export'])
         ->name('dashboard.share-links.export');
     Route::post('/dashboard/share-links/import', [ShareLinkManagementController::class, 'import'])

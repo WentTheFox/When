@@ -79,7 +79,20 @@ class ShareLinkVisitController extends Controller
         $data = $request->validate([
             'timezone' => ['required', 'string', 'max:100', 'timezone'],
             'locale' => ['nullable', 'string', 'max:35'],
+            'owner_markers' => ['nullable', 'array', 'max:10'],
+            'owner_markers.*' => ['string', 'max:128'],
         ]);
+
+        // The owner opened their own link while logged out (but this browser
+        // remembers them from a past login): don't record, and — unlike the
+        // authenticated branch above — return nothing owner-specific, so the
+        // page stays the plain public view until they actually log in.
+        $expected = $shareLink->user->ownerMarker();
+        foreach ($data['owner_markers'] ?? [] as $marker) {
+            if (hash_equals($expected, $marker)) {
+                return response()->json(null, Response::HTTP_NO_CONTENT);
+            }
+        }
 
         ShareLinkVisit::create([
             'share_link_id' => $shareLink->id,

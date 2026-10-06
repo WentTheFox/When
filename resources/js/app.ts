@@ -1,4 +1,4 @@
-import { createInertiaApp } from '@inertiajs/vue3';
+import { createInertiaApp, router } from '@inertiajs/vue3';
 import { BApp, createBootstrap } from 'bootstrap-vue-next';
 import { i18nVue } from 'laravel-vue-i18n';
 import { createApp, h, type DefineComponent } from 'vue';
@@ -7,6 +7,7 @@ import './icons';
 import { setColorPalette } from './free/color-palette';
 import { setIconPalette } from './free/icon-palette';
 import { setNowColorPresets } from './free/now-color-presets';
+import { rememberOwnerMarker } from './ownerMarker';
 
 // bootstrap-vue-next ships components, not CSS — resources/css/app.css's own
 // bootstrap/dist/css/bootstrap.min.css import still supplies all the actual
@@ -60,6 +61,15 @@ createInertiaApp({
     if (nowColorPresets) {
       setNowColorPresets(nowColorPresets.presets, nowColorPresets.defaultKey);
     }
+
+    // Remember the owner in this browser so logged-out views of their own
+    // share links aren't recorded as visits — see ownerMarker.ts. Only ever
+    // from the one-shot flash set at login, never from "is logged in", so
+    // clearing the marker while still logged in sticks.
+    const markerOf = (page: { props: Record<string, unknown> }) =>
+      (page.props.flash as { ownerMarker?: string | null } | undefined)?.ownerMarker;
+    rememberOwnerMarker(markerOf(props.initialPage));
+    router.on('navigate', (event) => rememberOwnerMarker(markerOf(event.detail.page)));
 
     // The initial page's own `locale` prop (e.g. /hu/free/{token} sends
     // 'hu') — read synchronously here instead of always booting 'en' and

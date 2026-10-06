@@ -109,6 +109,9 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'status' => $request->session()->get('status'),
                 'recoveryCodes' => $request->session()->get('recoveryCodes'),
+                // One-shot, set only by the login/registration controllers —
+                // the one moment the browser should (re)learn the owner marker.
+                'ownerMarker' => $request->session()->get('ownerMarker'),
             ],
         ];
     }
