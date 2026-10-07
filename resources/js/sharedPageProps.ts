@@ -24,6 +24,7 @@ export interface SharedPageProps {
   // narrowly typed for actual access, this only affects unlisted keys.
   [key: string]: unknown;
   appName: string;
+  csrfToken: string;
   isFirstUser: boolean;
   colorPalette: {
     swatches: ColorSwatch[];

@@ -23,6 +23,23 @@ class AccountPageAccessTest extends TestCase
         $this->get('/dashboard/account')->assertRedirect('/login');
     }
 
+    public function test_it_shares_the_sessions_current_csrf_token_for_the_native_export_form(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->get('/dashboard/account');
+        $first = session()->token();
+
+        // A token regeneration (logout/login does this) must show up in the
+        // very next Inertia response, unlike the document's <meta> tag.
+        session()->regenerateToken();
+        $second = session()->token();
+        $this->assertNotSame($first, $second);
+
+        $this->get('/dashboard/account')
+            ->assertInertia(fn (Assert $page) => $page->where('csrfToken', $second));
+    }
+
     public function test_it_reports_two_factor_as_not_enabled_by_default(): void
     {
         $user = User::factory()->create();
