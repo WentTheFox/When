@@ -11,13 +11,11 @@ import {
   encryptKeyRing,
   generateSalt,
 } from '../../crypto';
-import { useVault } from '../../dashboard/useVault';
-import { autoUnlockPending } from '../../dashboard/vaultModal';
+import { discardHeldMasterPassword, holdMasterPasswordForUnlock } from '../../dashboard/vaultModal';
 import PublicLayout from '../../Layouts/PublicLayout.vue';
 
 defineOptions({ layout: PublicLayout });
 
-const { unlock } = useVault();
 
 const props = defineProps<{
   code: string;
@@ -80,7 +78,7 @@ async function submit(): Promise<void> {
     // *after* the new page (and its VaultGate's own requestUnlock() call)
     // has already mounted, so setting this from onSuccess instead would be
     // too late to stop the passphrase modal from flashing up.
-    autoUnlockPending.value = true;
+    holdMasterPasswordForUnlock(passwordForVault);
 
     form.post('/register', {
       onFinish: () => { submitting.value = false; },
@@ -91,10 +89,7 @@ async function submit(): Promise<void> {
       // need the vault anyway (first dashboard visit), so skip making a
       // brand new owner "unlock" something they just set the passphrase
       // for seconds ago.
-      onSuccess: () => {
-        unlock(passwordForVault).catch(() => {}).finally(() => { autoUnlockPending.value = false; });
-      },
-      onError: () => { autoUnlockPending.value = false; },
+      onError: () => { discardHeldMasterPassword(); },
     });
   } catch (e) {
     console.error(e);
