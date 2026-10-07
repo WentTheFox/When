@@ -35,7 +35,14 @@ class AccountController extends Controller
         return Inertia::render('Dashboard/Account', [
             'name' => $user->name,
             'email' => $user->email,
-            'twoFactorEnabled' => $user->two_factor_confirmed_at !== null,
+            'twoFactorEnabled' => $user->hasTwoFactor(),
+            'totpEnabled' => $user->hasTotp(),
+            'passkeys' => $user->passkeys()->oldest()->get()->map(fn ($passkey) => [
+                'id' => $passkey->id,
+                'name' => $passkey->name,
+                'createdAt' => $passkey->created_at,
+                'lastUsedAt' => $passkey->last_used_at,
+            ])->all(),
         ]);
     }
 

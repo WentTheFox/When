@@ -46,6 +46,7 @@ class AccountExportService
 
         $zip->addFile('account/profile.json', $this->json($this->profile($user)));
         $zip->addFile('account/security.json', $this->json($this->security($user)));
+        $zip->addFile('account/passkeys.json', $this->json($this->passkeys($user)));
         $zip->addFile('account/calendar-url.json', $this->json($this->calendarUrl($user)));
         $zip->addFile('account/key-parameters.json', $this->json($this->keyParameters($user)));
         $zip->addFile('account/invites-issued.json', $this->json($this->invitesIssued($user)));
@@ -133,6 +134,25 @@ class AccountExportService
                 'two_factor_recovery_codes' => $user->two_factor_recovery_codes,
                 'two_factor_confirmed_at' => $user->two_factor_confirmed_at,
             ]],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function passkeys(User $user): array
+    {
+        return [
+            'tier' => 'server-decrypted',
+            'note' => 'Public keys only — the private half never left your authenticator, so none of this can be used to log in.',
+            'records' => $user->passkeys()->oldest()->get()->map(fn ($passkey) => [
+                'id' => $passkey->id,
+                'name' => $passkey->name,
+                'credential_id' => $passkey->credential_id,
+                'public_key' => $passkey->public_key,
+                'sign_count' => $passkey->sign_count,
+                'transports' => $passkey->transports,
+                'last_used_at' => $passkey->last_used_at,
+                'created_at' => $passkey->created_at,
+            ])->all(),
         ];
     }
 

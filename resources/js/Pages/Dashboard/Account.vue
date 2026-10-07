@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput } from 'bootstrap-vue-next';
 import { ref } from 'vue';
+import { createPasskey, type CreationOptionsJson, isPasskeyCancellation, passkeysSupported } from '../../auth/webauthn';
 import PasswordField from '../../Components/PasswordField.vue';
 import {
   DecryptionFailedError,
@@ -23,6 +24,8 @@ const props = defineProps<{
   name: string;
   email: string | null;
   twoFactorEnabled: boolean;
+  totpEnabled: boolean;
+  passkeys: { id: string; name: string; createdAt: string; lastUsedAt: string | null }[];
 }>();
 
 const page = usePage<SharedPageProps>();
@@ -41,14 +44,87 @@ function saveEmail(): void {
 
 async function disableTwoFactor(): Promise<void> {
   const confirmed = await requestConfirm({
-    title: 'Disable two-factor authentication?',
-    message: 'Turn off two-factor authentication for your account?',
+    title: 'Disable the authenticator app?',
+    message: props.passkeys.length > 0
+      ? 'Stop asking for authenticator codes? Your passkeys will keep working.'
+      : 'Turn off two-factor authentication for your account?',
     confirmText: 'Disable',
     variant: 'danger',
   });
   if (!confirmed) return;
 
   disableTwoFactorForm.delete('/two-factor', { preserveScroll: true });
+}
+
+// --- Passkeys ------------------------------------------------------------
+
+const passkeyName = ref('');
+const passkeyBusy = ref(false);
+const passkeyError = ref('');
+const canUsePasskeys = passkeysSupported();
+
+async function addPasskey(): Promise<void> {
+  passkeyError.value = '';
+
+  const name = passkeyName.value.trim();
+  if (!name) {
+    passkeyError.value = 'Give the passkey a name so you can tell it apart later.';
+    return;
+  }
+
+  const verifier = await requestConfirmation();
+  if (verifier === null) return;
+
+  passkeyBusy.value = true;
+
+  try {
+    const { data: options } = await axios.post<CreationOptionsJson>('/dashboard/account/passkeys/options');
+    const credential = await createPasskey(options);
+
+    router.post(
+      '/dashboard/account/passkeys',
+      { ...credential, name, password: verifier },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          passkeyName.value = '';
+        },
+        onError: (errors) => {
+          passkeyError.value = errors.passkey ?? errors.password ?? errors.name ?? 'Could not add that passkey.';
+        },
+        onFinish: () => {
+          passkeyBusy.value = false;
+        },
+      },
+    );
+  } catch (e) {
+    passkeyBusy.value = false;
+    if (!isPasskeyCancellation(e)) {
+      console.error(e);
+      passkeyError.value = 'Something went wrong creating the passkey. Please try again.';
+    }
+  }
+}
+
+async function removePasskey(passkey: { id: string; name: string }): Promise<void> {
+  const confirmed = await requestConfirm({
+    title: 'Remove this passkey?',
+    message: `Remove "${passkey.name}"? You won't be able to use it to log in anymore.`,
+    confirmText: 'Remove',
+    variant: 'danger',
+  });
+  if (!confirmed) return;
+
+  const verifier = await requestConfirmation();
+  if (verifier === null) return;
+
+  router.delete(`/dashboard/account/passkeys/${passkey.id}`, {
+    data: { password: verifier },
+    preserveScroll: true,
+    onError: (errors) => {
+      passkeyError.value = errors.password ?? 'Could not remove that passkey.';
+    },
+  });
 }
 
 interface LookupResponse {
@@ -223,8 +299,9 @@ async function deleteAccount(): Promise<void> {
       <BBadge v-else variant="secondary" class="ms-1">Not enabled</BBadge>
     </h2>
     <p class="small text-muted mb-3">
-      Adds a one-time code from an authenticator app to every login, separate from your
-      master password.
+      Adds a second step to every login, separate from your master password. Use an
+      authenticator app, a passkey, or both — when both are set up, you choose which one
+      to use each time you log in.
     </p>
 
     <BAlert :model-value="!!page.props.flash?.recoveryCodes" variant="warning">
@@ -237,12 +314,45 @@ async function deleteAccount(): Promise<void> {
       </ul>
     </BAlert>
 
-    <Link v-if="!twoFactorEnabled" href="/two-factor" class="btn btn-primary mb-4 d-inline-block">
-      Set up two-factor authentication
+    <h3 class="h6 mb-2">
+      Authenticator app
+      <BBadge v-if="totpEnabled" variant="success" class="ms-1">Enabled</BBadge>
+    </h3>
+    <Link v-if="!totpEnabled" href="/two-factor" class="btn btn-primary mb-4 d-inline-block">
+      Set up authenticator app
     </Link>
     <BButton v-else variant="outline-danger" class="mb-4" :disabled="disableTwoFactorForm.processing" @click="disableTwoFactor">
-      Disable two-factor authentication
+      Disable authenticator app
     </BButton>
+
+    <h3 class="h6 mb-2">Passkeys</h3>
+    <p class="small text-muted mb-3">
+      A passkey is stored on your device, password manager or security key, and replaces
+      typing a code. Adding or removing one asks for your master password.
+    </p>
+    <BAlert :model-value="!!passkeyError" variant="danger" dismissible @update:model-value="passkeyError = ''">
+      {{ passkeyError }}
+    </BAlert>
+    <ul v-if="passkeys.length > 0" class="list-group mb-3">
+      <li v-for="passkey in passkeys" :key="passkey.id" class="list-group-item d-flex justify-content-between align-items-center">
+        <div>
+          <strong>{{ passkey.name }}</strong>
+          <div class="small text-muted">
+            Added {{ new Date(passkey.createdAt).toLocaleDateString() }} ·
+            {{ passkey.lastUsedAt ? `last used ${new Date(passkey.lastUsedAt).toLocaleDateString()}` : 'never used' }}
+          </div>
+        </div>
+        <BButton size="sm" variant="outline-danger" @click="removePasskey(passkey)">Remove</BButton>
+      </li>
+    </ul>
+    <p v-else class="small text-muted">No passkeys yet.</p>
+    <form v-if="canUsePasskeys" class="mb-4" @submit.prevent="addPasskey">
+      <BFormGroup label="Passkey name" label-for="passkey_name" class="mb-3">
+        <BFormInput id="passkey_name" v-model="passkeyName" type="text" maxlength="100" placeholder="e.g. Laptop, YubiKey" />
+      </BFormGroup>
+      <BButton type="submit" variant="primary" :disabled="passkeyBusy">Add a passkey</BButton>
+    </form>
+    <p v-else class="small text-muted mb-4">This browser doesn't support passkeys.</p>
 
     <h2 class="h5 mb-3">Change master password</h2>
     <p class="small text-muted mb-3">
