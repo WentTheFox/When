@@ -64,6 +64,7 @@ class AuthenticatedSessionController extends Controller
         $credentials = $request->validate([
             'identifier' => ['required', 'string'],
             'password' => ['required', 'string'],
+            'migrated_verifier' => ['nullable', 'string'],
         ]);
 
         // name and email are encrypted at rest (§0.2) — a plain
@@ -81,6 +82,8 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
+        $this->migrateLegacyVerifier($user, $credentials['migrated_verifier'] ?? null);
+
         if ($user->hasTwoFactor()) {
             $request->session()->put(self::TWO_FACTOR_SESSION_KEY, $user->id);
 
@@ -92,6 +95,26 @@ class AuthenticatedSessionController extends Controller
         $request->session()->flash('ownerMarker', $user->ownerMarker());
 
         return redirect()->intended(route('dashboard'));
+    }
+
+    /**
+     * Done here, in the password step itself — before any 2FA branch — rather
+     * than via a follow-up request: with 2FA the post-login "success" is only
+     * the pending-challenge redirect, where an authenticated follow-up call
+     * would 401, and the master password is gone by the time the challenge is
+     * passed. Reaching this point means the legacy verifier was just proven
+     * with Hash::check, which is the same proof migrateVerifier() relies on.
+     */
+    private function migrateLegacyVerifier(User $user, ?string $verifier): void
+    {
+        if ($verifier === null || $user->verifier_salt_version === 'id') {
+            return;
+        }
+
+        $user->forceFill([
+            'password' => Hash::make($verifier),
+            'verifier_salt_version' => 'id',
+        ])->save();
     }
 
     /**

@@ -185,7 +185,10 @@ class AccountExportTest extends TestCase
 
         $this->actingAs($user)
             ->post('/dashboard/account/export', ['password' => 'correct-verifier'])
-            ->assertStatus(429);
+            // Not a bare 429: the form is a native POST, so the limit comes
+            // back as a redirect to the Account page with an inline error.
+            ->assertRedirect(route('dashboard.account'))
+            ->assertSessionHasErrors('export');
     }
 
     private function openZip(string $bytes): ZipArchive

@@ -21,6 +21,8 @@ const error = ref('');
 const form = useForm({
   identifier: '',
   password: '',
+  // Only set for a not-yet-migrated (email-salted) account — see submit().
+  migrated_verifier: '',
   remember: false,
 });
 
@@ -66,6 +68,18 @@ async function submit(): Promise<void> {
     const saltBasis = legacySaltBasis ?? lookup.id;
 
     form.password = await deriveLoginVerifier(masterPassword.value, saltBasis);
+    // Transparent one-time migration off the legacy email-salted verifier
+    // (see the verifier_salt_version migration and
+    // AuthenticatedSessionController::store()): the master password is only
+    // in memory right now, so the id-salted replacement rides along in this
+    // very request and the server swaps it in once the legacy one checks out.
+    // It used to be a follow-up request after login succeeded, but with 2FA
+    // that "success" is only the pending-challenge redirect, where the
+    // follow-up was unauthenticated and silently failed — leaving the account
+    // legacy forever.
+    form.migrated_verifier = legacySaltBasis !== null
+      ? await deriveLoginVerifier(masterPassword.value, lookup.id)
+      : '';
     const passwordForVault = masterPassword.value;
 
     // Set synchronously, before post() — guaranteed true before Inertia can
@@ -86,17 +100,6 @@ async function submit(): Promise<void> {
       // submission instead of asking for it a second time right after.
       onSuccess: () => {
         unlock(passwordForVault).catch(() => {}).finally(() => { autoUnlockPending.value = false; });
-
-        // Transparent one-time migration off the legacy email-salted
-        // verifier (see the verifier_salt_version migration and
-        // AuthenticatedSessionController::migrateVerifier()) — this is the
-        // only moment the master password is available after a successful
-        // login, so it's now or never for this account.
-        if (legacySaltBasis !== null) {
-          deriveLoginVerifier(masterPassword.value, lookup.id)
-            .then((verifier) => axios.post('/account/migrate-verifier', { verifier }))
-            .catch(() => {});
-        }
       },
       onError: () => { autoUnlockPending.value = false; },
     });

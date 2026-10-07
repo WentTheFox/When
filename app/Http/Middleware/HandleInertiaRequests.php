@@ -43,6 +43,13 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'appName' => config('app.name'),
+            // The current session's CSRF token, for the one place that does
+            // a native (non-axios/Inertia) form POST — the data export. The
+            // <meta name="csrf-token"> in app.blade.php is only rendered on
+            // a full page load, so after a client-side logout/login (which
+            // regenerates the token) it goes stale; this is re-evaluated on
+            // every Inertia response.
+            'csrfToken' => csrf_token(),
             // Same reasoning as the old partials.header Blade composer this
             // replaces: SiteHeader.vue needs this on every page that
             // renders it, and computing it once here beats every

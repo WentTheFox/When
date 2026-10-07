@@ -50,6 +50,14 @@ class AppServiceProvider extends ServiceProvider
         // Pre-auth (the user is only identified by the session's pending
         // two-factor marker), so IP-keyed like the other guest limiters.
         RateLimiter::for('two-factor-passkey', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
-        RateLimiter::for('account-data-export', fn (Request $request) => Limit::perDay(5)->by($request->user()->id));
+        // The export is a native form POST (a streamed zip download), so the
+        // default bare 429 page would be a dead end in the browser — answer
+        // with a redirect back to the Account page carrying an error it
+        // displays inline instead (see Account.vue's exportError).
+        RateLimiter::for('account-data-export', fn (Request $request) => Limit::perDay(5)
+            ->by($request->user()->id)
+            ->response(fn () => redirect()->route('dashboard.account')->withErrors([
+                'export' => 'You\'ve reached the limit of 5 data downloads per day. Please try again tomorrow.',
+            ])));
     }
 }
