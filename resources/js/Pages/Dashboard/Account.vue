@@ -220,14 +220,15 @@ async function changePassword(): Promise<void> {
 
 const exportFormRef = ref<HTMLFormElement | null>(null);
 const exportPasswordRef = ref<HTMLInputElement | null>(null);
-// The export is a native form POST, so a rejected password comes back as a
-// full redirect to this page with the error in the session — Inertia exposes
+// The export is a native form POST, so a rejected password (or the daily
+// download limit) comes back as a full redirect to this page with the error
+// in the session — Inertia exposes
 // it as the shared `errors` prop. Hidden again as soon as another attempt
 // starts; a failed retry reloads the page and shows it afresh.
 const exportErrorHidden = ref(false);
 const exportError = computed(() => {
   const errors = page.props.errors as Record<string, string> | undefined;
-  return exportErrorHidden.value ? '' : (errors?.password ?? '');
+  return exportErrorHidden.value ? '' : (errors?.export ?? errors?.password ?? '');
 });
 
 // A real browser form submission, not axios/fetch/Inertia — the response is
