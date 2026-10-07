@@ -123,6 +123,7 @@ class AccountExportTest extends TestCase
             'requirements.txt',
             'account/profile.json',
             'account/security.json',
+            'account/passkeys.json',
             'account/calendar-url.json',
             'account/key-parameters.json',
             'account/invites-issued.json',

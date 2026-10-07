@@ -7,7 +7,8 @@ use Illuminate\Support\Str;
 use PragmaRX\Google2FA\Google2FA;
 
 /**
- * TOTP 2FA — orthogonal to the vault key (§0.3): this gates the login
+ * TOTP 2FA (passkeys, the alternative second factor, live in PasskeyService;
+ * recovery codes are shared between the two) — orthogonal to the vault key (§0.3): this gates the login
  * session, not access to client-side-encrypted data. Secrets/recovery codes
  * are encrypted at rest with the app key (standard operational-security
  * practice), which is a different concern from the calendar-url/Connections
@@ -26,7 +27,10 @@ class TwoFactorAuthenticationService
 
         $user->forceFill([
             'two_factor_secret' => $secret,
-            'two_factor_recovery_codes' => null,
+            // Recovery codes are shared with passkeys (see
+            // ensureRecoveryCodes()) — only a TOTP-only account's codes die
+            // with its old secret.
+            'two_factor_recovery_codes' => $user->passkeys()->exists() ? $user->two_factor_recovery_codes : null,
             'two_factor_confirmed_at' => null,
         ])->save();
 
@@ -53,30 +57,59 @@ class TwoFactorAuthenticationService
         return $this->google2fa->verifyKey($user->two_factor_secret, $code);
     }
 
-    /** Confirms setup and generates one-time recovery codes. Returns the plaintext codes, shown once. */
+    /**
+     * Confirms setup and, if the account has no recovery codes yet (e.g. from
+     * an earlier passkey), generates them. Returns the plaintext codes, shown
+     * once — empty if existing codes were kept.
+     */
     public function confirm(User $user, string $code): array
     {
         if (! $this->verifyCode($user, $code)) {
             throw new \InvalidArgumentException('Invalid TOTP code.');
         }
 
-        $recoveryCodes = $this->generateRecoveryCodes();
+        $user->forceFill(['two_factor_confirmed_at' => now()])->save();
 
-        $user->forceFill([
-            'two_factor_recovery_codes' => $recoveryCodes,
-            'two_factor_confirmed_at' => now(),
-        ])->save();
-
-        return $recoveryCodes;
+        return $this->ensureRecoveryCodes($user) ?? [];
     }
 
+    /**
+     * Turns TOTP off. Passkeys are independent of it and keep working, so
+     * recovery codes are only dropped once no second factor remains.
+     */
     public function disable(User $user): void
     {
         $user->forceFill([
             'two_factor_secret' => null,
-            'two_factor_recovery_codes' => null,
             'two_factor_confirmed_at' => null,
         ])->save();
+
+        $this->pruneRecoveryCodes($user);
+    }
+
+    /**
+     * Recovery codes back up *every* second factor (TOTP or passkey), so
+     * whichever is enabled first creates them. Returns the new plaintext
+     * codes (shown once), or null if the account already has some.
+     */
+    public function ensureRecoveryCodes(User $user): ?array
+    {
+        if (! empty($user->two_factor_recovery_codes)) {
+            return null;
+        }
+
+        $recoveryCodes = $this->generateRecoveryCodes();
+        $user->forceFill(['two_factor_recovery_codes' => $recoveryCodes])->save();
+
+        return $recoveryCodes;
+    }
+
+    /** Drops recovery codes once the account has no second factor left to back up. */
+    public function pruneRecoveryCodes(User $user): void
+    {
+        if (! $user->hasTwoFactor()) {
+            $user->forceFill(['two_factor_recovery_codes' => null])->save();
+        }
     }
 
     public function redeemRecoveryCode(User $user, string $code): bool

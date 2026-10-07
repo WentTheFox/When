@@ -68,9 +68,13 @@ const page = usePage();
 
   <h2 class="h5">Account security</h2>
   <p class="mb-2">
-    Optional two-factor authentication (TOTP, i.e. an authenticator
-    app) is available for your login &mdash; you can turn it on from
-    your account's security settings.
+    Optional two-factor authentication is available for your login
+    &mdash; an authenticator app (TOTP), a passkey, or both, in which
+    case you pick whichever you like at each login. Passkeys work the
+    way they do everywhere else: your device keeps the private key and
+    never shares it; we store only the matching public key, which can't
+    be used to log in. You can turn either on from your account's
+    security settings.
   </p>
   <p class="mb-4">
     An email address is optional. If you set one, it's only ever used

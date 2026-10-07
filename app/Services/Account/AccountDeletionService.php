@@ -11,6 +11,7 @@ use App\Models\ConnectionSource;
 use App\Models\ConnectionSourceCategory;
 use App\Models\Invite;
 use App\Models\InviteRedemption;
+use App\Models\Passkey;
 use App\Models\ShareLink;
 use App\Models\ShareLinkCache;
 use App\Models\ShareLinkWord;
@@ -44,6 +45,7 @@ class AccountDeletionService
             $now = now();
 
             SleepException::where('user_id', $user->id)->update(['deleted_at' => $now]);
+            Passkey::where('user_id', $user->id)->update(['deleted_at' => $now]);
 
             $activityLocalizationIds = ActivityLocalization::where('user_id', $user->id)->pluck('id');
             ActivityLocalization::whereIn('id', $activityLocalizationIds)->update(['deleted_at' => $now]);
