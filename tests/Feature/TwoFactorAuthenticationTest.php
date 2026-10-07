@@ -42,6 +42,21 @@ class TwoFactorAuthenticationTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_remember_me_survives_the_two_factor_challenge(): void
+    {
+        $user = User::factory()->create(['password' => bcrypt('password')]);
+        app(TwoFactorAuthenticationService::class)->generateSecret($user);
+        $user->refresh();
+        $this->confirmTwoFactor($user);
+
+        $this->post('/login', ['identifier' => $user->email, 'password' => 'password', 'remember' => true]);
+
+        $code = (new Google2FA)->getCurrentOtp($user->two_factor_secret);
+        $response = $this->post('/two-factor-challenge', ['code' => $code]);
+
+        $response->assertCookie($this->app["auth"]->guard()->getRecallerName());
+    }
+
     public function test_correct_totp_code_completes_login(): void
     {
         $user = User::factory()->create(['password' => bcrypt('password')]);
