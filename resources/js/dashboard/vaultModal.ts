@@ -9,7 +9,7 @@
  */
 import { ref, watch } from 'vue';
 import { isVaultUnlocked } from './vault';
-import { vaultUnlocked } from './useVault';
+import { unlock, vaultUnlocked } from './useVault';
 
 export const vaultModalOpen = ref(false);
 
@@ -82,4 +82,44 @@ function waitForAutoUnlock(): Promise<boolean> {
       resolvers.push(finish);
     }, AUTO_UNLOCK_TIMEOUT_MS);
   });
+}
+
+/**
+ * The master password typed at login/registration, held in this module's
+ * memory only (never storage) until the first page that is actually
+ * authenticated renders — which, with 2FA, is a challenge page or two after
+ * the form that collected it. An unlock attempted straight from the login
+ * form's onSuccess would 401 in that case (not logged in yet) and the
+ * password would be gone by the time the challenge passes.
+ */
+let heldMasterPassword: string | null = null;
+
+export function holdMasterPasswordForUnlock(password: string): void {
+  heldMasterPassword = password;
+  autoUnlockPending.value = true;
+}
+
+export function discardHeldMasterPassword(): void {
+  heldMasterPassword = null;
+  autoUnlockPending.value = false;
+}
+
+/**
+ * Called on every Inertia navigation (app.ts). Guest pages leave the held
+ * password alone only on the 2FA challenge page; anywhere else a guest page
+ * means the login was abandoned or failed, so it's dropped.
+ */
+export function onPageNavigated(page: { component: string; props: Record<string, unknown> }): void {
+  if (heldMasterPassword === null) return;
+
+  const user = (page.props.auth as { user?: unknown } | undefined)?.user;
+
+  if (!user) {
+    if (page.component !== 'Auth/TwoFactorChallenge') discardHeldMasterPassword();
+    return;
+  }
+
+  const password = heldMasterPassword;
+  heldMasterPassword = null;
+  unlock(password).catch(() => {}).finally(() => { autoUnlockPending.value = false; });
 }

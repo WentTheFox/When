@@ -7,6 +7,7 @@ import './icons';
 import { setColorPalette } from './free/color-palette';
 import { setIconPalette } from './free/icon-palette';
 import { setNowColorPresets } from './free/now-color-presets';
+import { onPageNavigated } from './dashboard/vaultModal';
 import { rememberOwnerMarker } from './ownerMarker';
 
 // bootstrap-vue-next ships components, not CSS — resources/css/app.css's own
@@ -69,7 +70,10 @@ createInertiaApp({
     const markerOf = (page: { props: Record<string, unknown> }) =>
       (page.props.flash as { ownerMarker?: string | null } | undefined)?.ownerMarker;
     rememberOwnerMarker(markerOf(props.initialPage));
-    router.on('navigate', (event) => rememberOwnerMarker(markerOf(event.detail.page)));
+    router.on('navigate', (event) => {
+      rememberOwnerMarker(markerOf(event.detail.page));
+      onPageNavigated(event.detail.page);
+    });
 
     // The initial page's own `locale` prop (e.g. /hu/free/{token} sends
     // 'hu') — read synchronously here instead of always booting 'en' and
