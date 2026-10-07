@@ -47,6 +47,9 @@ class AppServiceProvider extends ServiceProvider
         // Unlike the three above, this route requires auth — user-keyed,
         // not IP-keyed. 5/day caps the cost of the heaviest self-service
         // action a caller can trigger (a full account data export).
+        // Pre-auth (the user is only identified by the session's pending
+        // two-factor marker), so IP-keyed like the other guest limiters.
+        RateLimiter::for('two-factor-passkey', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
         RateLimiter::for('account-data-export', fn (Request $request) => Limit::perDay(5)->by($request->user()->id));
     }
 }

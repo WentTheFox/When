@@ -56,7 +56,7 @@ class AuthenticatedSessionController extends Controller
     }
 
     /**
-     * Session login (§0.3) — independent of the vault key. TOTP 2FA is
+     * Session login (§0.3) — independent of the vault key. TOTP/passkey 2FA is
      * orthogonal: it gates *this* login, not access to encrypted data.
      */
     public function store(Request $request): RedirectResponse
@@ -81,7 +81,7 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
-        if ($user->two_factor_confirmed_at !== null) {
+        if ($user->hasTwoFactor()) {
             $request->session()->put(self::TWO_FACTOR_SESSION_KEY, $user->id);
 
             return redirect()->route('two-factor.challenge');

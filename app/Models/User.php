@@ -240,6 +240,27 @@ class User extends Authenticatable
         return $this->hasMany(SleepException::class);
     }
 
+    public function passkeys(): HasMany
+    {
+        return $this->hasMany(Passkey::class);
+    }
+
+    public function hasTotp(): bool
+    {
+        return $this->two_factor_confirmed_at !== null;
+    }
+
+    /**
+     * Whether login is gated by a second factor at all — a confirmed TOTP
+     * secret, a registered passkey, or both. Either alone is enough to
+     * require the challenge; at the challenge itself the user picks
+     * whichever method they have.
+     */
+    public function hasTwoFactor(): bool
+    {
+        return $this->hasTotp() || $this->passkeys()->exists();
+    }
+
     public function availabilityWindows(): HasMany
     {
         return $this->hasMany(AvailabilityWindow::class);

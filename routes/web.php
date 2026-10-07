@@ -15,6 +15,7 @@ use App\Http\Controllers\Dashboard\ConnectionEdgeController;
 use App\Http\Controllers\Dashboard\ConnectionsGraphController;
 use App\Http\Controllers\Dashboard\ConnectionSourceCategoryController;
 use App\Http\Controllers\Dashboard\ConnectionSourceController;
+use App\Http\Controllers\Dashboard\PasskeyController;
 use App\Http\Controllers\Dashboard\SettingsController;
 use App\Http\Controllers\Dashboard\ShareLinkManagementController;
 use App\Http\Controllers\Dashboard\SleepExceptionController;
@@ -101,6 +102,12 @@ Route::middleware('guest')->group(function () {
     Route::get('/two-factor-challenge', [TwoFactorController::class, 'challenge'])
         ->name('two-factor.challenge');
     Route::post('/two-factor-challenge', [TwoFactorController::class, 'verifyChallenge']);
+    Route::middleware('throttle:two-factor-passkey')->group(function () {
+        Route::post('/two-factor-challenge/passkey/options', [TwoFactorController::class, 'passkeyOptions'])
+            ->name('two-factor.passkey.options');
+        Route::post('/two-factor-challenge/passkey', [TwoFactorController::class, 'verifyPasskey'])
+            ->name('two-factor.passkey.verify');
+    });
 });
 
 Route::middleware('auth')->group(function () {
@@ -134,6 +141,15 @@ Route::middleware('auth')->group(function () {
     Route::post('/two-factor/confirm', [TwoFactorController::class, 'confirm'])
         ->name('two-factor.confirm');
     Route::delete('/two-factor', [TwoFactorController::class, 'disable'])->name('two-factor.disable');
+
+    // Both mutating steps re-confirm the master password (ConfirmsPassword) —
+    // see PasskeyController's doc comment.
+    Route::post('/dashboard/account/passkeys/options', [PasskeyController::class, 'options'])
+        ->name('dashboard.account.passkeys.options');
+    Route::post('/dashboard/account/passkeys', [PasskeyController::class, 'store'])
+        ->name('dashboard.account.passkeys.store');
+    Route::delete('/dashboard/account/passkeys/{passkey}', [PasskeyController::class, 'destroy'])
+        ->name('dashboard.account.passkeys.destroy');
 
     Route::get('/invites', [InviteController::class, 'index'])->name('invites.index');
     Route::post('/invites', [InviteController::class, 'store'])->name('invites.store');
