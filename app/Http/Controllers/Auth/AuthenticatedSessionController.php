@@ -17,6 +17,9 @@ class AuthenticatedSessionController extends Controller
 {
     private const TWO_FACTOR_SESSION_KEY = 'auth.two_factor.user_id';
 
+    /** Carries the "Remember me" choice across the 2FA challenge — see TwoFactorController::completeLogin(). */
+    private const TWO_FACTOR_REMEMBER_KEY = 'auth.two_factor.remember';
+
     public function create(): Response
     {
         return Inertia::render('Auth/Login');
@@ -86,6 +89,7 @@ class AuthenticatedSessionController extends Controller
 
         if ($user->hasTwoFactor()) {
             $request->session()->put(self::TWO_FACTOR_SESSION_KEY, $user->id);
+            $request->session()->put(self::TWO_FACTOR_REMEMBER_KEY, $request->boolean('remember'));
 
             return redirect()->route('two-factor.challenge');
         }
