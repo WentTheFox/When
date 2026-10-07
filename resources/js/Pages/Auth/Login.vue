@@ -6,11 +6,8 @@ import { ref } from 'vue';
 import CenteredColumn from '../../Components/CenteredColumn.vue';
 import PasswordField from '../../Components/PasswordField.vue';
 import { deriveLoginVerifier } from '../../crypto';
-import { useVault } from '../../dashboard/useVault';
-import { autoUnlockPending } from '../../dashboard/vaultModal';
+import { discardHeldMasterPassword, holdMasterPasswordForUnlock } from '../../dashboard/vaultModal';
 import PublicLayout from '../../Layouts/PublicLayout.vue';
-
-const { unlock } = useVault();
 
 defineOptions({ layout: PublicLayout });
 
@@ -87,7 +84,7 @@ async function submit(): Promise<void> {
     // onSuccess below, which Inertia only fires *after* that page (and its
     // VaultGate's own requestUnlock() call) has already mounted. See
     // vaultModal.ts's autoUnlockPending doc comment for the full reasoning.
-    autoUnlockPending.value = true;
+    holdMasterPasswordForUnlock(passwordForVault);
 
     form.post('/login', {
       onFinish: () => { submitting.value = false; },
@@ -98,10 +95,7 @@ async function submit(): Promise<void> {
       // a fallback either way; this just skips it on the common path,
       // reusing the master password already in memory from the form
       // submission instead of asking for it a second time right after.
-      onSuccess: () => {
-        unlock(passwordForVault).catch(() => {}).finally(() => { autoUnlockPending.value = false; });
-      },
-      onError: () => { autoUnlockPending.value = false; },
+      onError: () => { discardHeldMasterPassword(); },
     });
   } catch (e) {
     console.error(e);

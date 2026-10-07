@@ -18,6 +18,8 @@ class TwoFactorController extends Controller
 {
     private const SESSION_KEY = 'auth.two_factor.user_id';
 
+    private const REMEMBER_KEY = 'auth.two_factor.remember';
+
     public function __construct(
         private readonly TwoFactorAuthenticationService $twoFactor,
         private readonly PasskeyService $passkeys,
@@ -161,8 +163,9 @@ class TwoFactorController extends Controller
 
     private function completeLogin(Request $request, User $user): RedirectResponse
     {
+        $remember = (bool) $request->session()->pull(self::REMEMBER_KEY, false);
         $request->session()->forget(self::SESSION_KEY);
-        Auth::login($user);
+        Auth::login($user, $remember);
         $request->session()->regenerate();
         $request->session()->flash('ownerMarker', $user->ownerMarker());
 
