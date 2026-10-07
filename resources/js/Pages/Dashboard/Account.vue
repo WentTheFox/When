@@ -2,7 +2,7 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput } from 'bootstrap-vue-next';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { createPasskey, type CreationOptionsJson, isPasskeyCancellation, passkeysSupported } from '../../auth/webauthn';
 import PasswordField from '../../Components/PasswordField.vue';
 import {
@@ -225,8 +225,10 @@ const exportError = ref('');
 // A real browser form submission, not axios/fetch/Inertia — the response is
 // a streamed zip download, and only a genuine navigation gets the browser's
 // native Save/Open handling for that without buffering the whole file in JS
-// memory first.
-const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+// memory first. The token comes from the shared Inertia props, not the
+// <meta> tag, which is only rendered on a full page load and goes stale after
+// a client-side logout/login regenerates the session token.
+const csrfToken = computed(() => page.props.csrfToken);
 
 async function exportData(): Promise<void> {
   exportError.value = '';
