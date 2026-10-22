@@ -17,14 +17,11 @@ ExecStop=/usr/bin/php artisan horizon:terminate
 Restart=always
 RestartSec=3
 
-# Ensure environment variables from .env are available. No quotes — systemd
-# treats EnvironmentFile's value literally, so a quoted path doesn't start
-# with / and gets silently ignored (confirmed: this exact bug, copied from
-# SledgeHammerTime's unit, produced "path is not absolute, ignoring" in
-# `journalctl -u when-horizon.service`). Harmless today only because
-# Laravel's own dotenv loading at artisan boot is independent of systemd's
-# EnvironmentFile mechanism, but the directive itself was dead.
-EnvironmentFile=/var/www/WhenTheFox/.env
+# No EnvironmentFile=: Laravel reads .env itself from WorkingDirectory. systemd
+# would parse it differently (no ${VAR} interpolation) and real environment
+# variables beat dotenv, so Horizon would see a literal "${APP_NAME}" for
+# MAIL_FROM_NAME and VITE_APP_NAME. (A quoted path here was silently ignored,
+# "path is not absolute"; an absolute one loaded those values literally.)
 
 [Install]
 WantedBy=multi-user.target
