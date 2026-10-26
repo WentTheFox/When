@@ -43,7 +43,7 @@
     "free.ownerPreviewClearMarker": "Eigenaarsmarkering wissen",
     "free.personalizedWarning": "Deze link is voor jou gepersonaliseerd. Deel hem niet met anderen.",
     "free.loading": "Laden…",
-    "free.fetchingFirstTime": "De agenda van je vriend wordt voor het eerst opgehaald — dit kan even duren…",
+    "free.fetchingCalendar": "De agenda van je vriend wordt opgehaald — dit kan even duren…",
     "free.unconfigured": "Deze agenda is nog niet ingesteld. Vraag diegene om een agenda-URL toe te voegen in de instellingen.",
     "free.decryptFailed": "Deze agenda kon niet worden ontsleuteld. De link is mogelijk beschadigd.",
     "free.loadFailed": "Deze agenda kon nu niet worden geladen. Probeer het later opnieuw.",

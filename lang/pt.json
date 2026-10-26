@@ -43,7 +43,7 @@
     "free.ownerPreviewClearMarker": "Limpar marcador de proprietário",
     "free.personalizedWarning": "Este link é personalizado para ti. Por favor, não o partilhes com outras pessoas.",
     "free.loading": "A carregar…",
-    "free.fetchingFirstTime": "O calendário do teu amigo está a ser obtido pela primeira vez — isto pode demorar um momento…",
+    "free.fetchingCalendar": "O calendário do teu amigo está a ser obtido — isto pode demorar um momento…",
     "free.unconfigured": "Este calendário ainda não foi configurado. Pede-lhe para adicionar um URL de calendário nas definições.",
     "free.decryptFailed": "Não foi possível desencriptar este calendário. O link pode estar danificado.",
     "free.loadFailed": "Não foi possível carregar este calendário agora. Tenta novamente mais tarde.",

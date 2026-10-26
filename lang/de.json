@@ -43,7 +43,7 @@
     "free.ownerPreviewClearMarker": "Eigentümer-Markierung löschen",
     "free.personalizedWarning": "Dieser Link ist für dich personalisiert. Bitte teile ihn nicht mit anderen.",
     "free.loading": "Wird geladen…",
-    "free.fetchingFirstTime": "Der Kalender deines Freundes wird zum ersten Mal abgerufen — das kann einen Moment dauern…",
+    "free.fetchingCalendar": "Der Kalender deines Freundes wird abgerufen — das kann einen Moment dauern…",
     "free.unconfigured": "Dieser Kalender wurde noch nicht eingerichtet. Bitte sie, in ihren Einstellungen eine Kalender-URL hinzuzufügen.",
     "free.decryptFailed": "Dieser Kalender konnte nicht entschlüsselt werden. Der Link ist möglicherweise fehlerhaft.",
     "free.loadFailed": "Dieser Kalender konnte gerade nicht geladen werden. Bitte versuche es später erneut.",

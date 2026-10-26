@@ -43,7 +43,7 @@
     "free.ownerPreviewClearMarker": "Rensa ägarmarkör",
     "free.personalizedWarning": "Den här länken är personlig för dig. Dela den inte med andra.",
     "free.loading": "Läser in…",
-    "free.fetchingFirstTime": "Din väns kalender hämtas för första gången — det kan ta ett ögonblick…",
+    "free.fetchingCalendar": "Din väns kalender hämtas — det kan ta ett ögonblick…",
     "free.unconfigured": "Den här kalendern har inte ställts in än. Be personen lägga till en kalender-URL i inställningarna.",
     "free.decryptFailed": "Det gick inte att dekryptera den här kalendern. Länken kan vara trasig.",
     "free.loadFailed": "Det gick inte att läsa in den här kalendern just nu. Försök igen senare.",

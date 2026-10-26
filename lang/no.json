@@ -43,7 +43,7 @@
     "free.ownerPreviewClearMarker": "Fjern eiermarkør",
     "free.personalizedWarning": "Denne lenken er personlig for deg. Ikke del den med andre.",
     "free.loading": "Laster inn…",
-    "free.fetchingFirstTime": "Vennen din sin kalender blir hentet for første gang — dette kan ta et øyeblikk…",
+    "free.fetchingCalendar": "Vennen din sin kalender blir hentet — dette kan ta et øyeblikk…",
     "free.unconfigured": "Denne kalenderen er ikke satt opp ennå. Be dem legge til en kalender-URL i innstillingene.",
     "free.decryptFailed": "Denne kalenderen kunne ikke dekrypteres. Lenken kan være ødelagt.",
     "free.loadFailed": "Denne kalenderen kunne ikke lastes inn akkurat nå. Prøv igjen senere.",

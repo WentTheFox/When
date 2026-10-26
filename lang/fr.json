@@ -43,7 +43,7 @@
     "free.ownerPreviewClearMarker": "Effacer le marqueur propriétaire",
     "free.personalizedWarning": "Ce lien t'est personnalisé. Merci de ne pas le partager avec d'autres.",
     "free.loading": "Chargement…",
-    "free.fetchingFirstTime": "Le calendrier de ton ami est récupéré pour la première fois — cela peut prendre un instant…",
+    "free.fetchingCalendar": "Le calendrier de ton ami est récupéré — cela peut prendre un instant…",
     "free.unconfigured": "Ce calendrier n'a pas encore été configuré. Demande-lui d'ajouter une URL de calendrier dans ses paramètres.",
     "free.decryptFailed": "Impossible de déchiffrer ce calendrier. Le lien est peut-être corrompu.",
     "free.loadFailed": "Impossible de charger ce calendrier pour le moment. Merci de réessayer plus tard.",
