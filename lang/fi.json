@@ -43,7 +43,7 @@
     "free.ownerPreviewClearMarker": "Tyhjennä omistajamerkki",
     "free.personalizedWarning": "Tämä linkki on sinulle henkilökohtainen. Älä jaa sitä muiden kanssa.",
     "free.loading": "Ladataan…",
-    "free.fetchingFirstTime": "Ystäväsi kalenteria haetaan ensimmäistä kertaa — tämä voi kestää hetken…",
+    "free.fetchingCalendar": "Ystäväsi kalenteria haetaan — tämä voi kestää hetken…",
     "free.unconfigured": "Tätä kalenteria ei ole vielä otettu käyttöön. Pyydä häntä lisäämään kalenterin URL-osoite asetuksissa.",
     "free.decryptFailed": "Tätä kalenteria ei voitu purkaa. Linkki saattaa olla rikki.",
     "free.loadFailed": "Tätä kalenteria ei voitu ladata juuri nyt. Yritä myöhemmin uudelleen.",

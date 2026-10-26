@@ -43,7 +43,7 @@
     "free.ownerPreviewClearMarker": "Șterge marcajul proprietarului",
     "free.personalizedWarning": "Acest link este personalizat pentru tine. Te rugăm să nu-l distribui altora.",
     "free.loading": "Se încarcă…",
-    "free.fetchingFirstTime": "Calendarul prietenului tău este preluat pentru prima dată — acest lucru poate dura un moment…",
+    "free.fetchingCalendar": "Calendarul prietenului tău este preluat — acest lucru poate dura un moment…",
     "free.unconfigured": "Acest calendar nu a fost încă configurat. Roagă-l să adauge un URL de calendar în setări.",
     "free.decryptFailed": "Acest calendar nu a putut fi decriptat. Linkul ar putea fi deteriorat.",
     "free.loadFailed": "Acest calendar nu a putut fi încărcat acum. Te rugăm să încerci din nou mai târziu.",

@@ -455,7 +455,16 @@ function resolveContentKey(): Promise<CryptoKey> {
   return deriveHighlightTokenKey(props.token!);
 }
 
+/**
+ * A stale 'ready' response means the server has already dispatched a
+ * recompute — keep waiting (up to REFRESH_POLL_TIMEOUT_MS) for the fresh
+ * result instead of rendering old data, then fall back to the stale one if
+ * the recompute never lands (e.g. the owner's feed is down).
+ */
 async function fetchWithPolling(): Promise<ApiResponse> {
+  const staleDeadline = Date.now() + REFRESH_POLL_TIMEOUT_MS;
+  let lastStale: ApiResponse | null = null;
+
   for (; ;) {
     const res = await fetch(`/api/share/${encodeURIComponent(props.token!)}`, {
       headers: { Accept: 'application/json' },
@@ -472,14 +481,24 @@ async function fetchWithPolling(): Promise<ApiResponse> {
     const data: ApiResponse = await res.json();
 
     if (data.status === 'ready') {
-      return data;
+      if (!data.stale) {
+        return data;
+      }
+
+      lastStale = data;
+      if (Date.now() >= staleDeadline) {
+        return lastStale;
+      }
+
+      await new Promise((r) => setTimeout(r, REFRESH_POLL_INTERVAL_MS));
+      continue;
     }
 
     if (data.status === 'unconfigured') {
       throw new CalendarUnconfiguredError();
     }
 
-    statusText.value = trans('free.fetchingFirstTime');
+    statusText.value = trans('free.fetchingCalendar');
     await new Promise((r) => setTimeout(r, 2000));
   }
 }
@@ -586,6 +605,32 @@ const REFRESH_POLL_TIMEOUT_MS = 60_000;
 const REFRESH_POLL_INTERVAL_MS = 2_000;
 
 /**
+ * Polls the ordinary GET endpoint until a non-stale result lands (the
+ * recompute dispatched by show() or refresh() finished), applying it in
+ * place. Returns false if REFRESH_POLL_TIMEOUT_MS elapses first.
+ */
+async function pollUntilFresh(): Promise<boolean> {
+  const deadline = Date.now() + REFRESH_POLL_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, REFRESH_POLL_INTERVAL_MS));
+
+    const res = await fetch(`/api/share/${encodeURIComponent(props.token!)}`, {
+      headers: { Accept: 'application/json' },
+    });
+
+    if (res.ok) {
+      const data: ApiResponse = await res.json();
+      if (data.status === 'ready' && !data.stale) {
+        await applyReadyResponse(data);
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
  * Lets the owner force a recompute from their own preview instead of
  * waiting out the server's cache TTL — e.g. right after adding a calendar
  * event they want to see reflected immediately. The server itself rejects
@@ -616,22 +661,7 @@ async function forceRefresh(): Promise<void> {
       return;
     }
 
-    const deadline = Date.now() + REFRESH_POLL_TIMEOUT_MS;
-    while (Date.now() < deadline) {
-      const res = await fetch(`/api/share/${encodeURIComponent(props.token)}`, {
-        headers: { Accept: 'application/json' },
-      });
-
-      if (res.ok) {
-        const data: ApiResponse = await res.json();
-        if (data.status === 'ready' && !data.stale) {
-          await applyReadyResponse(data);
-          return;
-        }
-      }
-
-      await new Promise((r) => setTimeout(r, REFRESH_POLL_INTERVAL_MS));
-    }
+    if (await pollUntilFresh()) return;
 
     refreshMessage.value = trans('free.refreshTimedOut');
   } catch (error) {

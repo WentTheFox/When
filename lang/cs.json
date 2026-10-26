@@ -43,7 +43,7 @@
     "free.ownerPreviewClearMarker": "Smazat značku vlastníka",
     "free.personalizedWarning": "Tento odkaz je pro tebe personalizovaný. Nesdílej ho prosím s ostatními.",
     "free.loading": "Načítání…",
-    "free.fetchingFirstTime": "Kalendář tvého přítele se načítá poprvé — může to chvíli trvat…",
+    "free.fetchingCalendar": "Kalendář tvého přítele se načítá — může to chvíli trvat…",
     "free.unconfigured": "Tento kalendář ještě nebyl nastaven. Požádej ho, aby v nastavení přidal URL kalendáře.",
     "free.decryptFailed": "Tento kalendář se nepodařilo dešifrovat. Odkaz může být poškozený.",
     "free.loadFailed": "Tento kalendář se teď nepodařilo načíst. Zkus to prosím později znovu.",
