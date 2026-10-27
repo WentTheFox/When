@@ -33,7 +33,7 @@ export interface EventSlot {
   activity_icon?: string | null;
   /** Same idea as activity_icon above, but the matched role's own color_key (App\Support\ColorSwatchKey). Resolve with resolveSwatchHex(); null/absent means "use the regular highlighted/public color." */
   activity_color?: string | null;
-  /** Set on an unavailable slot that comes entirely from one recurring series, unless the share link hides recurrence. */
+  /** Set on an unavailable/public/highlighted slot that comes entirely from one recurring series, unless the share link hides recurrence. */
   recurrence?: Recurrence | null;
 }
 

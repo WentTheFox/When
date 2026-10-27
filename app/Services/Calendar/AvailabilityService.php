@@ -108,6 +108,7 @@ class AvailabilityService
                     'summary' => $publicActivity,
                     'icon' => $publicRole['icon'] ?? null,
                     'color' => $publicRole['color'] ?? null,
+                    'recurrence' => $showRecurring ? $event->recurrence : null,
                 ];
             }
 
@@ -143,6 +144,7 @@ class AvailabilityService
                     highlightWords: $highlightMatch->words,
                     activityIcon: $highlightMatch->activityIcon,
                     activityColor: $highlightMatch->activityColor,
+                    recurrence: $showRecurring ? $event->recurrence : null,
                 );
             }
         }
@@ -188,7 +190,7 @@ class AvailabilityService
         return new AvailabilityResult(events: [
             ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'free'), $free),
             ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'unavailable', tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd'], recurrence: $s['recurrence'] ?? null), $unavailable),
-            ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'public', tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd'], activity: $s['summary'], activityIcon: $s['icon'], activityColor: $s['color']), $public),
+            ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'public', tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd'], activity: $s['summary'], activityIcon: $s['icon'], activityColor: $s['color'], recurrence: $s['recurrence'] ?? null), $public),
             ...$highlighted,
             ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'sleep'), $sleepIntervals),
         ]);
