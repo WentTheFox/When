@@ -33,7 +33,7 @@ final class AvailabilitySlot
         /** Same idea as activityIcon above, but the matched role's own color_key. Null means "use the regular highlighted/public color." */
         public readonly ?string $activityColor = null,
         /**
-         * Repeat rule (unit day|week|month|year, interval) when this unavailable slot comes entirely from one recurring series — null otherwise, and always null when the share link hides recurrence. Only ever set for an unavailable slot.
+         * Repeat rule (unit day|week|month|year, interval) when this unavailable, public or highlighted slot comes entirely from one recurring series — null otherwise, and always null when the share link hides recurrence. Never set for free/sleep.
          *
          * @var array{unit: string, interval: int}|null
          */

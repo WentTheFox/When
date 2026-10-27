@@ -425,6 +425,21 @@ class AvailabilityServiceTest extends TestCase
         $this->assertNotNull($slots[0]->recurrence);
     }
 
+    public function test_public_and_highlighted_slots_carry_the_recurrence(): void
+    {
+        $weekly = ['unit' => 'week', 'interval' => 1];
+        $result = $this->compute(
+            events: [
+                $this->event('p1', '2026-06-02 09:00', '2026-06-02 17:00', 'Work', isPublicEventTitle: true, recurrence: $weekly),
+                $this->event('h1', '2026-06-03 12:00', '2026-06-03 13:00', 'Coffee with Alice', recurrence: $weekly),
+            ],
+            highlightWords: ['Alice'],
+        );
+
+        $this->assertSame($weekly, $this->eventsOfType($result, 'public')[0]->recurrence);
+        $this->assertSame($weekly, $this->eventsOfType($result, 'highlighted')[0]->recurrence);
+    }
+
     public function test_show_recurring_false_hides_the_rule_and_merges_as_before(): void
     {
         $result = $this->compute(events: [
