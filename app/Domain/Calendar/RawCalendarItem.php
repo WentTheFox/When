@@ -25,5 +25,14 @@ final class RawCalendarItem
         public readonly bool $tentativeEnd = false,
         /** Title matched IcsParser's public-event marker pattern — already stripped out of $summary above by the time this is set. */
         public readonly bool $isPublicEventTitle = false,
+        /**
+         * The repeat rule of the series this occurrence belongs to — unit is one of day|week|month|year, interval
+         * the RRULE's INTERVAL (default 1). Null for a one-off event, a VFREEBUSY period, or a series with no
+         * RRULE-expressible frequency (RDATE-only, sub-daily). Has to be read off the master VEVENT before
+         * expansion, since expanded instances no longer carry their RRULE.
+         *
+         * @var array{unit: string, interval: int}|null
+         */
+        public readonly ?array $recurrence = null,
     ) {}
 }

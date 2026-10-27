@@ -44,6 +44,12 @@ final class ParsedEvent
          * from $summary, so there's nothing left here to match against.
          */
         public readonly bool $isPublicEventTitle = false,
+        /**
+         * Repeat rule of the series this occurrence belongs to — see RawCalendarItem::$recurrence.
+         *
+         * @var array{unit: string, interval: int}|null
+         */
+        public readonly ?array $recurrence = null,
     ) {}
 
     /**

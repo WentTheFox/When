@@ -14,6 +14,7 @@ export interface ShareLinkRow {
   archived: boolean;
   bypass_dnd: boolean;
   show_activity: boolean;
+  show_recurring: boolean;
   highlight_token: string | null;
   connection_id: string | null;
   highlight_words: string[];
@@ -34,6 +35,7 @@ const label = ref('');
 const editLabel = ref('');
 const editBypassDnd = ref(props.link.bypass_dnd);
 const editShowActivity = ref(props.link.show_activity);
+const editShowRecurring = ref(props.link.show_recurring);
 const editWords = ref(props.link.highlight_words.join('\n'));
 
 // Populated once the vault unlocks — both this card's own connection
@@ -222,6 +224,7 @@ async function save(): Promise<void> {
       label_ciphertext: labelCiphertext,
       bypass_dnd: editBypassDnd.value,
       show_activity: editShowActivity.value,
+      show_recurring: editShowRecurring.value,
       highlight_words: editWords.value.split('\n').map((w) => w.trim()).filter(Boolean),
     });
 
@@ -330,6 +333,9 @@ async function remove(): Promise<void> {
       <BFormCheckbox :id="`bypass-${link.id}`" v-model="editBypassDnd" class="mb-2">Bypass DND for this link</BFormCheckbox>
       <BFormCheckbox :id="`show-activity-${link.id}`" v-model="editShowActivity" class="mb-2">
         Show the activity name (e.g. "Dinner") on highlighted events, not just who it's with
+      </BFormCheckbox>
+      <BFormCheckbox :id="`show-recurring-${link.id}`" v-model="editShowRecurring" class="mb-2">
+        Mark recurring events as recurring and show how often they repeat (e.g. "Every week"), even when their details stay hidden
       </BFormCheckbox>
       <BFormGroup label="Highlight words (one per line)" class="mb-3">
         <BFormTextarea v-model="editWords" size="sm" :rows="Math.max(2, editWords.split('\n').length)" />

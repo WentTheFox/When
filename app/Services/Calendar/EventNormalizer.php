@@ -37,6 +37,7 @@ class EventNormalizer
                 tentativeStart: $item->tentativeStart,
                 tentativeEnd: $item->tentativeEnd,
                 isPublicEventTitle: $item->isPublicEventTitle,
+                recurrence: $item->recurrence,
             ),
             $items,
         );
