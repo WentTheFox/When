@@ -49,6 +49,7 @@ class AvailabilityService
         bool $showActivity = true,
         ?string $highlightSplitPattern = null,
         array $activityLocalizations = [],
+        bool $showRecurring = true,
     ): AvailabilityResult {
         $napIntervals = [];
         $busyIntervals = [];
@@ -62,7 +63,7 @@ class AvailabilityService
             }
 
             $busyIntervals[] = ['start' => $event->start, 'end' => $event->end];
-            $unavailable[] = ['start' => $event->start, 'end' => $event->end, 'tentativeStart' => $event->tentativeStart, 'tentativeEnd' => $event->tentativeEnd];
+            $unavailable[] = ['start' => $event->start, 'end' => $event->end, 'tentativeStart' => $event->tentativeStart, 'tentativeEnd' => $event->tentativeEnd, 'recurrence' => $showRecurring ? $event->recurrence : null];
 
             if ($event->matchesEventNamePattern($napEventPattern)) {
                 $napIntervals[] = ['start' => $event->start, 'end' => $event->end];
@@ -154,7 +155,7 @@ class AvailabilityService
         $napIntervals = $this->mergeIntervals($napIntervals);
 
         $unavailable = $this->subtractSleepFromEvents($unavailable, $napIntervals);
-        $unavailable = $this->mergeEventSegments($unavailable);
+        $unavailable = $this->mergeUnavailableSegments($unavailable);
 
         // No mergeEventSegments pass here, unlike unavailable above — that
         // method's cross-event merging discards everything but start/end/
@@ -186,7 +187,7 @@ class AvailabilityService
 
         return new AvailabilityResult(events: [
             ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'free'), $free),
-            ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'unavailable', tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd']), $unavailable),
+            ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'unavailable', tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd'], recurrence: $s['recurrence'] ?? null), $unavailable),
             ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'public', tentativeStart: $s['tentativeStart'], tentativeEnd: $s['tentativeEnd'], activity: $s['summary'], activityIcon: $s['icon'], activityColor: $s['color']), $public),
             ...$highlighted,
             ...array_map(fn ($s) => new AvailabilitySlot($s['start'], $s['end'], type: 'sleep'), $sleepIntervals),
@@ -439,6 +440,48 @@ class AvailabilityService
         usort($segments, fn ($a, $b) => $a['start']->getTimestamp() <=> $b['start']->getTimestamp());
 
         return $segments;
+    }
+
+    /**
+     * Runs {@see mergeEventSegments()} separately for one-off events and for
+     * each distinct repeat rule, so a recurring segment is never merged into
+     * (and its rule lost to) a neighboring one-off or a differently-repeating
+     * event. Recurring segments are then carved around the one-off ones, so
+     * `unavailable` slots still never overlap each other. Edge case: a
+     * one-off event overlapping a recurring one takes the whole overlap,
+     * including its tentative flags.
+     *
+     * @param  array{start: CarbonImmutable, end: CarbonImmutable, tentativeStart: bool, tentativeEnd: bool, recurrence?: ?array{unit: string, interval: int}}[]  $segments
+     * @return array{start: CarbonImmutable, end: CarbonImmutable, tentativeStart: bool, tentativeEnd: bool, recurrence: ?array{unit: string, interval: int}}[]
+     */
+    private function mergeUnavailableSegments(array $segments): array
+    {
+        $oneOff = [];
+        $groups = [];
+
+        foreach ($segments as $segment) {
+            $rule = $segment['recurrence'] ?? null;
+
+            if ($rule === null) {
+                $oneOff[] = $segment;
+            } else {
+                $groups[$rule['unit'].'|'.str_pad((string) $rule['interval'], 4, '0', STR_PAD_LEFT)][] = $segment;
+            }
+        }
+
+        $result = array_map(fn ($s) => [...$s, 'recurrence' => null], $this->mergeEventSegments($oneOff));
+        ksort($groups);
+
+        foreach ($groups as $group) {
+            $rule = $group[0]['recurrence'];
+            $merged = $this->subtractSleepFromEvents($this->mergeEventSegments($group), $result);
+
+            array_push($result, ...array_map(fn ($s) => [...$s, 'recurrence' => $rule], $merged));
+        }
+
+        usort($result, fn ($a, $b) => $a['start']->getTimestamp() <=> $b['start']->getTimestamp());
+
+        return $result;
     }
 
     /**

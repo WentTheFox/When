@@ -13,6 +13,7 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { computed } from 'vue';
 import { currentLocale } from 'laravel-vue-i18n';
+import { recurrenceText } from './recurrence';
 import { getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay } from './nuxt-blocks';
 import type { DayBlock, EventSlot } from './nuxt-blocks';
 import { activityColorStyle as activityColorStyleFor, tentativeFadeStyle } from './blockColors';
@@ -241,6 +242,7 @@ const weekRows = computed(() => {
                   class="wtf-fmonth-avail-block"
                   :class="[AVAIL_BLOCK_CLASS[block.type], { 'wtf-fmonth-avail-block-tentative': isTentativeStartDisplay(block) || isTentativeEndDisplay(block) }]"
                   :style="{ '--flex': block.heightPct, ...fadeStyle(cell, i), ...activityColorStyle(block) }"
+                  :title="block.recurrence ? `${$t('free.recurring')}: ${recurrenceText(block.recurrence)}` : undefined"
                 >
                   <div
                     v-if="i === cell.currentBlockIndex"

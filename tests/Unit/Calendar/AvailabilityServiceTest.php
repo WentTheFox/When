@@ -45,6 +45,7 @@ class AvailabilityServiceTest extends TestCase
         bool $tentativeStart = false,
         bool $tentativeEnd = false,
         bool $isPublicEventTitle = false,
+        ?array $recurrence = null,
     ): ParsedEvent {
         return new ParsedEvent(
             uid: $uid,
@@ -57,6 +58,7 @@ class AvailabilityServiceTest extends TestCase
             tentativeStart: $tentativeStart,
             tentativeEnd: $tentativeEnd,
             isPublicEventTitle: $isPublicEventTitle,
+            recurrence: $recurrence,
         );
     }
 
@@ -71,6 +73,7 @@ class AvailabilityServiceTest extends TestCase
         bool $showActivity = true,
         ?string $activityClausePattern = null,
         array $activityLocalizations = [],
+        bool $showRecurring = true,
     ): AvailabilityResult {
         return $this->service->compute(
             $events,
@@ -85,6 +88,7 @@ class AvailabilityServiceTest extends TestCase
             activityClausePattern: $activityClausePattern,
             showActivity: $showActivity,
             activityLocalizations: $activityLocalizations,
+            showRecurring: $showRecurring,
         );
     }
 
@@ -385,6 +389,53 @@ class AvailabilityServiceTest extends TestCase
         );
 
         $this->assertSame('Coffee', $this->eventsOfType($result, 'highlighted')[0]->activity);
+    }
+
+    public function test_recurring_unavailable_slots_keep_their_rule_and_are_not_merged_with_one_off_neighbors(): void
+    {
+        $weekly = ['unit' => 'week', 'interval' => 1];
+        $result = $this->compute(events: [
+            $this->event('r1', '2026-06-02 09:00', '2026-06-02 10:00', recurrence: $weekly),
+            $this->event('o1', '2026-06-02 10:00', '2026-06-02 11:00'),
+            $this->event('r2', '2026-06-03 09:00', '2026-06-03 10:00', recurrence: ['unit' => 'week', 'interval' => 2]),
+        ]);
+
+        $slots = $this->eventsOfType($result, 'unavailable');
+
+        $this->assertCount(3, $slots);
+        $this->assertSame($weekly, $slots[0]->recurrence);
+        $this->assertNull($slots[1]->recurrence);
+        $this->assertSame(['unit' => 'week', 'interval' => 2], $slots[2]->recurrence);
+        $this->assertSame($weekly, $slots[0]->toArray()['recurrence']);
+    }
+
+    public function test_a_one_off_event_takes_an_overlap_with_a_recurring_one(): void
+    {
+        $result = $this->compute(events: [
+            $this->event('r1', '2026-06-02 09:00', '2026-06-02 11:00', recurrence: ['unit' => 'day', 'interval' => 1]),
+            $this->event('o1', '2026-06-02 10:00', '2026-06-02 12:00'),
+        ]);
+
+        $slots = $this->eventsOfType($result, 'unavailable');
+
+        $this->assertCount(2, $slots);
+        $this->assertSame('2026-06-02T10:00:00+00:00', $slots[1]->start->toIso8601String());
+        $this->assertNull($slots[1]->recurrence);
+        $this->assertSame('2026-06-02T10:00:00+00:00', $slots[0]->end->toIso8601String());
+        $this->assertNotNull($slots[0]->recurrence);
+    }
+
+    public function test_show_recurring_false_hides_the_rule_and_merges_as_before(): void
+    {
+        $result = $this->compute(events: [
+            $this->event('r1', '2026-06-02 09:00', '2026-06-02 10:00', recurrence: ['unit' => 'week', 'interval' => 1]),
+            $this->event('o1', '2026-06-02 10:00', '2026-06-02 11:00'),
+        ], showRecurring: false);
+
+        $slots = $this->eventsOfType($result, 'unavailable');
+
+        $this->assertCount(1, $slots);
+        $this->assertNull($slots[0]->recurrence);
     }
 
     public function test_show_activity_false_suppresses_the_activity_field(): void

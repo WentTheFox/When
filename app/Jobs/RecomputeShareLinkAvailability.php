@@ -172,6 +172,7 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
             showActivity: $shareLink->show_activity,
             highlightSplitPattern: $user->highlight_split_pattern,
             activityLocalizations: $activityLocalizations,
+            showRecurring: $shareLink->show_recurring,
         );
 
         $timer->lap('compute_availability', array_merge(

@@ -426,4 +426,31 @@ class IcsParserTest extends TestCase
         $this->assertTrue($event->tentativeEnd);
         $this->assertTrue($event->isPublicEventTitle);
     }
+
+    public function test_expanded_occurrences_of_a_recurring_event_carry_the_series_rule(): void
+    {
+        $ics = implode("\r\n", [
+            'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//test//EN',
+            'BEGIN:VEVENT', 'UID:weekly@test', 'DTSTAMP:20260101T000000Z', 'DTSTART:20260601T090000Z', 'DTEND:20260601T100000Z',
+            'RRULE:FREQ=WEEKLY;INTERVAL=2;COUNT=3', 'SUMMARY:Standup', 'END:VEVENT',
+            'BEGIN:VEVENT', 'UID:hourly@test', 'DTSTAMP:20260101T000000Z', 'DTSTART:20260601T120000Z', 'DTEND:20260601T130000Z',
+            'RRULE:FREQ=HOURLY;COUNT=2', 'SUMMARY:Sub-daily', 'END:VEVENT',
+            'BEGIN:VEVENT', 'UID:once@test', 'DTSTAMP:20260101T000000Z', 'DTSTART:20260602T090000Z', 'DTEND:20260602T100000Z',
+            'SUMMARY:One-off', 'END:VEVENT',
+            'END:VCALENDAR', '',
+        ]);
+
+        $items = $this->parser->parse($ics, CarbonImmutable::parse('2026-06-01', 'UTC'), CarbonImmutable::parse('2026-07-01', 'UTC'));
+        $bySummary = [];
+        foreach ($items as $item) {
+            $bySummary[$item->summary][] = $item;
+        }
+
+        $this->assertCount(3, $bySummary['Standup']);
+        foreach ($bySummary['Standup'] as $item) {
+            $this->assertSame(['unit' => 'week', 'interval' => 2], $item->recurrence);
+        }
+        $this->assertNull($bySummary['Sub-daily'][0]->recurrence);
+        $this->assertNull($bySummary['One-off'][0]->recurrence);
+    }
 }

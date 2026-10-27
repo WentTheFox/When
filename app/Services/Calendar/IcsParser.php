@@ -103,6 +103,7 @@ class IcsParser
         // use RRULE-based recurrence anyway (just literal period lists), so
         // it's read from the original, unexpanded calendar.
         $vfreebusyComponents = $calendar->select('VFREEBUSY');
+        $recurrenceByUid = $this->recurrenceByUid($calendar);
         $expandedCalendar = $calendar->expand($rangeStart->toDateTime(), $rangeEnd->toDateTime());
 
         $items = [];
@@ -110,7 +111,7 @@ class IcsParser
         $applyTitlePatterns = $parsingMode !== 'free_busy_only';
 
         foreach ($expandedCalendar->select('VEVENT') as $vevent) {
-            $item = $this->parseVEvent($vevent, $tentativeTitlePattern, $openEndTitlePattern, $openStartTitlePattern, $publicEventTitlePattern, $applyTitlePatterns);
+            $item = $this->parseVEvent($vevent, $tentativeTitlePattern, $openEndTitlePattern, $openStartTitlePattern, $publicEventTitlePattern, $applyTitlePatterns, $recurrenceByUid);
 
             if ($item !== null && $item->end > $rangeStart && $item->start < $rangeEnd) {
                 $items[] = $item;
@@ -135,6 +136,7 @@ class IcsParser
         ?string $openStartTitlePattern,
         ?string $publicEventTitlePattern,
         bool $applyTitlePatterns,
+        array $recurrenceByUid = [],
     ): ?RawCalendarItem {
         if (! isset($vevent->DTSTART)) {
             return null;
@@ -170,7 +172,41 @@ class IcsParser
             tentativeStart: $isTentativeStatus || $flags['tentative'] || $flags['openStart'],
             tentativeEnd: $isTentativeStatus || $flags['tentative'] || $flags['openEnd'],
             isPublicEventTitle: $flags['public'],
+            recurrence: isset($vevent->UID) ? ($recurrenceByUid[(string) $vevent->UID] ?? null) : null,
         );
+    }
+
+    /**
+     * Maps each recurring series' UID to its repeat rule, read from the
+     * master VEVENTs of the original (unexpanded) calendar — the expanded
+     * instances parseVEvent() sees have lost their RRULE. A moved/edited
+     * single occurrence shares its master's UID, so it stays recurring.
+     * Sub-daily frequencies have no unit worth showing a viewer and are
+     * left out.
+     *
+     * @return array<string, array{unit: string, interval: int}>
+     */
+    private function recurrenceByUid(VCalendar $calendar): array
+    {
+        $units = ['DAILY' => 'day', 'WEEKLY' => 'week', 'MONTHLY' => 'month', 'YEARLY' => 'year'];
+        $map = [];
+
+        foreach ($calendar->select('VEVENT') as $vevent) {
+            if (! isset($vevent->RRULE, $vevent->UID) || isset($vevent->{'RECURRENCE-ID'})) {
+                continue;
+            }
+
+            $parts = $vevent->RRULE->getParts();
+            $unit = $units[strtoupper((string) ($parts['FREQ'] ?? ''))] ?? null;
+
+            if ($unit === null) {
+                continue;
+            }
+
+            $map[(string) $vevent->UID] = ['unit' => $unit, 'interval' => max(1, (int) ($parts['INTERVAL'] ?? 1))];
+        }
+
+        return $map;
     }
 
     /**

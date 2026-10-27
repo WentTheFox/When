@@ -20,10 +20,11 @@ import { format } from 'date-fns';
 import { resolveDateFnsLocale } from './dateFnsLocale';
 import { TZDate } from '@date-fns/tz';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { faRepeat, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import { computed } from 'vue';
 import { currentLocale, trans } from 'laravel-vue-i18n';
+import { recurrenceText } from './recurrence';
 import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, isTentativeSuffixShown, tildeTime } from './nuxt-blocks';
 import type { DayBlock, EventSlot } from './nuxt-blocks';
 import { resolveLocalizedText } from './localizedText';
@@ -243,7 +244,7 @@ function formatDay(day: Date, fmt: string): string {
                 :style="{ top: `${block.topPct}%`, height: `${block.heightPct}%`, ...fadeStyle(day, blocks, i), ...activityColorStyle(block) }"
               >
                 <span v-fit-text class="wtf-fcal-block-label">
-                  <strong><FontAwesomeIcon :icon="iconFor(block)" class="wtf-fcal-block-label-icon me-1" />{{ blockLabel(block) }}{{ isTentativeSuffixShown(block) ? $t('free.tentativeSuffix') : '' }}</strong><span class="wtf-fcal-block-label-time">{{ blockTimeText(block) }}</span>
+                  <strong><FontAwesomeIcon :icon="iconFor(block)" class="wtf-fcal-block-label-icon me-1" />{{ blockLabel(block) }}{{ isTentativeSuffixShown(block) ? $t('free.tentativeSuffix') : '' }}</strong><span class="wtf-fcal-block-label-time">{{ blockTimeText(block) }}</span><span v-if="block.recurrence" class="wtf-fcal-block-label-time wtf-recurrence" :title="$t('free.recurring')"><FontAwesomeIcon :icon="faRepeat" class="me-1" />{{ recurrenceText(block.recurrence) }}</span>
                 </span>
               </div>
             </template>

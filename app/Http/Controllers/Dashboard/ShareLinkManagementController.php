@@ -66,6 +66,7 @@ class ShareLinkManagementController extends Controller
             'archived' => $shareLink->archived,
             'bypass_dnd' => $shareLink->bypass_dnd,
             'show_activity' => $shareLink->show_activity,
+            'show_recurring' => $shareLink->show_recurring,
             'highlight_token' => $shareLink->highlight_token,
             'connection_id' => $shareLink->connection?->id,
             'highlight_words' => $shareLink->words->map(
@@ -94,6 +95,7 @@ class ShareLinkManagementController extends Controller
             'label_ciphertext' => ['nullable', 'string'],
             'bypass_dnd' => ['nullable', 'boolean'],
             'show_activity' => ['nullable', 'boolean'],
+            'show_recurring' => ['nullable', 'boolean'],
         ]);
 
         $shareLink = $request->user()->shareLinks()->create([
@@ -102,6 +104,7 @@ class ShareLinkManagementController extends Controller
             'label_ciphertext' => $data['label_ciphertext'] ?? null,
             'bypass_dnd' => $data['bypass_dnd'] ?? false,
             'show_activity' => $data['show_activity'] ?? true,
+            'show_recurring' => $data['show_recurring'] ?? true,
         ]);
 
         return response()->json($this->serializeForOwner($shareLink), 201);
@@ -115,6 +118,7 @@ class ShareLinkManagementController extends Controller
             'label_ciphertext' => ['nullable', 'string'],
             'bypass_dnd' => ['nullable', 'boolean'],
             'show_activity' => ['nullable', 'boolean'],
+            'show_recurring' => ['nullable', 'boolean'],
             'archived' => ['nullable', 'boolean'],
             'highlight_words' => ['nullable', 'array'],
             'highlight_words.*' => ['string'],
@@ -133,6 +137,7 @@ class ShareLinkManagementController extends Controller
                 'label_ciphertext' => $data['label_ciphertext'] ?? null,
                 'bypass_dnd' => $data['bypass_dnd'] ?? null,
                 'show_activity' => $data['show_activity'] ?? null,
+                'show_recurring' => $data['show_recurring'] ?? null,
                 'archived' => $data['archived'] ?? null,
             ], fn ($value) => $value !== null))->save();
 
@@ -204,6 +209,7 @@ class ShareLinkManagementController extends Controller
                 'label_ciphertext' => $shareLink->label_ciphertext,
                 'bypass_dnd' => $shareLink->bypass_dnd,
                 'show_activity' => $shareLink->show_activity,
+                'show_recurring' => $shareLink->show_recurring,
                 'highlight_words' => $shareLink->words->map(
                     fn (ShareLinkWord $word) => Crypt::decryptString($word->word_ciphertext),
                 )->all(),
@@ -220,6 +226,7 @@ class ShareLinkManagementController extends Controller
             'share_links.*.label_ciphertext' => ['nullable', 'string'],
             'share_links.*.bypass_dnd' => ['nullable', 'boolean'],
             'share_links.*.show_activity' => ['nullable', 'boolean'],
+            'share_links.*.show_recurring' => ['nullable', 'boolean'],
             'share_links.*.highlight_words' => ['nullable', 'array'],
             'share_links.*.highlight_words.*' => ['string'],
         ]);

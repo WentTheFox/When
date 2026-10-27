@@ -262,7 +262,7 @@ class AccountExportService
             'tier' => 'e2ee',
             'note' => 'label_ciphertext is e2ee (key_ring_id below). Every other field on a share link is plaintext.',
             'records' => $user->shareLinks()
-                ->get(['id', 'highlight_token', 'label_ciphertext', 'archived', 'bypass_dnd', 'show_activity', 'created_at'])
+                ->get(['id', 'highlight_token', 'label_ciphertext', 'archived', 'bypass_dnd', 'show_activity', 'show_recurring', 'created_at'])
                 ->map(fn ($link) => [
                     'id' => $link->id,
                     'highlight_token' => $link->highlight_token,
@@ -271,6 +271,7 @@ class AccountExportService
                     'archived' => $link->archived,
                     'bypass_dnd' => $link->bypass_dnd,
                     'show_activity' => $link->show_activity,
+                    'show_recurring' => $link->show_recurring,
                     'created_at' => $link->created_at,
                 ])->all(),
         ];

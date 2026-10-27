@@ -13,6 +13,7 @@ import { format, parseISO } from 'date-fns';
 import { TZDate } from '@date-fns/tz';
 import { huFromSuffix } from './hu-time-suffix';
 import type { LocalizedText } from './localizedText';
+import type { Recurrence } from './recurrence';
 
 export type EventType = 'free' | 'unavailable' | 'highlighted' | 'work' | 'school' | 'public' | 'sleep';
 
@@ -32,6 +33,8 @@ export interface EventSlot {
   activity_icon?: string | null;
   /** Same idea as activity_icon above, but the matched role's own color_key (App\Support\ColorSwatchKey). Resolve with resolveSwatchHex(); null/absent means "use the regular highlighted/public color." */
   activity_color?: string | null;
+  /** Set on an unavailable slot that comes entirely from one recurring series, unless the share link hides recurrence. */
+  recurrence?: Recurrence | null;
 }
 
 export interface AvailabilityResponse {
@@ -54,6 +57,7 @@ export interface DayBlock {
   highlightWords?: string[];
   activityIcon?: string | null;
   activityColor?: string | null;
+  recurrence?: Recurrence | null;
 }
 
 export function tildeTime(time: string, tentative?: boolean): string {
@@ -200,6 +204,7 @@ function slotsToBlocks(
       highlightWords: slot.highlight_words,
       activityIcon: slot.activity_icon,
       activityColor: slot.activity_color,
+      recurrence: slot.recurrence,
     }];
   });
 }
@@ -217,7 +222,7 @@ function mergeOverlappingBlocks(blocks: DayBlock[]): DayBlock[] {
 
   const groups = new Map<string, DayBlock[]>();
   for (const block of blocks) {
-    const key = `${block.type}|${block.tentativeStart ? '1' : '0'}${block.tentativeEnd ? '1' : '0'}|${block.activity ?? ''}|${(block.highlightWords ?? []).join(',')}|${block.activityIcon ?? ''}|${block.activityColor ?? ''}|${block.hardStart ? '1' : '0'}${block.hardEnd ? '1' : '0'}`;
+    const key = `${block.type}|${block.tentativeStart ? '1' : '0'}${block.tentativeEnd ? '1' : '0'}|${block.activity ?? ''}|${(block.highlightWords ?? []).join(',')}|${block.activityIcon ?? ''}|${block.activityColor ?? ''}|${block.recurrence ? `${block.recurrence.unit}${block.recurrence.interval}` : ''}|${block.hardStart ? '1' : '0'}${block.hardEnd ? '1' : '0'}`;
     const group = groups.get(key);
     if (group) group.push(block);
     else groups.set(key, [block]);
