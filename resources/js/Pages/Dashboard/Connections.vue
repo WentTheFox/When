@@ -218,6 +218,58 @@ function onConnectionUpdated(updated: ConnectionRow): void {
 function onConnectionDeleted(id: string): void {
   connections.value = connections.value.filter((c) => c.id !== id);
   if (selectedConnectionId.value === id) selectedConnectionId.value = null;
+  void clearOrphanedReferences();
+}
+
+/**
+ * 'connection'-type values hold the target's id inside E2EE ciphertext, so the
+ * server can't foreign-key or cascade them. This is the client-side stand-in:
+ * decrypt every such value, and for those pointing at a connection that no
+ * longer exists, ask the server to drop that row. Runs after every delete and
+ * on demand; idempotent. Rendering also tolerates orphans, so a failure here
+ * only leaves a "(deleted connection)" label behind.
+ */
+async function clearOrphanedReferences(): Promise<number> {
+  const liveIds = new Set(connections.value.map((c) => c.id));
+  let cleared = 0;
+  for (const definition of definitions.value.filter((d) => d.type === 'connection')) {
+    const orphaned: string[] = [];
+    for (const connection of connections.value) {
+      const row = connection.attribute_values.find((v) => v.attribute_definition_id === definition.id);
+      if (!row?.value_ciphertext) continue;
+      try {
+        const target = await decryptString(await getRecordKey(connection.id), row.value_ciphertext);
+        if (!liveIds.has(target)) orphaned.push(connection.id);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    for (let i = 0; i < orphaned.length; i += 500) {
+      const chunk = orphaned.slice(i, i + 500);
+      try {
+        await axios.post(`/dashboard/connection-attribute-definitions/${definition.id}/clear-values`, { connection_ids: chunk });
+        const gone = new Set(chunk);
+        connections.value = connections.value.map((c) => gone.has(c.id)
+          ? { ...c, attribute_values: c.attribute_values.filter((v) => v.attribute_definition_id !== definition.id) }
+          : c);
+        cleared += chunk.length;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+  }
+  return cleared;
+}
+
+async function sweepOrphans(): Promise<void> {
+  copyBusy.value = true;
+  copyStatus.value = 'Checking references…';
+  try {
+    const cleared = await clearOrphanedReferences();
+    copyStatus.value = `Removed ${cleared} reference${cleared === 1 ? '' : 's'} to deleted connections.`;
+  } finally {
+    copyBusy.value = false;
+  }
 }
 
 async function addSource(name: string): Promise<void> {
@@ -498,6 +550,7 @@ async function removeEdge(id: string): Promise<void> {
       @add="addDefinition"
       @remove="removeDefinition"
       @copy-to-identifier="copyToIdentifier"
+      @sweep-orphans="sweepOrphans"
     />
   </VaultGate>
 </template>

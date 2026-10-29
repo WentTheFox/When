@@ -161,6 +161,15 @@ function sourceLabels(ids: string[]): string {
   return ids.map((id) => props.sources.find((s) => s.id === id)?.label ?? '').filter(Boolean).join(', ');
 }
 
+/** A connection-type value is the referenced connection's id; null when it points at a connection that no longer exists. */
+function connectionRefLabel(id: string): string | null {
+  return props.connectionOptions.find((c) => c.id === id)?.label ?? null;
+}
+
+function attributeType(id: string): string | undefined {
+  return props.attributeDefinitions.find((d) => d.id === id)?.type;
+}
+
 function attributeLabel(id: string): string {
   return props.attributeDefinitions.find((d) => d.id === id)?.label ?? id;
 }
@@ -177,6 +186,13 @@ function startEdit(): void {
   editSourceIds.value = [...props.connection.source_ids];
   editArchived.value = props.connection.archived;
   editAttributeValues.value = { ...attributeValues.value };
+  // Drop dangling connection references so saving clears them instead of resurrecting them.
+  for (const definition of props.attributeDefinitions) {
+    const value = editAttributeValues.value[definition.id];
+    if (definition.type === 'connection' && value && !connectionRefLabel(value)) {
+      editAttributeValues.value[definition.id] = '';
+    }
+  }
   editing.value = true;
 }
 
@@ -261,7 +277,12 @@ async function remove(): Promise<void> {
         <p v-if="notes" class="small mb-0">{{ notes }}</p>
         <dl class="row small mb-0 mt-2">
           <template v-for="(value, definitionId) in attributeValues" :key="definitionId">
-            <div v-if="value" class="col-12">{{ attributeLabel(definitionId) }}: {{ value }}</div>
+            <div v-if="value && attributeType(definitionId) === 'connection'" class="col-12">
+              {{ attributeLabel(definitionId) }}:
+              <span v-if="connectionRefLabel(value)">{{ connectionRefLabel(value) }}</span>
+              <span v-else class="text-muted fst-italic">(deleted connection)</span>
+            </div>
+            <div v-else-if="value" class="col-12">{{ attributeLabel(definitionId) }}: {{ value }}</div>
           </template>
         </dl>
       </div>
@@ -318,6 +339,14 @@ async function remove(): Promise<void> {
             {{ choice }}
           </BFormRadio>
         </div>
+        <BFormSelect
+          v-else-if="definition.type === 'connection'"
+          v-model="editAttributeValues[definition.id]"
+          size="sm"
+        >
+          <option value="">(none)</option>
+          <option v-for="c in relatableConnections" :key="c.id" :value="c.id">{{ c.label }}</option>
+        </BFormSelect>
         <BFormInput
           v-else-if="definition.type === 'identifier'"
           v-model="editAttributeValues[definition.id]"
