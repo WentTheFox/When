@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\AddNoIndexHeader;
+use App\Http\Middleware\BlockWritesInReadOnlyMode;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Support\Locales;
 use Illuminate\Foundation\Application;
@@ -22,6 +23,8 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
         ]);
         $middleware->append(AddNoIndexHeader::class);
+        // Deploy window: refuse writes (503 + Retry-After) while storage/framework/readonly exists.
+        $middleware->append(BlockWritesInReadOnlyMode::class);
         // LanguageSwitcher.vue writes this cookie directly via
         // document.cookie (plain, unencrypted) before its own navigation
         // click proceeds, specifically so an explicit switch to the
@@ -61,7 +64,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 $locale = $firstSegment;
             }
 
-            return Inertia::render('Errors/Maintenance', [
+            $response = Inertia::render('Errors/Maintenance', [
                 'appName' => config('app.name'),
                 'locale' => $locale,
                 'locales' => Locales::forFrontend(),
@@ -69,5 +72,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->rootView('maintenance')
                 ->toResponse($request)
                 ->setStatusCode(503);
+
+            // Keeps Retry-After from BlockWritesInReadOnlyMode (or `artisan down --retry`), which the client's
+            // automatic retry (resources/js/readOnlyRetry.ts) keys off.
+            $response->headers->add($e->getHeaders());
+
+            return $response;
         });
     })->create();

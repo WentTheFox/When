@@ -24,12 +24,31 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InviteController;
 use App\Http\Controllers\ShareLinkController;
 use App\Support\Locales;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 // `/` is a pure dispatcher (see AboutController's own doc comment) — the
 // content itself is only ever served from /about.
 Route::get('/', [AboutController::class, 'redirectHome']);
 Route::get('/about', [AboutController::class, 'show']);
+
+// Deploy health check (deploy.conf's health_check): read-only dependency probes, safe to hit during the
+// read-only window. Unlike the framework's own /up this actually touches the database and cache.
+Route::get('/status', function () {
+    $checks = [];
+    foreach (['database' => fn () => DB::select('select 1'), 'cache' => fn () => Cache::get('health-check')] as $name => $check) {
+        try {
+            $check();
+            $checks[$name] = true;
+        } catch (Throwable) {
+            $checks[$name] = false;
+        }
+    }
+    $healthy = ! in_array(false, $checks, true);
+
+    return response()->json(['status' => $healthy ? 'ok' : 'error', 'checks' => $checks], $healthy ? 200 : 503);
+})->name('status');
 
 // The security/data-handling explanation used to be its own page at this
 // URL (§0.2's honesty commitment, Stage 8) — now folded into /about (see
