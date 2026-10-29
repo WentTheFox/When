@@ -317,6 +317,63 @@ async function addDefinition(label: string, type: string, choices: string[]): Pr
   }
 }
 
+const copyStatus = ref<string | null>(null);
+const copyBusy = ref(false);
+
+/**
+ * Decrypts every connection's value for the source text definition locally,
+ * then sends the plaintext to the fill-identifiers endpoint (identifiers are
+ * §0.2-tier, not E2EE). Only connections whose identifier is currently empty
+ * are sent, and the server re-checks that, so re-running is a no-op.
+ */
+async function copyToIdentifier(sourceId: string, targetId: string): Promise<void> {
+  copyBusy.value = true;
+  copyStatus.value = 'Decrypting…';
+  try {
+    const pending: { connection_id: string; identifier_value: string }[] = [];
+    for (const connection of connections.value) {
+      const existing = connection.attribute_values.find((v) => v.attribute_definition_id === targetId);
+      if (existing?.identifier_value) continue;
+      const source = connection.attribute_values.find((v) => v.attribute_definition_id === sourceId);
+      if (!source?.value_ciphertext) continue;
+      try {
+        const value = (await decryptString(await getRecordKey(connection.id), source.value_ciphertext)).trim();
+        if (value) pending.push({ connection_id: connection.id, identifier_value: value });
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    const filled = new Map(pending.map((p) => [p.connection_id, p.identifier_value]));
+    const written = new Set<string>();
+    for (let i = 0; i < pending.length; i += 500) {
+      copyStatus.value = `Copying ${Math.min(i + 500, pending.length)} of ${pending.length}…`;
+      const { data } = await axios.post(`/dashboard/connection-attribute-definitions/${targetId}/fill-identifiers`, {
+        values: pending.slice(i, i + 500),
+      });
+      for (const id of data.filled as string[]) written.add(id);
+    }
+
+    connections.value = connections.value.map((c) => {
+      const value = filled.get(c.id);
+      if (!written.has(c.id) || value === undefined) return c;
+      return {
+        ...c,
+        attribute_values: [
+          ...c.attribute_values.filter((v) => v.attribute_definition_id !== targetId),
+          { attribute_definition_id: targetId, value_ciphertext: null, identifier_value: value },
+        ],
+      };
+    });
+    copyStatus.value = `Copied ${written.size} value${written.size === 1 ? '' : 's'}; ${connections.value.length - written.size} skipped (already set or no source value).`;
+  } catch (error) {
+    console.error(error);
+    copyStatus.value = 'Copy failed — nothing already written was changed; you can safely retry.';
+  } finally {
+    copyBusy.value = false;
+  }
+}
+
 async function removeDefinition(id: string): Promise<void> {
   try {
     await axios.delete(`/dashboard/connection-attribute-definitions/${id}`);
@@ -434,6 +491,13 @@ async function removeEdge(id: string): Promise<void> {
 
     <CategoriesPanel :categories="categories" @add="addCategory" @update="updateCategory" @remove="removeCategory" />
 
-    <AttributesPanel :definitions="definitions" @add="addDefinition" @remove="removeDefinition" />
+    <AttributesPanel
+      :definitions="definitions"
+      :copy-status="copyStatus"
+      :copy-busy="copyBusy"
+      @add="addDefinition"
+      @remove="removeDefinition"
+      @copy-to-identifier="copyToIdentifier"
+    />
   </VaultGate>
 </template>

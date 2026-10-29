@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\Connection;
+use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionAttributeValue;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -19,6 +21,11 @@ use Inertia\Response;
  * controller only ever moves ciphertext blobs it cannot open. See
  * vault.ts's createRecordKey for how the client derives each record's key
  * before calling store().
+ *
+ * The one exception is attribute values of an 'identifier'-type definition:
+ * those are §0.2-tier — sent as plaintext identifier_value and encrypted at
+ * rest with APP_KEY (ConnectionAttributeValue's 'encrypted' cast), so the
+ * server can use them for external-service matching.
  */
 class ConnectionController extends Controller
 {
@@ -128,7 +135,8 @@ class ConnectionController extends Controller
             'introduced_by_ciphertext' => $connection->introduced_by_ciphertext,
             'share_link_id' => $connection->share_link_id,
             'archived' => $connection->archived,
-            'attribute_values' => $connection->attributeValues()->get(['attribute_definition_id', 'value_ciphertext']),
+            // identifier_value is the server-decrypted (§0.2) field; see ConnectionAttributeValue.
+            'attribute_values' => $connection->attributeValues()->get(['attribute_definition_id', 'value_ciphertext', 'identifier_value']),
         ];
     }
 
@@ -157,7 +165,7 @@ class ConnectionController extends Controller
     {
         $userId = $request->user()->id;
 
-        return $request->validate([
+        $data = $request->validate([
             'id' => $requireId ? ['required', 'uuid', 'unique:connections,id'] : ['sometimes'],
             'source_ids' => ['nullable', 'array'],
             'source_ids.*' => ['uuid', Rule::exists('connection_sources', 'id')->where('user_id', $userId)],
@@ -168,8 +176,40 @@ class ConnectionController extends Controller
             'archived' => ['nullable', 'boolean'],
             'attribute_values' => ['nullable', 'array'],
             'attribute_values.*.attribute_definition_id' => ['required', 'uuid', Rule::exists('connection_attribute_definitions', 'id')->where('user_id', $userId)],
-            'attribute_values.*.value_ciphertext' => ['required', 'string'],
+            'attribute_values.*.value_ciphertext' => ['nullable', 'string'],
+            'attribute_values.*.identifier_value' => ['nullable', 'string', 'max:1000'],
         ]);
+
+        $this->assertValueShapesMatchDefinitions($data['attribute_values'] ?? [], $userId);
+
+        return $data;
+    }
+
+    /**
+     * An identifier definition takes only identifier_value (plaintext, §0.2),
+     * every other type only value_ciphertext (E2EE, §0.1) — never both, and
+     * never the wrong one, so a client bug can't leak E2EE-intended data
+     * into the server-readable column or vice versa.
+     */
+    private function assertValueShapesMatchDefinitions(array $attributeValues, string $userId): void
+    {
+        if ($attributeValues === []) {
+            return;
+        }
+
+        $types = ConnectionAttributeDefinition::where('user_id', $userId)
+            ->whereIn('id', array_column($attributeValues, 'attribute_definition_id'))
+            ->pluck('type', 'id');
+
+        foreach ($attributeValues as $i => $value) {
+            $isIdentifier = ($types[$value['attribute_definition_id']] ?? null) === 'identifier';
+            $field = $isIdentifier ? 'identifier_value' : 'value_ciphertext';
+            $other = $isIdentifier ? 'value_ciphertext' : 'identifier_value';
+
+            if (($value[$field] ?? null) === null || ($value[$other] ?? null) !== null) {
+                throw ValidationException::withMessages(["attribute_values.$i.$field" => "Expected $field only for this attribute type."]);
+            }
+        }
     }
 
     private function syncAttributeValues(Connection $connection, ?array $attributeValues): void
@@ -184,7 +224,8 @@ class ConnectionController extends Controller
             ConnectionAttributeValue::create([
                 'connection_id' => $connection->id,
                 'attribute_definition_id' => $value['attribute_definition_id'],
-                'value_ciphertext' => $value['value_ciphertext'],
+                'value_ciphertext' => $value['value_ciphertext'] ?? null,
+                'identifier_value' => $value['identifier_value'] ?? null,
             ]);
         }
     }

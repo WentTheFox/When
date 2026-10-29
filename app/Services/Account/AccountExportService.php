@@ -67,6 +67,7 @@ class AccountExportService
         $zip->addFile('connections/source-categories.json', $this->json($this->connectionSourceCategories($user)));
         $zip->addFile('connections/attribute-definitions.json', $this->json($this->connectionAttributeDefinitions($user)));
         $zip->addFile('connections/attribute-values.json', $this->json($this->connectionAttributeValues($user)));
+        $zip->addFile('connections/attribute-identifiers.json', $this->json($this->connectionAttributeIdentifiers($user)));
         $zip->addFile('connections/edges.json', $this->json($this->connectionEdges($user)));
         $zip->addFile('connections/source-links.json', $this->json($this->connectionSourceLinks($user)));
     }
@@ -395,6 +396,7 @@ class AccountExportService
         $connectionIds = $user->connections()->pluck('id');
 
         $values = ConnectionAttributeValue::whereIn('connection_id', $connectionIds)
+            ->whereNotNull('value_ciphertext')
             ->get(['id', 'connection_id', 'attribute_definition_id', 'value_ciphertext']);
 
         return [
@@ -407,6 +409,31 @@ class AccountExportService
                 'value_ciphertext' => $v->value_ciphertext,
                 'key_ring_id' => $v->connection_id,
             ])->all(),
+        ];
+    }
+
+    /**
+     * Identifier-type values (§0.2 tier): APP_KEY-encrypted at rest, so
+     * exported already decrypted — kept out of attribute-values.json so that
+     * file stays purely e2ee for the decrypt scripts.
+     *
+     * @return array<string, mixed>
+     */
+    private function connectionAttributeIdentifiers(User $user): array
+    {
+        $connectionIds = $user->connections()->pluck('id');
+
+        return [
+            'tier' => 'server-decrypted',
+            'records' => ConnectionAttributeValue::whereIn('connection_id', $connectionIds)
+                ->whereNotNull('identifier_value')
+                ->get()
+                ->map(fn ($v) => [
+                    'id' => $v->id,
+                    'connection_id' => $v->connection_id,
+                    'attribute_definition_id' => $v->attribute_definition_id,
+                    'identifier_value' => $v->identifier_value,
+                ])->all(),
         ];
     }
 

@@ -139,6 +139,7 @@ class AccountExportTest extends TestCase
             'connections/source-categories.json',
             'connections/attribute-definitions.json',
             'connections/attribute-values.json',
+            'connections/attribute-identifiers.json',
             'connections/edges.json',
             'connections/source-links.json',
         ];

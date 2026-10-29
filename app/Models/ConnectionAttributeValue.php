@@ -14,7 +14,20 @@ class ConnectionAttributeValue extends Model
         'connection_id',
         'attribute_definition_id',
         'value_ciphertext',
+        'identifier_value',
     ];
+
+    /**
+     * identifier_value is the one deliberately non-E2EE field on this table
+     * (§0.2 tier — see ConnectionController's doc comment): APP_KEY-encrypted
+     * at rest, readable server-side for future external-service matching.
+     */
+    protected function casts(): array
+    {
+        return [
+            'identifier_value' => 'encrypted',
+        ];
+    }
 
     public function connection(): BelongsTo
     {

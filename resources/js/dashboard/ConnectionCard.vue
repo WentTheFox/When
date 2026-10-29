@@ -15,14 +15,17 @@ import {
   BFormTextarea,
   type InputType,
 } from 'bootstrap-vue-next';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../crypto';
 import { requestConfirm } from './confirmModal';
 import { useVault } from './useVault';
 
 interface AttributeValue {
   attribute_definition_id: string;
-  value_ciphertext: string;
+  /** Null for identifier-type definitions — those use identifier_value instead. */
+  value_ciphertext: string | null;
+  /** Server-decrypted (§0.2 tier), not E2EE; only set for identifier-type definitions. */
+  identifier_value?: string | null;
 }
 
 export interface ConnectionRow {
@@ -139,7 +142,9 @@ async function decryptAll(): Promise<void> {
 
     const values: Record<string, string> = {};
     for (const attributeValue of props.connection.attribute_values) {
-      values[attributeValue.attribute_definition_id] = await decryptString(key, attributeValue.value_ciphertext);
+      values[attributeValue.attribute_definition_id] = attributeValue.value_ciphertext
+        ? await decryptString(key, attributeValue.value_ciphertext)
+        : (attributeValue.identifier_value ?? '');
     }
     attributeValues.value = values;
   } catch (error) {
@@ -149,6 +154,8 @@ async function decryptAll(): Promise<void> {
 }
 
 onMounted(decryptAll);
+// The parent can replace this row from outside (e.g. the bulk identifier copy).
+watch(() => props.connection.attribute_values, decryptAll);
 
 function sourceLabels(ids: string[]): string {
   return ids.map((id) => props.sources.find((s) => s.id === id)?.label ?? '').filter(Boolean).join(', ');
@@ -177,15 +184,16 @@ async function save(): Promise<void> {
   try {
     const key = await getRecordKey(props.connection.id);
 
-    const values = [];
+    const values: { attribute_definition_id: string; value_ciphertext?: string; identifier_value?: string }[] = [];
     for (const definition of props.attributeDefinitions) {
       const value = editAttributeValues.value[definition.id];
-      if (value) {
-        values.push({
-          attribute_definition_id: definition.id,
-          value_ciphertext: await encryptString(key, value),
-        });
-      }
+      if (!value) continue;
+      values.push(
+        definition.type === 'identifier'
+          // §0.2 tier on purpose: sent as plaintext, encrypted at rest with the app key.
+          ? { attribute_definition_id: definition.id, identifier_value: value }
+          : { attribute_definition_id: definition.id, value_ciphertext: await encryptString(key, value) },
+      );
     }
 
     const { data } = await axios.patch(`/dashboard/connections/${props.connection.id}`, {
@@ -310,6 +318,13 @@ async function remove(): Promise<void> {
             {{ choice }}
           </BFormRadio>
         </div>
+        <BFormInput
+          v-else-if="definition.type === 'identifier'"
+          v-model="editAttributeValues[definition.id]"
+          type="text"
+          size="sm"
+          autocomplete="off"
+        />
         <BFormInput
           v-else
           v-model="editAttributeValues[definition.id]"
