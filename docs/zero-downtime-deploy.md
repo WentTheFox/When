@@ -11,7 +11,7 @@ Modelled on SledgeHammerTime's setup; the toolkit side is git-deploy-toolkit's `
    then raise the flag `storage/framework/readonly`.
 2. Toolkit swaps the `WORKTREE` symlink to the new release.
 3. `deploy_restart`: reload php-fpm (opcache), `migrate --force`, restart `when-horizon.service`,
-   `GET /status` health check (JSON: database + cache, 503 on failure), then remove the flag.
+   `GET /status` health check against the local nginx origin (`http://127.0.0.1/status` with the app's `Host`; Cloudflare 403s the VPS's own public requests), JSON: database + cache, 503 on failure, then remove the flag.
 
 If migrate or the health check fails the flag stays on. Roll back with `git-deploy-rollback`
 (`deploy_rollback` reloads php-fpm and restarts Horizon, never migrates) or fix forward, then run
