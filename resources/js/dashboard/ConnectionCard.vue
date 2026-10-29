@@ -33,7 +33,6 @@ export interface ConnectionRow {
   source_ids: string[];
   name_ciphertext: string;
   notes_ciphertext: string | null;
-  introduced_by_ciphertext: string | null;
   share_link_id: string | null;
   archived: boolean;
   attribute_values: AttributeValue[];
@@ -64,13 +63,11 @@ const { getRecordKey } = useVault();
 
 const name = ref('');
 const notes = ref('');
-const introducedBy = ref('');
 const attributeValues = ref<Record<string, string>>({});
 const editing = ref(false);
 
 const editName = ref('');
 const editNotes = ref('');
-const editIntroducedBy = ref('');
 const editSourceIds = ref<string[]>([...props.connection.source_ids]);
 const editArchived = ref(props.connection.archived);
 const editAttributeValues = ref<Record<string, string>>({});
@@ -136,9 +133,6 @@ async function decryptAll(): Promise<void> {
     notes.value = props.connection.notes_ciphertext
       ? await decryptString(key, props.connection.notes_ciphertext)
       : '';
-    introducedBy.value = props.connection.introduced_by_ciphertext
-      ? await decryptString(key, props.connection.introduced_by_ciphertext)
-      : '';
 
     const values: Record<string, string> = {};
     for (const attributeValue of props.connection.attribute_values) {
@@ -182,7 +176,6 @@ function inputType(type: string): InputType {
 function startEdit(): void {
   editName.value = name.value;
   editNotes.value = notes.value;
-  editIntroducedBy.value = introducedBy.value;
   editSourceIds.value = [...props.connection.source_ids];
   editArchived.value = props.connection.archived;
   editAttributeValues.value = { ...attributeValues.value };
@@ -216,14 +209,12 @@ async function save(): Promise<void> {
       source_ids: editSourceIds.value,
       name_ciphertext: await encryptString(key, editName.value),
       notes_ciphertext: editNotes.value ? await encryptString(key, editNotes.value) : null,
-      introduced_by_ciphertext: editIntroducedBy.value ? await encryptString(key, editIntroducedBy.value) : null,
       archived: editArchived.value,
       attribute_values: values,
     });
 
     name.value = editName.value;
     notes.value = editNotes.value;
-    introducedBy.value = editIntroducedBy.value;
     attributeValues.value = { ...editAttributeValues.value };
     editing.value = false;
     emit('updated', data);
@@ -261,7 +252,6 @@ async function remove(): Promise<void> {
         <p v-if="myEdges.length" class="small text-muted mb-1">
           Knows: {{ myEdges.map((e) => e.otherName + (e.label ? ` (${e.label})` : '')).join(', ') }}
         </p>
-        <p v-if="introducedBy" class="small text-muted mb-1">Introduced by {{ introducedBy }}</p>
         <p class="small mb-1">
           <a v-if="connection.share_link_id" href="/dashboard/share-links">Share link created — manage it →</a>
           <BButton
@@ -307,9 +297,6 @@ async function remove(): Promise<void> {
           </BFormGroup>
         </div>
       </div>
-      <BFormGroup label="Introduced by" class="mb-3">
-        <BFormInput v-model="editIntroducedBy" type="text" size="sm" placeholder="Who introduced you to this person?" />
-      </BFormGroup>
       <BFormGroup label="Notes" class="mb-3">
         <BFormTextarea v-model="editNotes" size="sm" rows="2" />
       </BFormGroup>
