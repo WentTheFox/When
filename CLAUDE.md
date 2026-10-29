@@ -114,7 +114,7 @@ Two independent git remotes:
   `artisan migrate --force` → (google-fonts:fetch if relevant) → (pnpm install if
   lockfile changed) → `pnpm build` (if `resources/` changed, non-fatal on failure) →
   `artisan optimize` → restart `when-horizon.service` → `artisan up` (unless it was
-  already down). Live at `https://when.went.tf`.
+  already down).
 
 The same deploy can also be started from GitHub: Actions → Deploy → Run workflow
 (`.github/workflows/deploy.yml`, from git-deploy-toolkit's template). It runs on a
