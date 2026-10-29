@@ -107,4 +107,26 @@ class ConnectionIdentifierTest extends TestCase
             'values' => [['connection_id' => $theirConnection->id, 'identifier_value' => 'x']],
         ])->assertUnprocessable();
     }
+
+    public function test_clear_values_removes_only_requested_rows_on_connection_definitions(): void
+    {
+        $user = User::factory()->create();
+        $stranger = User::factory()->create();
+        $ref = $this->definition($user, 'connection');
+        $text = $this->definition($user, 'text');
+        $a = $this->connection($user);
+        $b = $this->connection($user);
+        foreach ([$a, $b] as $c) {
+            ConnectionAttributeValue::create(['connection_id' => $c->id, 'attribute_definition_id' => $ref->id, 'value_ciphertext' => 'opaque']);
+        }
+        $url = "/dashboard/connection-attribute-definitions/{$ref->id}/clear-values";
+
+        $this->actingAs($user)->postJson($url, ['connection_ids' => [$a->id]])->assertOk()->assertExactJson(['cleared' => 1]);
+        $this->actingAs($user)->postJson($url, ['connection_ids' => [$a->id]])->assertOk()->assertExactJson(['cleared' => 0]);
+        $this->assertSame(1, ConnectionAttributeValue::where('attribute_definition_id', $ref->id)->count());
+
+        $this->actingAs($user)->postJson("/dashboard/connection-attribute-definitions/{$text->id}/clear-values", ['connection_ids' => [$a->id]])->assertUnprocessable();
+        $this->actingAs($user)->postJson($url, ['connection_ids' => [$this->connection($stranger)->id]])->assertUnprocessable();
+        $this->actingAs($stranger)->postJson($url, ['connection_ids' => [$b->id]])->assertNotFound();
+    }
 }

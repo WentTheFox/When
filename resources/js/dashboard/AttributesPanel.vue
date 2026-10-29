@@ -8,10 +8,11 @@ const props = defineProps<{
   copyStatus: string | null;
   copyBusy: boolean;
 }>();
-const emit = defineEmits<{ add: [string, string, string[]]; remove: [string]; copyToIdentifier: [string, string] }>();
+const emit = defineEmits<{ add: [string, string, string[]]; remove: [string]; copyToIdentifier: [string, string]; sweepOrphans: [] }>();
 
 const textDefinitions = computed(() => props.definitions.filter((d) => d.type === 'text'));
 const identifierDefinitions = computed(() => props.definitions.filter((d) => d.type === 'identifier'));
+const hasConnectionDefinitions = computed(() => props.definitions.some((d) => d.type === 'connection'));
 const copySourceId = ref('');
 const copyTargetId = ref('');
 
@@ -53,6 +54,7 @@ function add(): void {
         <option value="url">URL</option>
         <option value="email">Email</option>
         <option value="phone">Phone</option>
+        <option value="connection">Connection</option>
         <option value="identifier">Identifier (not E2EE)</option>
       </BFormSelect>
       <BButton variant="outline-secondary" @click="add">Add</BButton>
@@ -70,6 +72,13 @@ function add(): void {
       Identifier values are <strong>not</strong> end-to-end encrypted: they're sent to the server in plaintext
       (and encrypted at rest with the app key) so they can be used to link a connection to an external service.
     </p>
+
+    <div v-if="hasConnectionDefinitions" class="small mt-2">
+      <BButton variant="outline-secondary" size="sm" :disabled="copyBusy" @click="emit('sweepOrphans')">
+        Remove references to deleted connections
+      </BButton>
+      <span class="text-muted ms-1">Deleting a connection already does this; use it if a reference was left behind.</span>
+    </div>
 
     <template v-if="textDefinitions.length && identifierDefinitions.length">
       <hr>

@@ -18,7 +18,7 @@ class ConnectionAttributeDefinitionController extends Controller
         $data = $request->validate([
             'id' => ['required', 'uuid', 'unique:connection_attribute_definitions,id'],
             'label_ciphertext' => ['required', 'string'],
-            'type' => ['required', 'in:text,textarea,date,number,url,email,phone,radio,identifier'],
+            'type' => ['required', 'in:text,textarea,date,number,url,email,phone,radio,identifier,connection'],
             // Only meaningful for 'radio' (JSON-encoded {"choices": [...]},
             // client-encrypted with this definition's own record key — same
             // key as label_ciphertext, not any connection's key.
@@ -82,6 +82,34 @@ class ConnectionAttributeDefinitionController extends Controller
         });
 
         return response()->json(['filled' => $filled]);
+    }
+
+    /**
+     * Orphan cleanup for 'connection'-type definitions. The referenced id is
+     * E2EE so the server can't tell which values dangle; the client decrypts,
+     * finds the ones pointing at deleted connections, and asks for those
+     * specific (connection, definition) rows to be removed. Idempotent —
+     * rows already gone are simply not counted.
+     */
+    public function clearValues(Request $request, string $definition): JsonResponse
+    {
+        $user = $request->user();
+        $definition = $user->connectionAttributeDefinitions()->where('id', $definition)->firstOrFail();
+
+        if ($definition->type !== 'connection') {
+            throw ValidationException::withMessages(['definition' => 'Not a connection field.']);
+        }
+
+        $data = $request->validate([
+            'connection_ids' => ['required', 'array', 'max:500'],
+            'connection_ids.*' => ['uuid', Rule::exists('connections', 'id')->where('user_id', $user->id)],
+        ]);
+
+        $cleared = ConnectionAttributeValue::where('attribute_definition_id', $definition->id)
+            ->whereIn('connection_id', $data['connection_ids'])
+            ->delete();
+
+        return response()->json(['cleared' => $cleared]);
     }
 
     public function destroy(Request $request, string $definition): JsonResponse
