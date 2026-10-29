@@ -234,6 +234,8 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/dashboard/connection-attribute-definitions', [ConnectionAttributeDefinitionController::class, 'store'])
         ->name('dashboard.connection-attribute-definitions.store');
+    Route::post('/dashboard/connection-attribute-definitions/{definition}/fill-identifiers', [ConnectionAttributeDefinitionController::class, 'fillIdentifiers'])
+        ->name('dashboard.connection-attribute-definitions.fill-identifiers');
     Route::delete('/dashboard/connection-attribute-definitions/{definition}', [ConnectionAttributeDefinitionController::class, 'destroy'])
         ->name('dashboard.connection-attribute-definitions.destroy');
 
