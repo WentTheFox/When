@@ -123,9 +123,18 @@ git-deploy-webhook listener picks that up and runs this same `deploy.conf`. Eith
 — button or `git push deploy main` — the deploy is recorded on GitHub as a Deployment
 in the `production` environment, with its status and a summary log.
 
-Pushing to `deploy` (or running the Deploy workflow) deploys immediately and takes the
-app down briefly during migrate/build — never do either without the user's explicit
+Pushing to `deploy` (or running the Deploy workflow) deploys immediately and, in in-place
+mode, takes the app down briefly during migrate/build — never do either without the user's explicit
 go-ahead for that specific deploy, even if `origin` was already approved.
+
+`deploy.conf` also supports the toolkit's release-directory mode (`RELEASES=1`): build in a
+fresh release dir while the old one serves, swap the `WORKTREE` symlink, migrate under a
+read-only flag (`storage/framework/readonly`, writes get 503 + `Retry-After`, the frontend
+retries them), health-check `/status`, lower the flag. No `artisan down` in that mode. The
+file works in both modes (it checks `$RELEASE` vs `$WORKTREE`), so it's safe to deploy before
+the server is converted. Migrations must then be expand-only (drop/rename a release later);
+see `docs/zero-downtime-deploy.md` for the flow, the one-time server conversion, and where to
+register GET-writes / POST-reads in `BlockWritesInReadOnlyMode`.
 
 The project was renamed from "WhenTheFox" to "When" (GitHub repo, app name, systemd
 service). The production directory (`/var/www/WhenTheFox`), Postgres database
