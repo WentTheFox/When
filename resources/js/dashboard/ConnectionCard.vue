@@ -9,14 +9,14 @@ import {
   BCard,
   BFormCheckbox,
   BFormGroup,
-  BFormInput,
   BFormRadio,
   BFormSelect,
-  BFormTextarea,
   type InputType,
 } from 'bootstrap-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../crypto';
+import EncryptedInput from '../Components/EncryptedInput.vue';
+import EncryptedText from '../Components/EncryptedText.vue';
 import ConnectionSharing, { type ShareLinkInfo } from './ConnectionSharing.vue';
 import { requestConfirm } from './confirmModal';
 import { useVault } from './useVault';
@@ -68,6 +68,15 @@ const { getRecordKey } = useVault();
 
 const name = ref('');
 const notes = ref('');
+/**
+ * Until the first decryption settles, the card shows the raw ciphertext (see
+ * EncryptedText) — display only. `name`/`notes`/`attributeValues` stay empty
+ * until then, and editing is disabled, so the raw blob can never end up in the
+ * edit form and be re-encrypted as if it were plaintext.
+ */
+const decrypted = ref(false);
+const decryptFailed = ref(false);
+const settled = computed(() => decrypted.value || decryptFailed.value);
 const attributeValues = ref<Record<string, string>>({});
 const editing = ref(false);
 
@@ -139,9 +148,11 @@ async function decryptAll(): Promise<void> {
           : (attributeValue.identifier_value ?? '');
     }
     attributeValues.value = values;
+    decrypted.value = true;
   } catch (error) {
     console.error(error);
     name.value = '(could not decrypt)';
+    decryptFailed.value = true;
   }
 }
 
@@ -171,11 +182,14 @@ function inputType(type: string): InputType {
   return INPUT_TYPE[type] ?? (type as InputType);
 }
 
-function startEdit(): void {
+/**
+ * Copies the decrypted values into the edit form. If decryption hasn't
+ * finished yet these are still empty, and the EncryptedInput fields show the
+ * raw ciphertext (disabled) in the meantime — see the `decrypted` watcher.
+ */
+function populateEncryptedEditFields(): void {
   editName.value = name.value;
   editNotes.value = notes.value;
-  editSourceIds.value = [...props.connection.source_ids];
-  editArchived.value = props.connection.archived;
   editAttributeValues.value = { ...attributeValues.value };
   // Drop dangling connection references so saving clears them instead of resurrecting them.
   for (const definition of props.attributeDefinitions) {
@@ -184,10 +198,30 @@ function startEdit(): void {
       editAttributeValues.value[definition.id] = '';
     }
   }
+}
+
+function startEdit(): void {
+  editSourceIds.value = [...props.connection.source_ids];
+  editArchived.value = props.connection.archived;
+  populateEncryptedEditFields();
   editing.value = true;
 }
 
+// The form was opened before decryption finished: fill the encrypted fields now.
+// They were disabled until this point, so nothing the user typed can be overwritten.
+watch(decrypted, (done) => {
+  if (done && editing.value) populateEncryptedEditFields();
+});
+
+/** The raw ciphertext of a field's stored value, shown (disabled) until it has been decrypted. */
+function rawCiphertext(definitionId: string): string | null {
+  return props.connection.attribute_values.find((v) => v.attribute_definition_id === definitionId)?.value_ciphertext ?? null;
+}
+
 async function save(): Promise<void> {
+  // Belt and braces: the encrypted fields are disabled until decrypted anyway.
+  if (!decrypted.value) return;
+
   try {
     const key = await getRecordKey(props.connection.id);
 
@@ -259,7 +293,7 @@ async function remove(): Promise<void> {
     <div class="d-flex justify-content-between align-items-start">
       <div>
         <h3 class="h6 mb-1">
-          {{ name }}
+          <EncryptedText :value="settled ? name : undefined" :ciphertext="connection.name_ciphertext" />
           <BBadge v-if="connection.archived" variant="secondary" class="ms-1">Archived</BBadge>
         </h3>
         <p v-if="connection.source_ids.length" class="small text-muted mb-1">{{ sourceLabels(connection.source_ids) }}</p>
@@ -267,8 +301,19 @@ async function remove(): Promise<void> {
           Knows: {{ myEdges.map((e) => e.otherName).join(', ') }}
         </p>
         <p v-if="connection.share_link" class="small text-muted mb-1">Shared — manage the link under Edit.</p>
-        <p v-if="notes" class="small mb-0">{{ notes }}</p>
+        <p v-if="connection.notes_ciphertext && (!settled || notes)" class="small mb-0">
+          <EncryptedText :value="settled ? notes : undefined" :ciphertext="connection.notes_ciphertext" />
+        </p>
         <dl class="row small mb-0 mt-2">
+          <template v-if="!settled">
+            <div
+              v-for="attributeValue in connection.attribute_values.filter((v) => v.value_ciphertext)"
+              :key="attributeValue.attribute_definition_id"
+              class="col-12"
+            >
+              <EncryptedText :ciphertext="attributeValue.value_ciphertext!" />
+            </div>
+          </template>
           <template v-for="(value, definitionId) in attributeValues" :key="definitionId">
             <div v-if="value && attributeType(definitionId) === 'connection'" class="col-12">
               {{ attributeLabel(definitionId) }}:
@@ -295,7 +340,7 @@ async function remove(): Promise<void> {
       <div class="row">
         <div class="col-md-6">
           <BFormGroup label="Name" class="mb-3">
-            <BFormInput v-model="editName" type="text" size="sm" />
+            <EncryptedInput v-model="editName" :ciphertext="connection.name_ciphertext" :pending="!decrypted" type="text" size="sm" />
           </BFormGroup>
         </div>
         <div class="col-md-6">
@@ -307,7 +352,7 @@ async function remove(): Promise<void> {
         </div>
       </div>
       <BFormGroup label="Notes" class="mb-3">
-        <BFormTextarea v-model="editNotes" size="sm" rows="2" />
+        <EncryptedInput v-model="editNotes" :ciphertext="connection.notes_ciphertext" :pending="!decrypted" multiline size="sm" rows="2" />
       </BFormGroup>
       <BFormCheckbox :id="`archived-${connection.id}`" v-model="editArchived" class="mb-3">Archived</BFormCheckbox>
       <BFormGroup label="Sharing" class="mb-3">
@@ -318,9 +363,12 @@ async function remove(): Promise<void> {
         />
       </BFormGroup>
       <BFormGroup v-for="definition in attributeDefinitions" :key="definition.id" :label="definition.label" class="mb-3">
-        <BFormTextarea
+        <EncryptedInput
           v-if="definition.type === 'textarea'"
           v-model="editAttributeValues[definition.id]"
+          :ciphertext="rawCiphertext(definition.id)"
+          :pending="!decrypted"
+          multiline
           size="sm"
           rows="2"
         />
@@ -329,6 +377,7 @@ async function remove(): Promise<void> {
             v-model="editAttributeValues[definition.id]"
             inline
             value=""
+            :disabled="!decrypted"
           >
             (unset)
           </BFormRadio>
@@ -338,6 +387,7 @@ async function remove(): Promise<void> {
             v-model="editAttributeValues[definition.id]"
             inline
             :value="choice"
+            :disabled="!decrypted"
           >
             {{ choice }}
           </BFormRadio>
@@ -346,6 +396,7 @@ async function remove(): Promise<void> {
           v-else-if="definition.type === 'connection'"
           v-model="editAttributeValues[definition.id]"
           size="sm"
+          :disabled="!decrypted"
         >
           <option value="">(none)</option>
           <option v-for="c in relatableConnections" :key="c.id" :value="c.id">{{ c.label }}</option>
@@ -354,14 +405,18 @@ async function remove(): Promise<void> {
           v-else-if="definition.type === 'boolean'"
           v-model="editAttributeValues[definition.id]"
           size="sm"
+          :disabled="!decrypted"
         >
           <option value="">(unset)</option>
           <option value="true">Yes</option>
           <option value="false">No</option>
         </BFormSelect>
         <div v-else-if="definition.type === 'identifier_list'">
-          <BFormTextarea
+          <EncryptedInput
             v-model="editAttributeValues[definition.id]"
+            :ciphertext="rawCiphertext(definition.id)"
+            :pending="!decrypted"
+            multiline
             size="sm"
             rows="3"
             placeholder="One entry per line"
@@ -369,16 +424,20 @@ async function remove(): Promise<void> {
           />
           <div class="form-text">Not end-to-end encrypted — one entry per line.</div>
         </div>
-        <BFormInput
+        <EncryptedInput
           v-else-if="definition.type === 'identifier'"
           v-model="editAttributeValues[definition.id]"
+          :ciphertext="rawCiphertext(definition.id)"
+          :pending="!decrypted"
           type="text"
           size="sm"
           autocomplete="off"
         />
-        <BFormInput
+        <EncryptedInput
           v-else
           v-model="editAttributeValues[definition.id]"
+          :ciphertext="rawCiphertext(definition.id)"
+          :pending="!decrypted"
           :type="inputType(definition.type)"
           size="sm"
         />
@@ -400,7 +459,7 @@ async function remove(): Promise<void> {
         </div>
       </BFormGroup>
 
-      <BButton size="sm" variant="primary" @click="save">Save</BButton>
+      <BButton size="sm" variant="primary" :disabled="!decrypted" @click="save">Save</BButton>
     </div>
   </BCard>
 </template>
