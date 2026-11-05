@@ -1,12 +1,6 @@
 parameters:
 	ignoreErrors:
 		-
-			message: '#^Called ''pluck'' on Laravel collection, but could have been retrieved as a query\.$#'
-			identifier: larastan.noUnnecessaryCollectionCall
-			count: 1
-			path: app/Http/Controllers/DashboardController.php
-
-		-
 			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamp\(\) is forbidden, use timestampTz\(\)\.$#'
 			identifier: disallowed.method
 			count: 3
