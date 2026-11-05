@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { faLock } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { Link } from '@inertiajs/vue3';
 import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput, BFormSelect } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
@@ -191,8 +193,15 @@ function add(): void {
               @click="select(definition)"
             >
               <EncryptedText :value="definition.label" :ciphertext="definition.label_ciphertext" />
-              <span class="small ms-1" :class="selectedId === definition.id ? '' : 'text-muted'">
-                ({{ TYPE_LABELS[definition.type] ?? definition.type }})
+              <!-- Delete-protected: a site feature depends on it. Blue, except on the selected (blue) row where white stays visible. -->
+              <span
+                v-if="featuresOf(definition.id).length"
+                class="ms-1 field-protected"
+                :class="selectedId === definition.id ? '' : 'text-primary'"
+                :title="`Used by ${featuresOf(definition.id).join(', ')} — can't be deleted`"
+              >
+                <FontAwesomeIcon :icon="faLock" />
+                <span class="visually-hidden">Used by {{ featuresOf(definition.id).join(', ') }}; can't be deleted</span>
               </span>
             </button>
           </div>

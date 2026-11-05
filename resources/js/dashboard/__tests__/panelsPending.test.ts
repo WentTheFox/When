@@ -148,3 +148,52 @@ describe('list order', () => {
   });
 });
 
+describe('the custom attributes list', () => {
+  const ID2 = '44444444-4444-4444-8444-444444444444';
+  const base = {
+    definitions: [
+      { id: ID, type: 'identifier_list', label_ciphertext: RAW, label: 'Highlight words', options: [] },
+      { id: ID2, type: 'text', label_ciphertext: RAW, label: 'Nickname', options: [] },
+    ],
+    usage: {},
+    copyStatus: null,
+    copyBusy: false,
+  };
+
+  /** The markup of just the left-hand list. */
+  function listOf(html: string): string {
+    return html.slice(html.indexOf('wtf-master-list'), html.indexOf('col-md-8'));
+  }
+
+  it('shows only each field\'s name, not its type', async () => {
+    const list = listOf(await render(AttributesPanel, { ...base, fieldFeatures: {} }));
+    expect(list).toContain('Highlight words');
+    expect(list).toContain('Nickname');
+    expect(list).not.toMatch(/Identifier list|\(Text\)|Multi-line|Yes\/No/);
+  });
+
+  it('puts a blue lock next to a field that a site feature uses, and only that one', async () => {
+    const list = listOf(await render(AttributesPanel, { ...base, fieldFeatures: { [ID]: ['Highlight tokens'] } }));
+    expect(list.match(/field-protected/g)).toHaveLength(1);
+    expect(list).toMatch(/text-primary[^>]*title="Used by Highlight tokens — can&#39;t be deleted"/);
+    // The lock follows the protected field's name, not the other one's.
+    expect(list.indexOf('Highlight words')).toBeLessThan(list.indexOf('field-protected'));
+    expect(list.indexOf('field-protected')).toBeLessThan(list.indexOf('Nickname'));
+  });
+
+  it('has no lock when nothing is protected', async () => {
+    expect(listOf(await render(AttributesPanel, { ...base, fieldFeatures: {} }))).not.toContain('field-protected');
+  });
+
+  it('keeps the lock visible on the selected (blue) row by not colouring it blue there', async () => {
+    const list = listOf(await render(AttributesPanel, { ...base, selectedId: ID, fieldFeatures: { [ID]: ['Highlight tokens'] } }));
+    expect(list).toContain('field-protected');
+    expect(list).not.toMatch(/text-primary/);
+  });
+
+  it('describes the lock for screen readers', async () => {
+    const list = listOf(await render(AttributesPanel, { ...base, fieldFeatures: { [ID]: ['Highlight tokens', 'Bypass DND'] } }));
+    expect(list).toContain("Used by Highlight tokens, Bypass DND; can&#39;t be deleted");
+  });
+});
+
