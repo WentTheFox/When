@@ -35,7 +35,7 @@
 import axios from 'axios';
 import { BModal, BProgress, BProgressBar } from 'bootstrap-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
-import { usePage } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import { currentLocale } from 'laravel-vue-i18n';
 import { useResolvedTheme } from '../composables/useTheme';
 import { resolveSwatchHex } from '../free/color-palette';
@@ -187,7 +187,7 @@ onMounted(async () => {
   </div>
 
   <p v-else-if="errorCode === 'no_calendar'" class="text-muted mb-0">
-    No calendar URL configured. Add one on the <a href="/settings">Settings page</a> to see your
+    No calendar URL configured. Add one on the <Link href="/settings">Settings page</Link> to see your
     free/busy stats here.
   </p>
   <p v-else-if="errorCode" class="text-danger mb-0">Failed to fetch calendar data.</p>

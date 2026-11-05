@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Link } from '@inertiajs/vue3';
 import { faPencil, faTrashCan } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import axios from 'axios';
@@ -279,7 +280,7 @@ async function remove(): Promise<void> {
           Knows: {{ myEdges.map((e) => e.otherName + (e.label ? ` (${e.label})` : '')).join(', ') }}
         </p>
         <p class="small mb-1">
-          <a v-if="connection.share_link_id" href="/dashboard/share-links">Share link created — manage it →</a>
+          <Link v-if="connection.share_link_id" href="/dashboard/share-links">Share link created — manage it →</Link>
           <BButton
             v-else
             variant="outline-secondary"

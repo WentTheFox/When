@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Link } from '@inertiajs/vue3';
 import axios from 'axios';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faCheck, faCopy, faRotateRight, faTrash, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
@@ -336,7 +337,7 @@ async function remove(): Promise<void> {
           This link does not bypass DND.
           <template v-if="!link.bypass_field_set">
             No bypass-DND field is selected, so no link does — choose one on the
-            <a href="/settings#bypass-dnd">Settings page</a>.
+            <Link href="/settings#bypass-dnd">Settings page</Link>.
           </template>
           <template v-else>Tie a connection and set its yes/no field to change that.</template>
         </p>
@@ -351,7 +352,7 @@ async function remove(): Promise<void> {
           Nothing will be highlighted on this link.
           <template v-if="!link.highlight_field_set">
             No highlight-tokens field is selected, so nothing is highlighted for anyone — choose one on the
-            <a href="/settings#highlight-tokens">Settings page</a>.
+            <Link href="/settings#highlight-tokens">Settings page</Link>.
           </template>
           <template v-else>Tie a connection and fill in its identifier list to highlight events.</template>
         </p>
