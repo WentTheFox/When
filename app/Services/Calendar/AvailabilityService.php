@@ -433,6 +433,8 @@ class AvailabilityService
             }
         }
 
+        // Each fragment is its event with only start/end replaced (everything else passes through), so it is still a T.
+        /** @var list<T> $segments */
         usort($segments, fn ($a, $b) => $a['start']->getTimestamp() <=> $b['start']->getTimestamp());
 
         return $segments;
@@ -469,7 +471,7 @@ class AvailabilityService
         ksort($groups);
 
         foreach ($groups as $group) {
-            $rule = $group[0]['recurrence'];
+            $rule = $group[0]['recurrence'] ?? null;
             $merged = $this->subtractSleepFromEvents($this->mergeEventSegments($group), $result);
 
             array_push($result, ...array_map(fn ($s) => [...$s, 'recurrence' => $rule], $merged));

@@ -52,7 +52,7 @@ class DashboardController extends Controller
      * across all of this owner's links so a heavily-viewed account can't
      * turn this into an unbounded scan.
      *
-     * @return list<array{language: string, count: int}>
+     * @return array<int, array{language: string, count: int}>
      */
     private function unsupportedVisitorLocales(User $user): array
     {
@@ -334,6 +334,7 @@ class DashboardController extends Controller
             }
         }
 
-        return $minutes;
+        // Carbon 3's diffInMinutes() is fractional; the total is whole minutes (truncated, as the int return coerced it before).
+        return (int) $minutes;
     }
 }

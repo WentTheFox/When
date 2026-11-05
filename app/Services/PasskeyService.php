@@ -37,10 +37,15 @@ class PasskeyService
     {
         $webAuthn = $this->webAuthn($request);
 
+        $userHandle = hex2bin(str_replace('-', '', $user->id));
+        if ($userHandle === false) {
+            throw new \UnexpectedValueException('User id is not a uuid.');
+        }
+
         $options = $webAuthn->getCreateArgs(
             // Stable, opaque, non-PII handle for this account (the uuid's
             // raw bytes) — never the name/email.
-            hex2bin(str_replace('-', '', $user->id)),
+            $userHandle,
             // Shown by the browser/OS when picking a passkey — email is
             // optional, name always exists (same fallback as the TOTP QR).
             $user->email ?? $user->name,
@@ -55,7 +60,7 @@ class PasskeyService
 
         $request->session()->put(self::REGISTRATION_CHALLENGE_KEY, $webAuthn->getChallenge()->getBinaryString());
 
-        return json_decode(json_encode($options), true);
+        return json_decode(json_encode($options, JSON_THROW_ON_ERROR), true);
     }
 
     /**
@@ -124,7 +129,7 @@ class PasskeyService
 
         $request->session()->put(self::LOGIN_CHALLENGE_KEY, $webAuthn->getChallenge()->getBinaryString());
 
-        return json_decode(json_encode($options), true);
+        return json_decode(json_encode($options, JSON_THROW_ON_ERROR), true);
     }
 
     /**

@@ -71,14 +71,14 @@ class IcsParser
     public const DEFAULT_PUBLIC_EVENT_TITLE_PATTERN = '\(public\)\s*$';
 
     /**
-     * @param  'full_detail'|'free_busy_only'  $parsingMode  Gates only the
-     *                                                       four title-*regex* signals below (tentative/open-end/open-start/
-     *                                                       public-event suffixes) — `free_busy_only` skips evaluating and
-     *                                                       stripping them entirely, since a free-busy-only feed's SUMMARY (if
-     *                                                       present at all) is a fake generic placeholder like "Busy", not real
-     *                                                       title text. Does NOT gate the structured ICS STATUS:TENTATIVE /
-     *                                                       VFREEBUSY FBTYPE=BUSY-TENTATIVE signals, which stay honored either
-     *                                                       way.
+     * @param  string  $parsingMode  'full_detail' or 'free_busy_only'; anything else behaves as full_detail.  Gates only the
+     *                               four title-*regex* signals below (tentative/open-end/open-start/
+     *                               public-event suffixes) — `free_busy_only` skips evaluating and
+     *                               stripping them entirely, since a free-busy-only feed's SUMMARY (if
+     *                               present at all) is a fake generic placeholder like "Busy", not real
+     *                               title text. Does NOT gate the structured ICS STATUS:TENTATIVE /
+     *                               VFREEBUSY FBTYPE=BUSY-TENTATIVE signals, which stay honored either
+     *                               way.
      * @return RawCalendarItem[]
      */
     public function parse(
@@ -230,18 +230,23 @@ class IcsParser
      * text at that point — which it doesn't, so it's never even attempted
      * against "(public)" underneath).
      *
-     * @param  array<string, ?string>  $patterns  Keyed by flag name, in processing order.
-     * @return array<string, bool|string|null> The same keys as $patterns (each a bool), plus 'summary' (the fully-cleaned title).
+     * @param  array{tentative: ?string, openEnd: ?string, openStart: ?string, public: ?string}  $patterns  Stripped in this order: tentative first (outermost), public last (innermost).
+     * @return array{tentative: bool, openEnd: bool, openStart: bool, public: bool, summary: ?string} One bool per flag, plus 'summary' (the fully-cleaned title).
      */
     private function stripTitleFlags(?string $summary, array $patterns): array
     {
-        $flags = [];
+        [$tentative, $summary] = $this->matchAndStrip($patterns['tentative'], $summary);
+        [$openEnd, $summary] = $this->matchAndStrip($patterns['openEnd'], $summary);
+        [$openStart, $summary] = $this->matchAndStrip($patterns['openStart'], $summary);
+        [$public, $summary] = $this->matchAndStrip($patterns['public'], $summary);
 
-        foreach ($patterns as $key => $pattern) {
-            [$flags[$key], $summary] = $this->matchAndStrip($pattern, $summary);
-        }
-
-        return [...$flags, 'summary' => $summary];
+        return [
+            'tentative' => $tentative,
+            'openEnd' => $openEnd,
+            'openStart' => $openStart,
+            'public' => $public,
+            'summary' => $summary,
+        ];
     }
 
     /**

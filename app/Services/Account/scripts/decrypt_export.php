@@ -24,6 +24,9 @@ const ARGON2ID_HASH_LEN = 32;
 function derive_key(string $password, string $saltB64): string
 {
     $salt = base64_decode($saltB64, true);
+    if ($salt === false) {
+        throw new RuntimeException('Salt is not valid base64.');
+    }
 
     return sodium_crypto_pwhash(
         ARGON2ID_HASH_LEN,
@@ -33,6 +36,18 @@ function derive_key(string $password, string $saltB64): string
         ARGON2ID_MEMORY_COST_KIB * 1024,
         SODIUM_CRYPTO_PWHASH_ALG_ARGON2ID13,
     );
+}
+
+function read_file_or_exit(string $path): string
+{
+    $contents = file_get_contents($path);
+
+    if ($contents === false) {
+        fwrite(STDERR, "Could not read {$path}.\n");
+        exit(1);
+    }
+
+    return $contents;
 }
 
 function aes_gcm_decrypt(string $key, string $blobB64): string
@@ -67,7 +82,7 @@ function prompt_master_password(): string
     if ($isUnix) {
         echo 'Master password: ';
         system('stty -echo');
-        $password = rtrim(fgets(STDIN), "\r\n");
+        $password = rtrim((string) fgets(STDIN), "\r\n");
         system('stty echo');
         echo "\n";
 
@@ -76,7 +91,7 @@ function prompt_master_password(): string
 
     echo 'Master password (WARNING: will be visible as you type): ';
 
-    return rtrim(fgets(STDIN), "\r\n");
+    return rtrim((string) fgets(STDIN), "\r\n");
 }
 
 /** @return array<string> */
@@ -102,6 +117,9 @@ function walk_export_files(string $root): array
 function decrypt_record(array $record, array $keyRing): array
 {
     $recordKey = base64_decode($keyRing[$record['key_ring_id']], true);
+    if ($recordKey === false) {
+        throw new RuntimeException('Key ring entry is not valid base64.');
+    }
 
     $decrypted = $record;
     foreach ($record as $field => $value) {
@@ -126,7 +144,7 @@ function main(): void
         exit(1);
     }
 
-    $keyParams = json_decode(file_get_contents($keyParamsPath), true)['records'][0];
+    $keyParams = json_decode(read_file_or_exit($keyParamsPath), true)['records'][0];
 
     try {
         $vaultKey = derive_key($masterPassword, $keyParams['passphrase_salt']);
@@ -139,7 +157,7 @@ function main(): void
     $processed = 0;
 
     foreach (walk_export_files('.') as $path) {
-        $data = json_decode(file_get_contents($path), true);
+        $data = json_decode(read_file_or_exit($path), true);
 
         if (($data['tier'] ?? null) !== 'e2ee') {
             continue;

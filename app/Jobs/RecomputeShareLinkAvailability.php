@@ -177,7 +177,7 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
             array_count_values(array_map(fn (AvailabilitySlot $s) => $s->type.'_count', $result->events)),
         ));
 
-        $resultJson = json_encode(['events' => $result->toArray()]);
+        $resultJson = json_encode(['events' => $result->toArray()], JSON_THROW_ON_ERROR);
         $contentKey = HighlightTokenKey::derive($shareLink->highlight_token ?? $shareLink->id);
 
         $ciphertext = AesGcm::encrypt($contentKey, $resultJson);
