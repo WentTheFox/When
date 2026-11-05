@@ -16,7 +16,11 @@ use Illuminate\Support\Facades\DB;
  */
 final class SortOrder
 {
-    /** Where a new record goes until the client has placed it: the end. */
+    /**
+     * Where a new record goes until the client has placed it: the end.
+     *
+     * @param  Relation<*, *, *>  $ownedRecords
+     */
     public static function next(Relation $ownedRecords): int
     {
         $max = $ownedRecords->getQuery()->withoutGlobalScope(SoftDeletingScope::class)->max('sort_order');

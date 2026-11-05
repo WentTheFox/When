@@ -60,6 +60,7 @@ class Translation extends Model
         'text',
     ];
 
+    /** @return MorphTo<Model, $this> */
     public function localizable(): MorphTo
     {
         return $this->morphTo();

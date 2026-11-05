@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSortOrder;
+use Database\Factories\ConnectionFactory;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -57,6 +58,7 @@ use Illuminate\Support\Carbon;
  */
 class Connection extends Model
 {
+    /** @use HasFactory<ConnectionFactory> */
     use HasFactory, HasSortOrder, HasUuids, SoftDeletes;
 
     protected $fillable = [

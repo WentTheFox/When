@@ -344,6 +344,8 @@ enum IconKey: string
      * not anything an owner scanning the picker would find meaningful) —
      * IconPicker.vue re-groups this flat list by `group` itself for
      * display.
+     *
+     * @return list<array{key: string, label: string, group: string, keywords: list<string>}>
      */
     public static function forFrontend(): array
     {

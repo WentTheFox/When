@@ -24,9 +24,17 @@ final class AvailabilitySlot
         public readonly bool $tentativeEnd = false,
         /** Freetext preceding "with X"/"w/ X" (e.g. "Dinner"), raw and unlocalized, for a highlighted slot — null when activityLabel below already covers this event. See ActivityExtractor. A public slot runs through the same extraction unconditionally (the activity name is always shown now, public or not), falling back to the full cleaned summary whenever there's no pattern configured or it doesn't match — see AvailabilityService::compute. */
         public readonly ?string $activity = null,
-        /** The owner's own configured, localized label for this event's matched activity_localization (e.g. "Visiting"/"Hosting", or any other role an owner defined) — see App\Support\LocalizedText. Takes precedence over `activity` above when both are present (see AvailabilityService::compute). Only ever set for a highlighted slot. */
+        /**
+         * The owner's own configured, localized label for this event's matched activity_localization (e.g. "Visiting"/"Hosting", or any other role an owner defined) — see App\Support\LocalizedText. Takes precedence over `activity` above when both are present (see AvailabilityService::compute). Only ever set for a highlighted slot.
+         *
+         * @var array<string, string>|null
+         */
         public readonly ?array $activityLabel = null,
-        /** Every configured highlight word that matched (a clause can name more than one person). Only ever set for a highlighted slot. */
+        /**
+         * Every configured highlight word that matched (a clause can name more than one person). Only ever set for a highlighted slot.
+         *
+         * @var list<string>
+         */
         public readonly array $highlightWords = [],
         /** The matched activity_localization's own icon_key (see App\Models\ActivityLocalization), when a role's pattern — not an ordinary "with X"/"w/ X" clause — is what matched. Null (the common case) means "use the regular highlighted/public icon" — this never forces the client to fall back to anything itself. Set for a highlighted slot when a highlight-word-gated role match applies (HighlightMatcher::matchClauseText), or a public slot when its title structurally matches a role's pattern (HighlightMatcher::matchActivityRole, ungated — see AvailabilityService::compute). */
         public readonly ?string $activityIcon = null,
@@ -40,6 +48,7 @@ final class AvailabilitySlot
         public readonly ?array $recurrence = null,
     ) {}
 
+    /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [

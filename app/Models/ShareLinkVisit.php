@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\ShareLinkVisitFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -30,6 +31,7 @@ use Illuminate\Support\Carbon;
  */
 class ShareLinkVisit extends Model
 {
+    /** @use HasFactory<ShareLinkVisitFactory> */
     use HasFactory, HasUuids;
 
     /** No updated_at — a visit record is never modified after it's written. */

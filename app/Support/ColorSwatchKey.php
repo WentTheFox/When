@@ -190,6 +190,8 @@ enum ColorSwatchKey: string
      * by hue (via light()) with every grayscale swatch (charcoal/slate/
      * steel/silver/fog) pushed to the end regardless of where it falls in
      * the enum's own declaration order — see ColorMath::sortKey().
+     *
+     * @return list<array{key: string, label: string, light: string, dark: string}>
      */
     public static function forFrontend(): array
     {

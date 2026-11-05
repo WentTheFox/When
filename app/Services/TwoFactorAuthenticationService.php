@@ -61,6 +61,8 @@ class TwoFactorAuthenticationService
      * Confirms setup and, if the account has no recovery codes yet (e.g. from
      * an earlier passkey), generates them. Returns the plaintext codes, shown
      * once — empty if existing codes were kept.
+     *
+     * @return list<string>
      */
     public function confirm(User $user, string $code): array
     {
@@ -91,6 +93,8 @@ class TwoFactorAuthenticationService
      * Recovery codes back up *every* second factor (TOTP or passkey), so
      * whichever is enabled first creates them. Returns the new plaintext
      * codes (shown once), or null if the account already has some.
+     *
+     * @return list<string>|null
      */
     public function ensureRecoveryCodes(User $user): ?array
     {
@@ -127,6 +131,7 @@ class TwoFactorAuthenticationService
         return true;
     }
 
+    /** @return list<string> */
     private function generateRecoveryCodes(): array
     {
         return collect(range(1, self::RECOVERY_CODE_COUNT))

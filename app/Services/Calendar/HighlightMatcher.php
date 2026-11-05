@@ -73,6 +73,10 @@ class HighlightMatcher
             ?? $this->matchFreeBusyOnly($event, $highlightWords);
     }
 
+    /**
+     * @param  string[]  $highlightWords
+     * @param  array<int, array{pattern: string, label: array<string, string>, icon_key?: ?string, color_key?: ?string, has_capture_group?: bool}>  $activityLocalizations
+     */
     private function matchFullDetail(ParsedEvent $event, array $highlightWords, ?string $clausePattern, ?string $splitPattern, array $activityLocalizations): ?HighlightMatch
     {
         foreach ([$event->summary, $event->description] as $text) {
@@ -88,6 +92,10 @@ class HighlightMatcher
         return null;
     }
 
+    /**
+     * @param  string[]  $highlightWords
+     * @param  array<int, array{pattern: string, label: array<string, string>, icon_key?: ?string, color_key?: ?string, has_capture_group?: bool}>  $activityLocalizations
+     */
     private function matchClauseText(string $text, array $highlightWords, ?string $clausePattern, ?string $splitPattern, array $activityLocalizations): ?HighlightMatch
     {
         // Checked FIRST, in the owner's own configured order — the first
@@ -168,6 +176,7 @@ class HighlightMatcher
      * since the clause regex itself is case-insensitive) behavior
      * deliberately, rather than silently tightening it.
      *
+     * @param  string[]  $highlightWords
      * @return string[]
      */
     private function matchTokens(string $tokenStr, array $highlightWords, ?string $splitPattern): array
@@ -217,6 +226,7 @@ class HighlightMatcher
         return null;
     }
 
+    /** @param  string[]  $highlightWords */
     private function matchFreeBusyOnly(ParsedEvent $event, array $highlightWords): ?HighlightMatch
     {
         if ($event->location !== null) {

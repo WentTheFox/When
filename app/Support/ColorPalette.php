@@ -43,7 +43,11 @@ class ColorPalette
         'public' => ColorSwatchKey::Slate->value,
     ];
 
-    /** Shape consumed by resources/js/free/color-palette.ts's setColorPalette(). */
+    /**
+     * Shape consumed by resources/js/free/color-palette.ts's setColorPalette().
+     *
+     * @return list<array{key: string, label: string, light: string, dark: string}>
+     */
     public static function forFrontend(): array
     {
         return ColorSwatchKey::forFrontend();

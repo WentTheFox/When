@@ -108,6 +108,8 @@ enum NowColorPresetKey: string
      * setNowColorPresets() — an ordered {key, label, light, dark}[],
      * sorted by hue (via light()) with Monochrome (0 saturation) pushed
      * to the end — same ColorMath::sortKey() treatment as ColorSwatchKey.
+     *
+     * @return list<array{key: string, label: string, light: string, dark: string}>
      */
     public static function forFrontend(): array
     {

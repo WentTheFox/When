@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Crypt;
  * A boolean stored APP_KEY-encrypted (§0.2 tier) in a text column — Laravel's
  * own 'encrypted' cast only round-trips strings, and a plain boolean column
  * would leave the value readable to anyone holding a database copy.
+ *
+ * @implements CastsAttributes<bool|null, bool|null>
  */
 class EncryptedBoolean implements CastsAttributes
 {
