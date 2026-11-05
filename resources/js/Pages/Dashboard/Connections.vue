@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { faLink } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
 import { BButton, BCard, BFormGroup, BFormInput, BFormSelect, BFormTextarea, BTab, BTabs } from 'bootstrap-vue-next';
@@ -684,6 +686,16 @@ async function removeEdge(id: string): Promise<void> {
                   @click="selectedConnectionId = connection.id"
                 >
                   <EncryptedText :value="decryptedNames[connection.id]" :ciphertext="connection.name_ciphertext" />
+                  <!-- Has a share link set up. The selected row is blue itself, so there it just inherits the white text. -->
+                  <span
+                    v-if="connection.share_link"
+                    class="ms-1 connection-shared"
+                    :class="selectedConnectionId === connection.id ? '' : 'text-info'"
+                    title="Has a share link"
+                  >
+                    <FontAwesomeIcon :icon="faLink" />
+                    <span class="visually-hidden">Has a share link</span>
+                  </span>
                   <span v-if="connection.archived" class="small text-muted">(archived)</span>
                 </button>
               </div>
