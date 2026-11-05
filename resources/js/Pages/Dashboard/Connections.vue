@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { faLink } from '@fortawesome/free-solid-svg-icons';
+import { faBoxArchive, faLink } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
@@ -696,7 +696,16 @@ async function removeEdge(id: string): Promise<void> {
                     <FontAwesomeIcon :icon="faLink" />
                     <span class="visually-hidden">Has a share link</span>
                   </span>
-                  <span v-if="connection.archived" class="small text-muted">(archived)</span>
+                  <!-- Archived. Muted, except on the selected row, where the inherited white stays readable. -->
+                  <span
+                    v-if="connection.archived"
+                    class="ms-1 connection-archived"
+                    :class="selectedConnectionId === connection.id ? '' : 'text-muted'"
+                    title="Archived"
+                  >
+                    <FontAwesomeIcon :icon="faBoxArchive" />
+                    <span class="visually-hidden">Archived</span>
+                  </span>
                 </button>
               </div>
             </LockedOverlay>

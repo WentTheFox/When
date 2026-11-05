@@ -79,6 +79,26 @@ describe('Connections page', () => {
     expect(await render('')).not.toContain('connection-shared');
   });
 
+  it('marks archived connections with an icon instead of a text label', async () => {
+    const archived = { ...props.connections[0], archived: true };
+    const active = { ...props.connections[0], id: '77777777-7777-4777-8777-777777777777', archived: false };
+
+    const html = await renderWith({ ...props, connections: [archived, active] }, '');
+    expect(html.match(/connection-archived/g)).toHaveLength(1);
+    expect(html).not.toContain('(archived)');
+    // Announced to screen readers as well.
+    expect(html).toMatch(/connection-archived[\s\S]*?visually-hidden[^>]*>Archived</);
+    expect(await render('')).not.toContain('connection-archived');
+  });
+
+  it('shows both marks when a connection is archived and shared', async () => {
+    const both = { ...props.connections[0], archived: true, share_link: { id: 'l1', highlight_token: 'tok', archived: true } };
+
+    const html = await renderWith({ ...props, connections: [both] }, '');
+    expect(html).toContain('connection-shared');
+    expect(html).toContain('connection-archived');
+  });
+
   it('keeps the share-link mark visible on the selected (blue) row', async () => {
     const shared = { ...props.connections[0], share_link: { id: 'l1', highlight_token: 'tok', archived: false } };
 
