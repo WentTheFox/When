@@ -94,6 +94,12 @@ ordinary password). See `resources/js/crypto/argon2.ts`.
   augmentation in place, `usePage().props.auth` still typechecked as `unknown`), so don't
   reintroduce it as "the correct way" — the explicit generic is the one that works. Update
   `SharedPageProps` itself if `HandleInertiaRequests::share()`'s shape changes.
+- `vendor/bin/phpstan analyse --memory-limit=1G` — Larastan (level 0) plus
+  `phpstan-disallowed-calls`, run in CI (`.github/workflows/phpstan.yml`). It bans the zone-less
+  Blueprint methods (`timestamp()`, `timestamps()`, `softDeletes()`, `dateTime()`,
+  `nullableTimestamps()`): use the `*Tz` variants. Every column is `timestamptz` and
+  `config/database.php` pins the connection to UTC — Laravel writes zone-less UTC strings, so
+  both halves are required. Pre-rule migrations are grandfathered in `phpstan-baseline.neon`.
 - `pnpm build` — Vite build; must succeed before any deploy.
 - `php artisan test` — full suite. Run before committing anything backend-touching.
 - `./vendor/bin/pint --dirty` — **only ever run this scoped to your own changed files**

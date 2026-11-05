@@ -1,0 +1,187 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Called ''pluck'' on Laravel collection, but could have been retrieved as a query\.$#'
+			identifier: larastan.noUnnecessaryCollectionCall
+			count: 1
+			path: app/Http/Controllers/DashboardController.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamp\(\) is forbidden, use timestampTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 3
+			path: database/migrations/0001_01_01_000000_create_users_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamps\(\) is forbidden, use timestampsTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/0001_01_01_000000_create_users_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamp\(\) is forbidden, use timestampTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/0001_01_01_000002_create_jobs_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamps\(\) is forbidden, use timestampsTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_08_31_000100_create_sleep_exceptions_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamps\(\) is forbidden, use timestampsTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_08_31_000200_create_connection_source_categories_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamps\(\) is forbidden, use timestampsTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_08_31_000300_create_connection_sources_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamps\(\) is forbidden, use timestampsTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_08_31_000400_create_share_links_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamps\(\) is forbidden, use timestampsTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_08_31_000500_create_share_link_words_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamp\(\) is forbidden, use timestampTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 3
+			path: database/migrations/2026_08_31_000600_create_share_link_cache_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamps\(\) is forbidden, use timestampsTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_08_31_000600_create_share_link_cache_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamps\(\) is forbidden, use timestampsTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_08_31_000700_create_connections_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamps\(\) is forbidden, use timestampsTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_08_31_000800_create_connection_attribute_definitions_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamps\(\) is forbidden, use timestampsTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_08_31_000900_create_connection_attribute_values_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamps\(\) is forbidden, use timestampsTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_08_31_001000_create_connection_edges_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamp\(\) is forbidden, use timestampTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 2
+			path: database/migrations/2026_08_31_001100_create_invites_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamps\(\) is forbidden, use timestampsTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_08_31_001100_create_invites_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamp\(\) is forbidden, use timestampTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_08_31_001200_create_invite_redemptions_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamp\(\) is forbidden, use timestampTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_08_31_001500_create_calendar_detections_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamps\(\) is forbidden, use timestampsTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_08_31_001600_create_share_link_manual_tags_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamps\(\) is forbidden, use timestampsTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_08_31_009000_drop_share_link_manual_tags_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamps\(\) is forbidden, use timestampsTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_09_03_070100_create_activity_roles_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamps\(\) is forbidden, use timestampsTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_09_03_080000_create_localized_texts_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:softDeletes\(\) is forbidden, use softDeletesTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_09_03_100000_add_soft_deletes_to_account_owned_tables.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamps\(\) is forbidden, use timestampsTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_09_03_130000_create_availability_windows_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamp\(\) is forbidden, use timestampTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_09_07_150000_create_share_link_visits_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:softDeletes\(\) is forbidden, use softDeletesTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_10_07_000000_create_passkeys_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamp\(\) is forbidden, use timestampTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_10_07_000000_create_passkeys_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamps\(\) is forbidden, use timestampsTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_10_07_000000_create_passkeys_table.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:softDeletes\(\) is forbidden, use softDeletesTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_11_05_020000_drop_legacy_share_link_columns.php
+
+		-
+			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:timestamps\(\) is forbidden, use timestampsTz\(\)\.$#'
+			identifier: disallowed.method
+			count: 1
+			path: database/migrations/2026_11_05_020000_drop_legacy_share_link_columns.php
