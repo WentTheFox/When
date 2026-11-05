@@ -11,7 +11,7 @@ const connection: ConnectionRow = {
   source_ids: [],
   name_ciphertext: RAW_NAME,
   notes_ciphertext: null,
-  share_link: { id: 'l1', highlight_token: 'tok', archived: false },
+  share_link: { id: 'l1', highlight_token: 'tok' },
   archived: false,
   attribute_values: [],
 };

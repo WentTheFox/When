@@ -125,7 +125,7 @@ class ShareLinkAvailabilityApiTest extends TestCase
 
     public function test_archived_share_links_return_401_as_the_link_expired_signal(): void
     {
-        $shareLink = ShareLink::factory()->for($this->userWithCalendar())->create(['archived' => true]);
+        $shareLink = ShareLink::factory()->for($this->userWithCalendar())->archived()->create();
 
         $response = $this->getJson(route('api.share-links.show', $shareLink->highlight_token));
 

@@ -8,6 +8,7 @@ use App\Models\ShareLinkCache;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ShareLinkManagementTest extends TestCase
@@ -121,17 +122,49 @@ class ShareLinkManagementTest extends TestCase
         $this->assertNull(ShareLink::find($shareLink->id));
     }
 
-    public function test_archiving_a_connection_archives_its_share_link_and_back(): void
+    /** A link has no archive flag of its own: it is archived exactly when its connection is. */
+    public function test_a_link_is_archived_exactly_when_its_connection_is(): void
     {
         $owner = User::factory()->create();
         $shareLink = ShareLink::factory()->for($owner)->create();
         $url = "/dashboard/connections/{$shareLink->connection_id}";
 
+        $this->assertFalse($shareLink->fresh()->isArchived());
+        $this->assertSame(1, ShareLink::active()->count());
+
         $this->actingAs($owner)->patchJson($url, ['archived' => true])->assertOk();
-        $this->assertTrue($shareLink->fresh()->archived);
+        $this->assertTrue($shareLink->fresh()->isArchived());
+        $this->assertSame(0, ShareLink::active()->count());
 
         $this->actingAs($owner)->patchJson($url, ['archived' => false])->assertOk();
-        $this->assertFalse($shareLink->fresh()->archived);
+        $this->assertFalse($shareLink->fresh()->isArchived());
+        $this->assertSame(1, ShareLink::active()->count());
+    }
+
+    public function test_archiving_the_connection_does_not_write_to_the_links_own_column(): void
+    {
+        $owner = User::factory()->create();
+        $shareLink = ShareLink::factory()->for($owner)->create();
+
+        $this->actingAs($owner)
+            ->patchJson("/dashboard/connections/{$shareLink->connection_id}", ['archived' => true])
+            ->assertOk();
+
+        // Nothing is mirrored onto the link; its state is derived.
+        $this->assertFalse((bool) DB::table('share_links')->where('id', $shareLink->id)->value('archived'));
+    }
+
+    public function test_the_link_payloads_carry_no_archived_flag(): void
+    {
+        $owner = User::factory()->create();
+        $connection = Connection::factory()->for($owner)->create();
+
+        $created = $this->actingAs($owner)->postJson("/dashboard/connections/{$connection->id}/share-link")->assertCreated();
+        $this->assertArrayNotHasKey('archived', $created->json());
+
+        $this->actingAs($owner)->get('/dashboard/connections')->assertInertia(
+            fn ($page) => $page->has('connections.0.share_link', fn ($link) => $link->missing('archived')->etc()),
+        );
     }
 
     public function test_one_connection_cannot_have_two_share_links(): void

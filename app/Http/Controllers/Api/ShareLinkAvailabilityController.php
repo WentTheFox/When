@@ -53,7 +53,7 @@ class ShareLinkAvailabilityController extends Controller
      */
     public function show(string $token): JsonResponse
     {
-        $shareLink = ShareLink::where('highlight_token', $token)->first();
+        $shareLink = ShareLink::with('connection')->where('highlight_token', $token)->first();
 
         if ($shareLink === null) {
             abort(Response::HTTP_NOT_FOUND);
@@ -61,7 +61,7 @@ class ShareLinkAvailabilityController extends Controller
 
         // 401, not 404: the link was valid once, so the viewer gets the
         // "expired" signal rather than "never existed".
-        if ($shareLink->archived) {
+        if ($shareLink->isArchived()) {
             abort(Response::HTTP_UNAUTHORIZED);
         }
 
@@ -139,9 +139,9 @@ class ShareLinkAvailabilityController extends Controller
      */
     public function refresh(Request $request, string $token): JsonResponse
     {
-        $shareLink = ShareLink::where('highlight_token', $token)->first();
+        $shareLink = ShareLink::with('connection')->where('highlight_token', $token)->first();
 
-        if ($shareLink === null || $shareLink->archived) {
+        if ($shareLink === null || $shareLink->isArchived()) {
             abort(Response::HTTP_NOT_FOUND);
         }
 
