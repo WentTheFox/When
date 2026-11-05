@@ -48,7 +48,6 @@ export interface EdgeRow {
   id: string;
   from_connection_id: string;
   to_connection_id: string;
-  label: string;
 }
 
 const props = defineProps<{
@@ -61,7 +60,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   updated: [ConnectionRow];
   deleted: [string];
-  addEdge: [string, string, string];
+  addEdge: [string, string];
   removeEdge: [string];
 }>();
 
@@ -96,13 +95,18 @@ const myEdges = computed(() =>
     .sort((a, b) => a.otherName.localeCompare(b.otherName)),
 );
 
-/** Picker options for "add a relationship" — every other connection, sorted, self excluded. */
+/** Picker options for connection-type fields — every other connection, self excluded. */
 const relatableConnections = computed(() =>
   props.connectionOptions.filter((c) => c.id !== props.connection.id),
 );
 
+/** Picker options for "knows" — like the above, minus anyone already known (there's one edge per pair). */
+const knowableConnections = computed(() => {
+  const known = new Set(myEdges.value.map((e) => e.otherId));
+  return relatableConnections.value.filter((c) => !known.has(c.id));
+});
+
 const newRelationTargetId = ref('');
-const newRelationLabel = ref('');
 
 function onShareLinkChanged(shareLink: ShareLinkInfo | null): void {
   emit('updated', { ...props.connection, share_link: shareLink });
@@ -110,9 +114,8 @@ function onShareLinkChanged(shareLink: ShareLinkInfo | null): void {
 
 function addRelationship(): void {
   if (!newRelationTargetId.value) return;
-  emit('addEdge', props.connection.id, newRelationTargetId.value, newRelationLabel.value);
+  emit('addEdge', props.connection.id, newRelationTargetId.value);
   newRelationTargetId.value = '';
-  newRelationLabel.value = '';
 }
 
 async function decryptAll(): Promise<void> {
@@ -261,7 +264,7 @@ async function remove(): Promise<void> {
         </h3>
         <p v-if="connection.source_ids.length" class="small text-muted mb-1">{{ sourceLabels(connection.source_ids) }}</p>
         <p v-if="myEdges.length" class="small text-muted mb-1">
-          Knows: {{ myEdges.map((e) => e.otherName + (e.label ? ` (${e.label})` : '')).join(', ') }}
+          Knows: {{ myEdges.map((e) => e.otherName).join(', ') }}
         </p>
         <p v-if="connection.share_link" class="small text-muted mb-1">Shared — manage the link under Edit.</p>
         <p v-if="notes" class="small mb-0">{{ notes }}</p>
@@ -384,16 +387,15 @@ async function remove(): Promise<void> {
       <BFormGroup label="Relationships" class="mb-3">
         <ul v-if="myEdges.length" class="list-unstyled mb-2">
           <li v-for="edge in myEdges" :key="edge.id" class="d-flex justify-content-between align-items-center">
-            <span>{{ edge.otherName }}<template v-if="edge.label"> ({{ edge.label }})</template></span>
+            <span>{{ edge.otherName }}</span>
             <button type="button" class="btn btn-link btn-sm p-0" @click="emit('removeEdge', edge.id)">&times;</button>
           </li>
         </ul>
         <div class="input-group input-group-sm">
           <BFormSelect v-model="newRelationTargetId" size="sm">
             <option value="" disabled>Knows…</option>
-            <option v-for="c in relatableConnections" :key="c.id" :value="c.id">{{ c.label }}</option>
+            <option v-for="c in knowableConnections" :key="c.id" :value="c.id">{{ c.label }}</option>
           </BFormSelect>
-          <BFormInput v-model="newRelationLabel" type="text" size="sm" placeholder="Label (e.g. sibling of)" />
           <BButton variant="outline-secondary" size="sm" @click="addRelationship">Add</BButton>
         </div>
       </BFormGroup>

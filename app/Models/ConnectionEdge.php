@@ -16,7 +16,6 @@ class ConnectionEdge extends Model
         'user_id',
         'from_connection_id',
         'to_connection_id',
-        'label_ciphertext',
     ];
 
     public function user(): BelongsTo

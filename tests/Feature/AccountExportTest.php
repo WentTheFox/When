@@ -16,7 +16,6 @@ use App\Models\ShareLink;
 use App\Models\SleepException;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Crypt;
 use Tests\TestCase;
 use ZipArchive;
 
@@ -99,7 +98,7 @@ class AccountExportTest extends TestCase
         ConnectionAttributeValue::create(['connection_id' => $connection->id, 'attribute_definition_id' => $definition->id, 'value_ciphertext' => 'opaque-attr-value']);
 
         $other = Connection::create(['user_id' => $user->id, 'name_ciphertext' => 'opaque-name-2']);
-        ConnectionEdge::create(['user_id' => $user->id, 'from_connection_id' => $connection->id, 'to_connection_id' => $other->id, 'label_ciphertext' => 'opaque-edge-label']);
+        ConnectionEdge::create(['user_id' => $user->id, 'from_connection_id' => $connection->id, 'to_connection_id' => $other->id]);
 
         $invite = Invite::create(['inviter_user_id' => $user->id, 'code' => 'INVITE1']);
         $invitee = User::factory()->create();

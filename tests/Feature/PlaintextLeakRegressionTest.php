@@ -54,8 +54,6 @@ class PlaintextLeakRegressionTest extends TestCase
 
     private const ATTRIBUTE_VALUE = 'PlaintextSentinelValue_19900101';
 
-    private const EDGE_LABEL = 'PlaintextSentinelEdge_SiblingOf';
-
     private const SOURCE_NAME = 'PlaintextSentinelSource_MetOnDiscord';
 
     private const CATEGORY_NAME = 'PlaintextSentinelCategory_SocialMedia';
@@ -158,7 +156,6 @@ class PlaintextLeakRegressionTest extends TestCase
             'user_id' => $user->id,
             'from_connection_id' => $connection->id,
             'to_connection_id' => $otherConnection->id,
-            'label_ciphertext' => $this->fakeClientCiphertext(self::EDGE_LABEL),
         ]);
 
         $dump = $this->dumpEntireDatabaseAsString();
@@ -173,7 +170,6 @@ class PlaintextLeakRegressionTest extends TestCase
             self::SLEEP_LABEL,
             self::ATTRIBUTE_LABEL,
             self::ATTRIBUTE_VALUE,
-            self::EDGE_LABEL,
             self::SOURCE_NAME,
             self::CATEGORY_NAME,
             self::DND_PATTERN,

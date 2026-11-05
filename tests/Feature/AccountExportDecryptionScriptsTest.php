@@ -131,14 +131,11 @@ class AccountExportDecryptionScriptsTest extends TestCase
             'value_ciphertext' => $this->encryptFor($connection->id, $plaintexts['attribute_value']),
         ]);
 
-        $edge = ConnectionEdge::create([
+        ConnectionEdge::create([
             'user_id' => $user->id,
             'from_connection_id' => $connection->id,
             'to_connection_id' => $otherConnection->id,
-            'label_ciphertext' => 'placeholder',
         ]);
-        $plaintexts['edge_label'] = 'Edge Label';
-        $edge->forceFill(['label_ciphertext' => $this->encryptFor($edge->id, $plaintexts['edge_label'])])->save();
 
         $sleepException = SleepException::create([
             'user_id' => $user->id,
@@ -190,7 +187,6 @@ class AccountExportDecryptionScriptsTest extends TestCase
         $this->assertContains($plaintexts['definition_label'], collect($decryptedFiles['connections/attribute-definitions']['records'])->pluck('label'));
         $this->assertContains($plaintexts['definition_options'], collect($decryptedFiles['connections/attribute-definitions']['records'])->pluck('options'));
         $this->assertContains($plaintexts['attribute_value'], collect($decryptedFiles['connections/attribute-values']['records'])->pluck('value'));
-        $this->assertContains($plaintexts['edge_label'], collect($decryptedFiles['connections/edges']['records'])->pluck('label'));
         $this->assertContains($plaintexts['sleep_exception_label'], collect($decryptedFiles['availability/sleep-exceptions']['records'])->pluck('label'));
     }
 
@@ -203,7 +199,6 @@ class AccountExportDecryptionScriptsTest extends TestCase
             'connections/source-categories',
             'connections/attribute-definitions',
             'connections/attribute-values',
-            'connections/edges',
             'availability/sleep-exceptions',
         ];
 
