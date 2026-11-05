@@ -3,12 +3,47 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasSortOrder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property string $id
+ * @property string $user_id
+ * @property string $label_ciphertext
+ * @property string $type
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property string|null $options_ciphertext
+ * @property Carbon|null $deleted_at
+ * @property int $sort_order
+ * @property-read User|null $user
+ * @property-read Collection<int, ConnectionAttributeValue> $values
+ * @property-read int|null $values_count
+ *
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition onlyTrashed()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition ordered()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition whereDeletedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition whereLabelCiphertext($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition whereOptionsCiphertext($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition whereSortOrder($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition whereType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition whereUserId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition withTrashed(bool $withTrashed = true)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition withoutTrashed()
+ *
+ * @mixin \Eloquent
+ */
 class ConnectionAttributeDefinition extends Model
 {
     use HasSortOrder, HasUuids, SoftDeletes;
@@ -22,11 +57,13 @@ class ConnectionAttributeDefinition extends Model
         'sort_order',
     ];
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return HasMany<ConnectionAttributeValue, $this> */
     public function values(): HasMany
     {
         return $this->hasMany(ConnectionAttributeValue::class, 'attribute_definition_id');

@@ -151,6 +151,54 @@ parameters:
 			path: database/migrations/2026_09_07_150000_create_share_link_visits_table.php
 
 		-
+			message: '#^Access to an undefined property App\\Models\\User\:\:\$school_color_key\.$#'
+			identifier: property.notFound
+			count: 1
+			path: database/migrations/2026_09_07_180100_migrate_work_school_patterns_to_activity_localizations.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\User\:\:\$school_event_pattern\.$#'
+			identifier: property.notFound
+			count: 1
+			path: database/migrations/2026_09_07_180100_migrate_work_school_patterns_to_activity_localizations.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\User\:\:\$school_event_pattern_preview\.$#'
+			identifier: property.notFound
+			count: 1
+			path: database/migrations/2026_09_07_180100_migrate_work_school_patterns_to_activity_localizations.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\User\:\:\$school_icon_key\.$#'
+			identifier: property.notFound
+			count: 1
+			path: database/migrations/2026_09_07_180100_migrate_work_school_patterns_to_activity_localizations.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\User\:\:\$work_color_key\.$#'
+			identifier: property.notFound
+			count: 1
+			path: database/migrations/2026_09_07_180100_migrate_work_school_patterns_to_activity_localizations.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\User\:\:\$work_event_pattern\.$#'
+			identifier: property.notFound
+			count: 1
+			path: database/migrations/2026_09_07_180100_migrate_work_school_patterns_to_activity_localizations.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\User\:\:\$work_event_pattern_preview\.$#'
+			identifier: property.notFound
+			count: 1
+			path: database/migrations/2026_09_07_180100_migrate_work_school_patterns_to_activity_localizations.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\User\:\:\$work_icon_key\.$#'
+			identifier: property.notFound
+			count: 1
+			path: database/migrations/2026_09_07_180100_migrate_work_school_patterns_to_activity_localizations.php
+
+		-
 			message: '#^Calling Illuminate\\Database\\Schema\\Blueprint\:\:softDeletes\(\) is forbidden, use softDeletesTz\(\)\.$#'
 			identifier: disallowed.method
 			count: 1

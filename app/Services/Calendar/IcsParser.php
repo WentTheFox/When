@@ -229,7 +229,7 @@ class IcsParser
      * against "(public)" underneath).
      *
      * @param  array<string, ?string>  $patterns  Keyed by flag name, in processing order.
-     * @return array<string, bool|?string> The same keys as $patterns (each a bool), plus 'summary' (the fully-cleaned title).
+     * @return array<string, bool|string|null> The same keys as $patterns (each a bool), plus 'summary' (the fully-cleaned title).
      */
     private function stripTitleFlags(?string $summary, array $patterns): array
     {
