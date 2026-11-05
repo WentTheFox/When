@@ -157,9 +157,9 @@ async function deleteAllVisits(): Promise<void> {
     </div>
 
     <template v-else>
-      <div class="d-flex justify-content-between align-items-start flex-wrap" style="gap: 0.5rem;">
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
         <a v-if="url" :href="url" target="_blank" rel="noopener" class="small font-monospace text-break">{{ url }}</a>
-        <div class="d-flex" style="gap: 0.25rem;">
+        <div class="d-flex gap-2">
           <BButton variant="outline-secondary" size="sm" title="Copy link" @click="copyUrl">
             <FontAwesomeIcon :icon="justCopied ? faCheck : faCopy" />
           </BButton>
