@@ -26,6 +26,7 @@ final class StageTimer
 
     private float $lastLap;
 
+    /** @param  array<string, mixed>  $context */
     public function __construct(
         private readonly string $pipeline,
         private readonly array $context = [],
@@ -35,7 +36,11 @@ final class StageTimer
         $this->lastLap = $this->start;
     }
 
-    /** Logs how long it's been since the previous lap() (or construction) as one named stage. */
+    /**
+     * Logs how long it's been since the previous lap() (or construction) as one named stage.
+     *
+     * @param  array<string, mixed>  $extra
+     */
     public function lap(string $stage, array $extra = []): void
     {
         $now = microtime(true);
@@ -52,7 +57,11 @@ final class StageTimer
         $this->lastLap = $now;
     }
 
-    /** For a stage that errored out — no calendar_url/message content, just that it failed and when. */
+    /**
+     * For a stage that errored out — no calendar_url/message content, just that it failed and when.
+     *
+     * @param  array<string, mixed>  $extra
+     */
     public function fail(string $stage, array $extra = []): void
     {
         $now = microtime(true);

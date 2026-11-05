@@ -4,7 +4,9 @@ includes:
     - phpstan-baseline.neon
 
 parameters:
-    level: 5
+    level: 6
+    stubFiles:
+        - stubs/sabre-vobject.stub
     paths:
         - app
         - database

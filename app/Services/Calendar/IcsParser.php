@@ -128,6 +128,9 @@ class IcsParser
         return $items;
     }
 
+    /**
+     * @param  array<string, array{unit: string, interval: int}>  $recurrenceByUid
+     */
     private function parseVEvent(
         Component $vevent,
         ?string $tentativeTitlePattern,
@@ -278,7 +281,9 @@ class IcsParser
         return [true, $cleaned];
     }
 
-    /** @return RawCalendarItem[] */
+    /**
+     * @return RawCalendarItem[]
+     */
     private function parseVFreeBusy(Component $vfreebusy): array
     {
         $items = [];

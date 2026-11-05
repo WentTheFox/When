@@ -26,7 +26,11 @@ class IconPalette
         'highlighted' => IconKey::Star->value,
     ];
 
-    /** Shape consumed by resources/js/free/icon-palette.ts's setIconPalette(). */
+    /**
+     * Shape consumed by resources/js/free/icon-palette.ts's setIconPalette().
+     *
+     * @return list<array{key: string, label: string, group: string, keywords: list<string>}>
+     */
     public static function forFrontend(): array
     {
         return IconKey::forFrontend();

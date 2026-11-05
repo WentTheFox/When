@@ -140,7 +140,11 @@ class ConnectionController extends Controller
         ];
     }
 
-    /** Computed share-link results embed the words and the bypass-DND flag, so drop the cached result of every link whose inputs just changed */
+    /**
+     * Computed share-link results embed the words and the bypass-DND flag, so drop the cached result of every link whose inputs just changed
+     *
+     * @param  array{share_link_id: ?string, words: ?list<string>, bypass_dnd: ?bool}|null  $before
+     */
     private function invalidateIfHighlightsChanged(Request $request, Connection $connection, ?array $before): void
     {
         $after = $this->highlightSnapshot($request, $connection);
@@ -156,6 +160,8 @@ class ConnectionController extends Controller
      * Every create/update returns the full row (not just {status: ok}) so
      * the Vue page can splice it straight into its reactive list without a
      * full reload — see ConnectionCard.vue's props.
+     *
+     * @return array<string, mixed>
      */
     private function serialize(Connection $connection): array
     {
@@ -203,6 +209,8 @@ class ConnectionController extends Controller
      * their own connection to another user's source or
      * attribute definition (a real cross-user IDOR, not just a missing
      * test — see ConnectionsIsolationTest).
+     *
+     * @return array<string, mixed>
      */
     private function validateConnection(Request $request, bool $requireId): array
     {
@@ -237,6 +245,8 @@ class ConnectionController extends Controller
      * value_ciphertext (E2EE, §0.1). Never two, never the wrong one, so a
      * client bug can't leak E2EE-intended data into a server-readable column
      * or vice versa.
+     *
+     * @param  array<int, array<string, mixed>>  $attributeValues
      */
     private function assertValueShapesMatchDefinitions(array $attributeValues, string $userId): void
     {
@@ -266,6 +276,7 @@ class ConnectionController extends Controller
         }
     }
 
+    /** @param  array<int, array<string, mixed>>|null  $attributeValues */
     private function syncAttributeValues(Connection $connection, ?array $attributeValues): void
     {
         if ($attributeValues === null) {

@@ -26,6 +26,7 @@ final class AvailabilityResult
         public readonly array $events,
     ) {}
 
+    /** @return array<int, array<string, mixed>> */
     public function toArray(): array
     {
         return array_map(fn (AvailabilitySlot $s) => $s->toArray(), $this->events);

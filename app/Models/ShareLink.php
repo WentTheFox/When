@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\ShareLinkFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -53,6 +54,7 @@ use Illuminate\Support\Carbon;
  */
 class ShareLink extends Model
 {
+    /** @use HasFactory<ShareLinkFactory> */
     use HasFactory, HasUuids, SoftDeletes;
 
     protected $fillable = [
@@ -112,6 +114,8 @@ class ShareLink extends Model
      * hides a connection, and so its link, from the dashboard stats: the link
      * itself stays live. A link has no archive flag of its own; it follows its
      * connection's, so there is one thing to toggle and nothing to keep in sync.
+     *
+     * @param  Builder<ShareLink>  $query
      */
     public function scopeActive(Builder $query): void
     {

@@ -74,7 +74,11 @@ class HighlightWordsResolver
         return array_values(array_unique($clean));
     }
 
-    /** Computed results embed the words, so any change to their source must drop the cached result. */
+    /**
+     * Computed results embed the words, so any change to their source must drop the cached result.
+     *
+     * @param  iterable<string|null>  $shareLinkIds
+     */
     public static function invalidateCaches(iterable $shareLinkIds): void
     {
         $ids = collect($shareLinkIds)->filter()->unique()->values()->all();

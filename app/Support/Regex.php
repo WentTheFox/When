@@ -55,7 +55,11 @@ class Regex
         }
     }
 
-    /** Returns the match groups on success, or null if the pattern is invalid, didn't match, or hit the backtracking limit above. */
+    /**
+     * Returns the match groups on success, or null if the pattern is invalid, didn't match, or hit the backtracking limit above.
+     *
+     * @return array<int|string, string>|null
+     */
     public static function tryMatch(string $pattern, string $subject): ?array
     {
         set_error_handler(static fn () => true);

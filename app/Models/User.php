@@ -315,6 +315,10 @@ class User extends Authenticatable
         return hash_hmac('sha256', mb_strtolower(trim($name)), config('app.key'));
     }
 
+    /**
+     * @param  Builder<User>  $query
+     * @return Builder<User>
+     */
     public function scopeWhereName(Builder $query, string $name): Builder
     {
         return $query->where('name_hash', self::hashName($name));
@@ -336,6 +340,10 @@ class User extends Authenticatable
         return hash_hmac('sha256', mb_strtolower(trim($email)), config('app.key'));
     }
 
+    /**
+     * @param  Builder<User>  $query
+     * @return Builder<User>
+     */
     public function scopeWhereEmail(Builder $query, string $email): Builder
     {
         return $query->where('email_hash', self::hashEmail($email));

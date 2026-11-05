@@ -1,0 +1,13 @@
+<?php
+
+namespace Sabre\VObject;
+
+/**
+ * sabre/vobject ships no generics, so PHPStan can't tell what iterating a
+ * Component yields (its child nodes) and flags every Component/VCalendar
+ * parameter as an iterable with no value type.
+ *
+ * @implements \IteratorAggregate<int, Node>
+ * @implements \ArrayAccess<int|string, mixed>
+ */
+abstract class Node implements \IteratorAggregate, \ArrayAccess, \Countable, \JsonSerializable {}

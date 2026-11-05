@@ -168,6 +168,7 @@ class DashboardController extends Controller
         }
     }
 
+    /** @return array<string, mixed> */
     private function buildRow(
         string $title,
         AvailabilityResult $result,
@@ -221,7 +222,7 @@ class DashboardController extends Controller
      * @param  ParsedEvent[]  $events
      * @param  array<int, array{wake: ?string, sleep: ?string}>  $weeklyAvailability
      * @param  array{start: CarbonImmutable, end: CarbonImmutable}[]  $sleepExceptions
-     * @return array{0: array, 1: array, 2: array} [top 10 (minutes > 0), rest (minutes > 0), no-time-yet (minutes === 0)]
+     * @return array{0: list<array<string, mixed>>, 1: list<array<string, mixed>>, 2: list<array<string, mixed>>} [top 10 (minutes > 0), rest (minutes > 0), no-time-yet (minutes === 0)]
      */
     private function computeHighlightLeaderboard(
         User $user,
@@ -299,7 +300,7 @@ class DashboardController extends Controller
      * about what actually matched.
      *
      * @param  AvailabilitySlot[]  $slots
-     * @return array<int, array>
+     * @return array<int, array<string, mixed>>
      */
     private function matchedSlotsInRange(array $slots, CarbonImmutable $rangeStart, CarbonImmutable $rangeEnd): array
     {
