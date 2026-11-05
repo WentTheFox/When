@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BButton, BCard, BFormGroup, BFormInput, BTooltip } from 'bootstrap-vue-next';
+import { BButton, BFormGroup, BFormInput, BTooltip } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
 import EncryptedInput from '../Components/EncryptedInput.vue';
 import EncryptedText from '../Components/EncryptedText.vue';
@@ -106,8 +106,7 @@ function hideSwatchTooltip(): void {
 </script>
 
 <template>
-  <BCard class="mb-4">
-    <h2 class="h5 mb-3">Source categories</h2>
+  <div>
     <p class="small text-muted">
       Give a category a color to distinguish its sources on the dashboard's connections graph.
     </p>
@@ -184,7 +183,7 @@ function hideSwatchTooltip(): void {
     >
       {{ activeSwatchLabel }}
     </BTooltip>
-  </BCard>
+  </div>
 </template>
 
 <style scoped>

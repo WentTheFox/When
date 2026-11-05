@@ -152,9 +152,7 @@ function add(): void {
 </script>
 
 <template>
-  <BCard class="mb-3">
-    <h2 class="h5 mb-3">Custom attributes</h2>
-
+  <div>
     <div class="row">
       <div class="col-md-4">
         <LockedOverlay>
@@ -273,5 +271,5 @@ function add(): void {
       </div>
       <div v-if="copyStatus" class="small text-muted">{{ copyStatus }}</div>
     </template>
-  </BCard>
+  </div>
 </template>
