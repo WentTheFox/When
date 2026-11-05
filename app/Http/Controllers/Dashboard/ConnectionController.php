@@ -8,6 +8,7 @@ use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionAttributeValue;
 use App\Models\ShareLink;
 use App\Services\Calendar\HighlightWordsResolver;
+use App\Support\FieldFeatures;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -44,11 +45,8 @@ class ConnectionController extends Controller
             'sources' => $user->connectionSources()->get(['id', 'category_id', 'name_ciphertext']),
             'categories' => $user->connectionSourceCategories()->get(['id', 'name_ciphertext', 'color_key']),
             'attributeDefinitions' => $user->connectionAttributeDefinitions()->get(['id', 'label_ciphertext', 'type', 'options_ciphertext']),
-            // Which fields currently drive share-link highlighting / DND bypass (chosen in Settings), so deleting one can warn.
-            'fieldRoles' => [
-                'highlight' => $user->highlight_identifier_definition_id,
-                'bypass' => $user->bypass_dnd_definition_id,
-            ],
+            // Fields that site features depend on (field id => feature labels): those can't be deleted.
+            'fieldFeatures' => (object) FieldFeatures::forUser($user),
             'edges' => $user->connectionEdges()->get(['id', 'from_connection_id', 'to_connection_id']),
         ]);
     }

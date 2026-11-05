@@ -26,7 +26,7 @@ const props = {
   categories: [],
   attributeDefinitions: [{ id: DEFINITION, label_ciphertext: 'ZmllbGQtY2lwaGVy', type: 'text', options_ciphertext: null }],
   edges: [],
-  fieldRoles: { highlight: null, bypass: null },
+  fieldFeatures: {},
 };
 
 function render(hash: string): Promise<string> {

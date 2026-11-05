@@ -34,8 +34,8 @@ const props = defineProps<{
   categories: CategoryRow[];
   attributeDefinitions: DefinitionRow[];
   edges: EdgeRow[];
-  /** Which fields currently drive share-link highlighting / DND bypass (chosen in Settings). */
-  fieldRoles: { highlight: string | null; bypass: string | null };
+  /** Fields that site features depend on (field id to feature labels); those can't be deleted. */
+  fieldFeatures: Record<string, string[]>;
 }>();
 
 const { createRecordKey, getRecordKey, vaultUnlocked } = useVault();
@@ -72,7 +72,8 @@ const definitions = computed(() =>
     .map(({ id, label, type, options }) => ({ id, label, type, options })),
 );
 const edges = ref<EdgeRow[]>([]);
-const fieldRoles = ref({ ...props.fieldRoles });
+/** Why the last attempt to delete a field was refused, if it was. */
+const definitionError = ref<string | null>(null);
 
 /** How many connections hold a value for each custom attribute (definition id to count). */
 const definitionUsage = computed(() => {
@@ -215,6 +216,7 @@ function writeHash(): void {
 }
 
 watch([pageTab, selectedConnectionId, selectedSourceId, selectedCategoryId, selectedDefinitionId], writeHash);
+watch(selectedDefinitionId, () => { definitionError.value = null; });
 
 /** Applies whatever the hash names (a hand-edited hash or an in-page link). */
 function applyHash(): void {
@@ -527,21 +529,24 @@ async function renameDefinition(id: string, label: string): Promise<void> {
   }
 }
 
-/** The panel has already asked for confirmation. */
+/** The panel has already asked for confirmation. The server still refuses a field a site feature depends on. */
 async function removeDefinition(id: string): Promise<void> {
+  definitionError.value = null;
+
   try {
     await axios.delete(`/dashboard/connection-attribute-definitions/${id}`);
     definitionItems.value = definitionItems.value.filter((d) => d.id !== id);
 
-    // The server deleted every connection's value for it and cleared it as the highlight/bypass source.
+    // The server deleted every connection's value for it.
     connections.value = connections.value.map((c) => ({
       ...c,
       attribute_values: c.attribute_values.filter((v) => v.attribute_definition_id !== id),
     }));
-    if (fieldRoles.value.highlight === id) fieldRoles.value.highlight = null;
-    if (fieldRoles.value.bypass === id) fieldRoles.value.bypass = null;
   } catch (error) {
     console.error(error);
+    if (axios.isAxiosError(error) && error.response?.status === 422) {
+      definitionError.value = error.response.data?.errors?.definition?.[0] ?? 'This field cannot be deleted right now.';
+    }
   }
 }
 
@@ -669,7 +674,8 @@ async function removeEdge(id: string): Promise<void> {
           v-model:selected-id="selectedDefinitionId"
           :definitions="definitionItems"
           :usage="definitionUsage"
-          :field-roles="fieldRoles"
+          :field-features="fieldFeatures"
+          :remove-error="definitionError"
           :copy-status="copyStatus"
           :copy-busy="copyBusy"
           @add="addDefinition"

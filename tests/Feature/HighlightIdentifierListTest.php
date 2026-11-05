@@ -10,7 +10,6 @@ use App\Models\ShareLinkCache;
 use App\Models\User;
 use App\Services\Calendar\HighlightWordsResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -122,15 +121,22 @@ class HighlightIdentifierListTest extends TestCase
         $this->assertNull($user->fresh()->highlight_identifier_definition_id);
     }
 
-    public function test_deleting_the_selected_definition_clears_the_setting(): void
+    public function test_the_selected_definition_cannot_be_deleted_until_it_is_unselected(): void
     {
         $user = User::factory()->create();
         $definition = $this->definition($user);
         $user->update(['highlight_identifier_definition_id' => $definition->id]);
 
-        $this->actingAs($user)->deleteJson("/dashboard/connection-attribute-definitions/{$definition->id}")->assertOk();
+        $this->actingAs($user)->deleteJson("/dashboard/connection-attribute-definitions/{$definition->id}")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('definition');
 
-        $this->assertNull($user->fresh()->highlight_identifier_definition_id);
+        $this->assertNotNull(ConnectionAttributeDefinition::find($definition->id));
+        $this->assertSame($definition->id, $user->fresh()->highlight_identifier_definition_id);
+
+        $user->update(['highlight_identifier_definition_id' => null]);
+        $this->actingAs($user)->deleteJson("/dashboard/connection-attribute-definitions/{$definition->id}")->assertOk();
+        $this->assertNull(ConnectionAttributeDefinition::find($definition->id));
     }
 
     public function test_editing_the_connection_list_invalidates_the_tied_links_cache(): void

@@ -141,28 +141,28 @@ function hideSwatchTooltip(): void {
       <div class="col-md-8">
         <LockedOverlay v-if="selected">
           <BFormGroup label="Name" class="mb-3">
-          <EncryptedInput v-model="editName" :ciphertext="selected.name_ciphertext" :pending="pending" type="text" size="sm" />
+            <EncryptedInput v-model="editName" :ciphertext="selected.name_ciphertext" :pending="pending" type="text" size="sm" />
           </BFormGroup>
           <BFormGroup label="Color" class="mb-3">
-          <div class="wtf-swatch-grid">
-            <button
-              v-for="swatch in colorPalette"
-              :key="swatch.key"
-              type="button"
-              class="wtf-swatch-btn"
-              :class="{ 'wtf-swatch-btn-active': editColorKey === swatch.key }"
-              :aria-pressed="editColorKey === swatch.key"
-              :disabled="pending"
-              :style="{ '--app-swatch-light': swatch.light, '--app-swatch-dark': swatch.dark }"
-              @click="editColorKey = editColorKey === swatch.key ? null : swatch.key"
-              @mouseenter="showSwatchTooltip($event, swatch.label)"
-              @mouseleave="hideSwatchTooltip"
-              @focus="showSwatchTooltip($event, swatch.label)"
-              @blur="hideSwatchTooltip"
-            >
-              <span class="visually-hidden">{{ swatch.label }}</span>
-            </button>
-          </div>
+            <div class="wtf-swatch-grid">
+              <button
+                v-for="swatch in colorPalette"
+                :key="swatch.key"
+                type="button"
+                class="wtf-swatch-btn"
+                :class="{ 'wtf-swatch-btn-active': editColorKey === swatch.key }"
+                :aria-pressed="editColorKey === swatch.key"
+                :disabled="pending"
+                :style="{ '--app-swatch-light': swatch.light, '--app-swatch-dark': swatch.dark }"
+                @click="editColorKey = editColorKey === swatch.key ? null : swatch.key"
+                @mouseenter="showSwatchTooltip($event, swatch.label)"
+                @mouseleave="hideSwatchTooltip"
+                @focus="showSwatchTooltip($event, swatch.label)"
+                @blur="hideSwatchTooltip"
+              >
+                <span class="visually-hidden">{{ swatch.label }}</span>
+              </button>
+            </div>
           </BFormGroup>
           <BButton size="sm" variant="primary" :disabled="pending" @click="save">Save</BButton>
           <BButton size="sm" variant="outline-danger" :disabled="pending" @click="remove">Delete</BButton>

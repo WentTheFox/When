@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { BBadge, BButton, BCard, BFormGroup, BFormInput, BFormSelect } from 'bootstrap-vue-next';
+import { Link } from '@inertiajs/vue3';
+import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput, BFormSelect } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
 import EncryptedInput from '../Components/EncryptedInput.vue';
 import EncryptedText from '../Components/EncryptedText.vue';
@@ -34,8 +35,10 @@ const props = defineProps<{
   definitions: DefinitionItem[];
   /** How many connections currently hold a value for each field (definition id to count). */
   usage: Record<string, number>;
-  /** Which fields currently drive share-link highlighting / DND bypass (chosen in Settings). */
-  fieldRoles: { highlight: string | null; bypass: string | null };
+  /** Fields that site features depend on (field id to feature labels); those can't be deleted. */
+  fieldFeatures: Record<string, string[]>;
+  /** Why the server last refused to delete a field, if it did. */
+  removeError?: string | null;
   /** Null while idle; otherwise the bulk identifier copy's progress/result line. */
   copyStatus: string | null;
   copyBusy: boolean;
@@ -84,11 +87,9 @@ watch(selected, (current) => {
   editLabel.value = current?.label ?? '';
 }, { immediate: true, deep: true });
 
-function rolesOf(id: string): string[] {
-  const roles: string[] = [];
-  if (props.fieldRoles.highlight === id) roles.push('Highlight tokens');
-  if (props.fieldRoles.bypass === id) roles.push('Bypass DND');
-  return roles;
+/** The site features that currently use a field (empty when it's free to delete). */
+function featuresOf(id: string): string[] {
+  return props.fieldFeatures[id] ?? [];
 }
 
 const renameUnchanged = computed(() => editLabel.value.trim() === (selected.value?.label ?? ''));
@@ -103,18 +104,17 @@ async function confirmRemove(): Promise<void> {
   const definition = selected.value;
   if (!definition || definition.label === undefined) return;
 
+  // Backstop for the disabled button; the server refuses too.
+  if (featuresOf(definition.id).length) return;
+
   const used = props.usage[definition.id] ?? 0;
-  const roles = rolesOf(definition.id);
 
   const parts = [
     used > 0
       ? `${used} connection${used === 1 ? ' holds' : 's hold'} a value for it. Those values are permanently deleted.`
       : 'No connection holds a value for it.',
+    'This cannot be undone.',
   ];
-  if (roles.length) {
-    parts.push(`It is currently your ${roles.join(' and ')} field for share links, so that setting will be cleared.`);
-  }
-  parts.push('This cannot be undone.');
 
   const confirmed = await requestConfirm({
     title: `Delete the “${definition.label}” field?`,
@@ -204,33 +204,49 @@ function add(): void {
       <div class="col-md-8">
         <LockedOverlay v-if="selected">
           <BFormGroup label="Name" class="mb-3">
-          <EncryptedInput
-            v-model="editLabel"
-            :ciphertext="selected.label_ciphertext"
-            :pending="pending"
-            type="text"
-            size="sm"
-            @keyup.enter="saveRename"
-          />
+            <EncryptedInput
+              v-model="editLabel"
+              :ciphertext="selected.label_ciphertext"
+              :pending="pending"
+              type="text"
+              size="sm"
+              @keyup.enter="saveRename"
+            />
           </BFormGroup>
           <dl class="row small mb-3">
-          <dt class="col-sm-3">Type</dt>
-          <dd class="col-sm-9">{{ TYPE_LABELS[selected.type] ?? selected.type }} <span class="text-muted">(fixed once created)</span></dd>
-          <template v-if="selected.type === 'radio'">
-            <dt class="col-sm-3">Choices</dt>
-            <dd class="col-sm-9">{{ selected.options.join(', ') }}</dd>
-          </template>
-          <dt class="col-sm-3">Used on</dt>
-          <dd class="col-sm-9">{{ usage[selected.id] ?? 0 }} connection{{ (usage[selected.id] ?? 0) === 1 ? '' : 's' }}</dd>
-          <template v-if="rolesOf(selected.id).length">
-            <dt class="col-sm-3">Share links</dt>
-            <dd class="col-sm-9">
-              <BBadge v-for="role in rolesOf(selected.id)" :key="role" variant="info" class="me-1">{{ role }}</BBadge>
-            </dd>
-          </template>
+            <dt class="col-sm-3">Type</dt>
+            <dd class="col-sm-9">{{ TYPE_LABELS[selected.type] ?? selected.type }} <span class="text-muted">(fixed once created)</span></dd>
+            <template v-if="selected.type === 'radio'">
+              <dt class="col-sm-3">Choices</dt>
+              <dd class="col-sm-9">{{ selected.options.join(', ') }}</dd>
+            </template>
+            <dt class="col-sm-3">Used on</dt>
+            <dd class="col-sm-9">{{ usage[selected.id] ?? 0 }} connection{{ (usage[selected.id] ?? 0) === 1 ? '' : 's' }}</dd>
+            <template v-if="featuresOf(selected.id).length">
+              <dt class="col-sm-3">Used by</dt>
+              <dd class="col-sm-9">
+                <BBadge v-for="feature in featuresOf(selected.id)" :key="feature" variant="info" class="me-1">{{ feature }}</BBadge>
+              </dd>
+            </template>
           </dl>
+          <BAlert :model-value="featuresOf(selected.id).length > 0" variant="info" class="small py-2">
+            This field can't be deleted while a site feature uses it. Choose a different field (or none) on the
+            <Link href="/settings#share-links">Settings page</Link> first.
+          </BAlert>
+          <BAlert :model-value="!!removeError && featuresOf(selected.id).length === 0" variant="danger" class="small py-2">
+            {{ removeError }}
+          </BAlert>
           <BButton size="sm" variant="primary" :disabled="pending || !editLabel.trim() || renameUnchanged" @click="saveRename">Save</BButton>
-          <BButton size="sm" variant="outline-danger" :disabled="pending" @click="confirmRemove">Delete</BButton>
+          <BButton
+            size="sm"
+            variant="outline-danger"
+            class="ms-2"
+            :disabled="pending || featuresOf(selected.id).length > 0"
+            :title="featuresOf(selected.id).length ? 'In use by a site feature — see the note above' : undefined"
+            @click="confirmRemove"
+          >
+            Delete
+          </BButton>
         </LockedOverlay>
         <p v-else class="text-muted">Select an attribute on the left to rename or delete it.</p>
       </div>
