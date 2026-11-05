@@ -171,12 +171,13 @@ class ConnectionController extends Controller
         ];
     }
 
-    /** @return array{id: string, highlight_token: ?string}|null */
+    /** @return array{id: string, highlight_token: ?string, last_visited_at: ?string}|null */
     private function serializeShareLink(?ShareLink $shareLink): ?array
     {
         return $shareLink === null ? null : [
             'id' => $shareLink->id,
             'highlight_token' => $shareLink->highlight_token,
+            'last_visited_at' => $shareLink->last_visited_at?->toIso8601String(),
         ];
     }
 

@@ -10,6 +10,7 @@ import { requestConfirm } from './confirmModal';
 export interface ShareLinkInfo {
   id: string;
   highlight_token: string | null;
+  last_visited_at: string | null;
 }
 
 const props = defineProps<{ connectionId: string; shareLink: ShareLinkInfo | null }>();

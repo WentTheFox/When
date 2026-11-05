@@ -260,11 +260,12 @@ class AccountExportService
             'tier' => 'plaintext',
             'note' => 'A share link has no label of its own: its name is the connection it belongs to (connection_id). Every field here is plaintext.',
             'records' => $user->shareLinks()
-                ->get(['id', 'connection_id', 'highlight_token', 'created_at'])
+                ->get(['id', 'connection_id', 'highlight_token', 'last_visited_at', 'created_at'])
                 ->map(fn ($link) => [
                     'id' => $link->id,
                     'connection_id' => $link->connection_id,
                     'highlight_token' => $link->highlight_token,
+                    'last_visited_at' => $link->last_visited_at,
                     'created_at' => $link->created_at,
                 ])->all(),
         ];

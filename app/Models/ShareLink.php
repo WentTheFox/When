@@ -25,6 +25,7 @@ class ShareLink extends Model
     protected function casts(): array
     {
         return [
+            'last_visited_at' => 'datetime',
         ];
     }
 
