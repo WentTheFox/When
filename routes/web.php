@@ -222,8 +222,6 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/dashboard/connections', [ConnectionController::class, 'index'])
         ->name('dashboard.connections');
-    Route::get('/dashboard/connections/search-index', [ConnectionController::class, 'searchIndex'])
-        ->name('dashboard.connections.search-index');
     Route::get('/dashboard/connections/graph', ConnectionsGraphController::class)
         ->name('dashboard.connections.graph');
     Route::post('/dashboard/connections', [ConnectionController::class, 'store'])
