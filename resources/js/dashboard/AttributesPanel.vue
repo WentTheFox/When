@@ -62,13 +62,11 @@ const copySourceId = ref('');
 const copyTargetId = ref('');
 
 const filter = ref('');
-const sortedDefinitions = computed(() =>
-  [...props.definitions].sort((a, b) => (a.label ?? '').localeCompare(b.label ?? '')),
-);
+// Lists render in the order they were given (their stored order, see listOrder.ts); sorting by name here would reshuffle them as names decrypt.
 const filteredDefinitions = computed(() => {
   const query = filter.value.trim().toLowerCase();
-  if (!query) return sortedDefinitions.value;
-  return sortedDefinitions.value.filter((d) => (d.label ?? '').toLowerCase().includes(query));
+  if (!query) return props.definitions;
+  return props.definitions.filter((d) => (d.label ?? '').toLowerCase().includes(query));
 });
 
 /** The open record; bound by the page (v-model:selected-id) so it can live in the URL hash. */

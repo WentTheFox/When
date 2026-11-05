@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ConnectionAttributeValue;
 use App\Models\User;
 use App\Support\FieldFeatures;
+use App\Support\SortOrder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +28,7 @@ class ConnectionAttributeDefinitionController extends Controller
             'options_ciphertext' => ['nullable', 'string'],
         ]);
 
-        $definition = $request->user()->connectionAttributeDefinitions()->create($data);
+        $definition = $request->user()->connectionAttributeDefinitions()->create($data + ['sort_order' => SortOrder::next($request->user()->connectionAttributeDefinitions())]);
 
         return response()->json(['id' => $definition->id], 201);
     }

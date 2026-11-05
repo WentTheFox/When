@@ -9,6 +9,7 @@ use App\Models\ConnectionAttributeValue;
 use App\Models\ShareLink;
 use App\Services\Calendar\HighlightWordsResolver;
 use App\Support\FieldFeatures;
+use App\Support\SortOrder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -39,12 +40,12 @@ class ConnectionController extends Controller
         $user = $request->user();
 
         return Inertia::render('Dashboard/Connections', [
-            'connections' => $user->connections()->with(['attributeValues', 'sources', 'shareLink'])->get([
+            'connections' => $user->connections()->with(['attributeValues', 'sources', 'shareLink'])->ordered()->get([
                 'id', 'name_ciphertext', 'notes_ciphertext', 'archived',
             ])->map(fn (Connection $c) => $this->serialize($c)),
-            'sources' => $user->connectionSources()->get(['id', 'category_id', 'name_ciphertext']),
-            'categories' => $user->connectionSourceCategories()->get(['id', 'name_ciphertext', 'color_key']),
-            'attributeDefinitions' => $user->connectionAttributeDefinitions()->get(['id', 'label_ciphertext', 'type', 'options_ciphertext']),
+            'sources' => $user->connectionSources()->ordered()->get(['id', 'category_id', 'name_ciphertext']),
+            'categories' => $user->connectionSourceCategories()->ordered()->get(['id', 'name_ciphertext', 'color_key']),
+            'attributeDefinitions' => $user->connectionAttributeDefinitions()->ordered()->get(['id', 'label_ciphertext', 'type', 'options_ciphertext']),
             // Fields that site features depend on (field id => feature labels): those can't be deleted.
             'fieldFeatures' => (object) FieldFeatures::forUser($user),
             'edges' => $user->connectionEdges()->get(['id', 'from_connection_id', 'to_connection_id']),
@@ -57,6 +58,7 @@ class ConnectionController extends Controller
 
         $connection = DB::transaction(function () use ($request, $data) {
             $connection = $request->user()->connections()->create([
+                'sort_order' => SortOrder::next($request->user()->connections()),
                 'id' => $data['id'],
                 'name_ciphertext' => $data['name_ciphertext'],
                 'notes_ciphertext' => $data['notes_ciphertext'] ?? null,

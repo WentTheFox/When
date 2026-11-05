@@ -103,3 +103,48 @@ describe('a custom field that a site feature uses', () => {
     expect(html).toContain('This field is used by: Bypass DND.');
   });
 });
+
+/** The stored order is what renders — names being known must never re-sort a list. */
+describe('list order', () => {
+  const ID2 = '44444444-4444-4444-8444-444444444444';
+
+  function order(html: string, ...names: string[]): string[] {
+    return names.map((name) => [name, html.indexOf(name)] as const).filter(([, at]) => at >= 0).sort((a, b) => a[1] - b[1]).map(([name]) => name);
+  }
+
+  it('SourcesPanel renders sources in the order given, not alphabetically', async () => {
+    const html = await render(SourcesPanel, {
+      sources: [
+        { id: ID, category_id: null, name_ciphertext: RAW, label: 'Zulu conference' },
+        { id: ID2, category_id: null, name_ciphertext: RAW, label: 'Alpha meetup' },
+      ],
+      categories: [],
+    });
+    expect(order(html, 'Zulu conference', 'Alpha meetup')).toEqual(['Zulu conference', 'Alpha meetup']);
+  });
+
+  it('CategoriesPanel renders categories in the order given', async () => {
+    const html = await render(CategoriesPanel, {
+      categories: [
+        { id: ID, color_key: null, name_ciphertext: RAW, label: 'Zulu' },
+        { id: ID2, color_key: null, name_ciphertext: RAW, label: 'Alpha' },
+      ],
+    });
+    expect(order(html, 'Zulu', 'Alpha')).toEqual(['Zulu', 'Alpha']);
+  });
+
+  it('AttributesPanel renders fields in the order given', async () => {
+    const html = await render(AttributesPanel, {
+      definitions: [
+        { id: ID, type: 'text', label_ciphertext: RAW, label: 'Zulu field', options: [] },
+        { id: ID2, type: 'text', label_ciphertext: RAW, label: 'Alpha field', options: [] },
+      ],
+      usage: {},
+      fieldFeatures: {},
+      copyStatus: null,
+      copyBusy: false,
+    });
+    expect(order(html, 'Zulu field', 'Alpha field')).toEqual(['Zulu field', 'Alpha field']);
+  });
+});
+

@@ -2,7 +2,7 @@
 import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
 import { BButton, BCard, BFormGroup, BFormInput, BFormSelect, BFormTextarea, BTab, BTabs } from 'bootstrap-vue-next';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, type Ref, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../../crypto';
 import AttributesPanel from '../../dashboard/AttributesPanel.vue';
 import CategoriesPanel from '../../dashboard/CategoriesPanel.vue';
@@ -17,6 +17,7 @@ import {
   type PageTabName,
 } from '../../dashboard/connectionsHash';
 import LockedOverlay from '../../dashboard/LockedOverlay.vue';
+import { alphabetical, type LabelOf, placeAlphabetically, sameOrder } from '../../dashboard/listOrder';
 import { requestUnlock } from '../../dashboard/vaultModal';
 import { useVault } from '../../dashboard/useVault';
 import DashboardLayout from '../../Layouts/DashboardLayout.vue';
@@ -93,12 +94,10 @@ const newNotes = ref('');
 const newConnectionError = ref('');
 
 const decryptedNames = ref<Record<string, string>>({});
+// Everything below keeps the lists' stored order (see listOrder.ts): names finishing their decryption must not re-sort anything.
 const connectionOptions = computed(() =>
-  connections.value
-    .map((c) => ({ id: c.id, label: decryptedNames.value[c.id] ?? '' }))
-    .sort((a, b) => a.label.localeCompare(b.label)),
+  connections.value.map((c) => ({ id: c.id, label: decryptedNames.value[c.id] ?? '' })),
 );
-const sortedSources = computed(() => [...sources.value].sort((a, b) => a.label.localeCompare(b.label)));
 
 /**
  * Master-detail instead of every connection rendering full-size, one after
@@ -128,16 +127,54 @@ const selectedDefinitionId = ref<string | null>(initialIdFor('attributes', props
 const selectedConnection = computed(() => connections.value.find((c) => c.id === selectedConnectionId.value) ?? null);
 
 const connectionFilter = ref('');
-const sortedConnections = computed(() =>
-  [...connections.value].sort((a, b) =>
-    (decryptedNames.value[a.id] ?? '').localeCompare(decryptedNames.value[b.id] ?? ''),
-  ),
-);
 const filteredConnections = computed(() => {
   const query = connectionFilter.value.trim().toLowerCase();
-  if (!query) return sortedConnections.value;
-  return sortedConnections.value.filter((c) => (decryptedNames.value[c.id] ?? '').toLowerCase().includes(query));
+  if (!query) return connections.value;
+  return connections.value.filter((c) => (decryptedNames.value[c.id] ?? '').toLowerCase().includes(query));
 });
+
+type ListKind = 'connections' | 'sources' | 'categories' | 'attributes';
+
+/** Saves a list's order (names are E2EE, so only this client can sort them). A failure just leaves the stored order as it was. */
+async function persistOrder(kind: ListKind, items: readonly { id: string }[]): Promise<void> {
+  try {
+    await axios.post(`/dashboard/order/${kind}`, { ids: items.map((item) => item.id) });
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+/** Moves one new or renamed record to its alphabetical place and saves the order, if that moved anything. */
+async function placeAndSave<T extends { id: string }>(list: Ref<T[]>, kind: ListKind, id: string, labelOf: LabelOf<T>): Promise<void> {
+  const placed = placeAlphabetically(list.value, id, labelOf);
+  if (sameOrder(placed, list.value)) return;
+
+  list.value = placed;
+  await persistOrder(kind, placed);
+}
+
+/**
+ * Older data is stored in creation order. Once every name is known, sort each
+ * list alphabetically in one go and save it — a single re-order, after which
+ * the stored order is already alphabetical and later loads don't move at all.
+ */
+async function normalizeList<T extends { id: string }>(list: Ref<T[]>, kind: ListKind, labelOf: LabelOf<T>): Promise<void> {
+  const target = alphabetical(list.value, labelOf);
+  if (sameOrder(target, list.value)) return;
+
+  list.value = target;
+  await persistOrder(kind, target);
+}
+
+const labelOfConnection: LabelOf<ConnectionRow> = (c) => decryptedNames.value[c.id];
+const labelOfItem: LabelOf<{ label?: string }> = (item) => item.label;
+
+async function normalizeAllLists(): Promise<void> {
+  await normalizeList(connections, 'connections', labelOfConnection);
+  await normalizeList(sourceItems, 'sources', labelOfItem);
+  await normalizeList(categoryItems, 'categories', labelOfItem);
+  await normalizeList(definitionItems, 'attributes', labelOfItem);
+}
 
 watch(vaultUnlocked, async (unlocked) => {
   if (!unlocked) return;
@@ -189,6 +226,8 @@ watch(vaultUnlocked, async (unlocked) => {
   }
 
   edges.value = props.edges.map((edge) => ({ ...edge }));
+
+  await normalizeAllLists();
 }, { immediate: true });
 
 /**
@@ -282,9 +321,10 @@ async function createConnection(): Promise<void> {
       notes_ciphertext: newNotes.value ? await encryptString(key, newNotes.value) : null,
     });
 
-    connections.value.unshift(data);
+    connections.value.push(data);
     decryptedNames.value[id] = newName.value;
     selectedConnectionId.value = id;
+    void placeAndSave(connections, 'connections', id, labelOfConnection);
 
     newName.value = '';
     newSourceIds.value = [];
@@ -300,6 +340,12 @@ async function createConnection(): Promise<void> {
 function onConnectionUpdated(updated: ConnectionRow): void {
   const index = connections.value.findIndex((c) => c.id === updated.id);
   if (index !== -1) connections.value[index] = updated;
+}
+
+/** A saved connection whose name changed: show the new name in the list and move it to its alphabetical place. */
+function onConnectionRenamed(id: string, name: string): void {
+  decryptedNames.value[id] = name;
+  void placeAndSave(connections, 'connections', id, labelOfConnection);
 }
 
 function onConnectionDeleted(id: string): void {
@@ -366,6 +412,7 @@ async function addSource(name: string): Promise<void> {
     const nameCiphertext = await encryptString(key, name);
     await axios.post('/dashboard/connection-sources', { id, name_ciphertext: nameCiphertext });
     sourceItems.value.push({ id, category_id: null, name_ciphertext: nameCiphertext, label: name });
+    await placeAndSave(sourceItems, 'sources', id, labelOfItem);
   } catch (error) {
     console.error(error);
   }
@@ -384,6 +431,7 @@ async function updateSource(id: string, name: string, categoryId: string | null)
       source.name_ciphertext = nameCiphertext;
       source.label = name;
       source.category_id = categoryId;
+      await placeAndSave(sourceItems, 'sources', id, labelOfItem);
     }
   } catch (error) {
     console.error(error);
@@ -406,6 +454,7 @@ async function addCategory(name: string): Promise<void> {
     const nameCiphertext = await encryptString(key, name);
     await axios.post('/dashboard/connection-source-categories', { id, name_ciphertext: nameCiphertext });
     categoryItems.value.push({ id, color_key: null, name_ciphertext: nameCiphertext, label: name });
+    await placeAndSave(categoryItems, 'categories', id, labelOfItem);
   } catch (error) {
     console.error(error);
   }
@@ -424,6 +473,7 @@ async function updateCategory(id: string, name: string, colorKey: string | null)
       category.name_ciphertext = nameCiphertext;
       category.label = name;
       category.color_key = colorKey;
+      await placeAndSave(categoryItems, 'categories', id, labelOfItem);
     }
   } catch (error) {
     console.error(error);
@@ -452,6 +502,7 @@ async function addDefinition(label: string, type: string, choices: string[]): Pr
       options_ciphertext: optionsCiphertext,
     });
     definitionItems.value.push({ id, type, label_ciphertext: labelCiphertext, options_ciphertext: optionsCiphertext, label, options: choices });
+    await placeAndSave(definitionItems, 'attributes', id, labelOfItem);
   } catch (error) {
     console.error(error);
   }
@@ -523,6 +574,7 @@ async function renameDefinition(id: string, label: string): Promise<void> {
     if (definition) {
       definition.label_ciphertext = labelCiphertext;
       definition.label = label;
+      await placeAndSave(definitionItems, 'attributes', id, labelOfItem);
     }
   } catch (error) {
     console.error(error);
@@ -611,7 +663,7 @@ async function removeEdge(id: string): Promise<void> {
                 </BFormGroup>
                 <BFormGroup label="Sources" label-class="small" description="Ctrl/Cmd-click to select more than one." class="mb-2">
                   <BFormSelect v-model="newSourceIds" size="sm" multiple>
-                    <option v-for="source in sortedSources" :key="source.id" :value="source.id">{{ source.label }}</option>
+                    <option v-for="source in sources" :key="source.id" :value="source.id">{{ source.label }}</option>
                   </BFormSelect>
                 </BFormGroup>
                 <BFormGroup label="Notes" label-class="small" class="mb-2">
@@ -648,6 +700,7 @@ async function removeEdge(id: string): Promise<void> {
                 :edges="edges"
                 :connection-options="connectionOptions"
                 @updated="onConnectionUpdated"
+                @renamed="onConnectionRenamed"
                 @deleted="onConnectionDeleted"
                 @add-edge="addEdge"
                 @remove-edge="removeEdge"

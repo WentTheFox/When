@@ -59,6 +59,8 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{
   updated: [ConnectionRow];
+  /** The connection's name changed (id, new name), so the list can show it and re-place it. */
+  renamed: [string, string];
   deleted: [string];
   addEdge: [string, string];
   removeEdge: [string];
@@ -86,7 +88,8 @@ const editSourceIds = ref<string[]>([...props.connection.source_ids]);
 const editArchived = ref(props.connection.archived);
 const editAttributeValues = ref<Record<string, string>>({});
 
-const sortedSources = computed(() => [...props.sources].sort((a, b) => a.label.localeCompare(b.label)));
+// The page hands the sources over in their stored order; keep it.
+const sortedSources = computed(() => props.sources);
 
 function otherConnectionName(id: string): string {
   return props.connectionOptions.find((c) => c.id === id)?.label ?? '?';
@@ -261,11 +264,13 @@ async function save(): Promise<void> {
       attribute_values: values,
     });
 
+    const renamed = editName.value !== name.value;
     name.value = editName.value;
     notes.value = editNotes.value;
     attributeValues.value = { ...editAttributeValues.value };
     editing.value = false;
     emit('updated', data);
+    if (renamed) emit('renamed', props.connection.id, editName.value);
   } catch (error) {
     console.error(error);
   }
