@@ -61,7 +61,6 @@ class DashboardController extends Controller
         return ShareLinkVisit::whereIn('share_link_id', $shareLinkIds)
             ->latest('visited_at')
             ->limit(self::MAX_VISITS_FOR_LOCALE_SCAN)
-            ->get(['locale'])
             ->pluck('locale')
             ->filter()
             ->map(fn (string $locale) => strtolower(explode('-', $locale)[0]))
