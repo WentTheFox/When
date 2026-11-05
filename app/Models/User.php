@@ -35,6 +35,8 @@ class User extends Authenticatable
         'key_ring_ciphertext',
         'timezone',
         'week_start',
+        'highlight_identifier_definition_id',
+        'bypass_dnd_definition_id',
         'dnd_event_pattern',
         'dnd_event_pattern_preview',
         'nap_event_pattern',

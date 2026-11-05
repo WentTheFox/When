@@ -72,7 +72,12 @@ const page = usePage();
     <strong>not</strong> end-to-end encrypted: they're sent to the server
     in plaintext and encrypted at rest with the same server-held key as
     your calendar URL, so the server can read them. Everything else on a
-    connection stays end-to-end encrypted.
+    connection stays end-to-end encrypted. The same applies to the
+    <strong>identifier list</strong> type, which can supply the highlight
+    words of a connection's share link: its entries are readable by the
+    server because it needs them to compute that link's availability. The
+    <strong>yes/no</strong> type can likewise drive a share link's
+    “bypass do not disturb” switch, and is stored the same way.
   </p>
 
   <h2 class="h5">Account security</h2>

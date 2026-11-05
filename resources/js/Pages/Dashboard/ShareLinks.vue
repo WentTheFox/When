@@ -222,9 +222,9 @@ async function importLinks(event: Event): Promise<void> {
             >
               {{ decryptedLabels[link.id] ?? '…' }}
               <FontAwesomeIcon v-if="link.archived" :icon="faArchive" class="ms-2 text-muted" title="Archived" />
-              <FontAwesomeIcon v-if="link.bypass_dnd" :icon="faBolt" class="ms-2 text-warning" title="Bypasses do not disturb" />
+              <FontAwesomeIcon v-if="link.effective_bypass_dnd" :icon="faBolt" class="ms-2 text-warning" title="Bypasses do not disturb" />
               <FontAwesomeIcon
-                v-if="!link.highlight_words.length"
+                v-if="!link.effective_highlight_words.length"
                 :icon="faTriangleExclamation"
                 class="ms-2 text-warning"
                 title="No highlight words configured — nothing will ever be highlighted on this link"

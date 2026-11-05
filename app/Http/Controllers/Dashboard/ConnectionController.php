@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Connection;
 use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionAttributeValue;
+use App\Services\Calendar\HighlightWordsResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +26,9 @@ use Inertia\Response;
  * The one exception is attribute values of an 'identifier'-type definition:
  * those are §0.2-tier — sent as plaintext identifier_value and encrypted at
  * rest with APP_KEY (ConnectionAttributeValue's 'encrypted' cast), so the
- * server can use them for external-service matching.
+ * server can use them for external-service matching. 'identifier_list' is the
+ * same idea with an array (identifier_list_value, APP_KEY-encrypted JSON); the
+ * one the owner selects in Settings supplies share-link highlight tokens.
  */
 class ConnectionController extends Controller
 {
@@ -80,13 +83,18 @@ class ConnectionController extends Controller
             return $connection;
         });
 
-        return response()->json($this->serialize($connection->refresh()), 201);
+        $connection->refresh();
+        HighlightWordsResolver::invalidateCaches([$connection->share_link_id]);
+
+        return response()->json($this->serialize($connection), 201);
     }
 
     public function update(Request $request, string $connection): JsonResponse
     {
         $connection = $this->findOwned($request, $connection);
         $data = $this->validateConnection($request, requireId: false);
+
+        $highlightBefore = $this->highlightSnapshot($request, $connection);
 
         DB::transaction(function () use ($connection, $data) {
             $connection->fill(array_filter([
@@ -115,7 +123,58 @@ class ConnectionController extends Controller
             }
         });
 
-        return response()->json($this->serialize($connection->refresh()));
+        $connection->refresh();
+        $this->invalidateIfHighlightsChanged($request, $connection, $highlightBefore);
+
+        return response()->json($this->serialize($connection));
+    }
+
+    /**
+     * What this connection currently contributes to share-link highlighting:
+     * the link it's tied to plus its list under the owner's chosen field.
+     * Null when no field is chosen (the legacy words are unaffected by
+     * connection edits, so there's nothing to track).
+     *
+     * @return array{share_link_id: ?string, words: ?list<string>, bypass_dnd: ?bool}|null
+     */
+    private function highlightSnapshot(Request $request, Connection $connection): ?array
+    {
+        $user = $request->user();
+        $wordsId = $user->highlight_identifier_definition_id;
+        $bypassId = $user->bypass_dnd_definition_id;
+
+        if ($wordsId === null && $bypassId === null) {
+            return null;
+        }
+
+        $rows = ConnectionAttributeValue::where('connection_id', $connection->id)
+            ->whereIn('attribute_definition_id', array_filter([$wordsId, $bypassId]))
+            ->get()
+            ->keyBy('attribute_definition_id');
+
+        return [
+            'share_link_id' => $connection->share_link_id,
+            'words' => $wordsId === null || ! $rows->has($wordsId)
+                ? null
+                : HighlightWordsResolver::normalize($rows[$wordsId]->identifier_list_value),
+            'bypass_dnd' => $bypassId === null || ! $rows->has($bypassId) ? null : $rows[$bypassId]->boolean_value,
+        ];
+    }
+
+    /** Computed share-link results embed the words and the bypass-DND flag, so drop the cached result of every link whose inputs just changed (including the one an untied/retied connection moved away from). */
+    private function invalidateIfHighlightsChanged(Request $request, Connection $connection, ?array $before): void
+    {
+        $after = $this->highlightSnapshot($request, $connection);
+
+        if ($before === null || $after === null || $before === $after) {
+            return;
+        }
+
+        $ids = $before['share_link_id'] !== $after['share_link_id']
+            ? [$before['share_link_id'], $after['share_link_id']]
+            : [$after['share_link_id']];
+
+        HighlightWordsResolver::invalidateCaches($ids);
     }
 
     /**
@@ -133,7 +192,7 @@ class ConnectionController extends Controller
             'share_link_id' => $connection->share_link_id,
             'archived' => $connection->archived,
             // identifier_value is the server-decrypted (§0.2) field; see ConnectionAttributeValue.
-            'attribute_values' => $connection->attributeValues()->get(['attribute_definition_id', 'value_ciphertext', 'identifier_value']),
+            'attribute_values' => $connection->attributeValues()->get(['attribute_definition_id', 'value_ciphertext', 'identifier_value', 'identifier_list_value', 'boolean_value']),
         ];
     }
 
@@ -144,7 +203,12 @@ class ConnectionController extends Controller
         // deletion, not this single-record user action. Also matters here
         // specifically: connection_attribute_values/connection_source_links'
         // cascadeOnDelete() FKs only fire on a real DELETE.
-        $this->findOwned($request, $connection)->forceDelete();
+        $connection = $this->findOwned($request, $connection);
+        $shareLinkId = $connection->share_link_id;
+        $connection->forceDelete();
+
+        // Its list may have been what the tied link highlighted; it now falls back to the legacy words.
+        HighlightWordsResolver::invalidateCaches([$shareLinkId]);
 
         return response()->json(['status' => 'ok']);
     }
@@ -174,6 +238,9 @@ class ConnectionController extends Controller
             'attribute_values.*.attribute_definition_id' => ['required', 'uuid', Rule::exists('connection_attribute_definitions', 'id')->where('user_id', $userId)],
             'attribute_values.*.value_ciphertext' => ['nullable', 'string'],
             'attribute_values.*.identifier_value' => ['nullable', 'string', 'max:1000'],
+            'attribute_values.*.boolean_value' => ['nullable', 'boolean'],
+            'attribute_values.*.identifier_list_value' => ['nullable', 'array', 'max:500'],
+            'attribute_values.*.identifier_list_value.*' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $this->assertValueShapesMatchDefinitions($data['attribute_values'] ?? [], $userId);
@@ -182,10 +249,13 @@ class ConnectionController extends Controller
     }
 
     /**
-     * An identifier definition takes only identifier_value (plaintext, §0.2),
-     * every other type only value_ciphertext (E2EE, §0.1) — never both, and
-     * never the wrong one, so a client bug can't leak E2EE-intended data
-     * into the server-readable column or vice versa.
+     * Each definition type takes exactly one value column: 'identifier' →
+     * identifier_value (plaintext string, §0.2), 'identifier_list' →
+     * identifier_list_value (plaintext array, §0.2), 'boolean' →
+     * boolean_value (§0.2, APP_KEY-encrypted yes/no), everything else →
+     * value_ciphertext (E2EE, §0.1). Never two, never the wrong one, so a
+     * client bug can't leak E2EE-intended data into a server-readable column
+     * or vice versa.
      */
     private function assertValueShapesMatchDefinitions(array $attributeValues, string $userId): void
     {
@@ -197,12 +267,19 @@ class ConnectionController extends Controller
             ->whereIn('id', array_column($attributeValues, 'attribute_definition_id'))
             ->pluck('type', 'id');
 
-        foreach ($attributeValues as $i => $value) {
-            $isIdentifier = ($types[$value['attribute_definition_id']] ?? null) === 'identifier';
-            $field = $isIdentifier ? 'identifier_value' : 'value_ciphertext';
-            $other = $isIdentifier ? 'value_ciphertext' : 'identifier_value';
+        $columns = ['value_ciphertext', 'identifier_value', 'identifier_list_value', 'boolean_value'];
 
-            if (($value[$field] ?? null) === null || ($value[$other] ?? null) !== null) {
+        foreach ($attributeValues as $i => $value) {
+            $field = match ($types[$value['attribute_definition_id']] ?? null) {
+                'identifier' => 'identifier_value',
+                'identifier_list' => 'identifier_list_value',
+                'boolean' => 'boolean_value',
+                default => 'value_ciphertext',
+            };
+
+            $others = array_filter($columns, fn ($c) => $c !== $field && ($value[$c] ?? null) !== null);
+
+            if (($value[$field] ?? null) === null || $others !== []) {
                 throw ValidationException::withMessages(["attribute_values.$i.$field" => "Expected $field only for this attribute type."]);
             }
         }
@@ -222,6 +299,8 @@ class ConnectionController extends Controller
                 'attribute_definition_id' => $value['attribute_definition_id'],
                 'value_ciphertext' => $value['value_ciphertext'] ?? null,
                 'identifier_value' => $value['identifier_value'] ?? null,
+                'boolean_value' => $value['boolean_value'] ?? null,
+                'identifier_list_value' => isset($value['identifier_list_value']) ? HighlightWordsResolver::normalize($value['identifier_list_value']) : null,
             ]);
         }
     }

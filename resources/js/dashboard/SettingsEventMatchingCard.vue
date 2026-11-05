@@ -12,6 +12,9 @@ import type { EventMatchingSettingsForm } from '../Pages/Dashboard/Settings.vue'
 const props = defineProps<{
   eventMatchingSettingsForm: EventMatchingSettingsForm;
   defaults: SettingsDefaults;
+  /** Whether the Highlight tokens / Bypass DND cards (below on this page) have a field selected — see their own header comments. */
+  highlightFieldSet: boolean;
+  bypassFieldSet: boolean;
 }>();
 
 /** Every pattern input's own `id` is set to its Settings field name 1:1 (e.g. `id="dnd_event_pattern"` on the field bound to `form.dnd_event_pattern`) — RegexPatternInput.vue forwards that id straight onto its native textarea, so this is enough to reach the actual focusable element without a template ref per field. */
@@ -262,6 +265,10 @@ function submit(): void {
         -->
         <div class="row mb-3">
           <div class="col-md-6">
+            <BAlert v-if="!bypassFieldSet" :model-value="true" variant="warning" class="small py-1 px-2 mb-2">
+              No bypass-DND field is selected, so no share link bypasses DND whatever this matches.
+              <a href="#bypass-dnd">Choose one below</a>.
+            </BAlert>
             <BFormGroup label-for="dnd_event_pattern" class="mb-0">
               <template #label>DND event regular expression <BBadge variant="secondary" class="align-middle">Boolean</BBadge></template>
               <RegexPatternInput
@@ -318,6 +325,10 @@ function submit(): void {
 
         <div class="row mb-3">
           <div class="col-md-6">
+            <BAlert v-if="!highlightFieldSet" :model-value="true" variant="warning" class="small py-1 px-2 mb-2">
+              No highlight-tokens field is selected, so nothing is highlighted for anyone and this has no effect.
+              <a href="#highlight-tokens">Choose one below</a>.
+            </BAlert>
             <BFormGroup label-for="highlight_clause_pattern" class="mb-0">
               <template #label>Highlight regular expression <BBadge variant="info" text="dark" class="align-middle">Capture</BBadge></template>
               <RegexPatternInput
@@ -355,6 +366,10 @@ function submit(): void {
 
         <div class="row mb-3">
           <div class="col-md-6">
+            <BAlert v-if="!highlightFieldSet" :model-value="true" variant="warning" class="small py-1 px-2 mb-2">
+              No highlight-tokens field is selected, so nothing is highlighted for anyone and this has no effect.
+              <a href="#highlight-tokens">Choose one below</a>.
+            </BAlert>
             <BFormGroup label-for="highlight_split_pattern" class="mb-0">
               <template #label>Highlight name-split expression <BBadge variant="primary" class="align-middle">Split</BBadge></template>
               <RegexPatternInput

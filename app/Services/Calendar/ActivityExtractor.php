@@ -7,8 +7,7 @@ use App\Support\Regex;
 /**
  * Extracts the freetext "activity" prefix from a "with X" / "w/ X" event
  * title — e.g. "Dinner" from "Dinner with Alice" — independent of
- * HighlightMatcher's own clause pattern: its own toggle
- * (share_links.show_activity), its own regex (users.activity_clause_
+ * HighlightMatcher's own clause pattern: its own regex (users.activity_clause_
  * pattern). Deliberately only ever invoked on an event that already
  * matched a highlight word (see AvailabilityService::compute) — that
  * bounds the exposure to titles the owner already opted into surfacing

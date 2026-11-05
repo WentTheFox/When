@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Jobs\RecomputeShareLinkAvailability;
 use App\Models\ShareLink;
-use App\Models\ShareLinkWord;
 use App\Models\User;
 use App\Services\Crypto\AesGcm;
 use App\Services\Crypto\HighlightTokenKey;
@@ -14,11 +13,13 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
+use Tests\Concerns\SeedsHighlightWords;
 use Tests\TestCase;
 
 class RecomputeShareLinkAvailabilityTest extends TestCase
 {
     use RefreshDatabase;
+    use SeedsHighlightWords;
 
     private function icsFixture(): string
     {
@@ -59,10 +60,7 @@ class RecomputeShareLinkAvailabilityTest extends TestCase
 
         $shareLink = ShareLink::factory()->for($user)->create();
 
-        ShareLinkWord::create([
-            'share_link_id' => $shareLink->id,
-            'word_ciphertext' => Crypt::encryptString('Alice'),
-        ]);
+        $this->seedHighlightWords($user, $shareLink, ['Alice']);
 
         RecomputeShareLinkAvailability::dispatchSync($shareLink->id);
 

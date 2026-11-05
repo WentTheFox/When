@@ -56,6 +56,8 @@ function add(): void {
         <option value="phone">Phone</option>
         <option value="connection">Connection</option>
         <option value="identifier">Identifier (not E2EE)</option>
+        <option value="identifier_list">Identifier list (not E2EE)</option>
+        <option value="boolean">Yes/No (not E2EE)</option>
       </BFormSelect>
       <BButton variant="outline-secondary" @click="add">Add</BButton>
     </div>
@@ -68,9 +70,11 @@ function add(): void {
       placeholder="Choices, comma-separated"
       @keyup.enter="add"
     />
-    <p v-if="newType === 'identifier'" class="small text-muted mb-1">
-      Identifier values are <strong>not</strong> end-to-end encrypted: they're sent to the server in plaintext
-      (and encrypted at rest with the app key) so they can be used to link a connection to an external service.
+    <p v-if="newType === 'identifier' || newType === 'identifier_list' || newType === 'boolean'" class="small text-muted mb-1">
+      {{ newType === 'identifier_list' ? 'Identifier list' : newType === 'boolean' ? 'Yes/No' : 'Identifier' }} values are <strong>not</strong> end-to-end encrypted: they're sent to the server in plaintext
+      (and encrypted at rest with the app key) so they can be used to link a connection to an external service<template v-if="newType === 'identifier_list'">,
+      or as the highlight tokens of the connection's share link (choose the field in Settings)</template><template v-if="newType === 'boolean'">,
+      or as the "bypass do not disturb" switch of the connection's share link (choose the field in Settings)</template>.
     </p>
 
     <div v-if="hasConnectionDefinitions" class="small mt-2">

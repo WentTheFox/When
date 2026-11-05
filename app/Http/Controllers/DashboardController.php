@@ -9,8 +9,10 @@ use App\Models\ShareLinkVisit;
 use App\Models\SleepException;
 use App\Models\User;
 use App\Services\Calendar\AvailabilityService;
+use App\Services\Calendar\BypassDndResolver;
 use App\Services\Calendar\CalendarFetcher;
 use App\Services\Calendar\EventNormalizer;
+use App\Services\Calendar\HighlightWordsResolver;
 use App\Services\Calendar\IcsParser;
 use App\Support\Locales;
 use Carbon\CarbonImmutable;
@@ -235,14 +237,12 @@ class DashboardController extends Controller
         $withTime = [];
         $noTime = [];
 
+        $resolver = app(HighlightWordsResolver::class);
         $shareLinks = $user->shareLinks()->where('archived', false)->with('connection')->get();
         $activityLocalizations = $user->activityLocalizations->map(fn ($r) => ['pattern' => $r->pattern, 'label' => $r->label, 'icon_key' => $r->icon_key, 'color_key' => $r->color_key, 'has_capture_group' => $r->has_capture_group])->all();
 
         foreach ($shareLinks as $shareLink) {
-            $words = $shareLink->words()
-                ->pluck('word_ciphertext')
-                ->map(fn (string $ciphertext) => Crypt::decryptString($ciphertext))
-                ->all();
+            $words = $resolver->forShareLink($shareLink, $user);
 
             if (empty($words)) {
                 continue;
@@ -255,7 +255,7 @@ class DashboardController extends Controller
                 dndEventPattern: $user->dnd_event_pattern,
                 napEventPattern: $user->nap_event_pattern,
                 highlightWords: $words,
-                bypassDnd: $shareLink->bypass_dnd,
+                bypassDnd: app(BypassDndResolver::class)->forShareLink($shareLink, $user),
                 rangeStart: $rangeStart,
                 rangeEnd: $rangeEnd,
                 highlightClausePattern: $user->highlight_clause_pattern,

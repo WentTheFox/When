@@ -95,6 +95,8 @@ class AccountExportService
                 'nap_event_pattern_preview' => $user->nap_event_pattern_preview,
                 'availability_windows' => $user->weeklyAvailability(),
                 'calendar_parsing_mode' => $user->calendar_parsing_mode,
+                'highlight_identifier_definition_id' => $user->highlight_identifier_definition_id,
+                'bypass_dnd_definition_id' => $user->bypass_dnd_definition_id,
                 'highlight_clause_pattern' => $user->highlight_clause_pattern,
                 'highlight_clause_pattern_preview' => $user->highlight_clause_pattern_preview,
                 'highlight_split_pattern' => $user->highlight_split_pattern,
@@ -263,7 +265,7 @@ class AccountExportService
             'tier' => 'e2ee',
             'note' => 'label_ciphertext is e2ee (key_ring_id below). Every other field on a share link is plaintext.',
             'records' => $user->shareLinks()
-                ->get(['id', 'highlight_token', 'label_ciphertext', 'archived', 'bypass_dnd', 'show_activity', 'show_recurring', 'created_at'])
+                ->get(['id', 'highlight_token', 'label_ciphertext', 'archived', 'bypass_dnd', 'created_at'])
                 ->map(fn ($link) => [
                     'id' => $link->id,
                     'highlight_token' => $link->highlight_token,
@@ -271,8 +273,6 @@ class AccountExportService
                     'key_ring_id' => $link->id,
                     'archived' => $link->archived,
                     'bypass_dnd' => $link->bypass_dnd,
-                    'show_activity' => $link->show_activity,
-                    'show_recurring' => $link->show_recurring,
                     'created_at' => $link->created_at,
                 ])->all(),
         ];
@@ -425,13 +425,15 @@ class AccountExportService
         return [
             'tier' => 'server-decrypted',
             'records' => ConnectionAttributeValue::whereIn('connection_id', $connectionIds)
-                ->whereNotNull('identifier_value')
+                ->where(fn ($q) => $q->whereNotNull('identifier_value')->orWhereNotNull('identifier_list_value')->orWhereNotNull('boolean_value'))
                 ->get()
                 ->map(fn ($v) => [
                     'id' => $v->id,
                     'connection_id' => $v->connection_id,
                     'attribute_definition_id' => $v->attribute_definition_id,
                     'identifier_value' => $v->identifier_value,
+                    'identifier_list_value' => $v->identifier_list_value,
+                    'boolean_value' => $v->boolean_value,
                 ])->all(),
         ];
     }
