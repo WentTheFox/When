@@ -690,11 +690,11 @@ async function removeEdge(id: string): Promise<void> {
                   <span
                     v-if="connection.share_link"
                     class="ms-1 connection-shared"
-                    :class="selectedConnectionId === connection.id ? '' : 'text-info'"
-                    title="Has a share link"
+                    :class="selectedConnectionId === connection.id ? '' : connection.share_link.last_visited_at ? 'text-info' : 'text-muted'"
+                    :title="connection.share_link.last_visited_at ? 'Has a share link' : 'Has a share link (never visited)'"
                   >
                     <FontAwesomeIcon :icon="faLink" />
-                    <span class="visually-hidden">Has a share link</span>
+                    <span class="visually-hidden">{{ connection.share_link.last_visited_at ? 'Has a share link' : 'Has a share link (never visited)' }}</span>
                   </span>
                   <!-- Archived. Muted, except on the selected row, where the inherited white stays readable. -->
                   <span

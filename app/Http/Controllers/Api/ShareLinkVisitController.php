@@ -100,6 +100,11 @@ class ShareLinkVisitController extends Controller
             'locale' => $data['locale'] ?? null,
         ]);
 
+        // Denormalised onto the link so the dashboard can tell "never
+        // visited" without touching the visits table. Only real visitors
+        // reach this point (the owner's own views returned above).
+        $shareLink->forceFill(['last_visited_at' => now()])->save();
+
         return response()->json(null, Response::HTTP_CREATED);
     }
 }
