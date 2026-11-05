@@ -29,8 +29,7 @@ import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 import { useLiveThemePreview } from '../../dashboard/liveThemePreview';
 import SettingsActivityLocalizationsCard from '../../dashboard/SettingsActivityLocalizationsCard.vue';
 import SettingsCalendarCard from '../../dashboard/SettingsCalendarCard.vue';
-import SettingsHighlightTokensCard from '../../dashboard/SettingsHighlightTokensCard.vue';
-import SettingsBypassDndCard from '../../dashboard/SettingsBypassDndCard.vue';
+import SettingsShareLinksCard from '../../dashboard/SettingsShareLinksCard.vue';
 import SettingsEventMatchingCard from '../../dashboard/SettingsEventMatchingCard.vue';
 import SettingsAvailabilityCard from '../../dashboard/SettingsAvailabilityCard.vue';
 import SettingsPublicPageCard from '../../dashboard/SettingsPublicPageCard.vue';
@@ -51,9 +50,7 @@ const props = defineProps<{
   timezones: string[];
   calendarUrl: string | null;
   identifierListDefinitions: { id: string; label_ciphertext: string }[];
-  legacyHighlightLinkCount: number;
   booleanDefinitions: { id: string; label_ciphertext: string }[];
-  shareLinkCount: number;
   sleepExceptions: {
     id: string;
     start_date: string;
@@ -211,15 +208,11 @@ const previewAvailability = ref<AvailabilityResponse | null>(null);
     :highlight-field-set="settings.highlight_identifier_definition_id !== null"
     :bypass-field-set="settings.bypass_dnd_definition_id !== null"
   />
-  <SettingsHighlightTokensCard
-    :definitions="identifierListDefinitions"
-    :legacy-link-count="legacyHighlightLinkCount"
-    :selected-definition-id="settings.highlight_identifier_definition_id"
-  />
-  <SettingsBypassDndCard
-    :definitions="booleanDefinitions"
-    :selected-definition-id="settings.bypass_dnd_definition_id"
-    :share-link-count="shareLinkCount"
+  <SettingsShareLinksCard
+    :highlight-definitions="identifierListDefinitions"
+    :bypass-definitions="booleanDefinitions"
+    :selected-highlight-id="settings.highlight_identifier_definition_id"
+    :selected-bypass-id="settings.bypass_dnd_definition_id"
   />
   <SettingsActivityLocalizationsCard :activity-localizations="activityLocalizations" />
   <SettingsAvailabilityCard

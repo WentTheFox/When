@@ -30,8 +30,9 @@ class HighlightIdentifierListTest extends TestCase
 
     private function connection(User $user, ?ShareLink $link = null): Connection
     {
-        return Connection::create([
-            'id' => (string) Str::uuid(), 'user_id' => $user->id, 'name_ciphertext' => 'opaque', 'share_link_id' => $link?->id,
+        // A share link always belongs to a connection; reuse its own.
+        return $link?->connection ?? Connection::create([
+            'id' => (string) Str::uuid(), 'user_id' => $user->id, 'name_ciphertext' => 'opaque',
         ]);
     }
 
@@ -168,47 +169,5 @@ class HighlightIdentifierListTest extends TestCase
             'attribute_values' => [['attribute_definition_id' => $definition->id, 'identifier_list_value' => ['new']]],
         ])->assertOk();
         $this->assertNull(ShareLinkCache::where('share_link_id', $link->id)->first());
-    }
-
-    public function test_migration_copies_legacy_words_and_selects_the_field(): void
-    {
-        $user = User::factory()->create();
-        $definition = $this->definition($user);
-
-        $tied = ShareLink::factory()->create(['user_id' => $user->id]);
-        $this->legacyWords($tied, ['one', 'two']);
-        $tiedConnection = $this->connection($user, $tied);
-
-        $untied = ShareLink::factory()->create(['user_id' => $user->id]);
-        $this->legacyWords($untied, ['stays']);
-
-        $existing = ShareLink::factory()->create(['user_id' => $user->id]);
-        $this->legacyWords($existing, ['ignored']);
-        $existingConnection = $this->connection($user, $existing);
-        ConnectionAttributeValue::create([
-            'connection_id' => $existingConnection->id, 'attribute_definition_id' => $definition->id, 'identifier_list_value' => ['kept'],
-        ]);
-
-        ShareLink::factory()->create(['user_id' => $user->id]); // no words at all
-
-        $this->actingAs($user)->postJson('/settings/highlight-words/migrate', ['definition_id' => $definition->id])
-            ->assertOk()
-            ->assertJson(['migrated' => 1, 'skipped_no_connection' => 1, 'skipped_existing' => 1, 'skipped_empty' => 1]);
-
-        $this->assertSame($definition->id, $user->fresh()->highlight_identifier_definition_id);
-        $this->assertSame(['one', 'two'], ConnectionAttributeValue::where('connection_id', $tiedConnection->id)->first()->identifier_list_value);
-        $this->assertSame(['kept'], ConnectionAttributeValue::where('connection_id', $existingConnection->id)->first()->identifier_list_value);
-        $this->assertSame(2, $tied->words()->count(), 'legacy words are left in place');
-
-        $this->assertSame([], app(HighlightWordsResolver::class)->forShareLink($untied, $user->fresh()), 'untied link has no connection to carry words');
-        $this->assertSame(['one', 'two'], app(HighlightWordsResolver::class)->forShareLink($tied->fresh(), $user->fresh()));
-    }
-
-    public function test_migration_rejects_a_non_list_definition(): void
-    {
-        $user = User::factory()->create();
-
-        $this->actingAs($user)->postJson('/settings/highlight-words/migrate', ['definition_id' => $this->definition($user, 'identifier')->id])
-            ->assertUnprocessable();
     }
 }

@@ -25,9 +25,7 @@ trait SeedsHighlightWords
             ]);
         $user->update(['highlight_identifier_definition_id' => $definition->id]);
 
-        $connection = Connection::where('share_link_id', $link->id)->first() ?? Connection::create([
-            'id' => (string) Str::uuid(), 'user_id' => $user->id, 'name_ciphertext' => 'opaque', 'share_link_id' => $link->id,
-        ]);
+        $connection = $link->connection;
 
         ConnectionAttributeValue::updateOrCreate(
             ['connection_id' => $connection->id, 'attribute_definition_id' => $definition->id],

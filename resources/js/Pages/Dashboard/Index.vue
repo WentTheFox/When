@@ -55,7 +55,7 @@ function languageName(code: string): string {
         <div class="card-body">
           <h2 class="h5">Share links</h2>
           <p class="display-4 mb-2">{{ shareLinkCount }}</p>
-          <Link href="/dashboard/share-links" class="btn btn-outline-secondary btn-sm">Manage</Link>
+          <Link href="/dashboard/connections" class="btn btn-outline-secondary btn-sm">Manage</Link>
         </div>
       </div>
     </div>

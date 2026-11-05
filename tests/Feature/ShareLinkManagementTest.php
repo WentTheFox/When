@@ -6,6 +6,7 @@ use App\Models\Connection;
 use App\Models\ShareLink;
 use App\Models\ShareLinkCache;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -13,10 +14,45 @@ class ShareLinkManagementTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_enabling_sharing_creates_one_link_with_a_token_for_the_connection(): void
+    {
+        $owner = User::factory()->create();
+        $connection = Connection::factory()->for($owner)->create();
+
+        $response = $this->actingAs($owner)->postJson("/dashboard/connections/{$connection->id}/share-link");
+
+        $response->assertCreated();
+        $this->assertTrue(ctype_alnum($response->json('highlight_token')));
+        $this->assertSame($connection->id, ShareLink::findOrFail($response->json('id'))->connection_id);
+    }
+
+    public function test_enabling_sharing_twice_returns_the_same_link(): void
+    {
+        $owner = User::factory()->create();
+        $connection = Connection::factory()->for($owner)->create();
+
+        $first = $this->actingAs($owner)->postJson("/dashboard/connections/{$connection->id}/share-link");
+        $second = $this->actingAs($owner)->postJson("/dashboard/connections/{$connection->id}/share-link");
+
+        $second->assertOk();
+        $this->assertSame($first->json('id'), $second->json('id'));
+        $this->assertSame(1, ShareLink::where('connection_id', $connection->id)->count());
+    }
+
+    public function test_cannot_enable_sharing_on_another_owners_connection(): void
+    {
+        $owner = User::factory()->create();
+        $connection = Connection::factory()->for(User::factory()->create())->create();
+
+        $this->actingAs($owner)
+            ->postJson("/dashboard/connections/{$connection->id}/share-link")
+            ->assertNotFound();
+    }
+
     public function test_regenerate_token_replaces_the_public_identifier_and_clears_the_cache(): void
     {
         $owner = User::factory()->create();
-        $shareLink = ShareLink::factory()->for($owner)->create();
+        $shareLink = ShareLink::factory()->for($owner)->create(['highlight_token' => 'the-old-token']);
         ShareLinkCache::create([
             'share_link_id' => $shareLink->id,
             'ciphertext' => 'stale-ciphertext-blob',
@@ -25,78 +61,85 @@ class ShareLinkManagementTest extends TestCase
             'encrypted_at' => now(),
         ]);
 
-        $response = $this->actingAs($owner)->postJson("/dashboard/share-links/{$shareLink->id}/regenerate-token");
+        $response = $this->actingAs($owner)
+            ->postJson("/dashboard/connections/{$shareLink->connection_id}/share-link/regenerate-token");
 
         $response->assertOk();
         $newToken = $response->json('highlight_token');
 
-        $this->assertNotNull($newToken);
+        $this->assertNotSame('the-old-token', $newToken);
         $this->assertTrue(ctype_alnum($newToken));
         $this->assertSame($newToken, $shareLink->fresh()->highlight_token);
-        $this->assertNull($shareLink->fresh()->cache);
-    }
-
-    public function test_regenerate_token_replaces_an_existing_highlight_token(): void
-    {
-        $owner = User::factory()->create();
-        $shareLink = ShareLink::factory()->for($owner)->create(['highlight_token' => 'the-old-token']);
-
-        $response = $this->actingAs($owner)->postJson("/dashboard/share-links/{$shareLink->id}/regenerate-token");
-
-        $response->assertOk();
-        $this->assertNotSame('the-old-token', $response->json('highlight_token'));
         $this->assertNull(ShareLink::where('highlight_token', 'the-old-token')->first());
+        $this->assertNull($shareLink->fresh()->cache);
     }
 
     public function test_cannot_regenerate_the_token_of_another_owners_share_link(): void
     {
         $owner = User::factory()->create();
-        $stranger = User::factory()->create();
-        $shareLink = ShareLink::factory()->for($stranger)->create();
+        $shareLink = ShareLink::factory()->for(User::factory()->create())->create();
 
         $this->actingAs($owner)
-            ->postJson("/dashboard/share-links/{$shareLink->id}/regenerate-token")
+            ->postJson("/dashboard/connections/{$shareLink->connection_id}/share-link/regenerate-token")
             ->assertNotFound();
     }
 
-    public function test_delete_permanently_removes_the_share_link(): void
+    public function test_disabling_sharing_deletes_the_link_but_not_the_connection(): void
     {
         $owner = User::factory()->create();
         $shareLink = ShareLink::factory()->for($owner)->create();
 
         $this->actingAs($owner)
-            ->deleteJson("/dashboard/share-links/{$shareLink->id}")
+            ->deleteJson("/dashboard/connections/{$shareLink->connection_id}/share-link")
             ->assertNoContent();
+
+        $this->assertNull(ShareLink::find($shareLink->id));
+        $this->assertNotNull(Connection::find($shareLink->connection_id));
+    }
+
+    public function test_cannot_disable_another_owners_share_link(): void
+    {
+        $owner = User::factory()->create();
+        $shareLink = ShareLink::factory()->for(User::factory()->create())->create();
+
+        $this->actingAs($owner)
+            ->deleteJson("/dashboard/connections/{$shareLink->connection_id}/share-link")
+            ->assertNotFound();
+
+        $this->assertNotNull(ShareLink::find($shareLink->id));
+    }
+
+    public function test_deleting_a_connection_deletes_its_share_link(): void
+    {
+        $owner = User::factory()->create();
+        $shareLink = ShareLink::factory()->for($owner)->create();
+
+        $this->actingAs($owner)
+            ->deleteJson("/dashboard/connections/{$shareLink->connection_id}")
+            ->assertOk();
 
         $this->assertNull(ShareLink::find($shareLink->id));
     }
 
-    public function test_deleting_a_share_link_untethers_but_does_not_delete_its_connection(): void
+    public function test_archiving_a_connection_archives_its_share_link_and_back(): void
     {
         $owner = User::factory()->create();
         $shareLink = ShareLink::factory()->for($owner)->create();
-        $connection = Connection::create([
-            'user_id' => $owner->id,
-            'name_ciphertext' => 'opaque',
-            'share_link_id' => $shareLink->id,
-        ]);
+        $url = "/dashboard/connections/{$shareLink->connection_id}";
 
-        $this->actingAs($owner)->deleteJson("/dashboard/share-links/{$shareLink->id}")->assertNoContent();
+        $this->actingAs($owner)->patchJson($url, ['archived' => true])->assertOk();
+        $this->assertTrue($shareLink->fresh()->archived);
 
-        $this->assertNotNull($connection->fresh());
-        $this->assertNull($connection->fresh()->share_link_id);
+        $this->actingAs($owner)->patchJson($url, ['archived' => false])->assertOk();
+        $this->assertFalse($shareLink->fresh()->archived);
     }
 
-    public function test_cannot_delete_another_owners_share_link(): void
+    public function test_one_connection_cannot_have_two_share_links(): void
     {
         $owner = User::factory()->create();
-        $stranger = User::factory()->create();
-        $shareLink = ShareLink::factory()->for($stranger)->create();
+        $shareLink = ShareLink::factory()->for($owner)->create();
 
-        $this->actingAs($owner)
-            ->deleteJson("/dashboard/share-links/{$shareLink->id}")
-            ->assertNotFound();
-
-        $this->assertNotNull(ShareLink::find($shareLink->id));
+        $this->expectException(QueryException::class);
+        ShareLink::factory()->for($owner)->create(['connection_id' => $shareLink->connection_id]);
     }
 }

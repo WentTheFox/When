@@ -118,14 +118,12 @@ class DashboardStatsTest extends TestCase
             'calendar_parsing_mode' => 'full_detail',
         ]);
 
-        $shareLink = ShareLink::factory()->for($user)->create();
-
         $connection = Connection::create([
             'id' => Str::uuid(),
             'user_id' => $user->id,
             'name_ciphertext' => 'opaque-ciphertext-blob',
-            'share_link_id' => $shareLink->id,
         ]);
+        $shareLink = ShareLink::factory()->for($user)->create(['connection_id' => $connection->id]);
         $this->seedHighlightWords($user, $shareLink, ['Alice']);
 
         $response = $this->actingAs($user)->getJson('/dashboard/stats/availability');

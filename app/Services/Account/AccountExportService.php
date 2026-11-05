@@ -262,15 +262,14 @@ class AccountExportService
     private function shareLinks(User $user): array
     {
         return [
-            'tier' => 'e2ee',
-            'note' => 'label_ciphertext is e2ee (key_ring_id below). Every other field on a share link is plaintext.',
+            'tier' => 'plaintext',
+            'note' => 'A share link has no label of its own: its name is the connection it belongs to (connection_id). Every field here is plaintext.',
             'records' => $user->shareLinks()
-                ->get(['id', 'highlight_token', 'label_ciphertext', 'archived', 'bypass_dnd', 'created_at'])
+                ->get(['id', 'connection_id', 'highlight_token', 'archived', 'bypass_dnd', 'created_at'])
                 ->map(fn ($link) => [
                     'id' => $link->id,
+                    'connection_id' => $link->connection_id,
                     'highlight_token' => $link->highlight_token,
-                    'label_ciphertext' => $link->label_ciphertext,
-                    'key_ring_id' => $link->id,
                     'archived' => $link->archived,
                     'bypass_dnd' => $link->bypass_dnd,
                     'created_at' => $link->created_at,
@@ -328,10 +327,9 @@ class AccountExportService
         return [
             'tier' => 'e2ee',
             'records' => $user->connections()
-                ->get(['id', 'share_link_id', 'name_ciphertext', 'notes_ciphertext', 'archived', 'created_at'])
+                ->get(['id', 'name_ciphertext', 'notes_ciphertext', 'archived', 'created_at'])
                 ->map(fn ($c) => [
                     'id' => $c->id,
-                    'share_link_id' => $c->share_link_id,
                     'name_ciphertext' => $c->name_ciphertext,
                     'notes_ciphertext' => $c->notes_ciphertext,
                     'key_ring_id' => $c->id,

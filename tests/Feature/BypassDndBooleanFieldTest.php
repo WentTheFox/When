@@ -28,8 +28,9 @@ class BypassDndBooleanFieldTest extends TestCase
 
     private function connection(User $user, ?ShareLink $link = null): Connection
     {
-        return Connection::create([
-            'id' => (string) Str::uuid(), 'user_id' => $user->id, 'name_ciphertext' => 'opaque', 'share_link_id' => $link?->id,
+        // A share link always belongs to a connection; reuse its own.
+        return $link?->connection ?? Connection::create([
+            'id' => (string) Str::uuid(), 'user_id' => $user->id, 'name_ciphertext' => 'opaque',
         ]);
     }
 
@@ -112,39 +113,5 @@ class BypassDndBooleanFieldTest extends TestCase
             'attribute_values' => [['attribute_definition_id' => $definition->id, 'boolean_value' => true]],
         ])->assertOk();
         $this->assertNull(ShareLinkCache::where('share_link_id', $link->id)->first());
-    }
-
-    public function test_migration_copies_flags_and_selects_the_field(): void
-    {
-        $user = User::factory()->create();
-        $definition = $this->definition($user);
-
-        $yes = ShareLink::factory()->create(['user_id' => $user->id, 'bypass_dnd' => true]);
-        $yesConnection = $this->connection($user, $yes);
-        $no = ShareLink::factory()->create(['user_id' => $user->id, 'bypass_dnd' => false]);
-        $noConnection = $this->connection($user, $no);
-        ShareLink::factory()->create(['user_id' => $user->id, 'bypass_dnd' => true]); // untied
-        $existing = ShareLink::factory()->create(['user_id' => $user->id, 'bypass_dnd' => true]);
-        $existingConnection = $this->connection($user, $existing);
-        ConnectionAttributeValue::create(['connection_id' => $existingConnection->id, 'attribute_definition_id' => $definition->id, 'boolean_value' => false]);
-
-        $this->actingAs($user)->postJson('/settings/bypass-dnd/migrate', ['definition_id' => $definition->id])
-            ->assertOk()
-            ->assertJson(['migrated' => 2, 'skipped_no_connection' => 1, 'skipped_existing' => 1]);
-
-        $this->assertSame($definition->id, $user->fresh()->bypass_dnd_definition_id);
-        $value = fn ($c) => ConnectionAttributeValue::where('connection_id', $c->id)->first()->boolean_value;
-        $this->assertTrue($value($yesConnection));
-        $this->assertFalse($value($noConnection));
-        $this->assertFalse($value($existingConnection), 'existing value untouched');
-        $this->assertTrue($yes->fresh()->bypass_dnd, 'legacy flag kept');
-    }
-
-    public function test_migration_rejects_a_non_boolean_definition(): void
-    {
-        $user = User::factory()->create();
-
-        $this->actingAs($user)->postJson('/settings/bypass-dnd/migrate', ['definition_id' => $this->definition($user, 'identifier')->id])
-            ->assertUnprocessable();
     }
 }
