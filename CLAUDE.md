@@ -94,7 +94,7 @@ ordinary password). See `resources/js/crypto/argon2.ts`.
   augmentation in place, `usePage().props.auth` still typechecked as `unknown`), so don't
   reintroduce it as "the correct way" — the explicit generic is the one that works. Update
   `SharedPageProps` itself if `HandleInertiaRequests::share()`'s shape changes.
-- `vendor/bin/phpstan analyse --memory-limit=1G` — Larastan (level 3) plus
+- `vendor/bin/phpstan analyse --memory-limit=1G` — Larastan (level set in `phpstan.neon`, the only place it lives) plus
   `phpstan-disallowed-calls`, run in CI (`.github/workflows/phpstan.yml`). It bans the zone-less
   Blueprint methods (`timestamp()`, `timestamps()`, `softDeletes()`, `dateTime()`,
   `nullableTimestamps()`): use the `*Tz` variants. Every column is `timestamptz` and

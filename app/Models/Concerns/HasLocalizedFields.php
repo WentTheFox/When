@@ -50,7 +50,7 @@ trait HasLocalizedFields
      * are small, owner-edited lists, not something saved often enough
      * for that cost to matter).
      *
-     * @param  array<string, string>|null  $value
+     * @param  array<string, mixed>|null  $value  Locale => text; callers pass request data, so non-string entries are skipped rather than trusted.
      */
     public function setLocalizedField(string $field, ?array $value): void
     {

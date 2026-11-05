@@ -217,12 +217,6 @@ class AvailabilityService
         while ($day->lte($rangeEnd)) {
             $window = $this->dayWindow($day, $weeklyAvailability);
 
-            if ($window === null) {
-                $day = $day->addDay();
-
-                continue;
-            }
-
             [$windowStart, $windowEnd] = $window;
             $windowStart = $windowStart->max($rangeStart);
             $windowEnd = $windowEnd->min($rangeEnd);
@@ -267,14 +261,12 @@ class AvailabilityService
 
             $window = $this->dayWindow($day, $weeklyAvailability);
 
-            if ($window !== null) {
-                [$windowStart, $windowEnd] = $window;
-                $windowStart = $windowStart->max($rangeStart);
-                $windowEnd = $windowEnd->min($rangeEnd);
+            [$windowStart, $windowEnd] = $window;
+            $windowStart = $windowStart->max($rangeStart);
+            $windowEnd = $windowEnd->min($rangeEnd);
 
-                if ($windowStart->lt($windowEnd)) {
-                    $awakeWindows[] = ['start' => $windowStart, 'end' => $windowEnd];
-                }
+            if ($windowStart->lt($windowEnd)) {
+                $awakeWindows[] = ['start' => $windowStart, 'end' => $windowEnd];
             }
 
             $day = $day->addDay();
@@ -302,10 +294,10 @@ class AvailabilityService
     }
 
     /**
-     * A day's configured wake→sleep window, or null if there's no
-     * configuration for that weekday at all. Blank wake+sleep both means
-     * "awake all day" (the whole day, not "no window") per Settings.vue's
-     * "leave both blank for no default sleep block that day".
+     * A day's configured wake→sleep window. Never null: a weekday with no
+     * configuration at all, or with blank wake+sleep, means "awake all day"
+     * (the whole day, not "no window") per Settings.vue's "leave both blank
+     * for no default sleep block that day".
      *
      * @param  array<int, array{wake: ?string, sleep: ?string}>  $weeklyAvailability
      * @return array{0: CarbonImmutable, 1: CarbonImmutable}
