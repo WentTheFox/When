@@ -105,22 +105,20 @@ async function remove(): Promise<void> {
       </div>
 
       <div class="col-md-8">
-        <LockedOverlay>
-          <template v-if="selected">
-            <BFormGroup label="Name" class="mb-3">
-              <EncryptedInput v-model="editName" :ciphertext="selected.name_ciphertext" :pending="pending" type="text" size="sm" />
-            </BFormGroup>
-            <BFormGroup label="Category" class="mb-3">
-              <BFormSelect v-model="editCategoryId" size="sm" :disabled="pending">
-                <option :value="null">(none)</option>
-                <option v-for="category in sortedCategories" :key="category.id" :value="category.id">{{ category.label }}</option>
-              </BFormSelect>
-            </BFormGroup>
-            <BButton size="sm" variant="primary" :disabled="pending" @click="save">Save</BButton>
-            <BButton size="sm" variant="outline-danger" :disabled="pending" @click="remove">Delete</BButton>
-          </template>
-          <p v-else class="text-muted">Select a source on the left to rename or delete it.</p>
+        <LockedOverlay v-if="selected">
+          <BFormGroup label="Name" class="mb-3">
+            <EncryptedInput v-model="editName" :ciphertext="selected.name_ciphertext" :pending="pending" type="text" size="sm" />
+          </BFormGroup>
+          <BFormGroup label="Category" class="mb-3">
+            <BFormSelect v-model="editCategoryId" size="sm" :disabled="pending">
+              <option :value="null">(none)</option>
+              <option v-for="category in sortedCategories" :key="category.id" :value="category.id">{{ category.label }}</option>
+            </BFormSelect>
+          </BFormGroup>
+          <BButton size="sm" variant="primary" :disabled="pending" @click="save">Save</BButton>
+          <BButton size="sm" variant="outline-danger" :disabled="pending" @click="remove">Delete</BButton>
         </LockedOverlay>
+        <p v-else class="text-muted">Select a source on the left to rename or delete it.</p>
       </div>
     </div>
   </div>

@@ -52,6 +52,13 @@ describe('Connections page', () => {
     expect(html).toContain('Y29ubmVjdGlvbi1jaXBoZXI='); // the connection, still raw
   });
 
+  it('only overlays the detail panes when a record is open', async () => {
+    // Four tabs, each with its list's overlay; nothing is open, so no detail overlays.
+    expect((await render('')).match(/Vault locked/g)).toHaveLength(4);
+    // An open connection adds one over its form.
+    expect((await render(`#connection-${CONNECTION}`)).match(/Vault locked/g)).toHaveLength(5);
+  });
+
   it('opens the tab named in the hash, with that record open and undecrypted', async () => {
     const html = await render(`#tab=attributes&id=${DEFINITION}`);
     expect(html).toMatch(/nav-link active[^>]*aria-controls="connections-tab-attributes"/);

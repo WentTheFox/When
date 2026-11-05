@@ -202,39 +202,37 @@ function add(): void {
       </div>
 
       <div class="col-md-8">
-        <LockedOverlay>
-        <template v-if="selected">
+        <LockedOverlay v-if="selected">
           <BFormGroup label="Name" class="mb-3">
-            <EncryptedInput
-              v-model="editLabel"
-              :ciphertext="selected.label_ciphertext"
-              :pending="pending"
-              type="text"
-              size="sm"
-              @keyup.enter="saveRename"
-            />
+          <EncryptedInput
+            v-model="editLabel"
+            :ciphertext="selected.label_ciphertext"
+            :pending="pending"
+            type="text"
+            size="sm"
+            @keyup.enter="saveRename"
+          />
           </BFormGroup>
           <dl class="row small mb-3">
-            <dt class="col-sm-3">Type</dt>
-            <dd class="col-sm-9">{{ TYPE_LABELS[selected.type] ?? selected.type }} <span class="text-muted">(fixed once created)</span></dd>
-            <template v-if="selected.type === 'radio'">
-              <dt class="col-sm-3">Choices</dt>
-              <dd class="col-sm-9">{{ selected.options.join(', ') }}</dd>
-            </template>
-            <dt class="col-sm-3">Used on</dt>
-            <dd class="col-sm-9">{{ usage[selected.id] ?? 0 }} connection{{ (usage[selected.id] ?? 0) === 1 ? '' : 's' }}</dd>
-            <template v-if="rolesOf(selected.id).length">
-              <dt class="col-sm-3">Share links</dt>
-              <dd class="col-sm-9">
-                <BBadge v-for="role in rolesOf(selected.id)" :key="role" variant="info" class="me-1">{{ role }}</BBadge>
-              </dd>
-            </template>
+          <dt class="col-sm-3">Type</dt>
+          <dd class="col-sm-9">{{ TYPE_LABELS[selected.type] ?? selected.type }} <span class="text-muted">(fixed once created)</span></dd>
+          <template v-if="selected.type === 'radio'">
+            <dt class="col-sm-3">Choices</dt>
+            <dd class="col-sm-9">{{ selected.options.join(', ') }}</dd>
+          </template>
+          <dt class="col-sm-3">Used on</dt>
+          <dd class="col-sm-9">{{ usage[selected.id] ?? 0 }} connection{{ (usage[selected.id] ?? 0) === 1 ? '' : 's' }}</dd>
+          <template v-if="rolesOf(selected.id).length">
+            <dt class="col-sm-3">Share links</dt>
+            <dd class="col-sm-9">
+              <BBadge v-for="role in rolesOf(selected.id)" :key="role" variant="info" class="me-1">{{ role }}</BBadge>
+            </dd>
+          </template>
           </dl>
           <BButton size="sm" variant="primary" :disabled="pending || !editLabel.trim() || renameUnchanged" @click="saveRename">Save</BButton>
           <BButton size="sm" variant="outline-danger" :disabled="pending" @click="confirmRemove">Delete</BButton>
-        </template>
-        <p v-else class="text-muted">Select an attribute on the left to rename or delete it.</p>
         </LockedOverlay>
+        <p v-else class="text-muted">Select an attribute on the left to rename or delete it.</p>
       </div>
     </div>
 
