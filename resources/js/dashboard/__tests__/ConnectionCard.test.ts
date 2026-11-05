@@ -82,4 +82,62 @@ describe('ConnectionCard', () => {
     expect(button![1]).toContain('btn-primary');
     expect(button![1]).not.toContain('outline');
   });
+
+  describe('fields with no value yet', () => {
+    const definitions = [
+      { id: 'd-choice', label: 'Tier', type: 'radio', options: ['Gold', 'Silver'] },
+      { id: 'd-flag', label: 'VIP', type: 'boolean', options: [] },
+      { id: 'd-ref', label: 'Referrer', type: 'connection', options: [] },
+    ];
+
+    /** The markup of one field's form group, found by its label. */
+    function groupOf(html: string, label: string): string {
+      const start = html.indexOf(`>${label}<`);
+      expect(start, `field "${label}" is rendered`).toBeGreaterThan(-1);
+      return html.slice(start, html.indexOf('</fieldset>', start));
+    }
+
+    it('selects "(unset)" on a choice field instead of leaving every option unchecked', async () => {
+      const group = groupOf(await render({ attributeDefinitions: definitions }), 'Tier');
+      const radios = [...group.matchAll(/<input\b[^>]*type="radio"[^>]*>/g)].map(([tag]) => tag);
+
+      expect(radios).toHaveLength(3); // (unset), Gold, Silver
+      expect(radios.filter((tag) => /\bchecked\b/.test(tag))).toHaveLength(1);
+      expect(radios[0]).toMatch(/\bchecked\b/);
+      // The "(unset)" radio's value really is empty (a casting quirk in the radio component once made it `true`).
+      expect(radios.map((tag) => /value="([^"]*)"/.exec(tag)?.[1])).toEqual(['', 'Gold', 'Silver']);
+    });
+
+    it('shows a Yes/No field as three radios — (unset), Yes, No — with "(unset)" selected', async () => {
+      const group = groupOf(await render({ attributeDefinitions: definitions }), 'VIP');
+      const radios = [...group.matchAll(/<input\b[^>]*type="radio"[^>]*>/g)].map(([tag]) => tag);
+
+      expect(radios).toHaveLength(3);
+      expect(group).not.toContain('<select');
+      expect(radios.filter((tag) => /\bchecked\b/.test(tag))).toEqual([radios[0]]);
+      expect(radios.map((tag) => /value="([^"]*)"/.exec(tag)?.[1])).toEqual(['', 'true', 'false']);
+      expect(group).toMatch(/Yes[\s\S]*No/);
+    });
+
+    it('groups each field\'s radios under one name, so the arrow keys move between them', async () => {
+      const html = await render({ attributeDefinitions: definitions });
+      for (const label of ['Tier', 'VIP']) {
+        const names = new Set([...groupOf(html, label).matchAll(/<input\b[^>]*type="radio"[^>]*\bname="([^"]+)"/g)].map((m) => m[1]));
+        expect(names.size, label).toBe(1);
+      }
+    });
+
+    // A dropdown's selected option is set in the browser, so a server render can't show it; the unset-as-empty
+    // binding it relies on is covered in fieldBinding.test.ts. This only checks the control and its "(none)" option exist.
+    it('offers "(none)" on a connection field, which is a dropdown', async () => {
+      const group = groupOf(await render({
+        attributeDefinitions: definitions,
+        connectionOptions: [{ id: 'other', label: 'Alice' }],
+      }), 'Referrer');
+      expect(group).toContain('<select');
+      expect(group).toContain('(none)');
+      expect(group).toContain('Alice');
+    });
+  });
 });
+

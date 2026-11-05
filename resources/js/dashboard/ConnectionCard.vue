@@ -8,16 +8,17 @@ import {
   BCard,
   BFormCheckbox,
   BFormGroup,
-  BFormRadio,
   BFormSelect,
   type InputType,
 } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../crypto';
 import EncryptedInput from '../Components/EncryptedInput.vue';
+import RadioChoices from '../Components/RadioChoices.vue';
 import EncryptedText from '../Components/EncryptedText.vue';
 import ConnectionSharing, { type ShareLinkInfo } from './ConnectionSharing.vue';
 import { requestConfirm } from './confirmModal';
+import { bindField } from './fieldBinding';
 import { onVaultUnlocked } from './onVaultUnlocked';
 import { VaultLockedError } from './vault';
 import { useVault } from './useVault';
@@ -219,6 +220,23 @@ const isDirty = computed(() => {
   return [...ids].some((id) => (editAttributeValues.value[id] ?? '') !== (attributeValues.value[id] ?? ''));
 });
 
+/** v-model for the Connection dropdown: an unset field reads as '' so "(none)" is selected (see bindField). */
+function fieldBinding(definitionId: string) {
+  return bindField(editAttributeValues.value, definitionId);
+}
+
+/** A choice field's options, led by "(unset)" (the empty value). */
+function radioChoices(options: readonly string[]) {
+  return [{ value: '', text: '(unset)' }, ...options.map((option) => ({ value: option, text: option }))];
+}
+
+/** Yes/No is three radios, not a dropdown: fewer clicks for three options. */
+const BOOLEAN_CHOICES = [
+  { value: '', text: '(unset)' },
+  { value: 'true', text: 'Yes' },
+  { value: 'false', text: 'No' },
+] as const;
+
 /** The raw ciphertext of a field's stored value, shown (disabled) until it has been decrypted. */
 function rawCiphertext(definitionId: string): string | null {
   return props.connection.attribute_values.find((v) => v.attribute_definition_id === definitionId)?.value_ciphertext ?? null;
@@ -342,45 +360,29 @@ async function remove(): Promise<void> {
         size="sm"
         rows="2"
       />
-      <div v-else-if="definition.type === 'radio'">
-        <BFormRadio
-          v-model="editAttributeValues[definition.id]"
-          inline
-          value=""
-          :disabled="!decrypted"
-        >
-          (unset)
-        </BFormRadio>
-        <BFormRadio
-          v-for="choice in definition.options"
-          :key="choice"
-          v-model="editAttributeValues[definition.id]"
-          inline
-          :value="choice"
-          :disabled="!decrypted"
-        >
-          {{ choice }}
-        </BFormRadio>
-      </div>
+      <RadioChoices
+        v-else-if="definition.type === 'radio'"
+        v-model="editAttributeValues[definition.id]"
+        :choices="radioChoices(definition.options)"
+        :name="`field-${definition.id}`"
+        :disabled="!decrypted"
+      />
       <BFormSelect
         v-else-if="definition.type === 'connection'"
-        v-model="editAttributeValues[definition.id]"
+        v-bind="fieldBinding(definition.id)"
         size="sm"
         :disabled="!decrypted"
       >
         <option value="">(none)</option>
         <option v-for="c in relatableConnections" :key="c.id" :value="c.id">{{ c.label }}</option>
       </BFormSelect>
-      <BFormSelect
+      <RadioChoices
         v-else-if="definition.type === 'boolean'"
         v-model="editAttributeValues[definition.id]"
-        size="sm"
+        :choices="BOOLEAN_CHOICES"
+        :name="`field-${definition.id}`"
         :disabled="!decrypted"
-      >
-        <option value="">(unset)</option>
-        <option value="true">Yes</option>
-        <option value="false">No</option>
-      </BFormSelect>
+      />
       <div v-else-if="definition.type === 'identifier_list'">
         <EncryptedInput
           v-model="editAttributeValues[definition.id]"
