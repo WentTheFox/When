@@ -27,9 +27,9 @@ class ShareLinkVisitController extends Controller
 
     public function store(Request $request, string $token): JsonResponse
     {
-        $shareLink = ShareLink::with('connection')->where('highlight_token', $token)->first();
+        $shareLink = ShareLink::where('highlight_token', $token)->first();
 
-        if ($shareLink === null || $shareLink->isArchived()) {
+        if ($shareLink === null) {
             abort(Response::HTTP_NOT_FOUND);
         }
 

@@ -108,9 +108,8 @@ class ShareLinkController extends Controller
 
         $response = $this->render($shareLink, $token, $locale);
 
-        // 401, not 200 or 404 — same "was valid, isn't now" signal as
-        // ShareLinkAvailabilityController's own archived-link response,
-        // for the same reason: a viewer/script can tell "expired" apart
+        // 401, not 200 or 404 — the "was valid, isn't now" signal for a token
+        // that doesn't resolve: a viewer/script can tell "expired" apart
         // from an ordinary successful render without inspecting the page
         // body. Still a full Inertia response (not a plain error page) —
         // Free/Show.vue renders its "link expired" card either way (see
@@ -148,9 +147,7 @@ class ShareLinkController extends Controller
      * anything (mistyped, or a link since deleted/regenerated away) —
      * either way this renders the same "link expired" state; see
      * linkFound below, which Free/Show.vue checks before ever calling its
-     * own /api/share/{token} endpoint (there being nothing to fetch,
-     * unlike an archived-but-still-existing link, which that endpoint
-     * itself reports via its own 401).
+     * own /api/share/{token} endpoint (there being nothing to fetch).
      */
     private function render(?ShareLink $shareLink, ?string $token, string $locale): InertiaResponse
     {

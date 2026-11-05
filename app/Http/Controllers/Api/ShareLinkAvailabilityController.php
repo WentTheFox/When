@@ -53,16 +53,12 @@ class ShareLinkAvailabilityController extends Controller
      */
     public function show(string $token): JsonResponse
     {
-        $shareLink = ShareLink::with('connection')->where('highlight_token', $token)->first();
+        $shareLink = ShareLink::where('highlight_token', $token)->first();
 
+        // Archiving only hides a connection (and its link) from the dashboard
+        // stats; the link itself keeps working, so there is no archived check here.
         if ($shareLink === null) {
             abort(Response::HTTP_NOT_FOUND);
-        }
-
-        // 401, not 404: the link was valid once, so the viewer gets the
-        // "expired" signal rather than "never existed".
-        if ($shareLink->isArchived()) {
-            abort(Response::HTTP_UNAUTHORIZED);
         }
 
         if ($shareLink->user->calendar_url_ciphertext === null) {
@@ -139,9 +135,9 @@ class ShareLinkAvailabilityController extends Controller
      */
     public function refresh(Request $request, string $token): JsonResponse
     {
-        $shareLink = ShareLink::with('connection')->where('highlight_token', $token)->first();
+        $shareLink = ShareLink::where('highlight_token', $token)->first();
 
-        if ($shareLink === null || $shareLink->isArchived()) {
+        if ($shareLink === null) {
             abort(Response::HTTP_NOT_FOUND);
         }
 

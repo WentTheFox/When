@@ -12,13 +12,19 @@ use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 /**
- * Links archived in their own right must not come back to life when the flag
- * moves to the connection. (The column is gone in the current schema, so the
+ * Links archived in their own right must not drop back into the dashboard stats when
+ * the flag moves to the connection. (The column is gone in the current schema, so the
  * test puts it back, as it was when the migration had to run.)
  */
 class CarryShareLinkArchivedMigrationTest extends TestCase
 {
     use RefreshDatabase;
+
+    /** Whether the link counts in the dashboard stats (its connection is not archived). */
+    private function inStats(ShareLink $link): bool
+    {
+        return ShareLink::active()->whereKey($link->id)->exists();
+    }
 
     public function test_a_link_archived_on_its_own_archives_its_connection(): void
     {
@@ -34,14 +40,14 @@ class CarryShareLinkArchivedMigrationTest extends TestCase
         DB::table('share_links')->where('id', $archivedLink->id)->update(['archived' => true]);
         DB::table('share_links')->where('id', $alreadyArchived->id)->update(['archived' => true]);
 
-        $this->assertFalse($archivedLink->fresh()->isArchived(), 'it would be live without the migration');
+        $this->assertTrue($this->inStats($archivedLink), 'it would be counted in the stats again without the migration');
 
         (require database_path('migrations/2026_11_05_055000_carry_share_link_archived_onto_connections.php'))->up();
 
-        $this->assertTrue($archivedLink->fresh()->isArchived());
+        $this->assertFalse($this->inStats($archivedLink));
         $this->assertTrue(Connection::findOrFail($archivedLink->connection_id)->archived);
-        $this->assertFalse($activeLink->fresh()->isArchived(), 'an active link stays active');
-        $this->assertTrue($alreadyArchived->fresh()->isArchived());
+        $this->assertTrue($this->inStats($activeLink), 'an active link stays in the stats');
+        $this->assertFalse($this->inStats($alreadyArchived));
     }
 
     public function test_running_it_again_changes_nothing(): void
@@ -57,7 +63,7 @@ class CarryShareLinkArchivedMigrationTest extends TestCase
         $migration->up();
         $migration->up();
 
-        $this->assertTrue($link->fresh()->isArchived());
+        $this->assertFalse($this->inStats($link));
         $this->assertSame(1, Connection::where('archived', true)->count());
     }
 }
