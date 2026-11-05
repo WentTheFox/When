@@ -258,7 +258,7 @@ function submit(): void {
             id="calendar_url"
             v-model="calendarUrlForm.calendar_url"
             :type="calendarUrlRevealed ? 'text' : 'password'"
-            placeholder="https://..."
+            placeholder="https://…"
             @input="onUrlInput"
           />
           <BButton

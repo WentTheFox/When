@@ -60,4 +60,14 @@ describe('opening a record before it is decrypted', () => {
     expect(html).toContain('Conference');
     expect(html).not.toMatch(new RegExp(`<input[^>]*value="${RAW}"`));
   });
+
+  it('puts no overlay over the empty "select something" state — only over an open record', async () => {
+    const closed = await render(SourcesPanel, { sources: [{ id: ID, category_id: null, name_ciphertext: RAW }], categories: [] });
+    expect(closed).toContain('Select a source on the left');
+    // Just the list's own overlay.
+    expect(closed.match(/Vault locked/g)).toHaveLength(1);
+
+    const open = await render(SourcesPanel, { selectedId: ID, sources: [{ id: ID, category_id: null, name_ciphertext: RAW }], categories: [] });
+    expect(open.match(/Vault locked/g)).toHaveLength(2);
+  });
 });

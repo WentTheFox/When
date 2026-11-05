@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
  * Shows a decrypted value, or — until it has been decrypted — the raw
- * ciphertext blob itself, instead of a blank or "…" placeholder.
+ * ciphertext blob itself (dimmed, in the normal font), instead of a blank or
+ * "…" placeholder.
  *
  * DISPLAY ONLY. The raw text must never flow into an edit form or be sent
  * anywhere: callers keep their real (decrypted) state separate and only use
@@ -27,8 +28,7 @@ defineProps<{ value?: string | null; ciphertext: string }>();
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: bottom;
-  font-family: var(--bs-font-monospace, monospace);
-  font-size: 0.85em;
+  /* Deliberately the normal font: in a monospace font the truncation ellipsis renders as three separate dots. */
   opacity: 0.6;
 }
 </style>

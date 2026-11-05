@@ -4,7 +4,7 @@
  *
  * `v-model` always binds to the REAL (decrypted) value, exactly as with the
  * plain Bootstrap inputs. While `pending` (decryption hasn't finished) the
- * field shows the raw ciphertext instead — dimmed, monospace, and disabled —
+ * field shows the raw ciphertext instead — dimmed and disabled —
  * and never writes to the model, so the raw blob can't end up in the form
  * state and be re-encrypted and saved as if it were plaintext. Once `pending`
  * clears, it is an ordinary editable input. Every other attribute (size,
@@ -60,8 +60,7 @@ function onUpdate(value: string | number | null | undefined): void {
 
 <style scoped>
 .encrypted-pending {
-  font-family: var(--bs-font-monospace, monospace);
-  font-size: 0.85em;
+  /* Normal font on purpose: monospace makes the truncation ellipsis look like three separate dots. */
   opacity: 0.6;
   text-overflow: ellipsis;
 }

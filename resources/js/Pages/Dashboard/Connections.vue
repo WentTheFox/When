@@ -589,7 +589,7 @@ async function removeEdge(id: string): Promise<void> {
   </BCard>
 
   <BCard id="connections-workspace" class="mb-4">
-    <BTabs v-model="pageTab" content-class="pt-3">
+    <BTabs v-model="pageTab" pills content-class="pt-3">
       <BTab :id="PAGE_TABS.connections">
         <template #title>Connections <span class="text-muted">({{ connections.length }})</span></template>
         <div class="row">
@@ -634,9 +634,8 @@ async function removeEdge(id: string): Promise<void> {
           </div>
 
           <div id="connection-detail-pane" class="col-md-8">
-            <LockedOverlay>
+            <LockedOverlay v-if="selectedConnection">
               <ConnectionCard
-                v-if="selectedConnection"
                 :key="selectedConnection.id"
                 :connection="selectedConnection"
                 :sources="sources"
@@ -648,8 +647,8 @@ async function removeEdge(id: string): Promise<void> {
                 @add-edge="addEdge"
                 @remove-edge="removeEdge"
               />
-              <p v-else class="text-muted">Select a connection on the left to view or edit it.</p>
             </LockedOverlay>
+            <p v-else class="text-muted">Select a connection on the left to view or edit it.</p>
           </div>
         </div>
       </BTab>
