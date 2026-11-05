@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { BAlert, BButton, BCard, BFormGroup, BFormInput } from 'bootstrap-vue-next';
 import { ref } from 'vue';
 import CenteredColumn from '../../Components/CenteredColumn.vue';
@@ -138,7 +138,7 @@ async function submit(): Promise<void> {
             Only used to fetch your <a href="https://gravatar.com" target="_blank" rel="noopener">Gravatar</a>
             avatar and, if you set one, as an alternate way to log in. Stored
             encrypted, never shown to anyone. See the
-            <a href="/about">security page</a> for details.
+            <Link href="/about">security page</Link> for details.
           </template>
         </BFormGroup>
 
@@ -161,7 +161,7 @@ async function submit(): Promise<void> {
       </form>
 
       <p class="text-center mt-3 mb-0">
-        <a href="/login">Already have an account? Log in</a>
+        <Link href="/login">Already have an account? Log in</Link>
       </p>
     </BCard>
   </CenteredColumn>

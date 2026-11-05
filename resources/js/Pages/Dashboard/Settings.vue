@@ -23,7 +23,7 @@
  */
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { BAlert } from 'bootstrap-vue-next';
-import { ref, watch, onUnmounted } from 'vue';
+import { nextTick, onMounted, ref, watch, onUnmounted } from 'vue';
 import SettingsSleepExceptionsCard from '../../dashboard/SettingsSleepExceptionsCard.vue';
 import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 import { useLiveThemePreview } from '../../dashboard/liveThemePreview';
@@ -179,6 +179,12 @@ watch(
 );
 onUnmounted(() => {
   liveTheme.value = null;
+});
+
+// An SPA visit to /settings#some-card doesn't scroll to the fragment by itself (it isn't a full page load), so do it once the cards have rendered.
+onMounted(() => {
+  const id = window.location.hash.slice(1);
+  if (id) nextTick(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
 });
 
 /** Set by SettingsCalendarCard's own "Preview" button; also read by SettingsPublicPageCard's preview panel (preferred over its own made-up example calendar once available) — see this file's own header comment. */

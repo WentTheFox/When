@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import axios from 'axios';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faArchive, faBolt, faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
@@ -158,7 +158,7 @@ async function importLinks(event: Event): Promise<void> {
   try {
     const text = await file.text();
     await axios.post('/dashboard/share-links/import', JSON.parse(text));
-    window.location.reload();
+    router.reload();
   } catch (error) {
     console.error(error);
     window.alert('Import failed. Check the file and try again.');

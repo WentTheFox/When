@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { router, useForm } from '@inertiajs/vue3';
+import { Link, router, useForm } from '@inertiajs/vue3';
 import { BButton, BCard, BFormGroup, BFormInput } from 'bootstrap-vue-next';
 import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 
@@ -67,7 +67,7 @@ function revoke(invite: InviteRow): void {
         </thead>
         <tbody>
           <tr v-for="invite in invites" :key="invite.id">
-            <td><a :href="`/register?code=${invite.code}`">{{ invite.code }}</a></td>
+            <td><Link :href="`/register?code=${invite.code}`">{{ invite.code }}</Link></td>
             <td>{{ invite.redemption_count }}</td>
             <td>{{ invite.max_uses ?? '∞' }}</td>
             <td>{{ invite.expires_at ?? 'never' }}</td>
