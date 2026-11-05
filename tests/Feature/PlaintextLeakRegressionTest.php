@@ -51,8 +51,6 @@ class PlaintextLeakRegressionTest extends TestCase
 
     private const SLEEP_LABEL = 'PlaintextSentinelLabel_OnVacationInJapan';
 
-    private const SHARE_LINK_LABEL = 'PlaintextSentinelLabel_ForMomOnly';
-
     private const ATTRIBUTE_LABEL = 'PlaintextSentinelAttr_Birthday';
 
     private const ATTRIBUTE_VALUE = 'PlaintextSentinelValue_19900101';
@@ -113,9 +111,16 @@ class PlaintextLeakRegressionTest extends TestCase
             'name_ciphertext' => $this->fakeClientCiphertext(self::SOURCE_NAME),
         ]);
 
+        $connection = Connection::create([
+            'user_id' => $user->id,
+            'source_id' => $source->id,
+            'name_ciphertext' => $this->fakeClientCiphertext(self::CONNECTION_NAME),
+            'notes_ciphertext' => $this->fakeClientCiphertext(self::CONNECTION_NOTES),
+        ]);
+
         $shareLink = ShareLink::create([
             'user_id' => $user->id,
-            'label_ciphertext' => $this->fakeClientCiphertext(self::SHARE_LINK_LABEL),
+            'connection_id' => $connection->id,
         ]);
 
         // Highlight words are matched server-side against ICS titles during
@@ -124,14 +129,6 @@ class PlaintextLeakRegressionTest extends TestCase
         ShareLinkWord::create([
             'share_link_id' => $shareLink->id,
             'word_ciphertext' => Crypt::encryptString(self::HIGHLIGHT_WORD),
-        ]);
-
-        $connection = Connection::create([
-            'user_id' => $user->id,
-            'source_id' => $source->id,
-            'name_ciphertext' => $this->fakeClientCiphertext(self::CONNECTION_NAME),
-            'notes_ciphertext' => $this->fakeClientCiphertext(self::CONNECTION_NOTES),
-            'share_link_id' => $shareLink->id,
         ]);
 
         $otherConnection = Connection::create([
@@ -168,7 +165,6 @@ class PlaintextLeakRegressionTest extends TestCase
             self::CONNECTION_NAME,
             self::CONNECTION_NOTES,
             self::SLEEP_LABEL,
-            self::SHARE_LINK_LABEL,
             self::ATTRIBUTE_LABEL,
             self::ATTRIBUTE_VALUE,
             self::EDGE_LABEL,

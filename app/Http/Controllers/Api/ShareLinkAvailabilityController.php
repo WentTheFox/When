@@ -59,6 +59,12 @@ class ShareLinkAvailabilityController extends Controller
             abort(Response::HTTP_NOT_FOUND);
         }
 
+        // 401, not 404: the link was valid once, so the viewer gets the
+        // "expired" signal rather than "never existed".
+        if ($shareLink->archived) {
+            abort(Response::HTTP_UNAUTHORIZED);
+        }
+
         if ($shareLink->user->calendar_url_ciphertext === null) {
             // Distinct terminal status, not "pending": there is nothing to
             // fetch, and never will be until the owner sets a calendar URL,

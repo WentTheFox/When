@@ -215,10 +215,9 @@ class DashboardController extends Controller
      * RecomputeShareLinkAvailability uses to build a viewer's own
      * highlighted blocks, just aggregated for the owner instead of encrypted
      * and cached for a viewer. No new "highlight group" concept: a share
-     * link already optionally has a 1:1 linked Connection
-     * (Connection::share_link_id), whose name becomes this row's label
-     * (falling back to the link's own label) — resolved client-side only,
-     * since both are §0.1 E2EE and this method never sees their plaintext.
+     * link belongs to exactly one Connection (share_links.connection_id),
+     * whose name is this row's label — decrypted client-side only, since
+     * it's §0.1 E2EE and this method never sees its plaintext.
      *
      * @param  ParsedEvent[]  $events
      * @param  array<int, array{wake: ?string, sleep: ?string}>  $weeklyAvailability
@@ -272,7 +271,6 @@ class DashboardController extends Controller
                 'share_link_id' => $shareLink->id,
                 'minutes' => $minutes,
                 'connection' => $connection ? ['id' => $connection->id, 'name_ciphertext' => $connection->name_ciphertext] : null,
-                'share_link_label_ciphertext' => $shareLink->label_ciphertext,
                 'events' => $this->matchedSlotsInRange($linkHighlighted, $rangeStart, $rangeEnd),
             ];
 

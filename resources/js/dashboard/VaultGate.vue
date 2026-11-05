@@ -4,7 +4,7 @@
  * placeholder — for gating a single vault-tier piece of a page that's
  * otherwise usable unlocked (e.g. sleep exceptions' optional private
  * note), rather than an entire page that's vault-tier top to bottom
- * (Connections, ShareLinks). Either way, the actual dialog is the one
+ * (Connections). Either way, the actual dialog is the one
  * global VaultUnlockModal (mounted once in DashboardLayout.vue) — this
  * component only ever requests it and gates its slot on the result.
  */

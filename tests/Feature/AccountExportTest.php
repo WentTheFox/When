@@ -73,7 +73,7 @@ class AccountExportTest extends TestCase
             'name' => 'Export Fox',
         ]);
 
-        $shareLink = ShareLink::factory()->for($user)->create(['label_ciphertext' => 'opaque-label']);
+        $shareLink = ShareLink::factory()->for($user)->create();
         ShareLinkWord::create(['share_link_id' => $shareLink->id, 'word_ciphertext' => Crypt::encryptString('dinner')]);
 
         SleepException::create([
@@ -168,8 +168,9 @@ class AccountExportTest extends TestCase
         $this->assertSame('dinner', $shareLinkWords['records'][0]['word']);
 
         $shareLinks = json_decode($zip->getFromName('share-links/share-links.json'), true);
-        $this->assertSame('e2ee', $shareLinks['tier']);
-        $this->assertSame('opaque-label', $shareLinks['records'][0]['label_ciphertext']);
+        $this->assertSame('plaintext', $shareLinks['tier']);
+        $this->assertArrayNotHasKey('label_ciphertext', $shareLinks['records'][0]);
+        $this->assertSame($shareLink->connection_id, $shareLinks['records'][0]['connection_id']);
 
         $zip->close();
     }

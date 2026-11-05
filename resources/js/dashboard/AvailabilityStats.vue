@@ -10,7 +10,7 @@
  * The leaderboard's per-row label is never sent by the server (§0.1 — see
  * the controller's own doc comment): each entry decrypts a linked
  * connection's name, or the share link's own label, client-side once the
- * vault is unlocked, the same way ConnectionCard.vue/ShareLinkCard.vue
+ * vault is unlocked, the same way ConnectionCard.vue
  * already do.
  *
  * Clicking a leaderboard row (or a "no time yet" name) opens the source
@@ -74,8 +74,7 @@ interface HighlightSlot {
 interface HighlightEntry {
   share_link_id: string;
   minutes: number;
-  connection: { id: string; name_ciphertext: string } | null;
-  share_link_label_ciphertext: string | null;
+  connection: { id: string; name_ciphertext: string };
   events: HighlightSlot[];
 }
 
@@ -122,14 +121,8 @@ function fmtMin(m: number): string {
 
 async function decryptLabel(entry: HighlightEntry): Promise<string> {
   try {
-    if (entry.connection) {
-      const key = await getRecordKey(entry.connection.id);
-      return await decryptString(key, entry.connection.name_ciphertext);
-    }
-    if (entry.share_link_label_ciphertext) {
-      const key = await getRecordKey(entry.share_link_id);
-      return await decryptString(key, entry.share_link_label_ciphertext);
-    }
+    const key = await getRecordKey(entry.connection.id);
+    return await decryptString(key, entry.connection.name_ciphertext);
   } catch (error) {
     console.error(error);
   }
@@ -138,14 +131,14 @@ async function decryptLabel(entry: HighlightEntry): Promise<string> {
 
 async function decryptLabels(): Promise<void> {
   for (const entry of [...highlights.value, ...highlightsRest.value, ...highlightsNoTime.value]) {
-    const cacheKey = entry.connection?.id ?? entry.share_link_id;
+    const cacheKey = entry.connection.id;
     if (labels.value[cacheKey]) continue;
     labels.value[cacheKey] = await decryptLabel(entry);
   }
 }
 
 function labelFor(entry: HighlightEntry): string {
-  return labels.value[entry.connection?.id ?? entry.share_link_id] ?? '…';
+  return labels.value[entry.connection.id] ?? '…';
 }
 
 watch(vaultUnlocked, (unlocked) => {

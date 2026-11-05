@@ -6,7 +6,6 @@ use App\Models\ConnectionAttributeValue;
 use App\Models\ShareLink;
 use App\Models\ShareLinkCache;
 use App\Models\User;
-use Illuminate\Support\Facades\Crypt;
 
 /**
  * Single answer to "which highlight tokens apply to this share link?" — used
@@ -16,8 +15,7 @@ use Illuminate\Support\Facades\Crypt;
  * (users.highlight_identifier_definition_id) on the connection tied to the
  * link. No field selected, no tied connection, or no value on it means no
  * tokens: nothing is highlighted for anyone. The legacy share_link_words rows
- * are no longer consulted at runtime; they remain only as the source that
- * {@see HighlightWordsMigrator} copies from.
+ * are no longer consulted.
  *
  * Both sources are §0.2 tier (APP_KEY-encrypted at rest), so decrypting here
  * is within the documented model; callers must still never log the result.
@@ -38,15 +36,6 @@ class HighlightWordsResolver
         return $fromConnection !== null
             ? ['words' => $fromConnection, 'source' => 'connection']
             : ['words' => [], 'source' => 'none'];
-    }
-
-    /** Pre-field per-link words — migration source only, never used to compute availability. @return list<string> */
-    public function legacyWords(ShareLink $shareLink): array
-    {
-        return $shareLink->words()
-            ->pluck('word_ciphertext')
-            ->map(fn (string $ciphertext) => Crypt::decryptString($ciphertext))
-            ->all();
     }
 
     /** @return list<string>|null Null = nothing applicable, caller should fall back. */

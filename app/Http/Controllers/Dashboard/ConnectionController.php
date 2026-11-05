@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Connection;
 use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionAttributeValue;
+use App\Models\ShareLink;
 use App\Services\Calendar\HighlightWordsResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -37,8 +38,8 @@ class ConnectionController extends Controller
         $user = $request->user();
 
         return Inertia::render('Dashboard/Connections', [
-            'connections' => $user->connections()->with(['attributeValues', 'sources'])->get([
-                'id', 'name_ciphertext', 'notes_ciphertext', 'share_link_id', 'archived',
+            'connections' => $user->connections()->with(['attributeValues', 'sources', 'shareLink'])->get([
+                'id', 'name_ciphertext', 'notes_ciphertext', 'archived',
             ])->map(fn (Connection $c) => $this->serialize($c)),
             'sources' => $user->connectionSources()->get(['id', 'category_id', 'name_ciphertext']),
             'categories' => $user->connectionSourceCategories()->get(['id', 'name_ciphertext', 'color_key']),
@@ -70,7 +71,6 @@ class ConnectionController extends Controller
                 'id' => $data['id'],
                 'name_ciphertext' => $data['name_ciphertext'],
                 'notes_ciphertext' => $data['notes_ciphertext'] ?? null,
-                'share_link_id' => $data['share_link_id'] ?? null,
                 'archived' => $data['archived'] ?? false,
             ]);
 
@@ -84,7 +84,6 @@ class ConnectionController extends Controller
         });
 
         $connection->refresh();
-        HighlightWordsResolver::invalidateCaches([$connection->share_link_id]);
 
         return response()->json($this->serialize($connection), 201);
     }
@@ -103,15 +102,9 @@ class ConnectionController extends Controller
                 'archived' => $data['archived'] ?? null,
             ], fn ($value) => $value !== null))->save();
 
-            // Not folded into the array_filter above — share_link_id is a
-            // real "untie this connection" action (the ShareLinkCard.vue
-            // picker's "None" option sends it explicitly as null), and
-            // array_filter's null check would silently drop that update,
-            // leaving the old link attached with no error and no visible
-            // sign the request did anything at all.
-            if (array_key_exists('share_link_id', $data)) {
-                $connection->share_link_id = $data['share_link_id'];
-                $connection->save();
+            // Archiving a connection archives its share link too (it only hides it from the stats).
+            if (array_key_exists('archived', $data) && $data['archived'] !== null) {
+                $connection->shareLink()->update(['archived' => $data['archived']]);
             }
 
             if (array_key_exists('source_ids', $data)) {
@@ -131,7 +124,7 @@ class ConnectionController extends Controller
 
     /**
      * What this connection currently contributes to share-link highlighting:
-     * the link it's tied to plus its list under the owner's chosen field.
+     * its own link's id plus its list under the owner's chosen field.
      * Null when no field is chosen (the legacy words are unaffected by
      * connection edits, so there's nothing to track).
      *
@@ -153,7 +146,7 @@ class ConnectionController extends Controller
             ->keyBy('attribute_definition_id');
 
         return [
-            'share_link_id' => $connection->share_link_id,
+            'share_link_id' => $connection->shareLink?->id,
             'words' => $wordsId === null || ! $rows->has($wordsId)
                 ? null
                 : HighlightWordsResolver::normalize($rows[$wordsId]->identifier_list_value),
@@ -161,7 +154,7 @@ class ConnectionController extends Controller
         ];
     }
 
-    /** Computed share-link results embed the words and the bypass-DND flag, so drop the cached result of every link whose inputs just changed (including the one an untied/retied connection moved away from). */
+    /** Computed share-link results embed the words and the bypass-DND flag, so drop the cached result of every link whose inputs just changed */
     private function invalidateIfHighlightsChanged(Request $request, Connection $connection, ?array $before): void
     {
         $after = $this->highlightSnapshot($request, $connection);
@@ -170,11 +163,7 @@ class ConnectionController extends Controller
             return;
         }
 
-        $ids = $before['share_link_id'] !== $after['share_link_id']
-            ? [$before['share_link_id'], $after['share_link_id']]
-            : [$after['share_link_id']];
-
-        HighlightWordsResolver::invalidateCaches($ids);
+        HighlightWordsResolver::invalidateCaches([$after['share_link_id']]);
     }
 
     /**
@@ -189,10 +178,20 @@ class ConnectionController extends Controller
             'source_ids' => $connection->sources->pluck('id'),
             'name_ciphertext' => $connection->name_ciphertext,
             'notes_ciphertext' => $connection->notes_ciphertext,
-            'share_link_id' => $connection->share_link_id,
+            'share_link' => $this->serializeShareLink($connection->shareLink),
             'archived' => $connection->archived,
             // identifier_value is the server-decrypted (§0.2) field; see ConnectionAttributeValue.
             'attribute_values' => $connection->attributeValues()->get(['attribute_definition_id', 'value_ciphertext', 'identifier_value', 'identifier_list_value', 'boolean_value']),
+        ];
+    }
+
+    /** @return array{id: string, highlight_token: ?string, archived: bool}|null */
+    private function serializeShareLink(?ShareLink $shareLink): ?array
+    {
+        return $shareLink === null ? null : [
+            'id' => $shareLink->id,
+            'highlight_token' => $shareLink->highlight_token,
+            'archived' => $shareLink->archived,
         ];
     }
 
@@ -204,21 +203,18 @@ class ConnectionController extends Controller
         // specifically: connection_attribute_values/connection_source_links'
         // cascadeOnDelete() FKs only fire on a real DELETE.
         $connection = $this->findOwned($request, $connection);
-        $shareLinkId = $connection->share_link_id;
+        // The share link (share_links.connection_id, cascadeOnDelete) goes with it.
         $connection->forceDelete();
-
-        // Its list may have been what the tied link highlighted; it now falls back to the legacy words.
-        HighlightWordsResolver::invalidateCaches([$shareLinkId]);
 
         return response()->json(['status' => 'ok']);
     }
 
     /**
-     * source_ids/share_link_id/attribute_definition_id all scope their
+     * source_ids/attribute_definition_id both scope their
      * `exists` check to the requesting user's own rows — an unscoped
      * `exists:table,id` only proves the id exists *somewhere*, not that it
      * belongs to this owner, which would otherwise let one user attach
-     * their own connection to another user's source, share link, or
+     * their own connection to another user's source or
      * attribute definition (a real cross-user IDOR, not just a missing
      * test — see ConnectionsIsolationTest).
      */
@@ -232,7 +228,6 @@ class ConnectionController extends Controller
             'source_ids.*' => ['uuid', Rule::exists('connection_sources', 'id')->where('user_id', $userId)],
             'name_ciphertext' => $requireId ? ['required', 'string'] : ['sometimes', 'string'],
             'notes_ciphertext' => ['nullable', 'string'],
-            'share_link_id' => ['nullable', 'uuid', Rule::exists('share_links', 'id')->where('user_id', $userId)],
             'archived' => ['nullable', 'boolean'],
             'attribute_values' => ['nullable', 'array'],
             'attribute_values.*.attribute_definition_id' => ['required', 'uuid', Rule::exists('connection_attribute_definitions', 'id')->where('user_id', $userId)],

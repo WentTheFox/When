@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
 import { faPencil, faTrashCan } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import axios from 'axios';
@@ -18,6 +17,7 @@ import {
 } from 'bootstrap-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../crypto';
+import ConnectionSharing, { type ShareLinkInfo } from './ConnectionSharing.vue';
 import { requestConfirm } from './confirmModal';
 import { useVault } from './useVault';
 
@@ -38,7 +38,8 @@ export interface ConnectionRow {
   source_ids: string[];
   name_ciphertext: string;
   notes_ciphertext: string | null;
-  share_link_id: string | null;
+  /** The connection's one optional share link; its name is this connection's name. */
+  share_link: ShareLinkInfo | null;
   archived: boolean;
   attribute_values: AttributeValue[];
 }
@@ -103,25 +104,8 @@ const relatableConnections = computed(() =>
 const newRelationTargetId = ref('');
 const newRelationLabel = ref('');
 
-const creatingShareLink = ref(false);
-
-/**
- * A share link created here is left unlabeled on purpose — ShareLinkCard's
- * and ShareLinks.vue's display already fall back to the tied connection's
- * own name when label_ciphertext is null, so there's nothing to type.
- */
-async function createShareLink(): Promise<void> {
-  creatingShareLink.value = true;
-  try {
-    const id = crypto.randomUUID();
-    const { data } = await axios.post('/dashboard/share-links', { id, label_ciphertext: null });
-    await axios.patch(`/dashboard/connections/${props.connection.id}`, { share_link_id: data.id });
-    emit('updated', { ...props.connection, share_link_id: data.id });
-  } catch (error) {
-    console.error(error);
-  } finally {
-    creatingShareLink.value = false;
-  }
+function onShareLinkChanged(shareLink: ShareLinkInfo | null): void {
+  emit('updated', { ...props.connection, share_link: shareLink });
 }
 
 function addRelationship(): void {
@@ -279,18 +263,7 @@ async function remove(): Promise<void> {
         <p v-if="myEdges.length" class="small text-muted mb-1">
           Knows: {{ myEdges.map((e) => e.otherName + (e.label ? ` (${e.label})` : '')).join(', ') }}
         </p>
-        <p class="small mb-1">
-          <Link v-if="connection.share_link_id" href="/dashboard/share-links">Share link created — manage it →</Link>
-          <BButton
-            v-else
-            variant="outline-secondary"
-            size="sm"
-            :disabled="creatingShareLink"
-            @click="createShareLink"
-          >
-            Create share link
-          </BButton>
-        </p>
+        <p v-if="connection.share_link" class="small text-muted mb-1">Shared — manage the link under Edit.</p>
         <p v-if="notes" class="small mb-0">{{ notes }}</p>
         <dl class="row small mb-0 mt-2">
           <template v-for="(value, definitionId) in attributeValues" :key="definitionId">
@@ -334,6 +307,13 @@ async function remove(): Promise<void> {
         <BFormTextarea v-model="editNotes" size="sm" rows="2" />
       </BFormGroup>
       <BFormCheckbox :id="`archived-${connection.id}`" v-model="editArchived" class="mb-3">Archived</BFormCheckbox>
+      <BFormGroup label="Sharing" class="mb-3">
+        <ConnectionSharing
+          :connection-id="connection.id"
+          :share-link="connection.share_link"
+          @changed="onShareLinkChanged"
+        />
+      </BFormGroup>
       <BFormGroup v-for="definition in attributeDefinitions" :key="definition.id" :label="definition.label" class="mb-3">
         <BFormTextarea
           v-if="definition.type === 'textarea'"

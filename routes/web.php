@@ -13,11 +13,11 @@ use App\Http\Controllers\Dashboard\ConnectionAttributeDefinitionController;
 use App\Http\Controllers\Dashboard\ConnectionController;
 use App\Http\Controllers\Dashboard\ConnectionEdgeController;
 use App\Http\Controllers\Dashboard\ConnectionsGraphController;
+use App\Http\Controllers\Dashboard\ConnectionShareLinkController;
 use App\Http\Controllers\Dashboard\ConnectionSourceCategoryController;
 use App\Http\Controllers\Dashboard\ConnectionSourceController;
 use App\Http\Controllers\Dashboard\PasskeyController;
 use App\Http\Controllers\Dashboard\SettingsController;
-use App\Http\Controllers\Dashboard\ShareLinkManagementController;
 use App\Http\Controllers\Dashboard\SleepExceptionController;
 use App\Http\Controllers\Dashboard\VaultController;
 use App\Http\Controllers\DashboardController;
@@ -191,12 +191,6 @@ Route::middleware('auth')->group(function () {
     Route::patch('/settings/calendar-url', [SettingsController::class, 'updateCalendarUrl'])
         ->name('settings.calendar-url.update');
 
-    Route::post('/settings/highlight-words/migrate', [SettingsController::class, 'migrateHighlightWords'])
-        ->name('settings.highlight-words.migrate');
-
-    Route::post('/settings/bypass-dnd/migrate', [SettingsController::class, 'migrateBypassDnd'])
-        ->name('settings.bypass-dnd.migrate');
-
     Route::post('/settings/sleep-exceptions', [SleepExceptionController::class, 'store'])
         ->name('sleep-exceptions.store');
     Route::delete('/settings/sleep-exceptions/{sleepException}', [SleepExceptionController::class, 'destroy'])
@@ -209,26 +203,22 @@ Route::middleware('auth')->group(function () {
     Route::delete('/settings/activity-localization/{activityLocalization}', [ActivityLocalizationController::class, 'destroy'])
         ->name('activity-localizations.destroy');
 
-    Route::get('/dashboard/share-links', [ShareLinkManagementController::class, 'index'])
+    // The standalone share-links page is gone: links live on their connection.
+    Route::redirect('/dashboard/share-links', '/dashboard/connections')
         ->name('dashboard.share-links');
-    Route::post('/dashboard/share-links', [ShareLinkManagementController::class, 'store'])
-        ->name('dashboard.share-links.store');
-    Route::patch('/dashboard/share-links/{shareLink}', [ShareLinkManagementController::class, 'update'])
-        ->name('dashboard.share-links.update');
-    Route::delete('/dashboard/share-links/{shareLink}', [ShareLinkManagementController::class, 'destroy'])
-        ->name('dashboard.share-links.destroy');
-    Route::post('/dashboard/share-links/{shareLink}/regenerate-token', [ShareLinkManagementController::class, 'regenerateToken'])
-        ->name('dashboard.share-links.regenerate-token');
-    Route::get('/dashboard/share-links/{shareLink}/visits', [ShareLinkManagementController::class, 'visits'])
-        ->name('dashboard.share-links.visits');
-    Route::delete('/dashboard/share-links/{shareLink}/visits', [ShareLinkManagementController::class, 'destroyVisits'])
-        ->name('dashboard.share-links.visits.destroy-all');
-    Route::delete('/dashboard/share-links/{shareLink}/visits/{visit}', [ShareLinkManagementController::class, 'destroyVisit'])
-        ->name('dashboard.share-links.visits.destroy');
-    Route::get('/dashboard/share-links/export', [ShareLinkManagementController::class, 'export'])
-        ->name('dashboard.share-links.export');
-    Route::post('/dashboard/share-links/import', [ShareLinkManagementController::class, 'import'])
-        ->name('dashboard.share-links.import');
+
+    Route::post('/dashboard/connections/{connection}/share-link', [ConnectionShareLinkController::class, 'store'])
+        ->name('dashboard.connections.share-link.store');
+    Route::delete('/dashboard/connections/{connection}/share-link', [ConnectionShareLinkController::class, 'destroy'])
+        ->name('dashboard.connections.share-link.destroy');
+    Route::post('/dashboard/connections/{connection}/share-link/regenerate-token', [ConnectionShareLinkController::class, 'regenerateToken'])
+        ->name('dashboard.connections.share-link.regenerate-token');
+    Route::get('/dashboard/connections/{connection}/share-link/visits', [ConnectionShareLinkController::class, 'visits'])
+        ->name('dashboard.connections.share-link.visits');
+    Route::delete('/dashboard/connections/{connection}/share-link/visits', [ConnectionShareLinkController::class, 'destroyVisits'])
+        ->name('dashboard.connections.share-link.visits.destroy-all');
+    Route::delete('/dashboard/connections/{connection}/share-link/visits/{visit}', [ConnectionShareLinkController::class, 'destroyVisit'])
+        ->name('dashboard.connections.share-link.visits.destroy');
 
     Route::get('/dashboard/connections', [ConnectionController::class, 'index'])
         ->name('dashboard.connections');

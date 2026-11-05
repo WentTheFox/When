@@ -6,16 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateSettingsRequest;
 use App\Models\User;
 use App\Services\Calendar\ActivityExtractor;
-use App\Services\Calendar\BypassDndMigrator;
 use App\Services\Calendar\HighlightMatcher;
-use App\Services\Calendar\HighlightWordsMigrator;
 use App\Services\Calendar\HighlightWordsResolver;
 use App\Services\Calendar\IcsParser;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -134,9 +130,6 @@ class SettingsController extends Controller
                 ->where('type', 'identifier_list')
                 ->get(['id', 'label_ciphertext']),
             'booleanDefinitions' => $user->connectionAttributeDefinitions()->where('type', 'boolean')->get(['id', 'label_ciphertext']),
-            'shareLinkCount' => $user->shareLinks()->count(),
-            // Only links with legacy words matter for the "move my existing data" action.
-            'legacyHighlightLinkCount' => $user->shareLinks()->whereHas('words')->count(),
             'timezones' => \DateTimeZone::listIdentifiers(),
             // Shown back to the owner verbatim, not masked — this is §0.2
             // server-runtime tier (Crypt/APP_KEY), not §0.1 client-vault
@@ -254,39 +247,5 @@ class SettingsController extends Controller
         $user->save();
 
         return back()->with('status', 'Calendar URL saved.');
-    }
-
-    /**
-     * "Move my existing highlight words onto this field": copies each tied
-     * link's legacy words into its connection's identifier_list value, then
-     * selects the field as the highlight source — see HighlightWordsMigrator.
-     */
-    public function migrateHighlightWords(Request $request, HighlightWordsMigrator $migrator): JsonResponse
-    {
-        $user = $request->user();
-
-        $data = $request->validate([
-            'definition_id' => ['required', 'uuid', Rule::exists('connection_attribute_definitions', 'id')
-                ->where('user_id', $user->id)->where('type', 'identifier_list')->whereNull('deleted_at')],
-        ]);
-
-        $definition = $user->connectionAttributeDefinitions()->where('id', $data['definition_id'])->firstOrFail();
-
-        return response()->json($migrator->migrate($user, $definition));
-    }
-
-    /** Bypass-DND twin of {@see migrateHighlightWords()} — see BypassDndMigrator. */
-    public function migrateBypassDnd(Request $request, BypassDndMigrator $migrator): JsonResponse
-    {
-        $user = $request->user();
-
-        $data = $request->validate([
-            'definition_id' => ['required', 'uuid', Rule::exists('connection_attribute_definitions', 'id')
-                ->where('user_id', $user->id)->where('type', 'boolean')->whereNull('deleted_at')],
-        ]);
-
-        $definition = $user->connectionAttributeDefinitions()->where('id', $data['definition_id'])->firstOrFail();
-
-        return response()->json($migrator->migrate($user, $definition));
     }
 }

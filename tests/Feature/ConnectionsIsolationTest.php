@@ -7,7 +7,6 @@ use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionEdge;
 use App\Models\ConnectionSource;
 use App\Models\ConnectionSourceCategory;
-use App\Models\ShareLink;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -114,19 +113,6 @@ class ConnectionsIsolationTest extends TestCase
             'id' => (string) Str::uuid(),
             'name_ciphertext' => 'mine',
             'source_ids' => [$theirSource->id],
-        ])->assertUnprocessable();
-    }
-
-    public function test_cannot_link_own_connection_to_another_users_share_link(): void
-    {
-        $owner = User::factory()->create();
-        $stranger = User::factory()->create();
-        $theirShareLink = ShareLink::factory()->for($stranger)->create();
-
-        $this->actingAs($owner)->postJson('/dashboard/connections', [
-            'id' => (string) Str::uuid(),
-            'name_ciphertext' => 'mine',
-            'share_link_id' => $theirShareLink->id,
         ])->assertUnprocessable();
     }
 
@@ -297,11 +283,10 @@ class ConnectionsIsolationTest extends TestCase
     }
 
     /** The happy path still works — isolation shouldn't block an owner's own valid references. */
-    public function test_a_connection_can_still_be_linked_to_the_owners_own_source_and_share_link(): void
+    public function test_a_connection_can_still_be_linked_to_the_owners_own_source_and_definition(): void
     {
         $owner = User::factory()->create();
         $mySource = ConnectionSource::create(['id' => (string) Str::uuid(), 'user_id' => $owner->id, 'name_ciphertext' => 'a']);
-        $myShareLink = ShareLink::factory()->for($owner)->create();
         $myDefinition = ConnectionAttributeDefinition::create([
             'id' => (string) Str::uuid(),
             'user_id' => $owner->id,
@@ -313,7 +298,6 @@ class ConnectionsIsolationTest extends TestCase
             'id' => (string) Str::uuid(),
             'name_ciphertext' => 'mine',
             'source_ids' => [$mySource->id],
-            'share_link_id' => $myShareLink->id,
             'attribute_values' => [
                 ['attribute_definition_id' => $myDefinition->id, 'value_ciphertext' => 'opaque'],
             ],

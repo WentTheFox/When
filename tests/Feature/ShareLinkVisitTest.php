@@ -138,7 +138,7 @@ class ShareLinkVisitTest extends TestCase
 
         ShareLinkVisit::factory()->for($shareLink)->count(15)->create();
 
-        $response = $this->actingAs($owner)->getJson("/dashboard/share-links/{$shareLink->id}/visits");
+        $response = $this->actingAs($owner)->getJson("/dashboard/connections/{$shareLink->connection_id}/share-link/visits");
 
         $response->assertOk();
         $this->assertCount(10, $response->json('data'));
@@ -153,7 +153,7 @@ class ShareLinkVisitTest extends TestCase
         $shareLink = ShareLink::factory()->for($stranger)->create();
 
         $this->actingAs($owner)
-            ->getJson("/dashboard/share-links/{$shareLink->id}/visits")
+            ->getJson("/dashboard/connections/{$shareLink->connection_id}/share-link/visits")
             ->assertNotFound();
     }
 
@@ -187,16 +187,16 @@ class ShareLinkVisitTest extends TestCase
         $visits = ShareLinkVisit::factory()->for($shareLink)->count(3)->create();
 
         $this->actingAs(User::factory()->create())
-            ->deleteJson(route('dashboard.share-links.visits.destroy', [$shareLink->id, $visits[0]->id]))
+            ->deleteJson(route('dashboard.connections.share-link.visits.destroy', [$shareLink->connection_id, $visits[0]->id]))
             ->assertNotFound();
 
         $this->actingAs($owner)
-            ->deleteJson(route('dashboard.share-links.visits.destroy', [$shareLink->id, $visits[0]->id]))
+            ->deleteJson(route('dashboard.connections.share-link.visits.destroy', [$shareLink->connection_id, $visits[0]->id]))
             ->assertNoContent();
         $this->assertSame(2, $shareLink->visits()->count());
 
         $this->actingAs($owner)
-            ->deleteJson(route('dashboard.share-links.visits.destroy-all', $shareLink->id))
+            ->deleteJson(route('dashboard.connections.share-link.visits.destroy-all', $shareLink->connection_id))
             ->assertNoContent();
         $this->assertSame(0, $shareLink->visits()->count());
     }

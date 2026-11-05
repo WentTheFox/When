@@ -3,22 +3,23 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Connection extends Model
 {
-    use HasUuids, SoftDeletes;
+    use HasFactory, HasUuids, SoftDeletes;
 
     protected $fillable = [
         'id',
         'user_id',
         'name_ciphertext',
         'notes_ciphertext',
-        'share_link_id',
         'archived',
     ];
 
@@ -40,10 +41,10 @@ class Connection extends Model
         return $this->belongsToMany(ConnectionSource::class, 'connection_source_links', 'connection_id', 'source_id');
     }
 
-    /** The one share link this connection is "for" — the picker in ShareLinkCard.vue sets this from the link's own side, but the FK lives here since a connection can only ever point at one link. */
-    public function shareLink(): BelongsTo
+    /** The connection's one optional share link (the FK lives on share_links.connection_id, unique). */
+    public function shareLink(): HasOne
     {
-        return $this->belongsTo(ShareLink::class);
+        return $this->hasOne(ShareLink::class);
     }
 
     public function attributeValues(): HasMany

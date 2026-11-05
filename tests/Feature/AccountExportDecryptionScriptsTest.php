@@ -8,7 +8,6 @@ use App\Models\ConnectionAttributeValue;
 use App\Models\ConnectionEdge;
 use App\Models\ConnectionSource;
 use App\Models\ConnectionSourceCategory;
-use App\Models\ShareLink;
 use App\Models\SleepException;
 use App\Models\User;
 use App\Services\Crypto\AesGcm;
@@ -141,10 +140,6 @@ class AccountExportDecryptionScriptsTest extends TestCase
         $plaintexts['edge_label'] = 'Edge Label';
         $edge->forceFill(['label_ciphertext' => $this->encryptFor($edge->id, $plaintexts['edge_label'])])->save();
 
-        $shareLink = ShareLink::factory()->for($user)->create(['label_ciphertext' => null]);
-        $plaintexts['share_link_label'] = 'Share Link Label';
-        $shareLink->forceFill(['label_ciphertext' => $this->encryptFor($shareLink->id, $plaintexts['share_link_label'])])->save();
-
         $sleepException = SleepException::create([
             'user_id' => $user->id,
             'start_date' => '2026-01-01',
@@ -196,7 +191,6 @@ class AccountExportDecryptionScriptsTest extends TestCase
         $this->assertContains($plaintexts['definition_options'], collect($decryptedFiles['connections/attribute-definitions']['records'])->pluck('options'));
         $this->assertContains($plaintexts['attribute_value'], collect($decryptedFiles['connections/attribute-values']['records'])->pluck('value'));
         $this->assertContains($plaintexts['edge_label'], collect($decryptedFiles['connections/edges']['records'])->pluck('label'));
-        $this->assertContains($plaintexts['share_link_label'], collect($decryptedFiles['share-links/share-links']['records'])->pluck('label'));
         $this->assertContains($plaintexts['sleep_exception_label'], collect($decryptedFiles['availability/sleep-exceptions']['records'])->pluck('label'));
     }
 
@@ -210,7 +204,6 @@ class AccountExportDecryptionScriptsTest extends TestCase
             'connections/attribute-definitions',
             'connections/attribute-values',
             'connections/edges',
-            'share-links/share-links',
             'availability/sleep-exceptions',
         ];
 

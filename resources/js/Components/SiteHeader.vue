@@ -109,13 +109,6 @@ function logout(): void {
         <Link class="nav-item nav-link" :class="{ active: page.url.startsWith('/settings') }" href="/settings">Settings</Link>
         <Link
           class="nav-item nav-link"
-          :class="{ active: page.url.startsWith('/dashboard/share-links') }"
-          href="/dashboard/share-links"
-        >
-          Share links
-        </Link>
-        <Link
-          class="nav-item nav-link"
           :class="{ active: page.url.startsWith('/dashboard/connections') }"
           href="/dashboard/connections"
         >

@@ -17,7 +17,7 @@ class ShareLink extends Model
     protected $fillable = [
         'id',
         'user_id',
-        'label_ciphertext',
+        'connection_id',
         'archived',
         'bypass_dnd',
         'highlight_token',
@@ -71,15 +71,9 @@ class ShareLink extends Model
         return $this->hasOne(ShareLinkCache::class);
     }
 
-    /**
-     * The connection this link is "for," if the owner has tied one — set
-     * from Connection::share_link_id, not a column here. hasOne rather
-     * than hasMany: nothing stops more than one connection pointing at the
-     * same link at the schema level, but the picker only ever shows/sets
-     * one, and this always resolves to whichever one comes first.
-     */
-    public function connection(): HasOne
+    /** The connection this link belongs to (NOT NULL, unique: exactly one link per connection). Its name is the link's name. */
+    public function connection(): BelongsTo
     {
-        return $this->hasOne(Connection::class);
+        return $this->belongsTo(Connection::class);
     }
 }

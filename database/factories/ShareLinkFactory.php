@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Connection;
 use App\Models\ShareLink;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -17,11 +18,12 @@ class ShareLinkFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            'label_ciphertext' => null,
+            // Every share link belongs to a connection (of the same user).
+            'connection_id' => fn (array $attributes) => Connection::factory()->create(['user_id' => $attributes['user_id']])->id,
             'archived' => false,
             'bypass_dnd' => false,
             // Every real share link gets one at creation (see
-            // ShareLinkManagementController::store()) — a factory-made one
+            // ConnectionShareLinkController::store()) — a factory-made one
             // should too, so a test resolving `/free/{link->highlight_token}`
             // works without every call site overriding this explicitly.
             'highlight_token' => ShareLink::generateHighlightToken(),

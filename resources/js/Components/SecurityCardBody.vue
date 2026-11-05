@@ -105,7 +105,7 @@ const page = usePage();
     (your name, your calendar URL, two-factor recovery codes) are included
     in plain text, because the server can already read them day to day —
     the download flags these clearly since they're sensitive on their own
-    terms. Your Connections CRM data and share-link labels stay encrypted
+    terms. Your Connections CRM data stays encrypted
     in the download exactly as they're stored; a plaintext instructions
     file explains how to decrypt them yourself, offline, using your master
     password. This is rate-limited to 5 downloads per day.
