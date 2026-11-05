@@ -8,7 +8,7 @@ use App\Models\ShareLinkCache;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class ShareLinkManagementTest extends TestCase
@@ -141,17 +141,9 @@ class ShareLinkManagementTest extends TestCase
         $this->assertSame(1, ShareLink::active()->count());
     }
 
-    public function test_archiving_the_connection_does_not_write_to_the_links_own_column(): void
+    public function test_a_share_link_has_no_archived_column_of_its_own(): void
     {
-        $owner = User::factory()->create();
-        $shareLink = ShareLink::factory()->for($owner)->create();
-
-        $this->actingAs($owner)
-            ->patchJson("/dashboard/connections/{$shareLink->connection_id}", ['archived' => true])
-            ->assertOk();
-
-        // Nothing is mirrored onto the link; its state is derived.
-        $this->assertFalse((bool) DB::table('share_links')->where('id', $shareLink->id)->value('archived'));
+        $this->assertFalse(Schema::hasColumn('share_links', 'archived'));
     }
 
     public function test_the_link_payloads_carry_no_archived_flag(): void
