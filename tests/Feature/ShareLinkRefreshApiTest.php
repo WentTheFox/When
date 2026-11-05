@@ -153,7 +153,7 @@ class ShareLinkRefreshApiTest extends TestCase
     public function test_an_archived_link_returns_not_found(): void
     {
         $owner = $this->userWithCalendar();
-        $shareLink = ShareLink::factory()->for($owner)->create(['archived' => true]);
+        $shareLink = ShareLink::factory()->for($owner)->archived()->create();
 
         $this->actingAs($owner)
             ->postJson(route('api.share-links.refresh', $shareLink->highlight_token))

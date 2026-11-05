@@ -122,7 +122,7 @@ class ShareLinkVisitTest extends TestCase
 
     public function test_an_archived_link_returns_not_found(): void
     {
-        $shareLink = ShareLink::factory()->for(User::factory())->create(['archived' => true]);
+        $shareLink = ShareLink::factory()->for(User::factory())->archived()->create();
 
         $this->postJson(route('api.share-links.visits.store', $shareLink->highlight_token), [
             'timezone' => 'UTC',

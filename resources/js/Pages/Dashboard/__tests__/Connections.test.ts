@@ -69,7 +69,7 @@ describe('Connections page', () => {
   });
 
   it('marks the connections that have a share link, and only those', async () => {
-    const shared = { ...props.connections[0], share_link: { id: 'l1', highlight_token: 'tok', archived: false } };
+    const shared = { ...props.connections[0], share_link: { id: 'l1', highlight_token: 'tok' } };
     const plain = { ...props.connections[0], id: '66666666-6666-4666-8666-666666666666', share_link: null };
 
     const html = await renderWith({ ...props, connections: [shared, plain] }, '');
@@ -92,7 +92,7 @@ describe('Connections page', () => {
   });
 
   it('shows both marks when a connection is archived and shared', async () => {
-    const both = { ...props.connections[0], archived: true, share_link: { id: 'l1', highlight_token: 'tok', archived: true } };
+    const both = { ...props.connections[0], archived: true, share_link: { id: 'l1', highlight_token: 'tok' } };
 
     const html = await renderWith({ ...props, connections: [both] }, '');
     expect(html).toContain('connection-shared');
@@ -100,7 +100,7 @@ describe('Connections page', () => {
   });
 
   it('keeps the share-link mark visible on the selected (blue) row', async () => {
-    const shared = { ...props.connections[0], share_link: { id: 'l1', highlight_token: 'tok', archived: false } };
+    const shared = { ...props.connections[0], share_link: { id: 'l1', highlight_token: 'tok' } };
 
     const html = await renderWith({ ...props, connections: [shared] }, '#id=' + CONNECTION);
     const mark = html.slice(html.indexOf('connection-shared') - 40, html.indexOf('connection-shared') + 60);

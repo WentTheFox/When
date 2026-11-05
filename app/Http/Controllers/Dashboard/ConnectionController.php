@@ -93,11 +93,6 @@ class ConnectionController extends Controller
                 'archived' => $data['archived'] ?? null,
             ], fn ($value) => $value !== null))->save();
 
-            // Archiving a connection archives its share link too (it only hides it from the stats).
-            if (array_key_exists('archived', $data) && $data['archived'] !== null) {
-                $connection->shareLink()->update(['archived' => $data['archived']]);
-            }
-
             if (array_key_exists('source_ids', $data)) {
                 $connection->sources()->sync($data['source_ids']);
             }
@@ -176,13 +171,12 @@ class ConnectionController extends Controller
         ];
     }
 
-    /** @return array{id: string, highlight_token: ?string, archived: bool}|null */
+    /** @return array{id: string, highlight_token: ?string}|null */
     private function serializeShareLink(?ShareLink $shareLink): ?array
     {
         return $shareLink === null ? null : [
             'id' => $shareLink->id,
             'highlight_token' => $shareLink->highlight_token,
-            'archived' => $shareLink->archived,
         ];
     }
 

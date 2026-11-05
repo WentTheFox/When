@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,14 +19,12 @@ class ShareLink extends Model
         'id',
         'user_id',
         'connection_id',
-        'archived',
         'highlight_token',
     ];
 
     protected function casts(): array
     {
         return [
-            'archived' => 'boolean',
         ];
     }
 
@@ -62,6 +61,24 @@ class ShareLink extends Model
     public function cache(): HasOne
     {
         return $this->hasOne(ShareLinkCache::class);
+    }
+
+    /**
+     * Whether the link is archived. A link has no archive flag of its own: it is
+     * archived exactly when its connection is, so there is one thing to toggle
+     * and nothing to keep in sync.
+     */
+    public function isArchived(): bool
+    {
+        // getRelationValue, not $this->connection: inside the model that name is Eloquent's own
+        // protected property (the database connection name), not the relationship.
+        return (bool) $this->getRelationValue('connection')?->archived;
+    }
+
+    /** Links whose connection is not archived. */
+    public function scopeActive(Builder $query): void
+    {
+        $query->whereHas('connection', fn (Builder $connections) => $connections->where('archived', false));
     }
 
     /** The connection this link belongs to (NOT NULL, unique: exactly one link per connection). Its name is the link's name. */

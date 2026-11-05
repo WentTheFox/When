@@ -190,7 +190,7 @@ class DashboardStatsTest extends TestCase
             'calendar_parsing_mode' => 'full_detail',
         ]);
 
-        $shareLink = ShareLink::factory()->for($user)->create(['archived' => true]);
+        $shareLink = ShareLink::factory()->for($user)->archived()->create();
         $this->seedHighlightWords($user, $shareLink, ['Bob']);
 
         $response = $this->actingAs($user)->getJson('/dashboard/stats/availability');

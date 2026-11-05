@@ -20,7 +20,7 @@ use Illuminate\Http\Request;
  * What the link highlights and whether it bypasses DND come from the
  * connection's custom-field values (HighlightWordsResolver /
  * BypassDndResolver), edited through ConnectionController like any other
- * field. Archiving follows the connection's own archived flag.
+ * field. Archiving the connection is what archives its link: the link has no flag of its own.
  *
  * A link's content key derives deterministically from its highlight_token
  * (App\Services\Crypto\HighlightTokenKey), so there is nothing to rotate in
@@ -42,7 +42,6 @@ class ConnectionShareLinkController extends Controller
         $shareLink = $request->user()->shareLinks()->create([
             'connection_id' => $connection->id,
             'highlight_token' => ShareLink::generateHighlightToken(),
-            'archived' => $connection->archived,
         ]);
 
         return response()->json($this->serialize($shareLink), 201);
@@ -110,13 +109,12 @@ class ConnectionShareLinkController extends Controller
         return response()->json(null, 204);
     }
 
-    /** @return array{id: string, highlight_token: ?string, archived: bool} */
+    /** @return array{id: string, highlight_token: ?string} */
     private function serialize(ShareLink $shareLink): array
     {
         return [
             'id' => $shareLink->id,
             'highlight_token' => $shareLink->highlight_token,
-            'archived' => $shareLink->archived,
         ];
     }
 

@@ -35,7 +35,7 @@ class DashboardController extends Controller
 
         return Inertia::render('Dashboard/Index', [
             'userName' => $user->name,
-            'shareLinkCount' => $user->shareLinks()->where('archived', false)->count(),
+            'shareLinkCount' => $user->shareLinks()->active()->count(),
             'connectionCount' => $user->connections()->count(),
             'hasCalendarUrl' => $user->calendar_url_ciphertext !== null,
             'unsupportedVisitorLocales' => $this->unsupportedVisitorLocales($user),
@@ -237,7 +237,7 @@ class DashboardController extends Controller
         $noTime = [];
 
         $resolver = app(HighlightWordsResolver::class);
-        $shareLinks = $user->shareLinks()->where('archived', false)->with('connection')->get();
+        $shareLinks = $user->shareLinks()->active()->with('connection')->get();
         $activityLocalizations = $user->activityLocalizations->map(fn ($r) => ['pattern' => $r->pattern, 'label' => $r->label, 'icon_key' => $r->icon_key, 'color_key' => $r->color_key, 'has_capture_group' => $r->has_capture_group])->all();
 
         foreach ($shareLinks as $shareLink) {
