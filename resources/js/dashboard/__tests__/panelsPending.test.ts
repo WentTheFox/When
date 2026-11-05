@@ -11,6 +11,14 @@ vi.mock('../../composables/useTheme', () => ({ useResolvedTheme: () => ({ value:
 const RAW = 'cmF3LWNpcGhlcnRleHQtYmxvYg==';
 const ID = '33333333-3333-4333-8333-333333333333';
 
+/** Whether the button with this text exists and is disabled (checked per button, so neighbours can't leak into each other). */
+function buttonState(html: string, text: string): 'disabled' | 'enabled' | 'missing' {
+  const buttons = [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)];
+  const match = buttons.find(([, , inner]) => inner.replace(/<!--[\s\S]*?-->|<[^>]*>/g, '').trim() === text);
+  if (!match) return 'missing';
+  return /\bdisabled\b/.test(match[1]) ? 'disabled' : 'enabled';
+}
+
 function render(component: object, props: Record<string, unknown>): Promise<string> {
   return renderToString(createSSRApp({ render: () => h(component, props) }));
 }
@@ -24,8 +32,8 @@ describe('opening a record before it is decrypted', () => {
       categories: [],
     });
     expect(html).toMatch(new RegExp(`<input[^>]*value="${RAW}"[^>]*\\bdisabled\\b`));
-    expect(html).toMatch(/<button[^>]*\bdisabled\b[^>]*>(?:<!--.*?-->)*\s*Save/);
-    expect(html).toMatch(/<button[^>]*\bdisabled\b[^>]*>(?:<!--.*?-->)*\s*Delete/);
+    expect(buttonState(html, 'Save')).toBe('disabled');
+    expect(buttonState(html, 'Delete')).toBe('disabled');
     expect(html).toContain('Vault locked');
   });
 
@@ -35,7 +43,7 @@ describe('opening a record before it is decrypted', () => {
       categories: [{ id: ID, color_key: null, name_ciphertext: RAW }],
     });
     expect(html).toMatch(new RegExp(`<input[^>]*value="${RAW}"[^>]*\\bdisabled\\b`));
-    expect(html).toMatch(/<button[^>]*\bdisabled\b[^>]*>(?:<!--.*?-->)*\s*Save/);
+    expect(buttonState(html, 'Save')).toBe('disabled');
   });
 
   it('AttributesPanel shows the raw label, disabled, with Save and Delete off', async () => {
@@ -43,12 +51,12 @@ describe('opening a record before it is decrypted', () => {
       selectedId: ID,
       definitions: [{ id: ID, type: 'text', label_ciphertext: RAW, options: [] }],
       usage: {},
-      fieldRoles: { highlight: null, bypass: null },
+      fieldFeatures: {},
       copyStatus: null,
       copyBusy: false,
     });
     expect(html).toMatch(new RegExp(`<input[^>]*value="${RAW}"[^>]*\\bdisabled\\b`));
-    expect(html).toMatch(/<button[^>]*\bdisabled\b[^>]*>(?:<!--.*?-->)*\s*Delete/);
+    expect(buttonState(html, 'Delete')).toBe('disabled');
   });
 
   it('shows the real name, editable, once the record is decrypted', async () => {
@@ -69,5 +77,29 @@ describe('opening a record before it is decrypted', () => {
 
     const open = await render(SourcesPanel, { selectedId: ID, sources: [{ id: ID, category_id: null, name_ciphertext: RAW }], categories: [] });
     expect(open.match(/Vault locked/g)).toHaveLength(2);
+  });
+});
+
+describe('a custom field that a site feature uses', () => {
+  const definition = { id: ID, type: 'identifier_list', label_ciphertext: RAW, label: 'Highlight words', options: [] };
+  const base = { selectedId: ID, definitions: [definition], usage: {}, copyStatus: null, copyBusy: false };
+
+  it('has its Delete button disabled and says why, with a way to Settings', async () => {
+    const html = await render(AttributesPanel, { ...base, fieldFeatures: { [ID]: ['Highlight tokens'] } });
+    expect(buttonState(html, 'Delete')).toBe('disabled');
+    expect(html).toContain('Highlight tokens');
+    expect(html).toMatch(/alert alert-info show/);
+    expect(html).toContain('can&#39;t be deleted while a site feature uses it');
+  });
+
+  it('can be deleted when no feature uses it', async () => {
+    const html = await render(AttributesPanel, { ...base, fieldFeatures: {} });
+    expect(buttonState(html, 'Delete')).toBe('enabled');
+    expect(html).not.toMatch(/alert alert-info show/); // the note is rendered hidden
+  });
+
+  it("shows the server's refusal if a delete is rejected anyway", async () => {
+    const html = await render(AttributesPanel, { ...base, fieldFeatures: {}, removeError: 'This field is used by: Bypass DND.' });
+    expect(html).toContain('This field is used by: Bypass DND.');
   });
 });

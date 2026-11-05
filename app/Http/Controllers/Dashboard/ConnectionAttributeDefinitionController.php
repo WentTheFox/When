@@ -4,7 +4,8 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\ConnectionAttributeValue;
-use App\Services\Calendar\HighlightWordsResolver;
+use App\Models\User;
+use App\Support\FieldFeatures;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -131,21 +132,34 @@ class ConnectionAttributeDefinitionController extends Controller
         return response()->json(['cleared' => $cleared]);
     }
 
+    /**
+     * Refuses while a site feature depends on the field (see FieldFeatures),
+     * so the feature can never silently lose its source. The check and the
+     * delete share a transaction that locks the user's row, which is also what
+     * saving the Settings page writes to, so a field can't be bound to a
+     * feature and deleted at the same moment.
+     */
     public function destroy(Request $request, string $definition): JsonResponse
     {
-        // forceDelete(), not delete() — see ActivityLocalizationController::destroy's
-        // comment: SoftDeletes on this model exists only for account-wide
-        // deletion, not this single-record user action.
-        $user = $request->user();
-        $definition = $user->connectionAttributeDefinitions()->where('id', $definition)->firstOrFail();
-        $wasHighlightSource = $user->highlight_identifier_definition_id === $definition->id;
-        $wasBypassSource = $user->bypass_dnd_definition_id === $definition->id;
-        $definition->forceDelete();
+        $userId = $request->user()->getKey();
 
-        // The users FK is nullOnDelete, so the highlight/bypass source silently becomes "none"; drop results built from the old values.
-        if ($wasHighlightSource || $wasBypassSource) {
-            HighlightWordsResolver::invalidateCaches($user->shareLinks()->pluck('id'));
-        }
+        DB::transaction(function () use ($userId, $definition) {
+            $user = User::whereKey($userId)->lockForUpdate()->firstOrFail();
+            $definition = $user->connectionAttributeDefinitions()->where('id', $definition)->firstOrFail();
+
+            $features = FieldFeatures::labelsFor($user, $definition->id);
+            if ($features !== []) {
+                throw ValidationException::withMessages([
+                    'definition' => 'This field is used by: '.implode(', ', $features).'. '
+                        .'Choose a different field (or none) in Settings first, then delete it.',
+                ]);
+            }
+
+            // forceDelete(), not delete() — see ActivityLocalizationController::destroy's
+            // comment: SoftDeletes on this model exists only for account-wide
+            // deletion, not this single-record user action.
+            $definition->forceDelete();
+        });
 
         return response()->json(['status' => 'ok']);
     }

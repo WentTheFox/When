@@ -67,7 +67,7 @@ class ConnectionAttributeDefinitionTest extends TestCase
         $this->assertSame('old-label', $definition->fresh()->label_ciphertext);
     }
 
-    public function test_the_connections_page_reports_which_fields_drive_sharing(): void
+    public function test_the_connections_page_reports_which_fields_features_depend_on(): void
     {
         $owner = User::factory()->create();
         $highlight = $this->definition($owner, 'identifier_list');
@@ -75,7 +75,9 @@ class ConnectionAttributeDefinitionTest extends TestCase
         $owner->update(['highlight_identifier_definition_id' => $highlight->id, 'bypass_dnd_definition_id' => $bypass->id]);
 
         $this->actingAs($owner)->get('/dashboard/connections')->assertInertia(
-            fn ($page) => $page->where('fieldRoles.highlight', $highlight->id)->where('fieldRoles.bypass', $bypass->id),
+            fn ($page) => $page
+                ->where("fieldFeatures.{$highlight->id}", ['Highlight tokens'])
+                ->where("fieldFeatures.{$bypass->id}", ['Bypass DND']),
         );
     }
 }
