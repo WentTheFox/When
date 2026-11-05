@@ -39,24 +39,47 @@ describe('ConnectionCard', () => {
     expect(html).toContain('Decrypting…');
   });
 
+  it('opens straight into the form: no separate viewing state to click out of', async () => {
+    const html = await render();
+    // The form is there, with its name field disabled while undecrypted, and Save present.
+    expect(html).toMatch(/<input[^>]*encrypted-pending[^>]*\bdisabled\b/);
+    expect(html).toMatch(/>\s*(<!--.*?-->)*\s*Save\s*(<!--.*?-->)*\s*</s);
+    // …and no pencil/"Edit" toggle, and no read-only summary repeating the form.
+    expect(html).not.toContain('Edit this connection');
+    expect(html).not.toContain('manage the link under Edit');
+    expect(html).not.toContain('Knows:');
+  });
+
   it('is a single card, not a tabbed one', async () => {
     const html = await render();
     expect(html).not.toContain('role="tablist"');
     expect(html).not.toContain('nav-tabs');
   });
 
-  it('points at the edit form for the share link, and keeps the form closed until Edit is pressed', async () => {
+  it('keeps Save disabled until there is something to save', async () => {
     const html = await render();
-    expect(html).toContain('Shared — manage the link under Edit.');
-    expect(html).not.toMatch(/>\s*Save\s*</);
-    expect(await render({ connection: { ...connection, share_link: null } })).not.toContain('Shared — manage');
+    const save = [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)]
+      .find(([, , inner]) => inner.replace(/<!--[\s\S]*?-->|<[^>]*>/g, '').trim() === 'Save');
+    expect(save).toBeDefined();
+    expect(save![1]).toMatch(/\bdisabled\b/);
+    expect(html).not.toContain('Discard changes');
   });
 
-  it('lists the people it knows in the summary', async () => {
+  it('lists the people it knows with a clearly labelled Remove for each', async () => {
     const html = await render({
       edges: [{ id: 'e1', from_connection_id: connection.id, to_connection_id: 'other' }],
       connectionOptions: [{ id: 'other', label: 'Alice' }],
     });
-    expect(html).toContain('Knows: Alice');
+    expect(html).toContain('Alice');
+    expect(html).toContain('aria-label="Remove Alice"');
+  });
+
+  it('offers "Enable sharing" as a solid primary button (an outline one is unreadable on the dark theme)', async () => {
+    const html = await render({ connection: { ...connection, share_link: null } });
+    const button = [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)]
+      .find(([, , inner]) => inner.replace(/<!--[\s\S]*?-->|<[^>]*>/g, '').trim() === 'Enable sharing');
+    expect(button).toBeDefined();
+    expect(button![1]).toContain('btn-primary');
+    expect(button![1]).not.toContain('outline');
   });
 });

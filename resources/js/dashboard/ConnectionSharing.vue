@@ -153,7 +153,8 @@ async function deleteAllVisits(): Promise<void> {
   <div>
     <div v-if="!shareLink">
       <p class="small text-muted mb-2">Not shared. Enabling sharing creates a free/busy link named after this connection.</p>
-      <BButton size="sm" variant="outline-primary" :disabled="busy" @click="enable">Enable sharing</BButton>
+      <!-- Solid, not outline: a blue outline button has too little contrast on the dark theme. -->
+      <BButton size="sm" variant="primary" :disabled="busy" @click="enable">Enable sharing</BButton>
     </div>
 
     <template v-else>

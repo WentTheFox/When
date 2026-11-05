@@ -96,7 +96,7 @@ async function usePasskey(): Promise<void> {
           <BFormInput id="recovery_code" v-model="form.recovery_code" type="text" />
         </BFormGroup>
 
-        <BButton type="submit" :variant="canUsePasskey ? 'outline-primary' : 'primary'" class="w-100" :disabled="form.processing">
+        <BButton type="submit" :variant="canUsePasskey ? 'outline-secondary' : 'primary'" class="w-100" :disabled="form.processing">
           Verify
         </BButton>
       </form>

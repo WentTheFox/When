@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { faPencil, faTrashCan } from '@fortawesome/free-solid-svg-icons';
+import { faTrashCan, faUserMinus } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import axios from 'axios';
 import {
   BBadge,
   BButton,
-  BButtonGroup,
   BCard,
   BFormCheckbox,
   BFormGroup,
@@ -80,7 +79,6 @@ const decrypted = ref(false);
 const decryptFailed = ref(false);
 const settled = computed(() => decrypted.value || decryptFailed.value);
 const attributeValues = ref<Record<string, string>>({});
-const editing = ref(false);
 
 const editName = ref('');
 const editNotes = ref('');
@@ -131,6 +129,9 @@ function addRelationship(): void {
 }
 
 async function decryptAll(): Promise<void> {
+  // Whether the form was untouched before this decryption changes the saved state under it.
+  const formWasClean = !isDirty.value;
+
   try {
     const key = await getRecordKey(props.connection.id);
     name.value = await decryptString(key, props.connection.name_ciphertext);
@@ -152,6 +153,7 @@ async function decryptAll(): Promise<void> {
     }
     attributeValues.value = values;
     decrypted.value = true;
+    if (formWasClean) populateEditForm();
   } catch (error) {
     console.error(error);
     name.value = '(could not decrypt)';
@@ -163,21 +165,9 @@ onMounted(decryptAll);
 // The parent can replace this row from outside (e.g. the bulk identifier copy).
 watch(() => props.connection.attribute_values, decryptAll);
 
-function sourceLabels(ids: string[]): string {
-  return ids.map((id) => props.sources.find((s) => s.id === id)?.label ?? '').filter(Boolean).join(', ');
-}
-
 /** A connection-type value is the referenced connection's id; null when it points at a connection that no longer exists. */
 function connectionRefLabel(id: string): string | null {
   return props.connectionOptions.find((c) => c.id === id)?.label ?? null;
-}
-
-function attributeType(id: string): string | undefined {
-  return props.attributeDefinitions.find((d) => d.id === id)?.type;
-}
-
-function attributeLabel(id: string): string {
-  return props.attributeDefinitions.find((d) => d.id === id)?.label ?? id;
 }
 
 const INPUT_TYPE: Record<string, InputType> = { phone: 'tel' };
@@ -186,11 +176,14 @@ function inputType(type: string): InputType {
 }
 
 /**
- * Copies the decrypted values into the edit form. If decryption hasn't
- * finished yet these are still empty, and the EncryptedInput fields show the
- * raw ciphertext (disabled) in the meantime — see the `decrypted` watcher.
+ * Copies the saved state into the form. If decryption hasn't finished yet the
+ * encrypted values are still empty, and the EncryptedInput fields show the raw
+ * ciphertext (disabled) in the meantime; they are filled in as soon as
+ * decryption completes (see decryptAll).
  */
-function populateEncryptedEditFields(): void {
+function populateEditForm(): void {
+  editSourceIds.value = [...props.connection.source_ids];
+  editArchived.value = props.connection.archived;
   editName.value = name.value;
   editNotes.value = notes.value;
   editAttributeValues.value = { ...attributeValues.value };
@@ -203,17 +196,17 @@ function populateEncryptedEditFields(): void {
   }
 }
 
-function startEdit(): void {
-  editSourceIds.value = [...props.connection.source_ids];
-  editArchived.value = props.connection.archived;
-  populateEncryptedEditFields();
-  editing.value = true;
-}
+/** True when the form holds changes that haven't been saved. */
+const isDirty = computed(() => {
+  if (editName.value !== name.value || editNotes.value !== notes.value) return true;
+  if (editArchived.value !== props.connection.archived) return true;
 
-// The form was opened before decryption finished: fill the encrypted fields now.
-// They were disabled until this point, so nothing the user typed can be overwritten.
-watch(decrypted, (done) => {
-  if (done && editing.value) populateEncryptedEditFields();
+  const savedSources = [...props.connection.source_ids].sort();
+  const draftSources = [...editSourceIds.value].sort();
+  if (savedSources.length !== draftSources.length || savedSources.some((id, k) => id !== draftSources[k])) return true;
+
+  const ids = new Set([...Object.keys(attributeValues.value), ...Object.keys(editAttributeValues.value)]);
+  return [...ids].some((id) => (editAttributeValues.value[id] ?? '') !== (attributeValues.value[id] ?? ''));
 });
 
 /** The raw ciphertext of a field's stored value, shown (disabled) until it has been decrypted. */
@@ -268,7 +261,6 @@ async function save(): Promise<void> {
     name.value = editName.value;
     notes.value = editNotes.value;
     attributeValues.value = { ...editAttributeValues.value };
-    editing.value = false;
     emit('updated', data);
     if (renamed) emit('renamed', props.connection.id, editName.value);
   } catch (error) {
@@ -295,176 +287,146 @@ async function remove(): Promise<void> {
 
 <template>
   <BCard :id="`connection-${connection.id}`" class="mb-3">
-    <div class="d-flex justify-content-between align-items-start">
-      <div>
-        <h3 class="h6 mb-1">
-          <EncryptedText :value="settled ? name : undefined" :ciphertext="connection.name_ciphertext" />
-          <BBadge v-if="connection.archived" variant="secondary" class="ms-1">Archived</BBadge>
-        </h3>
-        <p v-if="connection.source_ids.length" class="small text-muted mb-1">{{ sourceLabels(connection.source_ids) }}</p>
-        <p v-if="myEdges.length" class="small text-muted mb-1">
-          Knows: {{ myEdges.map((e) => e.otherName).join(', ') }}
-        </p>
-        <p v-if="connection.share_link" class="small text-muted mb-1">Shared — manage the link under Edit.</p>
-        <p v-if="connection.notes_ciphertext && (!settled || notes)" class="small mb-0">
-          <EncryptedText :value="settled ? notes : undefined" :ciphertext="connection.notes_ciphertext" />
-        </p>
-        <dl class="row small mb-0 mt-2">
-          <template v-if="!settled">
-            <div
-              v-for="attributeValue in connection.attribute_values.filter((v) => v.value_ciphertext)"
-              :key="attributeValue.attribute_definition_id"
-              class="col-12"
-            >
-              <EncryptedText :ciphertext="attributeValue.value_ciphertext!" />
-            </div>
-          </template>
-          <template v-for="(value, definitionId) in attributeValues" :key="definitionId">
-            <div v-if="value && attributeType(definitionId) === 'connection'" class="col-12">
-              {{ attributeLabel(definitionId) }}:
-              <span v-if="connectionRefLabel(value)">{{ connectionRefLabel(value) }}</span>
-              <span v-else class="text-muted fst-italic">(deleted connection)</span>
-            </div>
-            <div v-else-if="value && attributeType(definitionId) === 'boolean'" class="col-12">
-              {{ attributeLabel(definitionId) }}: {{ value === 'true' ? 'Yes' : 'No' }}
-            </div>
-            <div v-else-if="value && attributeType(definitionId) === 'identifier_list'" class="col-12">
-              {{ attributeLabel(definitionId) }}: {{ value.split('\n').join(', ') }}
-            </div>
-            <div v-else-if="value" class="col-12">{{ attributeLabel(definitionId) }}: {{ value }}</div>
-          </template>
-        </dl>
-      </div>
-      <BButtonGroup>
-        <BButton variant="outline-secondary" size="sm" @click="startEdit"><FontAwesomeIcon :icon="faPencil"/></BButton>
-        <BButton variant="outline-danger" size="sm" @click="remove"><FontAwesomeIcon :icon="faTrashCan"/></BButton>
-      </BButtonGroup>
+    <div class="d-flex justify-content-between align-items-start mb-3">
+      <h3 class="h5 mb-0">
+        <EncryptedText :value="settled ? name : undefined" :ciphertext="connection.name_ciphertext" />
+        <BBadge v-if="connection.archived" variant="secondary" class="ms-1">Archived</BBadge>
+      </h3>
+      <BButton variant="outline-danger" size="sm" aria-label="Delete this connection" title="Delete" @click="remove">
+        <FontAwesomeIcon :icon="faTrashCan" />
+      </BButton>
     </div>
 
-    <div v-if="editing" class="mt-3">
-      <div class="row">
-        <div class="col-md-6">
-          <BFormGroup label="Name" class="mb-3">
-            <EncryptedInput v-model="editName" :ciphertext="connection.name_ciphertext" :pending="!decrypted" type="text" size="sm" />
-          </BFormGroup>
-        </div>
-        <div class="col-md-6">
-          <BFormGroup label="Sources" class="mb-3">
-            <BFormSelect v-model="editSourceIds" multiple size="sm">
-              <option v-for="source in sortedSources" :key="source.id" :value="source.id">{{ source.label }}</option>
-            </BFormSelect>
-          </BFormGroup>
-        </div>
+    <div class="row">
+      <div class="col-md-6">
+        <BFormGroup label="Name" class="mb-3">
+          <EncryptedInput v-model="editName" :ciphertext="connection.name_ciphertext" :pending="!decrypted" type="text" size="sm" />
+        </BFormGroup>
       </div>
-      <BFormGroup label="Notes" class="mb-3">
-        <EncryptedInput v-model="editNotes" :ciphertext="connection.notes_ciphertext" :pending="!decrypted" multiline size="sm" rows="2" />
-      </BFormGroup>
-      <BFormCheckbox :id="`archived-${connection.id}`" v-model="editArchived" class="mb-3">Archived</BFormCheckbox>
-      <BFormGroup label="Sharing" class="mb-3">
-        <ConnectionSharing
-          :connection-id="connection.id"
-          :share-link="connection.share_link"
-          @changed="onShareLinkChanged"
-        />
-      </BFormGroup>
-      <BFormGroup v-for="definition in attributeDefinitions" :key="definition.id" :label="definition.label" class="mb-3">
+      <div class="col-md-6">
+        <BFormGroup label="Sources" class="mb-3">
+          <BFormSelect v-model="editSourceIds" multiple size="sm">
+            <option v-for="source in sortedSources" :key="source.id" :value="source.id">{{ source.label }}</option>
+          </BFormSelect>
+        </BFormGroup>
+      </div>
+    </div>
+    <BFormGroup label="Notes" class="mb-3">
+      <EncryptedInput v-model="editNotes" :ciphertext="connection.notes_ciphertext" :pending="!decrypted" multiline size="sm" rows="2" />
+    </BFormGroup>
+    <BFormCheckbox :id="`archived-${connection.id}`" v-model="editArchived" class="mb-3">Archived</BFormCheckbox>
+    <BFormGroup label="Sharing" class="mb-3">
+      <ConnectionSharing
+        :connection-id="connection.id"
+        :share-link="connection.share_link"
+        @changed="onShareLinkChanged"
+      />
+    </BFormGroup>
+    <BFormGroup v-for="definition in attributeDefinitions" :key="definition.id" :label="definition.label" class="mb-3">
+      <EncryptedInput
+        v-if="definition.type === 'textarea'"
+        v-model="editAttributeValues[definition.id]"
+        :ciphertext="rawCiphertext(definition.id)"
+        :pending="!decrypted"
+        multiline
+        size="sm"
+        rows="2"
+      />
+      <div v-else-if="definition.type === 'radio'">
+        <BFormRadio
+          v-model="editAttributeValues[definition.id]"
+          inline
+          value=""
+          :disabled="!decrypted"
+        >
+          (unset)
+        </BFormRadio>
+        <BFormRadio
+          v-for="choice in definition.options"
+          :key="choice"
+          v-model="editAttributeValues[definition.id]"
+          inline
+          :value="choice"
+          :disabled="!decrypted"
+        >
+          {{ choice }}
+        </BFormRadio>
+      </div>
+      <BFormSelect
+        v-else-if="definition.type === 'connection'"
+        v-model="editAttributeValues[definition.id]"
+        size="sm"
+        :disabled="!decrypted"
+      >
+        <option value="">(none)</option>
+        <option v-for="c in relatableConnections" :key="c.id" :value="c.id">{{ c.label }}</option>
+      </BFormSelect>
+      <BFormSelect
+        v-else-if="definition.type === 'boolean'"
+        v-model="editAttributeValues[definition.id]"
+        size="sm"
+        :disabled="!decrypted"
+      >
+        <option value="">(unset)</option>
+        <option value="true">Yes</option>
+        <option value="false">No</option>
+      </BFormSelect>
+      <div v-else-if="definition.type === 'identifier_list'">
         <EncryptedInput
-          v-if="definition.type === 'textarea'"
           v-model="editAttributeValues[definition.id]"
           :ciphertext="rawCiphertext(definition.id)"
           :pending="!decrypted"
           multiline
           size="sm"
-          rows="2"
-        />
-        <div v-else-if="definition.type === 'radio'">
-          <BFormRadio
-            v-model="editAttributeValues[definition.id]"
-            inline
-            value=""
-            :disabled="!decrypted"
-          >
-            (unset)
-          </BFormRadio>
-          <BFormRadio
-            v-for="choice in definition.options"
-            :key="choice"
-            v-model="editAttributeValues[definition.id]"
-            inline
-            :value="choice"
-            :disabled="!decrypted"
-          >
-            {{ choice }}
-          </BFormRadio>
-        </div>
-        <BFormSelect
-          v-else-if="definition.type === 'connection'"
-          v-model="editAttributeValues[definition.id]"
-          size="sm"
-          :disabled="!decrypted"
-        >
-          <option value="">(none)</option>
-          <option v-for="c in relatableConnections" :key="c.id" :value="c.id">{{ c.label }}</option>
-        </BFormSelect>
-        <BFormSelect
-          v-else-if="definition.type === 'boolean'"
-          v-model="editAttributeValues[definition.id]"
-          size="sm"
-          :disabled="!decrypted"
-        >
-          <option value="">(unset)</option>
-          <option value="true">Yes</option>
-          <option value="false">No</option>
-        </BFormSelect>
-        <div v-else-if="definition.type === 'identifier_list'">
-          <EncryptedInput
-            v-model="editAttributeValues[definition.id]"
-            :ciphertext="rawCiphertext(definition.id)"
-            :pending="!decrypted"
-            multiline
-            size="sm"
-            rows="3"
-            placeholder="One entry per line"
-            autocomplete="off"
-          />
-          <div class="form-text">Not end-to-end encrypted — one entry per line.</div>
-        </div>
-        <EncryptedInput
-          v-else-if="definition.type === 'identifier'"
-          v-model="editAttributeValues[definition.id]"
-          :ciphertext="rawCiphertext(definition.id)"
-          :pending="!decrypted"
-          type="text"
-          size="sm"
+          rows="3"
+          placeholder="One entry per line"
           autocomplete="off"
         />
-        <EncryptedInput
-          v-else
-          v-model="editAttributeValues[definition.id]"
-          :ciphertext="rawCiphertext(definition.id)"
-          :pending="!decrypted"
-          :type="inputType(definition.type)"
-          size="sm"
-        />
-      </BFormGroup>
+        <div class="form-text">Not end-to-end encrypted — one entry per line.</div>
+      </div>
+      <EncryptedInput
+        v-else-if="definition.type === 'identifier'"
+        v-model="editAttributeValues[definition.id]"
+        :ciphertext="rawCiphertext(definition.id)"
+        :pending="!decrypted"
+        type="text"
+        size="sm"
+        autocomplete="off"
+      />
+      <EncryptedInput
+        v-else
+        v-model="editAttributeValues[definition.id]"
+        :ciphertext="rawCiphertext(definition.id)"
+        :pending="!decrypted"
+        :type="inputType(definition.type)"
+        size="sm"
+      />
+    </BFormGroup>
 
-      <BFormGroup label="Relationships" class="mb-3">
-        <ul v-if="myEdges.length" class="list-unstyled mb-2">
-          <li v-for="edge in myEdges" :key="edge.id" class="d-flex justify-content-between align-items-center">
-            <span>{{ edge.otherName }}</span>
-            <button type="button" class="btn btn-link btn-sm p-0" @click="emit('removeEdge', edge.id)">&times;</button>
-          </li>
-        </ul>
-        <div class="input-group input-group-sm">
-          <BFormSelect v-model="newRelationTargetId" size="sm">
-            <option value="" disabled>Knows…</option>
-            <option v-for="c in knowableConnections" :key="c.id" :value="c.id">{{ c.label }}</option>
-          </BFormSelect>
-          <BButton variant="outline-secondary" size="sm" @click="addRelationship">Add</BButton>
-        </div>
-      </BFormGroup>
+    <BFormGroup label="Relationships" class="mb-3">
+      <ul v-if="myEdges.length" class="list-unstyled mb-2">
+        <li v-for="edge in myEdges" :key="edge.id" class="d-flex justify-content-between align-items-center">
+          <span>{{ edge.otherName }}</span>
+          <BButton
+            size="sm"
+            variant="outline-danger"
+            :aria-label="`Remove ${edge.otherName}`"
+            @click="emit('removeEdge', edge.id)"
+          >
+            <FontAwesomeIcon :icon="faUserMinus" /> Remove
+          </BButton>
+        </li>
+      </ul>
+      <div class="input-group input-group-sm">
+        <BFormSelect v-model="newRelationTargetId" size="sm">
+          <option value="" disabled>Knows…</option>
+          <option v-for="c in knowableConnections" :key="c.id" :value="c.id">{{ c.label }}</option>
+        </BFormSelect>
+        <BButton variant="outline-secondary" size="sm" @click="addRelationship">Add</BButton>
+      </div>
+    </BFormGroup>
 
-      <BButton size="sm" variant="primary" :disabled="!decrypted" @click="save">Save</BButton>
-    </div>
+    <BButton size="sm" variant="primary" :disabled="!decrypted || !isDirty" @click="save">Save</BButton>
+    <BButton v-if="isDirty" size="sm" variant="outline-secondary" class="ms-2" @click="populateEditForm">Discard changes</BButton>
   </BCard>
 </template>
