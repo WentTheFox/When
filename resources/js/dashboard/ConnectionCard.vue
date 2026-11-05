@@ -12,12 +12,14 @@ import {
   BFormSelect,
   type InputType,
 } from 'bootstrap-vue-next';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../crypto';
 import EncryptedInput from '../Components/EncryptedInput.vue';
 import EncryptedText from '../Components/EncryptedText.vue';
 import ConnectionSharing, { type ShareLinkInfo } from './ConnectionSharing.vue';
 import { requestConfirm } from './confirmModal';
+import { onVaultUnlocked } from './onVaultUnlocked';
+import { VaultLockedError } from './vault';
 import { useVault } from './useVault';
 
 interface AttributeValue {
@@ -65,7 +67,7 @@ const emit = defineEmits<{
   removeEdge: [string];
 }>();
 
-const { getRecordKey } = useVault();
+const { getRecordKey, vaultUnlocked } = useVault();
 
 const name = ref('');
 const notes = ref('');
@@ -129,6 +131,10 @@ function addRelationship(): void {
 }
 
 async function decryptAll(): Promise<void> {
+  // The card can be on screen before the unlock (a reload with this record in the URL). Not being able to
+  // decrypt *yet* is not a failure: stay pending, and onVaultUnlocked below runs this again once the keys exist.
+  if (!vaultUnlocked.value) return;
+
   // Whether the form was untouched before this decryption changes the saved state under it.
   const formWasClean = !isDirty.value;
 
@@ -153,15 +159,19 @@ async function decryptAll(): Promise<void> {
     }
     attributeValues.value = values;
     decrypted.value = true;
+    decryptFailed.value = false;
     if (formWasClean) populateEditForm();
   } catch (error) {
+    // Locked mid-way is "not yet", not "broken": the next unlock decrypts again.
+    if (error instanceof VaultLockedError) return;
+
     console.error(error);
     name.value = '(could not decrypt)';
     decryptFailed.value = true;
   }
 }
 
-onMounted(decryptAll);
+onVaultUnlocked(vaultUnlocked, decryptAll);
 // The parent can replace this row from outside (e.g. the bulk identifier copy).
 watch(() => props.connection.attribute_values, decryptAll);
 
