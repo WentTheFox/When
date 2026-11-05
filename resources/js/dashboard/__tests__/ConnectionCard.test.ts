@@ -2,6 +2,7 @@ import { createSSRApp, h } from 'vue';
 import { renderToString } from 'vue/server-renderer';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import ConnectionCard, { type ConnectionRow } from '../ConnectionCard.vue';
+import { useVault } from '../useVault';
 
 const RAW_NAME = 'bmFtZS1jaXBoZXJ0ZXh0LWJsb2I=';
 
@@ -14,6 +15,11 @@ const connection: ConnectionRow = {
   archived: false,
   attribute_values: [],
 };
+
+/** The visible text of every button (comments and tags stripped; a linear scan, no backtracking). */
+function buttonLabels(html: string): string[] {
+  return [...html.matchAll(/<button\b[^>]*>([\s\S]*?)<\/button>/g)].map(([, inner]) => inner.replace(/<!--[\s\S]*?-->|<[^>]*>/g, '').trim());
+}
 
 function render(overrides: Record<string, unknown> = {}): Promise<string> {
   const props = {
@@ -43,11 +49,58 @@ describe('ConnectionCard', () => {
     const html = await render();
     // The form is there, with its name field disabled while undecrypted, and Save present.
     expect(html).toMatch(/<input[^>]*encrypted-pending[^>]*\bdisabled\b/);
-    expect(html).toMatch(/>\s*(<!--.*?-->)*\s*Save\s*(<!--.*?-->)*\s*</s);
+    expect(buttonLabels(html)).toContain('Save');
     // …and no pencil/"Edit" toggle, and no read-only summary repeating the form.
     expect(html).not.toContain('Edit this connection');
     expect(html).not.toContain('manage the link under Edit');
     expect(html).not.toContain('Knows:');
+  });
+
+  it('archives with a button next to Delete in the header, not a checkbox in the form', async () => {
+    const html = await render();
+    const header = html.slice(0, html.indexOf('Name'));
+
+    expect(header).toContain('Archive');
+    expect(header).toContain('aria-label="Delete this connection"');
+    expect(header.indexOf('Archive')).toBeLessThan(header.indexOf('Delete this connection'));
+    // The buttons are spaced apart, and there is no longer an "Archived" checkbox in the form.
+    expect(header).toMatch(/class="d-flex gap-2"/);
+    expect(html).not.toContain('type="checkbox"');
+  });
+
+  it('offers Unarchive on an archived connection, and labels it with a badge', async () => {
+    const html = await render({ connection: { ...connection, archived: true } });
+    expect(buttonLabels(html)).toContain('Unarchive');
+    expect(html).toContain('Archived');
+  });
+
+  it('never sends `archived` when saving the form (so Save cannot undo an archive)', async () => {
+    const source = (await import('node:fs')).readFileSync(new URL('../ConnectionCard.vue', import.meta.url), 'utf8');
+    const save = source.slice(source.indexOf('async function save()'), source.indexOf('const archiving = ref(false)'));
+    expect(save.length).toBeGreaterThan(200); // the slice really is save()
+    expect(save).not.toContain('archived');
+  });
+
+  // Switching from one connection to another creates a new card while the vault is already unlocked, so its
+  // decryption runs during setup. It once read a const (isDirty) declared further down and threw
+  // "can't access lexical declaration before initialization" as an unhandled promise rejection.
+  it('can be created while the vault is already unlocked, without an unhandled error', async () => {
+    const { vaultUnlocked } = useVault();
+    const unhandled: unknown[] = [];
+    const record = (reason: unknown) => { unhandled.push(reason); };
+
+    process.on('unhandledRejection', record);
+    vaultUnlocked.value = true;
+
+    try {
+      await render();
+      await new Promise((resolve) => setTimeout(resolve, 25)); // let the async decrypt settle
+    } finally {
+      vaultUnlocked.value = false;
+      process.off('unhandledRejection', record);
+    }
+
+    expect(unhandled).toEqual([]);
   });
 
   it('is a single card, not a tabbed one', async () => {

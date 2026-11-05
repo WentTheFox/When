@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { faTrashCan, faUserMinus } from '@fortawesome/free-solid-svg-icons';
+import { faBoxArchive, faBoxOpen, faTrashCan, faUserMinus } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import axios from 'axios';
 import {
   BBadge,
   BButton,
   BCard,
-  BFormCheckbox,
   BFormGroup,
   BFormSelect,
   type InputType,
@@ -87,7 +86,6 @@ const attributeValues = ref<Record<string, string>>({});
 const editName = ref('');
 const editNotes = ref('');
 const editSourceIds = ref<string[]>([...props.connection.source_ids]);
-const editArchived = ref(props.connection.archived);
 const editAttributeValues = ref<Record<string, string>>({});
 
 // The page hands the sources over in their stored order; keep it.
@@ -180,10 +178,6 @@ async function decryptAll(): Promise<void> {
   }
 }
 
-onVaultUnlocked(vaultUnlocked, decryptAll);
-// The parent can replace this row from outside (e.g. the bulk identifier copy).
-watch(() => props.connection.attribute_values, decryptAll);
-
 /** A connection-type value is the referenced connection's id; null when it points at a connection that no longer exists. */
 function connectionRefLabel(id: string): string | null {
   return props.connectionOptions.find((c) => c.id === id)?.label ?? null;
@@ -202,7 +196,6 @@ function inputType(type: string): InputType {
  */
 function populateEditForm(): void {
   editSourceIds.value = [...props.connection.source_ids];
-  editArchived.value = props.connection.archived;
   editName.value = name.value;
   editNotes.value = notes.value;
   editAttributeValues.value = { ...attributeValues.value };
@@ -218,7 +211,6 @@ function populateEditForm(): void {
 /** True when the form holds changes that haven't been saved. */
 const isDirty = computed(() => {
   if (editName.value !== name.value || editNotes.value !== notes.value) return true;
-  if (editArchived.value !== props.connection.archived) return true;
 
   const savedSources = [...props.connection.source_ids].sort();
   const draftSources = [...editSourceIds.value].sort();
@@ -227,6 +219,13 @@ const isDirty = computed(() => {
   const ids = new Set([...Object.keys(attributeValues.value), ...Object.keys(editAttributeValues.value)]);
   return [...ids].some((id) => (editAttributeValues.value[id] ?? '') !== (attributeValues.value[id] ?? ''));
 });
+
+// These must come AFTER everything decryptAll reads (isDirty above in particular): with the vault already
+// unlocked — switching from one connection to another — onVaultUnlocked runs decryptAll immediately, during
+// setup, and reading a const that is declared further down throws "can't access lexical declaration".
+onVaultUnlocked(vaultUnlocked, decryptAll);
+// The parent can replace this row from outside (e.g. the bulk identifier copy).
+watch(() => props.connection.attribute_values, decryptAll);
 
 /** v-model for the Connection dropdown: an unset field reads as '' so "(none)" is selected (see bindField). */
 function fieldBinding(definitionId: string) {
@@ -289,7 +288,6 @@ async function save(): Promise<void> {
       source_ids: editSourceIds.value,
       name_ciphertext: await encryptString(key, editName.value),
       notes_ciphertext: editNotes.value ? await encryptString(key, editNotes.value) : null,
-      archived: editArchived.value,
       attribute_values: values,
     });
 
@@ -301,6 +299,28 @@ async function save(): Promise<void> {
     if (renamed) emit('renamed', props.connection.id, editName.value);
   } catch (error) {
     console.error(error);
+  }
+}
+
+const archiving = ref(false);
+
+/**
+ * Archiving applies immediately (it only hides the connection from the stats,
+ * and archives its share link with it), so it is a button, not a form field
+ * waiting on Save. The form never sends `archived`, so saving it can't undo this.
+ */
+async function toggleArchived(): Promise<void> {
+  archiving.value = true;
+
+  try {
+    const { data } = await axios.patch(`/dashboard/connections/${props.connection.id}`, {
+      archived: !props.connection.archived,
+    });
+    emit('updated', data);
+  } catch (error) {
+    console.error(error);
+  } finally {
+    archiving.value = false;
   }
 }
 
@@ -328,9 +348,21 @@ async function remove(): Promise<void> {
         <EncryptedText :value="settled ? name : undefined" :ciphertext="connection.name_ciphertext" />
         <BBadge v-if="connection.archived" variant="secondary" class="ms-1">Archived</BBadge>
       </h3>
-      <BButton variant="outline-danger" size="sm" aria-label="Delete this connection" title="Delete" @click="remove">
-        <FontAwesomeIcon :icon="faTrashCan" />
-      </BButton>
+      <div class="d-flex gap-2">
+        <BButton
+          variant="outline-secondary"
+          size="sm"
+          :disabled="archiving"
+          :title="connection.archived ? 'Show this connection in the stats again' : 'Hide this connection from the stats'"
+          @click="toggleArchived"
+        >
+          <FontAwesomeIcon :icon="connection.archived ? faBoxOpen : faBoxArchive" />
+          {{ connection.archived ? 'Unarchive' : 'Archive' }}
+        </BButton>
+        <BButton variant="outline-danger" size="sm" aria-label="Delete this connection" title="Delete" @click="remove">
+          <FontAwesomeIcon :icon="faTrashCan" />
+        </BButton>
+      </div>
     </div>
 
     <div class="row">
@@ -350,7 +382,6 @@ async function remove(): Promise<void> {
     <BFormGroup label="Notes" class="mb-3">
       <EncryptedInput v-model="editNotes" :ciphertext="connection.notes_ciphertext" :pending="!decrypted" multiline size="sm" rows="2" />
     </BFormGroup>
-    <BFormCheckbox :id="`archived-${connection.id}`" v-model="editArchived" class="mb-3">Archived</BFormCheckbox>
     <BFormGroup label="Sharing" class="mb-3">
       <ConnectionSharing
         :connection-id="connection.id"
