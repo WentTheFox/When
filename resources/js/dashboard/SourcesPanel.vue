@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BButton, BCard, BFormGroup, BFormInput, BFormSelect } from 'bootstrap-vue-next';
+import { BButton, BFormGroup, BFormInput, BFormSelect } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
 import EncryptedInput from '../Components/EncryptedInput.vue';
 import EncryptedText from '../Components/EncryptedText.vue';
@@ -80,8 +80,7 @@ async function remove(): Promise<void> {
 </script>
 
 <template>
-  <BCard class="mb-4">
-    <h2 class="h5 mb-3">Connection sources</h2>
+  <div>
     <div class="row">
       <div class="col-md-4">
         <LockedOverlay>
@@ -124,5 +123,5 @@ async function remove(): Promise<void> {
         </LockedOverlay>
       </div>
     </div>
-  </BCard>
+  </div>
 </template>

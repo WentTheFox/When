@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
-import { BButton, BCard, BFormGroup, BFormInput, BFormSelect, BFormTextarea } from 'bootstrap-vue-next';
+import { BButton, BCard, BFormGroup, BFormInput, BFormSelect, BFormTextarea, BTab, BTabs } from 'bootstrap-vue-next';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../../crypto';
 import AttributesPanel from '../../dashboard/AttributesPanel.vue';
@@ -11,9 +11,10 @@ import ConnectionCard, { type ConnectionRow } from '../../dashboard/ConnectionCa
 import SourcesPanel from '../../dashboard/SourcesPanel.vue';
 import {
   buildConnectionsHash,
-  CONNECTION_TABS,
   hasRecord,
+  PAGE_TABS,
   parseConnectionsHash,
+  type PageTabName,
 } from '../../dashboard/connectionsHash';
 import LockedOverlay from '../../dashboard/LockedOverlay.vue';
 import { requestUnlock } from '../../dashboard/vaultModal';
@@ -107,23 +108,22 @@ const sortedSources = computed(() => [...sources.value].sort((a, b) => a.label.l
  * editing, just for one connection at a time now instead of all of them
  * simultaneously.
  */
-const initialHash = typeof window === 'undefined' ? {} : parseConnectionsHash(window.location.hash);
+const initialHash = typeof window === 'undefined' ? { tab: 'connections' as PageTabName } : parseConnectionsHash(window.location.hash);
 /** An id from the hash only counts if that record exists, so a stale link just opens nothing. */
 function known(list: { id: string }[], id?: string): string | null {
   return id && list.some((item) => item.id === id) ? id : null;
 }
-
-const selectedConnectionId = ref<string | null>(known(props.connections, initialHash.connection));
-/** The open connection card's tab (a CONNECTION_TABS id). */
-const connectionTab = ref<string>(selectedConnectionId.value && initialHash.tab ? initialHash.tab : CONNECTION_TABS.overview);
-const selectedSourceId = ref<string | null>(known(props.sources, initialHash.source));
-const selectedCategoryId = ref<string | null>(known(props.categories, initialHash.category));
-const selectedDefinitionId = ref<string | null>(known(props.attributeDefinitions, initialHash.attribute));
-
-function selectConnection(id: string): void {
-  selectedConnectionId.value = id;
-  connectionTab.value = CONNECTION_TABS.overview;
+/** The id from the hash, if it names a record in the given tab. */
+function initialIdFor(tab: PageTabName, list: { id: string }[]): string | null {
+  return initialHash.tab === tab ? known(list, initialHash.id) : null;
 }
+
+/** Which of the page's tabs is showing (a PAGE_TABS id). */
+const pageTab = ref<string>(PAGE_TABS[initialHash.tab]);
+const selectedConnectionId = ref<string | null>(initialIdFor('connections', props.connections));
+const selectedSourceId = ref<string | null>(initialIdFor('sources', props.sources));
+const selectedCategoryId = ref<string | null>(initialIdFor('categories', props.categories));
+const selectedDefinitionId = ref<string | null>(initialIdFor('attributes', props.attributeDefinitions));
 const selectedConnection = computed(() => connections.value.find((c) => c.id === selectedConnectionId.value) ?? null);
 
 const connectionFilter = ref('');
@@ -191,53 +191,56 @@ watch(vaultUnlocked, async (unlocked) => {
 }, { immediate: true });
 
 /**
- * The open records and the connection card's tab live in the URL hash
- * (see connectionsHash.ts), so a reload — or a link — reopens the same view.
- * It is written with replaceState (keeping Inertia's history state), so
- * selecting things doesn't pile up history entries or jump the page.
+ * The active tab and the record open in it live in the URL hash (see
+ * connectionsHash.ts), so a reload — or a link — reopens the same view. It is
+ * written with replaceState (keeping Inertia's history state), so selecting
+ * things doesn't pile up history entries or jump the page.
  */
+function activeTabName(): PageTabName {
+  return (Object.keys(PAGE_TABS) as PageTabName[]).find((name) => PAGE_TABS[name] === pageTab.value) ?? 'connections';
+}
+
+/** The selection ref belonging to each tab. */
+function selectionFor(tab: PageTabName) {
+  return { connections: selectedConnectionId, sources: selectedSourceId, categories: selectedCategoryId, attributes: selectedDefinitionId }[tab];
+}
+
 function writeHash(): void {
-  const hash = buildConnectionsHash({
-    connection: selectedConnectionId.value ?? undefined,
-    tab: connectionTab.value,
-    source: selectedSourceId.value ?? undefined,
-    category: selectedCategoryId.value ?? undefined,
-    attribute: selectedDefinitionId.value ?? undefined,
-  });
+  const tab = activeTabName();
+  const hash = buildConnectionsHash({ tab, id: selectionFor(tab).value ?? undefined });
 
   if (window.location.hash === hash) return;
 
   window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}${hash}`);
 }
 
-watch([selectedConnectionId, connectionTab, selectedSourceId, selectedCategoryId, selectedDefinitionId], writeHash);
+watch([pageTab, selectedConnectionId, selectedSourceId, selectedCategoryId, selectedDefinitionId], writeHash);
 
 /** Applies whatever the hash names (a hand-edited hash or an in-page link). */
 function applyHash(): void {
   const state = parseConnectionsHash(window.location.hash);
-  selectedConnectionId.value = known(connections.value, state.connection);
-  connectionTab.value = selectedConnectionId.value && state.tab ? state.tab : CONNECTION_TABS.overview;
-  selectedSourceId.value = known(sourceItems.value, state.source);
-  selectedCategoryId.value = known(categoryItems.value, state.category);
-  selectedDefinitionId.value = known(definitionItems.value, state.attribute);
+  pageTab.value = PAGE_TABS[state.tab];
+
+  if (!state.id) return;
+
+  const lists = { connections: connections.value, sources: sourceItems.value, categories: categoryItems.value, attributes: definitionItems.value };
+  selectionFor(state.tab).value = known(lists[state.tab], state.id);
 }
 
 /**
  * A hash that names a record is an explicit request to look at it, so it asks
  * for the unlock straight away — its form is already on screen, undecrypted,
- * under the locked overlay. Without a record (or without a hash) nothing
- * prompts; the lists only ask when clicked.
+ * under the locked overlay. A hash with only a tab (or none) prompts nothing;
+ * the lists only ask when clicked.
  */
 function openFromHash(): void {
   if (!hasRecord(parseConnectionsHash(window.location.hash))) return;
 
   void requestUnlock();
 
-  if (selectedConnectionId.value) {
-    nextTick(() => {
-      document.getElementById('connection-detail-pane')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  }
+  nextTick(() => {
+    document.getElementById('connections-workspace')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 }
 
 function onHashChange(): void {
@@ -279,7 +282,7 @@ async function createConnection(): Promise<void> {
 
     connections.value.unshift(data);
     decryptedNames.value[id] = newName.value;
-    selectConnection(id);
+    selectedConnectionId.value = id;
 
     newName.value = '';
     newSourceIds.value = [];
@@ -585,85 +588,98 @@ async function removeEdge(id: string): Promise<void> {
     </div>
   </BCard>
 
-  <BCard class="mb-4">
-    <div class="row">
-      <div class="col-md-4">
-        <LockedOverlay>
-          <div class="input-group input-group-sm mb-2">
-            <BFormInput v-model="connectionFilter" type="text" placeholder="Search or new connection name" />
-            <BButton variant="outline-secondary" @click="toggleNewForm">New</BButton>
+  <BCard id="connections-workspace" class="mb-4">
+    <BTabs v-model="pageTab" content-class="pt-3">
+      <BTab :id="PAGE_TABS.connections">
+        <template #title>Connections <span class="text-muted">({{ connections.length }})</span></template>
+        <div class="row">
+          <div class="col-md-4">
+            <LockedOverlay>
+              <div class="input-group input-group-sm mb-2">
+                <BFormInput v-model="connectionFilter" type="text" placeholder="Search or new connection name" />
+                <BButton variant="outline-secondary" @click="toggleNewForm">New</BButton>
+              </div>
+
+              <BCard v-if="showNewForm" class="mb-2" body-class="p-2">
+                <BFormGroup label="Name" label-class="small" class="mb-2">
+                  <BFormInput v-model="newName" type="text" size="sm" />
+                </BFormGroup>
+                <BFormGroup label="Sources" label-class="small" description="Ctrl/Cmd-click to select more than one." class="mb-2">
+                  <BFormSelect v-model="newSourceIds" size="sm" multiple>
+                    <option v-for="source in sortedSources" :key="source.id" :value="source.id">{{ source.label }}</option>
+                  </BFormSelect>
+                </BFormGroup>
+                <BFormGroup label="Notes" label-class="small" class="mb-2">
+                  <BFormTextarea v-model="newNotes" size="sm" rows="2" />
+                </BFormGroup>
+                <BButton size="sm" variant="primary" @click="createConnection">Create</BButton>
+                <div class="text-danger small mt-2">{{ newConnectionError }}</div>
+              </BCard>
+
+              <p v-if="filteredConnections.length === 0" class="text-muted">No connections found.</p>
+              <div v-else class="list-group wtf-master-list">
+                <button
+                  v-for="connection in filteredConnections"
+                  :key="connection.id"
+                  type="button"
+                  class="list-group-item list-group-item-action"
+                  :class="{ active: selectedConnectionId === connection.id }"
+                  @click="selectedConnectionId = connection.id"
+                >
+                  <EncryptedText :value="decryptedNames[connection.id]" :ciphertext="connection.name_ciphertext" />
+                  <span v-if="connection.archived" class="small text-muted">(archived)</span>
+                </button>
+              </div>
+            </LockedOverlay>
           </div>
 
-          <BCard v-if="showNewForm" class="mb-2" body-class="p-2">
-            <BFormGroup label="Name" label-class="small" class="mb-2">
-              <BFormInput v-model="newName" type="text" size="sm" />
-            </BFormGroup>
-            <BFormGroup label="Sources" label-class="small" description="Ctrl/Cmd-click to select more than one." class="mb-2">
-              <BFormSelect v-model="newSourceIds" size="sm" multiple>
-                <option v-for="source in sortedSources" :key="source.id" :value="source.id">{{ source.label }}</option>
-              </BFormSelect>
-            </BFormGroup>
-            <BFormGroup label="Notes" label-class="small" class="mb-2">
-              <BFormTextarea v-model="newNotes" size="sm" rows="2" />
-            </BFormGroup>
-            <BButton size="sm" variant="primary" @click="createConnection">Create</BButton>
-            <div class="text-danger small mt-2">{{ newConnectionError }}</div>
-          </BCard>
-
-          <p v-if="filteredConnections.length === 0" class="text-muted">No connections found.</p>
-          <div v-else class="list-group wtf-master-list">
-            <button
-              v-for="connection in filteredConnections"
-              :key="connection.id"
-              type="button"
-              class="list-group-item list-group-item-action"
-              :class="{ active: selectedConnectionId === connection.id }"
-              @click="selectConnection(connection.id)"
-            >
-              <EncryptedText :value="decryptedNames[connection.id]" :ciphertext="connection.name_ciphertext" />
-              <span v-if="connection.archived" class="small text-muted">(archived)</span>
-            </button>
+          <div id="connection-detail-pane" class="col-md-8">
+            <LockedOverlay>
+              <ConnectionCard
+                v-if="selectedConnection"
+                :key="selectedConnection.id"
+                :connection="selectedConnection"
+                :sources="sources"
+                :attribute-definitions="definitions"
+                :edges="edges"
+                :connection-options="connectionOptions"
+                @updated="onConnectionUpdated"
+                @deleted="onConnectionDeleted"
+                @add-edge="addEdge"
+                @remove-edge="removeEdge"
+              />
+              <p v-else class="text-muted">Select a connection on the left to view or edit it.</p>
+            </LockedOverlay>
           </div>
-        </LockedOverlay>
-      </div>
+        </div>
+      </BTab>
 
-      <div id="connection-detail-pane" class="col-md-8">
-        <LockedOverlay>
-          <ConnectionCard
-            v-if="selectedConnection"
-            :key="selectedConnection.id"
-            v-model:tab="connectionTab"
-            :connection="selectedConnection"
-            :sources="sources"
-            :attribute-definitions="definitions"
-            :edges="edges"
-            :connection-options="connectionOptions"
-            @updated="onConnectionUpdated"
-            @deleted="onConnectionDeleted"
-            @add-edge="addEdge"
-            @remove-edge="removeEdge"
-          />
-          <p v-else class="text-muted">Select a connection on the left to view or edit it.</p>
-        </LockedOverlay>
-      </div>
-    </div>
+      <BTab :id="PAGE_TABS.sources">
+        <template #title>Sources <span class="text-muted">({{ sourceItems.length }})</span></template>
+        <SourcesPanel v-model:selected-id="selectedSourceId" :sources="sourceItems" :categories="categories" @add="addSource" @update="updateSource" @remove="removeSource" />
+      </BTab>
+
+      <BTab :id="PAGE_TABS.categories">
+        <template #title>Categories <span class="text-muted">({{ categoryItems.length }})</span></template>
+        <CategoriesPanel v-model:selected-id="selectedCategoryId" :categories="categoryItems" @add="addCategory" @update="updateCategory" @remove="removeCategory" />
+      </BTab>
+
+      <BTab :id="PAGE_TABS.attributes">
+        <template #title>Custom attributes <span class="text-muted">({{ definitionItems.length }})</span></template>
+        <AttributesPanel
+          v-model:selected-id="selectedDefinitionId"
+          :definitions="definitionItems"
+          :usage="definitionUsage"
+          :field-roles="fieldRoles"
+          :copy-status="copyStatus"
+          :copy-busy="copyBusy"
+          @add="addDefinition"
+          @rename="renameDefinition"
+          @remove="removeDefinition"
+          @copy-to-identifier="copyToIdentifier"
+          @sweep-orphans="sweepOrphans"
+        />
+      </BTab>
+    </BTabs>
   </BCard>
-
-  <SourcesPanel v-model:selected-id="selectedSourceId" :sources="sourceItems" :categories="categories" @add="addSource" @update="updateSource" @remove="removeSource" />
-
-  <CategoriesPanel v-model:selected-id="selectedCategoryId" :categories="categoryItems" @add="addCategory" @update="updateCategory" @remove="removeCategory" />
-
-  <AttributesPanel
-    v-model:selected-id="selectedDefinitionId"
-    :definitions="definitionItems"
-    :usage="definitionUsage"
-    :field-roles="fieldRoles"
-    :copy-status="copyStatus"
-    :copy-busy="copyBusy"
-    @add="addDefinition"
-    @rename="renameDefinition"
-    @remove="removeDefinition"
-    @copy-to-identifier="copyToIdentifier"
-    @sweep-orphans="sweepOrphans"
-  />
 </template>

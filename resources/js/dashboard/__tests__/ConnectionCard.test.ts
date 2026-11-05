@@ -33,40 +33,30 @@ describe('ConnectionCard', () => {
     vi.stubGlobal('window', { location: { origin: 'https://when.test' } });
   });
 
-  it('renders the four tabs, with the connection shown as raw ciphertext until decrypted', async () => {
+  it('shows the connection as raw ciphertext until it is decrypted', async () => {
     const html = await render();
-    for (const title of ['Overview', 'Edit', 'Relationships', 'Sharing']) {
-      expect(html).toContain(title);
-    }
     expect(html).toContain(RAW_NAME);
+    expect(html).toContain('Decrypting…');
   });
 
-  it('marks Sharing as on when the connection has a share link', async () => {
-    expect(await render()).toMatch(/Sharing.*On/s);
-    expect(await render({ connection: { ...connection, share_link: null } })).not.toMatch(/Sharing<span[^>]*>On/);
+  it('is a single card, not a tabbed one', async () => {
+    const html = await render();
+    expect(html).not.toContain('role="tablist"');
+    expect(html).not.toContain('nav-tabs');
   });
 
-  it('counts relationships in the tab title and lists the other connection', async () => {
+  it('points at the edit form for the share link, and keeps the form closed until Edit is pressed', async () => {
+    const html = await render();
+    expect(html).toContain('Shared — manage the link under Edit.');
+    expect(html).not.toMatch(/>\s*Save\s*</);
+    expect(await render({ connection: { ...connection, share_link: null } })).not.toContain('Shared — manage');
+  });
+
+  it('lists the people it knows in the summary', async () => {
     const html = await render({
       edges: [{ id: 'e1', from_connection_id: connection.id, to_connection_id: 'other' }],
       connectionOptions: [{ id: 'other', label: 'Alice' }],
     });
-    expect(html).toContain('Relationships');
-    expect(html).toContain('(1)');
-    expect(html).toContain('Alice');
-  });
-
-  it('opens on the tab it is given (so the URL hash can restore it)', async () => {
-    const html = await render({ tab: 'connection-tab-edit' });
-    expect(html).toMatch(/nav-link active[^>]*aria-controls="connection-tab-edit"/);
-    expect(html).toMatch(/id="connection-tab-edit" class="tab-pane active/);
-  });
-
-  it('keeps Save disabled while the encrypted fields are still pending', async () => {
-    const html = await render();
-    // Vue's server output puts <!--[--> markers between the tag and its text.
-    expect(html).toMatch(/<button[^>]*\bdisabled\b[^>]*>(?:<!--.*?-->)*\s*Save/);
-    // The name field shows the raw ciphertext, disabled, instead of an editable value.
-    expect(html).toMatch(/<input[^>]*encrypted-pending[^>]*\bdisabled\b/);
+    expect(html).toContain('Knows: Alice');
   });
 });
