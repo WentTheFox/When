@@ -422,9 +422,11 @@ class AvailabilityService
      * other keys the caller attached to the event (e.g. `summary` for
      * public events) — passed through unchanged onto every split fragment.
      *
-     * @param  array{start: CarbonImmutable, end: CarbonImmutable, tentativeStart: bool, tentativeEnd: bool}[]  $events
+     * @template T of array{start: CarbonImmutable, end: CarbonImmutable, tentativeStart: bool, tentativeEnd: bool}
+     *
+     * @param  T[]  $events
      * @param  array{start: CarbonImmutable, end: CarbonImmutable}[]  $sleepBlocks
-     * @return array{start: CarbonImmutable, end: CarbonImmutable, tentativeStart: bool, tentativeEnd: bool}[]
+     * @return T[]
      */
     private function subtractSleepFromEvents(array $events, array $sleepBlocks): array
     {

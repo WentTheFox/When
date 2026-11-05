@@ -70,7 +70,7 @@ final class Locales
         return array_key_exists($code, self::NAMES);
     }
 
-    /** @return list<array{code: string, native: string, english: string}> */
+    /** @return list<array{code: string, native: string}> */
     public static function forFrontend(): array
     {
         return array_map(
