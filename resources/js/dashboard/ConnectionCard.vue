@@ -20,6 +20,7 @@ import ConnectionSharing, { type ShareLinkInfo } from './ConnectionSharing.vue';
 import { requestConfirm } from './confirmModal';
 import { bindField } from './fieldBinding';
 import { onVaultUnlocked } from './onVaultUnlocked';
+import { removalPrompt } from './relationships';
 import { VaultLockedError } from './vault';
 import { useVault } from './useVault';
 
@@ -123,6 +124,13 @@ const newRelationTargetId = ref('');
 
 function onShareLinkChanged(shareLink: ShareLinkInfo | null): void {
   emit('updated', { ...props.connection, share_link: shareLink });
+}
+
+/** Asks first, naming both connections, then hands the removal to the page. */
+async function removeRelationship(edge: { id: string; otherName: string }): Promise<void> {
+  if (!(await requestConfirm(removalPrompt(name.value, edge.otherName)))) return;
+
+  emit('removeEdge', edge.id);
 }
 
 function addRelationship(): void {
@@ -416,19 +424,25 @@ async function remove(): Promise<void> {
     </BFormGroup>
 
     <BFormGroup label="Relationships" class="mb-3">
-      <ul v-if="myEdges.length" class="list-unstyled mb-2">
-        <li v-for="edge in myEdges" :key="edge.id" class="d-flex justify-content-between align-items-center">
-          <span>{{ edge.otherName }}</span>
-          <BButton
-            size="sm"
-            variant="outline-danger"
-            :aria-label="`Remove ${edge.otherName}`"
-            @click="emit('removeEdge', edge.id)"
-          >
-            <FontAwesomeIcon :icon="faUserMinus" /> Remove
-          </BButton>
-        </li>
-      </ul>
+      <!-- w-auto keeps each Remove button next to the name it removes (not pushed to the far edge); the row highlights on hover. -->
+      <table v-if="myEdges.length" class="table table-sm table-hover align-middle w-auto mb-2">
+        <tbody>
+          <tr v-for="edge in myEdges" :key="edge.id">
+            <td class="pe-3">{{ edge.otherName }}</td>
+            <td>
+              <BButton
+                size="sm"
+                variant="outline-danger"
+                :aria-label="`Remove ${edge.otherName}`"
+                :title="`Remove the link to ${edge.otherName}`"
+                @click="removeRelationship(edge)"
+              >
+                <FontAwesomeIcon :icon="faUserMinus" /> Remove
+              </BButton>
+            </td>
+          </tr>
+        </tbody>
+      </table>
       <div class="input-group input-group-sm">
         <BFormSelect v-model="newRelationTargetId" size="sm">
           <option value="" disabled>Knows…</option>
