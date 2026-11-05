@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSortOrder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Connection extends Model
 {
-    use HasFactory, HasUuids, SoftDeletes;
+    use HasFactory, HasSortOrder, HasUuids, SoftDeletes;
 
     protected $fillable = [
         'id',
@@ -21,6 +22,7 @@ class Connection extends Model
         'name_ciphertext',
         'notes_ciphertext',
         'archived',
+        'sort_order',
     ];
 
     protected function casts(): array

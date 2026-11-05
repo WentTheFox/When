@@ -28,13 +28,12 @@ const selectedId = defineModel<string | null>('selectedId', { default: null });
 const editName = ref('');
 const editCategoryId = ref<string | null>(null);
 
-const sortedSources = computed(() => [...props.sources].sort((a, b) => (a.label ?? '').localeCompare(b.label ?? '')));
+// Lists render in the order they were given (their stored order, see listOrder.ts); sorting by name here would reshuffle them as names decrypt.
 const filteredSources = computed(() => {
   const query = newName.value.trim().toLowerCase();
-  if (!query) return sortedSources.value;
-  return sortedSources.value.filter((s) => (s.label ?? '').toLowerCase().includes(query));
+  if (!query) return props.sources;
+  return props.sources.filter((s) => (s.label ?? '').toLowerCase().includes(query));
 });
-const sortedCategories = computed(() => [...props.categories].sort((a, b) => a.label.localeCompare(b.label)));
 
 function add(): void {
   if (!newName.value) return;
@@ -112,7 +111,7 @@ async function remove(): Promise<void> {
           <BFormGroup label="Category" class="mb-3">
             <BFormSelect v-model="editCategoryId" size="sm" :disabled="pending">
               <option :value="null">(none)</option>
-              <option v-for="category in sortedCategories" :key="category.id" :value="category.id">{{ category.label }}</option>
+              <option v-for="category in categories" :key="category.id" :value="category.id">{{ category.label }}</option>
             </BFormSelect>
           </BFormGroup>
           <BButton size="sm" variant="primary" :disabled="pending" @click="save">Save</BButton>

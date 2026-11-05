@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Support\ColorSwatchKey;
+use App\Support\SortOrder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -25,7 +26,7 @@ class ConnectionSourceCategoryController extends Controller
             'color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
         ]);
 
-        $category = $request->user()->connectionSourceCategories()->create($data);
+        $category = $request->user()->connectionSourceCategories()->create($data + ['sort_order' => SortOrder::next($request->user()->connectionSourceCategories())]);
 
         return response()->json(['id' => $category->id], 201);
     }

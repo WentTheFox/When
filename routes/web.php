@@ -16,6 +16,7 @@ use App\Http\Controllers\Dashboard\ConnectionsGraphController;
 use App\Http\Controllers\Dashboard\ConnectionShareLinkController;
 use App\Http\Controllers\Dashboard\ConnectionSourceCategoryController;
 use App\Http\Controllers\Dashboard\ConnectionSourceController;
+use App\Http\Controllers\Dashboard\ListOrderController;
 use App\Http\Controllers\Dashboard\PasskeyController;
 use App\Http\Controllers\Dashboard\SettingsController;
 use App\Http\Controllers\Dashboard\SleepExceptionController;
@@ -219,6 +220,11 @@ Route::middleware('auth')->group(function () {
         ->name('dashboard.connections.share-link.visits.destroy-all');
     Route::delete('/dashboard/connections/{connection}/share-link/visits/{visit}', [ConnectionShareLinkController::class, 'destroyVisit'])
         ->name('dashboard.connections.share-link.visits.destroy');
+
+    // Saves the order of one of the Connections page's lists (the client sorts: names are E2EE).
+    Route::post('/dashboard/order/{kind}', ListOrderController::class)
+        ->whereIn('kind', array_keys(ListOrderController::TABLES))
+        ->name('dashboard.order');
 
     Route::get('/dashboard/connections', [ConnectionController::class, 'index'])
         ->name('dashboard.connections');

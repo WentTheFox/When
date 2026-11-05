@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Support\SortOrder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -23,7 +24,7 @@ class ConnectionSourceController extends Controller
             'name_ciphertext' => ['required', 'string'],
         ]);
 
-        $source = $request->user()->connectionSources()->create($data);
+        $source = $request->user()->connectionSources()->create($data + ['sort_order' => SortOrder::next($request->user()->connectionSources())]);
 
         return response()->json(['id' => $source->id], 201);
     }

@@ -38,11 +38,11 @@ const selectedId = defineModel<string | null>('selectedId', { default: null });
 const editName = ref('');
 const editColorKey = ref<string | null>(null);
 
-const sortedCategories = computed(() => [...props.categories].sort((a, b) => (a.label ?? '').localeCompare(b.label ?? '')));
+// Lists render in the order they were given (their stored order, see listOrder.ts); sorting by name here would reshuffle them as names decrypt.
 const filteredCategories = computed(() => {
   const query = newName.value.trim().toLowerCase();
-  if (!query) return sortedCategories.value;
-  return sortedCategories.value.filter((c) => (c.label ?? '').toLowerCase().includes(query));
+  if (!query) return props.categories;
+  return props.categories.filter((c) => (c.label ?? '').toLowerCase().includes(query));
 });
 
 function add(): void {

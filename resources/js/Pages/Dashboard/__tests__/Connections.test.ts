@@ -29,9 +29,13 @@ const props = {
   fieldFeatures: {},
 };
 
-function render(hash: string): Promise<string> {
+function renderWith(pageProps: typeof props, hash: string): Promise<string> {
   vi.stubGlobal('window', { location: { hash, origin: 'https://when.test', pathname: '/dashboard/connections', search: '' } });
-  return renderToString(createSSRApp({ render: () => h(Connections as object, props) }));
+  return renderToString(createSSRApp({ render: () => h(Connections as object, pageProps) }));
+}
+
+function render(hash: string): Promise<string> {
+  return renderWith(props, hash);
 }
 
 describe('Connections page', () => {
@@ -50,6 +54,13 @@ describe('Connections page', () => {
     const html = await render('');
     expect(html).toContain('Vault locked');
     expect(html).toContain('Y29ubmVjdGlvbi1jaXBoZXI='); // the connection, still raw
+  });
+
+  it('lists connections in the order the server sent them', async () => {
+    const second = { ...props.connections[0], id: '55555555-5555-4555-8555-555555555555', name_ciphertext: 'QUFBLWZpcnN0LWFscGhhYmV0aWNhbGx5' };
+    const html = await renderWith({ ...props, connections: [props.connections[0], second] }, '');
+    // The one that would sort first by its (unreadable) name still comes second: order is the stored one.
+    expect(html.indexOf(props.connections[0].name_ciphertext)).toBeLessThan(html.indexOf(second.name_ciphertext));
   });
 
   it('only overlays the detail panes when a record is open', async () => {
