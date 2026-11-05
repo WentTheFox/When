@@ -81,7 +81,7 @@ class TwoFactorController extends Controller
             return redirect()->route('login');
         }
 
-        $user = User::find($request->session()->get(self::SESSION_KEY));
+        $user = $this->pendingUser($request);
 
         if (! $user) {
             return redirect()->route('login');
@@ -158,7 +158,7 @@ class TwoFactorController extends Controller
     {
         $userId = $request->session()->get(self::SESSION_KEY);
 
-        return $userId ? User::find($userId) : null;
+        return is_string($userId) && $userId !== '' ? User::find($userId) : null;
     }
 
     private function completeLogin(Request $request, User $user): RedirectResponse

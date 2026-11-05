@@ -178,7 +178,8 @@ class AuthenticatedSessionController extends Controller
             return '/';
         }
 
-        $path = parse_url($referer, PHP_URL_PATH) ?? '/';
+        $parsedPath = parse_url($referer, PHP_URL_PATH);
+        $path = is_string($parsedPath) ? $parsedPath : '/';
 
         if ($path === $request->getPathInfo()) {
             return '/';
@@ -186,7 +187,7 @@ class AuthenticatedSessionController extends Controller
 
         $query = parse_url($referer, PHP_URL_QUERY);
 
-        return $query ? "{$path}?{$query}" : $path;
+        return is_string($query) && $query !== '' ? "{$path}?{$query}" : $path;
     }
 
     /**

@@ -177,7 +177,7 @@ class HighlightMatcher
      * deliberately, rather than silently tightening it.
      *
      * @param  string[]  $highlightWords
-     * @return string[]
+     * @return list<string>
      */
     private function matchTokens(string $tokenStr, array $highlightWords, ?string $splitPattern): array
     {

@@ -18,7 +18,7 @@ class EventNormalizer
 {
     /**
      * @param  RawCalendarItem[]  $items
-     * @param  'full_detail'|'free_busy_only'  $parsingMode
+     * @param  string  $parsingMode  'full_detail' or 'free_busy_only'; anything else behaves as full_detail
      * @return ParsedEvent[]
      */
     public function normalize(array $items, string $parsingMode): array

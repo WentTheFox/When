@@ -16,7 +16,7 @@ namespace App\Domain\Calendar;
 final class HighlightMatch
 {
     /**
-     * @param  string[]  $words  Always at least one — HighlightMatcher never returns an empty match.
+     * @param  list<string>  $words  Always at least one — HighlightMatcher never returns an empty match.
      * @param  array<string, string>|null  $activityLabel
      */
     public function __construct(

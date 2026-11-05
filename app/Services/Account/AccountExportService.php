@@ -38,9 +38,9 @@ class AccountExportService
     public function build(ZipStream $zip, User $user): void
     {
         $zip->addFile('README.txt', $this->readme(now()));
-        $zip->addFile('decrypt_export.py', file_get_contents(__DIR__.'/scripts/decrypt_export.py'));
-        $zip->addFile('decrypt_export.php', file_get_contents(__DIR__.'/scripts/decrypt_export.php'));
-        $zip->addFile('requirements.txt', file_get_contents(__DIR__.'/scripts/requirements.txt'));
+        $zip->addFile('decrypt_export.py', $this->script('decrypt_export.py'));
+        $zip->addFile('decrypt_export.php', $this->script('decrypt_export.php'));
+        $zip->addFile('requirements.txt', $this->script('requirements.txt'));
 
         $zip->addFile('account/profile.json', $this->json($this->profile($user)));
         $zip->addFile('account/security.json', $this->json($this->security($user)));
@@ -68,6 +68,19 @@ class AccountExportService
     }
 
     /** @param array<string, mixed> $data */
+    /** One of the decrypt scripts shipped inside every export; a missing file must fail the export, not ship an empty script. */
+    private function script(string $name): string
+    {
+        $contents = file_get_contents(__DIR__.'/scripts/'.$name);
+
+        if ($contents === false) {
+            throw new \RuntimeException("Export script {$name} is missing or unreadable.");
+        }
+
+        return $contents;
+    }
+
+    /** @param  array<array-key, mixed>  $data */
     private function json(array $data): string
     {
         return json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '{}';

@@ -54,7 +54,8 @@ class TwoFactorAuthenticationService
             return false;
         }
 
-        return $this->google2fa->verifyKey($user->two_factor_secret, $code);
+        // verifyKey() returns the matched timestamp (an int) instead of true when asked to track one; any hit is a pass.
+        return (bool) $this->google2fa->verifyKey($user->two_factor_secret, $code);
     }
 
     /**
@@ -134,8 +135,8 @@ class TwoFactorAuthenticationService
     /** @return list<string> */
     private function generateRecoveryCodes(): array
     {
-        return collect(range(1, self::RECOVERY_CODE_COUNT))
+        return array_values(collect(range(1, self::RECOVERY_CODE_COUNT))
             ->map(fn () => Str::random(10).'-'.Str::random(10))
-            ->all();
+            ->all());
     }
 }

@@ -74,7 +74,8 @@ class ShareLinkController extends Controller
      */
     public function show(Request $request): InertiaResponse|RedirectResponse|Response
     {
-        $token = $request->route('token');
+        $routeToken = $request->route('token');
+        $token = is_string($routeToken) ? $routeToken : null;
         $locale = $request->route('locale', Locales::DEFAULT);
 
         // Detection (cookie or Accept-Language) only ever promotes the
@@ -241,7 +242,7 @@ class ShareLinkController extends Controller
     {
         $cookie = $request->cookie(self::LOCALE_COOKIE);
 
-        if ($cookie !== null && Locales::isValid($cookie)) {
+        if (is_string($cookie) && Locales::isValid($cookie)) {
             return $cookie;
         }
 
