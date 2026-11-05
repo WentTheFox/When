@@ -175,7 +175,7 @@ describe('the custom attributes list', () => {
   it('puts a blue lock next to a field that a site feature uses, and only that one', async () => {
     const list = listOf(await render(AttributesPanel, { ...base, fieldFeatures: { [ID]: ['Highlight tokens'] } }));
     expect(list.match(/field-protected/g)).toHaveLength(1);
-    expect(list).toMatch(/text-primary[^>]*title="Used by Highlight tokens — can&#39;t be deleted"/);
+    expect(list).toMatch(/text-info[^>]*title="Used by Highlight tokens — can&#39;t be deleted"/);
     // The lock follows the protected field's name, not the other one's.
     expect(list.indexOf('Highlight words')).toBeLessThan(list.indexOf('field-protected'));
     expect(list.indexOf('field-protected')).toBeLessThan(list.indexOf('Nickname'));
@@ -188,7 +188,7 @@ describe('the custom attributes list', () => {
   it('keeps the lock visible on the selected (blue) row by not colouring it blue there', async () => {
     const list = listOf(await render(AttributesPanel, { ...base, selectedId: ID, fieldFeatures: { [ID]: ['Highlight tokens'] } }));
     expect(list).toContain('field-protected');
-    expect(list).not.toMatch(/text-primary/);
+    expect(list).not.toMatch(/text-info/);
   });
 
   it('describes the lock for screen readers', async () => {

@@ -193,11 +193,11 @@ function add(): void {
               @click="select(definition)"
             >
               <EncryptedText :value="definition.label" :ciphertext="definition.label_ciphertext" />
-              <!-- Delete-protected: a site feature depends on it. Blue, except on the selected (blue) row where white stays visible. -->
+              <!-- Delete-protected: a site feature depends on it. The same blue as the "Used by" pill and the notice (info), except on the selected row, which is blue itself, where white stays visible. -->
               <span
                 v-if="featuresOf(definition.id).length"
                 class="ms-1 field-protected"
-                :class="selectedId === definition.id ? '' : 'text-primary'"
+                :class="selectedId === definition.id ? '' : 'text-info'"
                 :title="`Used by ${featuresOf(definition.id).join(', ')} — can't be deleted`"
               >
                 <FontAwesomeIcon :icon="faLock" />
