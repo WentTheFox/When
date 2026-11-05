@@ -17,7 +17,7 @@ defineOptions({ layout: DashboardLayout });
 interface SourceRow { id: string; category_id: string | null; name_ciphertext: string }
 interface CategoryRow { id: string; color_key: string | null; name_ciphertext: string }
 interface DefinitionRow { id: string; label_ciphertext: string; type: string; options_ciphertext: string | null }
-interface EdgeRow { id: string; from_connection_id: string; to_connection_id: string; label_ciphertext: string | null }
+interface EdgeRow { id: string; from_connection_id: string; to_connection_id: string }
 
 const props = defineProps<{
   connections: ConnectionRow[];
@@ -33,7 +33,7 @@ const connections = ref<ConnectionRow[]>(props.connections);
 const sources = ref<{ id: string; category_id: string | null; label: string }[]>([]);
 const categories = ref<{ id: string; color_key: string | null; label: string }[]>([]);
 const definitions = ref<{ id: string; label: string; type: string; options: string[] }[]>([]);
-const edges = ref<{ id: string; from_connection_id: string; to_connection_id: string; label: string }[]>([]);
+const edges = ref<EdgeRow[]>([]);
 
 const showNewForm = ref(false);
 const newName = ref('');
@@ -133,18 +133,7 @@ watch(vaultUnlocked, async (unlocked) => {
     }
   }
 
-  for (const edge of props.edges) {
-    let label = '';
-    if (edge.label_ciphertext) {
-      try {
-        const key = await getRecordKey(edge.id);
-        label = await decryptString(key, edge.label_ciphertext);
-      } catch (error) {
-        console.error(error);
-      }
-    }
-    edges.value.push({ ...edge, label });
-  }
+  edges.value = props.edges.map((edge) => ({ ...edge }));
 }, { immediate: true });
 
 /**
@@ -435,23 +424,22 @@ async function removeDefinition(id: string): Promise<void> {
   }
 }
 
-async function addEdge(fromId: string, toId: string, label: string): Promise<void> {
-  try {
-    const id = crypto.randomUUID();
-    let labelCiphertext: string | null = null;
-    if (label) {
-      const key = await createRecordKey(id);
-      labelCiphertext = await encryptString(key, label);
-    }
+/** "Knows" is undirected: at most one edge per pair, whichever side it was added from. */
+async function addEdge(fromId: string, toId: string): Promise<void> {
+  const alreadyKnown = edges.value.some(
+    (e) => (e.from_connection_id === fromId && e.to_connection_id === toId)
+      || (e.from_connection_id === toId && e.to_connection_id === fromId),
+  );
+  if (alreadyKnown) return;
 
-    await axios.post('/dashboard/connection-edges', {
-      id,
+  try {
+    const { data } = await axios.post<EdgeRow>('/dashboard/connection-edges', {
       from_connection_id: fromId,
       to_connection_id: toId,
-      label_ciphertext: labelCiphertext,
     });
 
-    edges.value.push({ id, from_connection_id: fromId, to_connection_id: toId, label });
+    // The server returns the existing edge if one raced in; don't list it twice.
+    if (!edges.value.some((e) => e.id === data.id)) edges.value.push(data);
   } catch (error) {
     console.error(error);
   }

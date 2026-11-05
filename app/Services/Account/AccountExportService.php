@@ -411,15 +411,14 @@ class AccountExportService
     private function connectionEdges(User $user): array
     {
         return [
-            'tier' => 'e2ee',
+            'tier' => 'plaintext',
+            'note' => 'A "knows" relationship is undirected and carries no data beyond the two connections it joins. Every field here is plaintext.',
             'records' => $user->connectionEdges()
-                ->get(['id', 'from_connection_id', 'to_connection_id', 'label_ciphertext'])
+                ->get(['id', 'from_connection_id', 'to_connection_id'])
                 ->map(fn ($edge) => [
                     'id' => $edge->id,
                     'from_connection_id' => $edge->from_connection_id,
                     'to_connection_id' => $edge->to_connection_id,
-                    'label_ciphertext' => $edge->label_ciphertext,
-                    'key_ring_id' => $edge->id,
                 ])->all(),
         ];
     }
@@ -455,12 +454,11 @@ class AccountExportService
               - "server-decrypted": was encrypted at rest with the server's own key
                 (never your master password) — decrypted before export since the
                 server can legitimately do that. This includes your name, email,
-                calendar URL, 2FA secret/recovery codes, and share-link highlight
-                words.
+                calendar URL, 2FA secret/recovery codes, and the highlight words and
+                do-not-disturb flags you set on your connections.
               - "e2ee": still encrypted. Decrypting it yourself takes a few steps —
                 see below. This covers connection names/notes, source and category
-                names, attribute labels/options/values, connection-edge labels,
-                sleep-exception labels, and share-link labels.
+                names, attribute labels/options/values, and sleep-exception labels.
 
             SENSITIVE FILES — handle these like passwords:
               - account/security.json contains your two-factor secret and recovery

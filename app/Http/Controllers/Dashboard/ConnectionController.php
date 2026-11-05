@@ -44,7 +44,7 @@ class ConnectionController extends Controller
             'sources' => $user->connectionSources()->get(['id', 'category_id', 'name_ciphertext']),
             'categories' => $user->connectionSourceCategories()->get(['id', 'name_ciphertext', 'color_key']),
             'attributeDefinitions' => $user->connectionAttributeDefinitions()->get(['id', 'label_ciphertext', 'type', 'options_ciphertext']),
-            'edges' => $user->connectionEdges()->get(['id', 'from_connection_id', 'to_connection_id', 'label_ciphertext']),
+            'edges' => $user->connectionEdges()->get(['id', 'from_connection_id', 'to_connection_id']),
         ]);
     }
 
