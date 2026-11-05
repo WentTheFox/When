@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -18,7 +19,7 @@ final class SortOrder
     /** Where a new record goes until the client has placed it: the end. */
     public static function next(Relation $ownedRecords): int
     {
-        $max = $ownedRecords->withTrashed()->max('sort_order');
+        $max = $ownedRecords->getQuery()->withoutGlobalScope(SoftDeletingScope::class)->max('sort_order');
 
         return $max === null ? 0 : ((int) $max) + 1;
     }

@@ -5,19 +5,171 @@ namespace App\Models;
 use App\Models\Concerns\HasLocalizedFields;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\DatabaseNotification;
+use Illuminate\Notifications\DatabaseNotificationCollection;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Crypt;
 
+/**
+ * @property string $id
+ * @property string|null $name
+ * @property string|null $email
+ * @property Carbon|null $email_verified_at
+ * @property string $password
+ * @property string $passphrase_salt
+ * @property string|null $two_factor_secret
+ * @property array<array-key, mixed>|null $two_factor_recovery_codes
+ * @property Carbon|null $two_factor_confirmed_at
+ * @property string|null $calendar_url_ciphertext
+ * @property string $calendar_parsing_mode
+ * @property string|null $timezone
+ * @property string|null $dnd_event_pattern
+ * @property string|null $nap_event_pattern
+ * @property string|null $remember_token
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property string|null $key_ring_ciphertext
+ * @property string|null $highlight_clause_pattern
+ * @property string|null $email_hash
+ * @property string|null $activity_clause_pattern
+ * @property string|null $tentative_pattern
+ * @property int $week_start
+ * @property string|null $accent_color_key
+ * @property string|null $secondary_color_key
+ * @property string|null $sleep_color_key
+ * @property string|null $busy_color_key
+ * @property string|null $free_color_key
+ * @property string|null $highlight_color_key
+ * @property string $name_hash
+ * @property string $verifier_salt_version
+ * @property string|null $open_end_pattern
+ * @property string|null $open_start_pattern
+ * @property string|null $highlight_split_pattern
+ * @property string|null $free_icon_key
+ * @property string|null $busy_icon_key
+ * @property string|null $sleep_icon_key
+ * @property string|null $highlight_icon_key
+ * @property string|null $now_color_key
+ * @property Carbon|null $deleted_at
+ * @property string|null $dnd_event_pattern_preview
+ * @property string|null $nap_event_pattern_preview
+ * @property string|null $highlight_split_pattern_preview
+ * @property string|null $highlight_clause_pattern_preview
+ * @property string|null $activity_clause_pattern_preview
+ * @property string|null $tentative_pattern_preview
+ * @property string|null $open_end_pattern_preview
+ * @property string|null $open_start_pattern_preview
+ * @property string|null $public_event_pattern
+ * @property string|null $public_event_pattern_preview
+ * @property string|null $public_color_key
+ * @property string|null $public_icon_key
+ * @property string|null $highlight_identifier_definition_id
+ * @property string|null $bypass_dnd_definition_id
+ * @property-read Collection<int, ActivityLocalization> $activityLocalizations
+ * @property-read int|null $activity_localizations_count
+ * @property-read Collection<int, AvailabilityWindow> $availabilityWindows
+ * @property-read int|null $availability_windows_count
+ * @property-read Collection<int, CalendarDetection> $calendarDetections
+ * @property-read int|null $calendar_detections_count
+ * @property-read Collection<int, ConnectionAttributeDefinition> $connectionAttributeDefinitions
+ * @property-read int|null $connection_attribute_definitions_count
+ * @property-read Collection<int, ConnectionEdge> $connectionEdges
+ * @property-read int|null $connection_edges_count
+ * @property-read Collection<int, ConnectionSourceCategory> $connectionSourceCategories
+ * @property-read int|null $connection_source_categories_count
+ * @property-read Collection<int, ConnectionSource> $connectionSources
+ * @property-read int|null $connection_sources_count
+ * @property-read Collection<int, Connection> $connections
+ * @property-read int|null $connections_count
+ * @property-read array<string, string>|null $public_page_title
+ * @property-read Collection<int, Invite> $invitesIssued
+ * @property-read int|null $invites_issued_count
+ * @property-read Collection<int, Translation> $localizedTexts
+ * @property-read int|null $localized_texts_count
+ * @property-read DatabaseNotificationCollection<int, DatabaseNotification> $notifications
+ * @property-read int|null $notifications_count
+ * @property-read Collection<int, Passkey> $passkeys
+ * @property-read int|null $passkeys_count
+ * @property-read Collection<int, ShareLink> $shareLinks
+ * @property-read int|null $share_links_count
+ * @property-read Collection<int, SleepException> $sleepExceptions
+ * @property-read int|null $sleep_exceptions_count
+ *
+ * @method static \Database\Factories\UserFactory factory($count = null, $state = [])
+ * @method static Builder<static>|User newModelQuery()
+ * @method static Builder<static>|User newQuery()
+ * @method static Builder<static>|User onlyTrashed()
+ * @method static Builder<static>|User query()
+ * @method static Builder<static>|User whereAccentColorKey($value)
+ * @method static Builder<static>|User whereActivityClausePattern($value)
+ * @method static Builder<static>|User whereActivityClausePatternPreview($value)
+ * @method static Builder<static>|User whereBusyColorKey($value)
+ * @method static Builder<static>|User whereBusyIconKey($value)
+ * @method static Builder<static>|User whereBypassDndDefinitionId($value)
+ * @method static Builder<static>|User whereCalendarParsingMode($value)
+ * @method static Builder<static>|User whereCalendarUrlCiphertext($value)
+ * @method static Builder<static>|User whereCreatedAt($value)
+ * @method static Builder<static>|User whereDeletedAt($value)
+ * @method static Builder<static>|User whereDndEventPattern($value)
+ * @method static Builder<static>|User whereDndEventPatternPreview($value)
+ * @method static Builder<static>|User whereEmail($value)
+ * @method static Builder<static>|User whereEmailHash($value)
+ * @method static Builder<static>|User whereEmailVerifiedAt($value)
+ * @method static Builder<static>|User whereFreeColorKey($value)
+ * @method static Builder<static>|User whereFreeIconKey($value)
+ * @method static Builder<static>|User whereHighlightClausePattern($value)
+ * @method static Builder<static>|User whereHighlightClausePatternPreview($value)
+ * @method static Builder<static>|User whereHighlightColorKey($value)
+ * @method static Builder<static>|User whereHighlightIconKey($value)
+ * @method static Builder<static>|User whereHighlightIdentifierDefinitionId($value)
+ * @method static Builder<static>|User whereHighlightSplitPattern($value)
+ * @method static Builder<static>|User whereHighlightSplitPatternPreview($value)
+ * @method static Builder<static>|User whereId($value)
+ * @method static Builder<static>|User whereKeyRingCiphertext($value)
+ * @method static Builder<static>|User whereName($value)
+ * @method static Builder<static>|User whereNameHash($value)
+ * @method static Builder<static>|User whereNapEventPattern($value)
+ * @method static Builder<static>|User whereNapEventPatternPreview($value)
+ * @method static Builder<static>|User whereNowColorKey($value)
+ * @method static Builder<static>|User whereOpenEndPattern($value)
+ * @method static Builder<static>|User whereOpenEndPatternPreview($value)
+ * @method static Builder<static>|User whereOpenStartPattern($value)
+ * @method static Builder<static>|User whereOpenStartPatternPreview($value)
+ * @method static Builder<static>|User wherePassphraseSalt($value)
+ * @method static Builder<static>|User wherePassword($value)
+ * @method static Builder<static>|User wherePublicColorKey($value)
+ * @method static Builder<static>|User wherePublicEventPattern($value)
+ * @method static Builder<static>|User wherePublicEventPatternPreview($value)
+ * @method static Builder<static>|User wherePublicIconKey($value)
+ * @method static Builder<static>|User whereRememberToken($value)
+ * @method static Builder<static>|User whereSecondaryColorKey($value)
+ * @method static Builder<static>|User whereSleepColorKey($value)
+ * @method static Builder<static>|User whereSleepIconKey($value)
+ * @method static Builder<static>|User whereTentativePattern($value)
+ * @method static Builder<static>|User whereTentativePatternPreview($value)
+ * @method static Builder<static>|User whereTimezone($value)
+ * @method static Builder<static>|User whereTwoFactorConfirmedAt($value)
+ * @method static Builder<static>|User whereTwoFactorRecoveryCodes($value)
+ * @method static Builder<static>|User whereTwoFactorSecret($value)
+ * @method static Builder<static>|User whereUpdatedAt($value)
+ * @method static Builder<static>|User whereVerifierSaltVersion($value)
+ * @method static Builder<static>|User whereWeekStart($value)
+ * @method static Builder<static>|User withTrashed(bool $withTrashed = true)
+ * @method static Builder<static>|User withoutTrashed()
+ *
+ * @mixin \Eloquent
+ */
 class User extends Authenticatable
 {
     /**
      * @use HasFactory<UserFactory>
-     * @use HasLocalizedFields<User>
      */
     use HasFactory, HasLocalizedFields, HasUuids, Notifiable, SoftDeletes;
 
@@ -237,11 +389,13 @@ class User extends Authenticatable
         return $this->getLocalizedField('public_page_title');
     }
 
+    /** @return HasMany<SleepException, $this> */
     public function sleepExceptions(): HasMany
     {
         return $this->hasMany(SleepException::class);
     }
 
+    /** @return HasMany<Passkey, $this> */
     public function passkeys(): HasMany
     {
         return $this->hasMany(Passkey::class);
@@ -263,6 +417,7 @@ class User extends Authenticatable
         return $this->hasTotp() || $this->passkeys()->exists();
     }
 
+    /** @return HasMany<AvailabilityWindow, $this> */
     public function availabilityWindows(): HasMany
     {
         return $this->hasMany(AvailabilityWindow::class);
@@ -306,6 +461,7 @@ class User extends Authenticatable
         }
     }
 
+    /** @return HasMany<ActivityLocalization, $this> */
     public function activityLocalizations(): HasMany
     {
         // Eager-loads each role's own localizedTexts whenever this
@@ -315,41 +471,49 @@ class User extends Authenticatable
         return $this->hasMany(ActivityLocalization::class)->with('localizedTexts')->orderBy('sort_order');
     }
 
+    /** @return HasMany<ShareLink, $this> */
     public function shareLinks(): HasMany
     {
         return $this->hasMany(ShareLink::class);
     }
 
+    /** @return HasMany<Connection, $this> */
     public function connections(): HasMany
     {
         return $this->hasMany(Connection::class);
     }
 
+    /** @return HasMany<ConnectionSource, $this> */
     public function connectionSources(): HasMany
     {
         return $this->hasMany(ConnectionSource::class);
     }
 
+    /** @return HasMany<ConnectionSourceCategory, $this> */
     public function connectionSourceCategories(): HasMany
     {
         return $this->hasMany(ConnectionSourceCategory::class);
     }
 
+    /** @return HasMany<ConnectionAttributeDefinition, $this> */
     public function connectionAttributeDefinitions(): HasMany
     {
         return $this->hasMany(ConnectionAttributeDefinition::class);
     }
 
+    /** @return HasMany<ConnectionEdge, $this> */
     public function connectionEdges(): HasMany
     {
         return $this->hasMany(ConnectionEdge::class);
     }
 
+    /** @return HasMany<Invite, $this> */
     public function invitesIssued(): HasMany
     {
         return $this->hasMany(Invite::class, 'inviter_user_id');
     }
 
+    /** @return HasMany<CalendarDetection, $this> */
     public function calendarDetections(): HasMany
     {
         return $this->hasMany(CalendarDetection::class);

@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasLocalizedFields;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 /**
  * An owner-configurable (pattern, label) pair — generalizes the old
@@ -36,12 +38,45 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * owner's default/custom highlight clause pattern to actually capture the
  * highlighted name(s) instead of forcing every role's own pattern to
  * duplicate that "with X, Y, Z" capturing itself.
+ *
+ * @property string $id
+ * @property string $user_id
+ * @property string $pattern
+ * @property int $sort_order
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property Carbon|null $deleted_at
+ * @property string|null $pattern_preview
+ * @property string|null $icon_key
+ * @property string|null $color_key
+ * @property bool $has_capture_group
+ * @property-read array<string, string>|null $label
+ * @property-read Collection<int, Translation> $localizedTexts
+ * @property-read int|null $localized_texts_count
+ * @property-read User|null $user
+ *
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization onlyTrashed()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization whereColorKey($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization whereDeletedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization whereHasCaptureGroup($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization whereIconKey($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization wherePattern($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization wherePatternPreview($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization whereSortOrder($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization whereUserId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization withTrashed(bool $withTrashed = true)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization withoutTrashed()
+ *
+ * @mixin \Eloquent
  */
 class ActivityLocalization extends Model
 {
-    /**
-     * @use HasLocalizedFields<ActivityLocalization>
-     */
     use HasLocalizedFields, HasUuids, SoftDeletes;
 
     protected $fillable = [
@@ -65,6 +100,7 @@ class ActivityLocalization extends Model
         ];
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

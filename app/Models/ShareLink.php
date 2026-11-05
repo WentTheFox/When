@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +11,46 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property string $id
+ * @property string $user_id
+ * @property string|null $highlight_token
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property bool $show_activity
+ * @property Carbon|null $deleted_at
+ * @property bool $show_recurring
+ * @property string $connection_id
+ * @property Carbon|null $last_visited_at
+ * @property-read ShareLinkCache|null $cache
+ * @property-read Connection|null $connection
+ * @property-read User|null $user
+ * @property-read Collection<int, ShareLinkVisit> $visits
+ * @property-read int|null $visits_count
+ *
+ * @method static Builder<static>|ShareLink active()
+ * @method static \Database\Factories\ShareLinkFactory factory($count = null, $state = [])
+ * @method static Builder<static>|ShareLink newModelQuery()
+ * @method static Builder<static>|ShareLink newQuery()
+ * @method static Builder<static>|ShareLink onlyTrashed()
+ * @method static Builder<static>|ShareLink query()
+ * @method static Builder<static>|ShareLink whereConnectionId($value)
+ * @method static Builder<static>|ShareLink whereCreatedAt($value)
+ * @method static Builder<static>|ShareLink whereDeletedAt($value)
+ * @method static Builder<static>|ShareLink whereHighlightToken($value)
+ * @method static Builder<static>|ShareLink whereId($value)
+ * @method static Builder<static>|ShareLink whereLastVisitedAt($value)
+ * @method static Builder<static>|ShareLink whereShowActivity($value)
+ * @method static Builder<static>|ShareLink whereShowRecurring($value)
+ * @method static Builder<static>|ShareLink whereUpdatedAt($value)
+ * @method static Builder<static>|ShareLink whereUserId($value)
+ * @method static Builder<static>|ShareLink withTrashed(bool $withTrashed = true)
+ * @method static Builder<static>|ShareLink withoutTrashed()
+ *
+ * @mixin \Eloquent
+ */
 class ShareLink extends Model
 {
     use HasFactory, HasUuids, SoftDeletes;
@@ -29,6 +69,7 @@ class ShareLink extends Model
         ];
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -54,11 +95,13 @@ class ShareLink extends Model
         return $token;
     }
 
+    /** @return HasMany<ShareLinkVisit, $this> */
     public function visits(): HasMany
     {
         return $this->hasMany(ShareLinkVisit::class);
     }
 
+    /** @return HasOne<ShareLinkCache, $this> */
     public function cache(): HasOne
     {
         return $this->hasOne(ShareLinkCache::class);
@@ -75,7 +118,11 @@ class ShareLink extends Model
         $query->whereHas('connection', fn (Builder $connections) => $connections->where('archived', false));
     }
 
-    /** The connection this link belongs to (NOT NULL, unique: exactly one link per connection). Its name is the link's name. */
+    /**
+     * The connection this link belongs to (NOT NULL, unique: exactly one link per connection). Its name is the link's name.
+     *
+     * @return BelongsTo<Connection, $this>
+     */
     public function connection(): BelongsTo
     {
         return $this->belongsTo(Connection::class);

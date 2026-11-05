@@ -16,13 +16,11 @@ use Illuminate\Support\Str;
  * assignment — same "outside fill(), handled explicitly" pattern
  * User::calendar_url_ciphertext already uses — call
  * getLocalizedField()/setLocalizedField() directly instead.
- *
- * @template T
  */
 trait HasLocalizedFields
 {
     /**
-     * @return MorphMany<T>
+     * @return MorphMany<Translation, $this>
      */
     public function localizedTexts(): MorphMany
     {

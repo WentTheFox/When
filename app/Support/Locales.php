@@ -21,9 +21,9 @@ namespace App\Support;
 final class Locales
 {
     /**
-     * code => [native name, English name]. Order here is dropdown order.
+     * code => native name. Order here is dropdown order.
      *
-     * @var array<string, array{0: string, 1: string}>
+     * @var array<string, string>
      */
     public const array NAMES = [
         'en' => 'English',
