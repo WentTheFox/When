@@ -32,6 +32,24 @@ class ConnectionAttributeDefinitionController extends Controller
     }
 
     /**
+     * Rename: only the (client-encrypted) label can change. The type is fixed
+     * for the life of the field, since existing values are stored in the
+     * column that type dictates.
+     */
+    public function update(Request $request, string $definition): JsonResponse
+    {
+        $definition = $request->user()->connectionAttributeDefinitions()->where('id', $definition)->firstOrFail();
+
+        $data = $request->validate([
+            'label_ciphertext' => ['required', 'string'],
+        ]);
+
+        $definition->update($data);
+
+        return response()->json(['id' => $definition->id]);
+    }
+
+    /**
      * Bulk "copy this text field into the identifier field" backend. The
      * client decrypts the source values itself and sends them here in
      * plaintext (identifiers are §0.2-tier, encrypted at rest only). Strictly
@@ -124,7 +142,7 @@ class ConnectionAttributeDefinitionController extends Controller
         $wasBypassSource = $user->bypass_dnd_definition_id === $definition->id;
         $definition->forceDelete();
 
-        // The users FK is nullOnDelete, so links silently revert to their legacy words; drop results built from the old lists.
+        // The users FK is nullOnDelete, so the highlight/bypass source silently becomes "none"; drop results built from the old values.
         if ($wasHighlightSource || $wasBypassSource) {
             HighlightWordsResolver::invalidateCaches($user->shareLinks()->pluck('id'));
         }

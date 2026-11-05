@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { faPencil, faTrashCan } from '@fortawesome/free-solid-svg-icons';
+import { faPencil, faTrashCan, faUserMinus } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import axios from 'axios';
 import {
@@ -11,11 +11,14 @@ import {
   BFormGroup,
   BFormRadio,
   BFormSelect,
+  BTab,
+  BTabs,
   type InputType,
 } from 'bootstrap-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../crypto';
 import EncryptedInput from '../Components/EncryptedInput.vue';
+import { CONNECTION_TABS } from './connectionsHash';
 import EncryptedText from '../Components/EncryptedText.vue';
 import ConnectionSharing, { type ShareLinkInfo } from './ConnectionSharing.vue';
 import { requestConfirm } from './confirmModal';
@@ -78,7 +81,14 @@ const decrypted = ref(false);
 const decryptFailed = ref(false);
 const settled = computed(() => decrypted.value || decryptFailed.value);
 const attributeValues = ref<Record<string, string>>({});
-const editing = ref(false);
+
+/**
+ * BTabs binds by tab id (namespaced so they can't collide with other ids on
+ * the page). The parent can bind this with v-model:tab to keep it in the URL
+ * hash; it works standalone too.
+ */
+const TAB = CONNECTION_TABS;
+const activeTab = defineModel<string>('tab', { default: CONNECTION_TABS.overview });
 
 const editName = ref('');
 const editNotes = ref('');
@@ -128,6 +138,9 @@ function addRelationship(): void {
 }
 
 async function decryptAll(): Promise<void> {
+  // Whether the form was untouched before this decryption changes the saved state under it.
+  const formWasClean = !isDirty.value;
+
   try {
     const key = await getRecordKey(props.connection.id);
     name.value = await decryptString(key, props.connection.name_ciphertext);
@@ -149,6 +162,7 @@ async function decryptAll(): Promise<void> {
     }
     attributeValues.value = values;
     decrypted.value = true;
+    if (formWasClean) populateEditForm();
   } catch (error) {
     console.error(error);
     name.value = '(could not decrypt)';
@@ -183,11 +197,14 @@ function inputType(type: string): InputType {
 }
 
 /**
- * Copies the decrypted values into the edit form. If decryption hasn't
- * finished yet these are still empty, and the EncryptedInput fields show the
- * raw ciphertext (disabled) in the meantime — see the `decrypted` watcher.
+ * Copies the saved state into the edit form. If decryption hasn't finished
+ * yet the encrypted values are still empty, and the EncryptedInput fields show
+ * the raw ciphertext (disabled) in the meantime; they are filled in as soon as
+ * decryption completes (see decryptAll).
  */
-function populateEncryptedEditFields(): void {
+function populateEditForm(): void {
+  editSourceIds.value = [...props.connection.source_ids];
+  editArchived.value = props.connection.archived;
   editName.value = name.value;
   editNotes.value = notes.value;
   editAttributeValues.value = { ...attributeValues.value };
@@ -200,17 +217,33 @@ function populateEncryptedEditFields(): void {
   }
 }
 
-function startEdit(): void {
-  editSourceIds.value = [...props.connection.source_ids];
-  editArchived.value = props.connection.archived;
-  populateEncryptedEditFields();
-  editing.value = true;
+/** True when the edit form holds changes that haven't been saved. */
+const isDirty = computed(() => {
+  if (editName.value !== name.value || editNotes.value !== notes.value) return true;
+  if (editArchived.value !== props.connection.archived) return true;
+
+  const savedSources = [...props.connection.source_ids].sort();
+  const draftSources = [...editSourceIds.value].sort();
+  if (savedSources.length !== draftSources.length || savedSources.some((id, k) => id !== draftSources[k])) return true;
+
+  const ids = new Set([...Object.keys(attributeValues.value), ...Object.keys(editAttributeValues.value)]);
+  return [...ids].some((id) => (editAttributeValues.value[id] ?? '') !== (attributeValues.value[id] ?? ''));
+});
+
+function openEditTab(): void {
+  activeTab.value = TAB.edit;
 }
 
-// The form was opened before decryption finished: fill the encrypted fields now.
-// They were disabled until this point, so nothing the user typed can be overwritten.
-watch(decrypted, (done) => {
-  if (done && editing.value) populateEncryptedEditFields();
+function cancelEdit(): void {
+  populateEditForm();
+  activeTab.value = TAB.overview;
+}
+
+// The saved state can change underneath an untouched form (e.g. the bulk
+// identifier copy), and saving a stale form would overwrite those values, so
+// entering the tab refreshes it — unless there is an unsaved draft to keep.
+watch(activeTab, (tab) => {
+  if (tab === TAB.edit && !isDirty.value) populateEditForm();
 });
 
 /** The raw ciphertext of a field's stored value, shown (disabled) until it has been decrypted. */
@@ -264,7 +297,7 @@ async function save(): Promise<void> {
     name.value = editName.value;
     notes.value = editNotes.value;
     attributeValues.value = { ...editAttributeValues.value };
-    editing.value = false;
+    activeTab.value = TAB.overview;
     emit('updated', data);
   } catch (error) {
     console.error(error);
@@ -291,16 +324,27 @@ async function remove(): Promise<void> {
 <template>
   <BCard :id="`connection-${connection.id}`" class="mb-3">
     <div class="d-flex justify-content-between align-items-start">
-      <div>
-        <h3 class="h6 mb-1">
-          <EncryptedText :value="settled ? name : undefined" :ciphertext="connection.name_ciphertext" />
-          <BBadge v-if="connection.archived" variant="secondary" class="ms-1">Archived</BBadge>
-        </h3>
+      <h3 class="h5 mb-0">
+        <EncryptedText :value="settled ? name : undefined" :ciphertext="connection.name_ciphertext" />
+        <BBadge v-if="connection.archived" variant="secondary" class="ms-1">Archived</BBadge>
+      </h3>
+      <BButtonGroup>
+        <BButton variant="outline-secondary" size="sm" aria-label="Edit this connection" title="Edit" @click="openEditTab">
+          <FontAwesomeIcon :icon="faPencil" />
+        </BButton>
+        <BButton variant="outline-danger" size="sm" aria-label="Delete this connection" title="Delete" @click="remove">
+          <FontAwesomeIcon :icon="faTrashCan" />
+        </BButton>
+      </BButtonGroup>
+    </div>
+
+    <BTabs v-model="activeTab" class="mt-3" tab-class="pt-3">
+      <BTab :id="TAB.overview" title="Overview">
         <p v-if="connection.source_ids.length" class="small text-muted mb-1">{{ sourceLabels(connection.source_ids) }}</p>
         <p v-if="myEdges.length" class="small text-muted mb-1">
           Knows: {{ myEdges.map((e) => e.otherName).join(', ') }}
         </p>
-        <p v-if="connection.share_link" class="small text-muted mb-1">Shared — manage the link under Edit.</p>
+        <p v-if="connection.share_link" class="small text-muted mb-1">Shared — manage the link on the Sharing tab.</p>
         <p v-if="connection.notes_ciphertext && (!settled || notes)" class="small mb-0">
           <EncryptedText :value="settled ? notes : undefined" :ciphertext="connection.notes_ciphertext" />
         </p>
@@ -329,125 +373,134 @@ async function remove(): Promise<void> {
             <div v-else-if="value" class="col-12">{{ attributeLabel(definitionId) }}: {{ value }}</div>
           </template>
         </dl>
-      </div>
-      <BButtonGroup>
-        <BButton variant="outline-secondary" size="sm" @click="startEdit"><FontAwesomeIcon :icon="faPencil"/></BButton>
-        <BButton variant="outline-danger" size="sm" @click="remove"><FontAwesomeIcon :icon="faTrashCan"/></BButton>
-      </BButtonGroup>
-    </div>
+      </BTab>
 
-    <div v-if="editing" class="mt-3">
-      <div class="row">
-        <div class="col-md-6">
-          <BFormGroup label="Name" class="mb-3">
-            <EncryptedInput v-model="editName" :ciphertext="connection.name_ciphertext" :pending="!decrypted" type="text" size="sm" />
-          </BFormGroup>
+      <BTab :id="TAB.edit">
+        <template #title>
+          Edit<span v-if="isDirty" class="text-warning ms-1" title="Unsaved changes" aria-label="Unsaved changes">&bull;</span>
+        </template>
+
+        <div class="row">
+          <div class="col-md-6">
+            <BFormGroup label="Name" class="mb-3">
+              <EncryptedInput v-model="editName" :ciphertext="connection.name_ciphertext" :pending="!decrypted" type="text" size="sm" />
+            </BFormGroup>
+          </div>
+          <div class="col-md-6">
+            <BFormGroup label="Sources" class="mb-3">
+              <BFormSelect v-model="editSourceIds" multiple size="sm">
+                <option v-for="source in sortedSources" :key="source.id" :value="source.id">{{ source.label }}</option>
+              </BFormSelect>
+            </BFormGroup>
+          </div>
         </div>
-        <div class="col-md-6">
-          <BFormGroup label="Sources" class="mb-3">
-            <BFormSelect v-model="editSourceIds" multiple size="sm">
-              <option v-for="source in sortedSources" :key="source.id" :value="source.id">{{ source.label }}</option>
-            </BFormSelect>
-          </BFormGroup>
-        </div>
-      </div>
-      <BFormGroup label="Notes" class="mb-3">
-        <EncryptedInput v-model="editNotes" :ciphertext="connection.notes_ciphertext" :pending="!decrypted" multiline size="sm" rows="2" />
-      </BFormGroup>
-      <BFormCheckbox :id="`archived-${connection.id}`" v-model="editArchived" class="mb-3">Archived</BFormCheckbox>
-      <BFormGroup label="Sharing" class="mb-3">
-        <ConnectionSharing
-          :connection-id="connection.id"
-          :share-link="connection.share_link"
-          @changed="onShareLinkChanged"
-        />
-      </BFormGroup>
-      <BFormGroup v-for="definition in attributeDefinitions" :key="definition.id" :label="definition.label" class="mb-3">
-        <EncryptedInput
-          v-if="definition.type === 'textarea'"
-          v-model="editAttributeValues[definition.id]"
-          :ciphertext="rawCiphertext(definition.id)"
-          :pending="!decrypted"
-          multiline
-          size="sm"
-          rows="2"
-        />
-        <div v-else-if="definition.type === 'radio'">
-          <BFormRadio
-            v-model="editAttributeValues[definition.id]"
-            inline
-            value=""
-            :disabled="!decrypted"
-          >
-            (unset)
-          </BFormRadio>
-          <BFormRadio
-            v-for="choice in definition.options"
-            :key="choice"
-            v-model="editAttributeValues[definition.id]"
-            inline
-            :value="choice"
-            :disabled="!decrypted"
-          >
-            {{ choice }}
-          </BFormRadio>
-        </div>
-        <BFormSelect
-          v-else-if="definition.type === 'connection'"
-          v-model="editAttributeValues[definition.id]"
-          size="sm"
-          :disabled="!decrypted"
-        >
-          <option value="">(none)</option>
-          <option v-for="c in relatableConnections" :key="c.id" :value="c.id">{{ c.label }}</option>
-        </BFormSelect>
-        <BFormSelect
-          v-else-if="definition.type === 'boolean'"
-          v-model="editAttributeValues[definition.id]"
-          size="sm"
-          :disabled="!decrypted"
-        >
-          <option value="">(unset)</option>
-          <option value="true">Yes</option>
-          <option value="false">No</option>
-        </BFormSelect>
-        <div v-else-if="definition.type === 'identifier_list'">
+        <BFormGroup label="Notes" class="mb-3">
+          <EncryptedInput v-model="editNotes" :ciphertext="connection.notes_ciphertext" :pending="!decrypted" multiline size="sm" rows="2" />
+        </BFormGroup>
+        <BFormCheckbox :id="`archived-${connection.id}`" v-model="editArchived" class="mb-3">Archived</BFormCheckbox>
+        <BFormGroup v-for="definition in attributeDefinitions" :key="definition.id" :label="definition.label" class="mb-3">
           <EncryptedInput
+            v-if="definition.type === 'textarea'"
             v-model="editAttributeValues[definition.id]"
             :ciphertext="rawCiphertext(definition.id)"
             :pending="!decrypted"
             multiline
             size="sm"
-            rows="3"
-            placeholder="One entry per line"
+            rows="2"
+          />
+          <div v-else-if="definition.type === 'radio'">
+            <BFormRadio
+              v-model="editAttributeValues[definition.id]"
+              inline
+              value=""
+              :disabled="!decrypted"
+            >
+              (unset)
+            </BFormRadio>
+            <BFormRadio
+              v-for="choice in definition.options"
+              :key="choice"
+              v-model="editAttributeValues[definition.id]"
+              inline
+              :value="choice"
+              :disabled="!decrypted"
+            >
+              {{ choice }}
+            </BFormRadio>
+          </div>
+          <BFormSelect
+            v-else-if="definition.type === 'connection'"
+            v-model="editAttributeValues[definition.id]"
+            size="sm"
+            :disabled="!decrypted"
+          >
+            <option value="">(none)</option>
+            <option v-for="c in relatableConnections" :key="c.id" :value="c.id">{{ c.label }}</option>
+          </BFormSelect>
+          <BFormSelect
+            v-else-if="definition.type === 'boolean'"
+            v-model="editAttributeValues[definition.id]"
+            size="sm"
+            :disabled="!decrypted"
+          >
+            <option value="">(unset)</option>
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </BFormSelect>
+          <div v-else-if="definition.type === 'identifier_list'">
+            <EncryptedInput
+              v-model="editAttributeValues[definition.id]"
+              :ciphertext="rawCiphertext(definition.id)"
+              :pending="!decrypted"
+              multiline
+              size="sm"
+              rows="3"
+              placeholder="One entry per line"
+              autocomplete="off"
+            />
+            <div class="form-text">Not end-to-end encrypted — one entry per line.</div>
+          </div>
+          <EncryptedInput
+            v-else-if="definition.type === 'identifier'"
+            v-model="editAttributeValues[definition.id]"
+            :ciphertext="rawCiphertext(definition.id)"
+            :pending="!decrypted"
+            type="text"
+            size="sm"
             autocomplete="off"
           />
-          <div class="form-text">Not end-to-end encrypted — one entry per line.</div>
-        </div>
-        <EncryptedInput
-          v-else-if="definition.type === 'identifier'"
-          v-model="editAttributeValues[definition.id]"
-          :ciphertext="rawCiphertext(definition.id)"
-          :pending="!decrypted"
-          type="text"
-          size="sm"
-          autocomplete="off"
-        />
-        <EncryptedInput
-          v-else
-          v-model="editAttributeValues[definition.id]"
-          :ciphertext="rawCiphertext(definition.id)"
-          :pending="!decrypted"
-          :type="inputType(definition.type)"
-          size="sm"
-        />
-      </BFormGroup>
+          <EncryptedInput
+            v-else
+            v-model="editAttributeValues[definition.id]"
+            :ciphertext="rawCiphertext(definition.id)"
+            :pending="!decrypted"
+            :type="inputType(definition.type)"
+            size="sm"
+          />
+        </BFormGroup>
 
-      <BFormGroup label="Relationships" class="mb-3">
-        <ul v-if="myEdges.length" class="list-unstyled mb-2">
-          <li v-for="edge in myEdges" :key="edge.id" class="d-flex justify-content-between align-items-center">
+        <BButton size="sm" variant="primary" :disabled="!decrypted || !isDirty" @click="save">Save</BButton>
+        <BButton size="sm" variant="outline-secondary" class="ms-1" @click="cancelEdit">
+          {{ isDirty ? 'Discard changes' : 'Close' }}
+        </BButton>
+      </BTab>
+
+      <BTab :id="TAB.relationships">
+        <template #title>Relationships<span v-if="myEdges.length" class="text-muted ms-1">({{ myEdges.length }})</span></template>
+
+        <p class="small text-muted">People this connection knows. Changes here apply immediately.</p>
+        <p v-if="!myEdges.length" class="small text-muted">Nobody yet.</p>
+        <ul v-else class="list-group mb-3">
+          <li v-for="edge in myEdges" :key="edge.id" class="list-group-item d-flex justify-content-between align-items-center py-1">
             <span>{{ edge.otherName }}</span>
-            <button type="button" class="btn btn-link btn-sm p-0" @click="emit('removeEdge', edge.id)">&times;</button>
+            <BButton
+              size="sm"
+              variant="outline-danger"
+              :aria-label="`Remove ${edge.otherName}`"
+              @click="emit('removeEdge', edge.id)"
+            >
+              <FontAwesomeIcon :icon="faUserMinus" /> Remove
+            </BButton>
           </li>
         </ul>
         <div class="input-group input-group-sm">
@@ -455,11 +508,19 @@ async function remove(): Promise<void> {
             <option value="" disabled>Knows…</option>
             <option v-for="c in knowableConnections" :key="c.id" :value="c.id">{{ c.label }}</option>
           </BFormSelect>
-          <BButton variant="outline-secondary" size="sm" @click="addRelationship">Add</BButton>
+          <BButton variant="outline-secondary" size="sm" :disabled="!newRelationTargetId" @click="addRelationship">Add</BButton>
         </div>
-      </BFormGroup>
+      </BTab>
 
-      <BButton size="sm" variant="primary" :disabled="!decrypted" @click="save">Save</BButton>
-    </div>
+      <BTab :id="TAB.sharing">
+        <template #title>Sharing<BBadge v-if="connection.share_link" variant="success" class="ms-1">On</BBadge></template>
+
+        <ConnectionSharing
+          :connection-id="connection.id"
+          :share-link="connection.share_link"
+          @changed="onShareLinkChanged"
+        />
+      </BTab>
+    </BTabs>
   </BCard>
 </template>

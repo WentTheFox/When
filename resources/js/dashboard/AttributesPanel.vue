@@ -1,83 +1,246 @@
 <script setup lang="ts">
-import { BButton, BCard, BFormInput, BFormSelect } from 'bootstrap-vue-next';
-import { computed, ref } from 'vue';
+import { BBadge, BButton, BCard, BFormGroup, BFormInput, BFormSelect } from 'bootstrap-vue-next';
+import { computed, ref, watch } from 'vue';
+import EncryptedInput from '../Components/EncryptedInput.vue';
+import EncryptedText from '../Components/EncryptedText.vue';
+import { requestConfirm } from './confirmModal';
+import LockedOverlay from './LockedOverlay.vue';
+
+const TYPE_LABELS: Record<string, string> = {
+  text: 'Text',
+  textarea: 'Multi-line',
+  radio: 'Choice',
+  date: 'Date',
+  number: 'Number',
+  url: 'URL',
+  email: 'Email',
+  phone: 'Phone',
+  connection: 'Connection',
+  identifier: 'Identifier (not E2EE)',
+  identifier_list: 'Identifier list (not E2EE)',
+  boolean: 'Yes/No (not E2EE)',
+};
+
+interface DefinitionItem {
+  id: string;
+  type: string;
+  /** Raw E2EE label, shown until `label` has been decrypted. */
+  label_ciphertext: string;
+  label?: string;
+  options: string[];
+}
 
 const props = defineProps<{
-  definitions: { id: string; label: string; type: string; options: string[] }[];
+  definitions: DefinitionItem[];
+  /** How many connections currently hold a value for each field (definition id to count). */
+  usage: Record<string, number>;
+  /** Which fields currently drive share-link highlighting / DND bypass (chosen in Settings). */
+  fieldRoles: { highlight: string | null; bypass: string | null };
   /** Null while idle; otherwise the bulk identifier copy's progress/result line. */
   copyStatus: string | null;
   copyBusy: boolean;
 }>();
-const emit = defineEmits<{ add: [string, string, string[]]; remove: [string]; copyToIdentifier: [string, string]; sweepOrphans: [] }>();
+const emit = defineEmits<{
+  add: [string, string, string[]];
+  rename: [string, string];
+  remove: [string];
+  copyToIdentifier: [string, string];
+  sweepOrphans: [];
+}>();
 
-const textDefinitions = computed(() => props.definitions.filter((d) => d.type === 'text'));
-const identifierDefinitions = computed(() => props.definitions.filter((d) => d.type === 'identifier'));
+/** Only decrypted fields can be picked, searched or used by the tools below. */
+const decryptedDefinitions = computed(() =>
+  props.definitions.filter((d): d is DefinitionItem & { label: string } => d.label !== undefined),
+);
+const textDefinitions = computed(() => decryptedDefinitions.value.filter((d) => d.type === 'text'));
+const identifierDefinitions = computed(() => decryptedDefinitions.value.filter((d) => d.type === 'identifier'));
 const hasConnectionDefinitions = computed(() => props.definitions.some((d) => d.type === 'connection'));
 const copySourceId = ref('');
 const copyTargetId = ref('');
 
+const filter = ref('');
+const sortedDefinitions = computed(() =>
+  [...props.definitions].sort((a, b) => (a.label ?? '').localeCompare(b.label ?? '')),
+);
+const filteredDefinitions = computed(() => {
+  const query = filter.value.trim().toLowerCase();
+  if (!query) return sortedDefinitions.value;
+  return sortedDefinitions.value.filter((d) => (d.label ?? '').toLowerCase().includes(query));
+});
+
+/** The open record; bound by the page (v-model:selected-id) so it can live in the URL hash. */
+const selectedId = defineModel<string | null>('selectedId', { default: null });
+const selected = computed(() => props.definitions.find((d) => d.id === selectedId.value) ?? null);
+/** True until the open record's label has been decrypted (e.g. opened from a deep link before unlocking). */
+const pending = computed(() => selected.value !== null && selected.value.label === undefined);
+const editLabel = ref('');
+
+function select(definition: DefinitionItem): void {
+  selectedId.value = definition.id;
+}
+
+// Fill the field whenever the open record changes or its label does (arriving once decrypted, or a rename round-tripping back through props).
+watch(selected, (current) => {
+  editLabel.value = current?.label ?? '';
+}, { immediate: true, deep: true });
+
+function rolesOf(id: string): string[] {
+  const roles: string[] = [];
+  if (props.fieldRoles.highlight === id) roles.push('Highlight tokens');
+  if (props.fieldRoles.bypass === id) roles.push('Bypass DND');
+  return roles;
+}
+
+const renameUnchanged = computed(() => editLabel.value.trim() === (selected.value?.label ?? ''));
+
+function saveRename(): void {
+  const label = editLabel.value.trim();
+  if (!selected.value || !label || renameUnchanged.value || pending.value) return;
+  emit('rename', selected.value.id, label);
+}
+
+async function confirmRemove(): Promise<void> {
+  const definition = selected.value;
+  if (!definition || definition.label === undefined) return;
+
+  const used = props.usage[definition.id] ?? 0;
+  const roles = rolesOf(definition.id);
+
+  const parts = [
+    used > 0
+      ? `${used} connection${used === 1 ? ' holds' : 's hold'} a value for it. Those values are permanently deleted.`
+      : 'No connection holds a value for it.',
+  ];
+  if (roles.length) {
+    parts.push(`It is currently your ${roles.join(' and ')} field for share links, so that setting will be cleared.`);
+  }
+  parts.push('This cannot be undone.');
+
+  const confirmed = await requestConfirm({
+    title: `Delete the “${definition.label}” field?`,
+    message: parts.join(' '),
+    confirmText: 'Delete field',
+    variant: 'danger',
+  });
+  if (!confirmed) return;
+
+  emit('remove', definition.id);
+  selectedId.value = null;
+}
+
+const showNewForm = ref(false);
 const newLabel = ref('');
 const newType = ref('text');
 const newChoices = ref('');
 
+function toggleNewForm(): void {
+  showNewForm.value = !showNewForm.value;
+  if (showNewForm.value && !newLabel.value) newLabel.value = filter.value.trim();
+}
+
 function add(): void {
-  if (!newLabel.value) return;
+  if (!newLabel.value.trim()) return;
   const choices = newType.value === 'radio'
     ? newChoices.value.split(',').map((c) => c.trim()).filter((c) => c !== '')
     : [];
-  emit('add', newLabel.value, newType.value, choices);
+  emit('add', newLabel.value.trim(), newType.value, choices);
   newLabel.value = '';
   newChoices.value = '';
+  filter.value = '';
+  showNewForm.value = false;
 }
 </script>
 
 <template>
   <BCard class="mb-3">
-    <h2 class="h6">Custom attributes</h2>
-    <ul class="list-unstyled mb-2">
-      <li v-for="definition in definitions" :key="definition.id" class="d-flex justify-content-between">
-        <span>
-          {{ definition.label }} <span class="text-muted">({{ definition.type }})</span>
-          <span v-if="definition.type === 'radio'" class="text-muted small"> — {{ definition.options.join(', ') }}</span>
-        </span>
-        <button type="button" class="btn btn-link btn-sm p-0" @click="emit('remove', definition.id)">&times;</button>
-      </li>
-    </ul>
-    <div class="input-group input-group-sm mb-1">
-      <BFormInput v-model="newLabel" type="text" placeholder="Label" @keyup.enter="add" />
-      <BFormSelect v-model="newType" style="max-width: 8rem;">
-        <option value="text">Text</option>
-        <option value="textarea">Multi-line</option>
-        <option value="radio">Choice</option>
-        <option value="date">Date</option>
-        <option value="number">Number</option>
-        <option value="url">URL</option>
-        <option value="email">Email</option>
-        <option value="phone">Phone</option>
-        <option value="connection">Connection</option>
-        <option value="identifier">Identifier (not E2EE)</option>
-        <option value="identifier_list">Identifier list (not E2EE)</option>
-        <option value="boolean">Yes/No (not E2EE)</option>
-      </BFormSelect>
-      <BButton variant="outline-secondary" @click="add">Add</BButton>
-    </div>
-    <BFormInput
-      v-if="newType === 'radio'"
-      v-model="newChoices"
-      type="text"
-      size="sm"
-      class="mb-1"
-      placeholder="Choices, comma-separated"
-      @keyup.enter="add"
-    />
-    <p v-if="newType === 'identifier' || newType === 'identifier_list' || newType === 'boolean'" class="small text-muted mb-1">
-      {{ newType === 'identifier_list' ? 'Identifier list' : newType === 'boolean' ? 'Yes/No' : 'Identifier' }} values are <strong>not</strong> end-to-end encrypted: they're sent to the server in plaintext
-      (and encrypted at rest with the app key) so they can be used to link a connection to an external service<template v-if="newType === 'identifier_list'">,
-      or as the highlight tokens of the connection's share link (choose the field in Settings)</template><template v-if="newType === 'boolean'">,
-      or as the "bypass do not disturb" switch of the connection's share link (choose the field in Settings)</template>.
-    </p>
+    <h2 class="h5 mb-3">Custom attributes</h2>
 
-    <div v-if="hasConnectionDefinitions" class="small mt-2">
+    <div class="row">
+      <div class="col-md-4">
+        <LockedOverlay>
+          <div class="input-group input-group-sm mb-2">
+            <BFormInput v-model="filter" type="text" placeholder="Search or new attribute" />
+            <BButton variant="outline-secondary" @click="toggleNewForm">New</BButton>
+          </div>
+
+          <BCard v-if="showNewForm" class="mb-2" body-class="p-2">
+            <BFormGroup label="Label" label-class="small" class="mb-2">
+              <BFormInput v-model="newLabel" type="text" size="sm" @keyup.enter="add" />
+            </BFormGroup>
+            <BFormGroup label="Type" label-class="small" class="mb-2">
+              <BFormSelect v-model="newType" size="sm">
+                <option v-for="(label, type) in TYPE_LABELS" :key="type" :value="type">{{ label }}</option>
+              </BFormSelect>
+            </BFormGroup>
+            <BFormGroup v-if="newType === 'radio'" label="Choices" label-class="small" description="Comma-separated." class="mb-2">
+              <BFormInput v-model="newChoices" type="text" size="sm" @keyup.enter="add" />
+            </BFormGroup>
+            <p v-if="newType === 'identifier' || newType === 'identifier_list' || newType === 'boolean'" class="small text-muted mb-2">
+              {{ newType === 'identifier_list' ? 'Identifier list' : newType === 'boolean' ? 'Yes/No' : 'Identifier' }} values are <strong>not</strong> end-to-end encrypted: they're sent to the server in plaintext
+              (and encrypted at rest with the app key) so they can be used to link a connection to an external service<template v-if="newType === 'identifier_list'">,
+              or as the highlight tokens of the connection's share link (choose the field in Settings)</template><template v-if="newType === 'boolean'">,
+              or as the "bypass do not disturb" switch of the connection's share link (choose the field in Settings)</template>.
+            </p>
+            <BButton size="sm" variant="primary" :disabled="!newLabel.trim()" @click="add">Create</BButton>
+          </BCard>
+
+          <p v-if="filteredDefinitions.length === 0" class="text-muted small">No attributes found.</p>
+          <div v-else class="list-group wtf-master-list">
+            <button
+              v-for="definition in filteredDefinitions"
+              :key="definition.id"
+              type="button"
+              class="list-group-item list-group-item-action"
+              :class="{ active: selectedId === definition.id }"
+              @click="select(definition)"
+            >
+              <EncryptedText :value="definition.label" :ciphertext="definition.label_ciphertext" />
+              <span class="small ms-1" :class="selectedId === definition.id ? '' : 'text-muted'">
+                ({{ TYPE_LABELS[definition.type] ?? definition.type }})
+              </span>
+            </button>
+          </div>
+        </LockedOverlay>
+      </div>
+
+      <div class="col-md-8">
+        <LockedOverlay>
+        <template v-if="selected">
+          <BFormGroup label="Name" class="mb-3">
+            <EncryptedInput
+              v-model="editLabel"
+              :ciphertext="selected.label_ciphertext"
+              :pending="pending"
+              type="text"
+              size="sm"
+              @keyup.enter="saveRename"
+            />
+          </BFormGroup>
+          <dl class="row small mb-3">
+            <dt class="col-sm-3">Type</dt>
+            <dd class="col-sm-9">{{ TYPE_LABELS[selected.type] ?? selected.type }} <span class="text-muted">(fixed once created)</span></dd>
+            <template v-if="selected.type === 'radio'">
+              <dt class="col-sm-3">Choices</dt>
+              <dd class="col-sm-9">{{ selected.options.join(', ') }}</dd>
+            </template>
+            <dt class="col-sm-3">Used on</dt>
+            <dd class="col-sm-9">{{ usage[selected.id] ?? 0 }} connection{{ (usage[selected.id] ?? 0) === 1 ? '' : 's' }}</dd>
+            <template v-if="rolesOf(selected.id).length">
+              <dt class="col-sm-3">Share links</dt>
+              <dd class="col-sm-9">
+                <BBadge v-for="role in rolesOf(selected.id)" :key="role" variant="info" class="me-1">{{ role }}</BBadge>
+              </dd>
+            </template>
+          </dl>
+          <BButton size="sm" variant="primary" :disabled="pending || !editLabel.trim() || renameUnchanged" @click="saveRename">Save</BButton>
+          <BButton size="sm" variant="outline-danger" :disabled="pending" @click="confirmRemove">Delete</BButton>
+        </template>
+        <p v-else class="text-muted">Select an attribute on the left to rename or delete it.</p>
+        </LockedOverlay>
+      </div>
+    </div>
+
+    <div v-if="hasConnectionDefinitions" class="small mt-3">
       <BButton variant="outline-secondary" size="sm" :disabled="copyBusy" @click="emit('sweepOrphans')">
         Remove references to deleted connections
       </BButton>

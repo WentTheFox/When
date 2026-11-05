@@ -2,14 +2,21 @@
 import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
 import { BButton, BCard, BFormGroup, BFormInput, BFormSelect, BFormTextarea } from 'bootstrap-vue-next';
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../../crypto';
 import AttributesPanel from '../../dashboard/AttributesPanel.vue';
 import CategoriesPanel from '../../dashboard/CategoriesPanel.vue';
 import EncryptedText from '../../Components/EncryptedText.vue';
 import ConnectionCard, { type ConnectionRow } from '../../dashboard/ConnectionCard.vue';
 import SourcesPanel from '../../dashboard/SourcesPanel.vue';
-import VaultGate from '../../dashboard/VaultGate.vue';
+import {
+  buildConnectionsHash,
+  CONNECTION_TABS,
+  hasRecord,
+  parseConnectionsHash,
+} from '../../dashboard/connectionsHash';
+import LockedOverlay from '../../dashboard/LockedOverlay.vue';
+import { requestUnlock } from '../../dashboard/vaultModal';
 import { useVault } from '../../dashboard/useVault';
 import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 
@@ -26,15 +33,56 @@ const props = defineProps<{
   categories: CategoryRow[];
   attributeDefinitions: DefinitionRow[];
   edges: EdgeRow[];
+  /** Which fields currently drive share-link highlighting / DND bypass (chosen in Settings). */
+  fieldRoles: { highlight: string | null; bypass: string | null };
 }>();
 
 const { createRecordKey, getRecordKey, vaultUnlocked } = useVault();
 
 const connections = ref<ConnectionRow[]>(props.connections);
-const sources = ref<{ id: string; category_id: string | null; label: string }[]>([]);
-const categories = ref<{ id: string; color_key: string | null; label: string }[]>([]);
-const definitions = ref<{ id: string; label: string; type: string; options: string[] }[]>([]);
+/**
+ * The lists below are populated from the server's data right away, with every
+ * name still as ciphertext (`label` undefined) — they show the raw blobs under
+ * the locked overlay and fill in as the vault is unlocked and each item is
+ * decrypted. The decrypted-only views further down are what the forms and
+ * connection cards use.
+ */
+interface SourceItem { id: string; category_id: string | null; name_ciphertext: string; label?: string }
+interface CategoryItem { id: string; color_key: string | null; name_ciphertext: string; label?: string }
+interface DefinitionItem { id: string; type: string; label_ciphertext: string; options_ciphertext: string | null; label?: string; options: string[] }
+
+const sourceItems = ref<SourceItem[]>(props.sources.map((s) => ({ ...s })));
+const categoryItems = ref<CategoryItem[]>(props.categories.map((c) => ({ ...c })));
+const definitionItems = ref<DefinitionItem[]>(props.attributeDefinitions.map((d) => ({ ...d, options: [] })));
+
+const sources = computed(() =>
+  sourceItems.value
+    .filter((s): s is SourceItem & { label: string } => s.label !== undefined)
+    .map(({ id, category_id, label }) => ({ id, category_id, label })),
+);
+const categories = computed(() =>
+  categoryItems.value
+    .filter((c): c is CategoryItem & { label: string } => c.label !== undefined)
+    .map(({ id, color_key, label }) => ({ id, color_key, label })),
+);
+const definitions = computed(() =>
+  definitionItems.value
+    .filter((d): d is DefinitionItem & { label: string } => d.label !== undefined)
+    .map(({ id, label, type, options }) => ({ id, label, type, options })),
+);
 const edges = ref<EdgeRow[]>([]);
+const fieldRoles = ref({ ...props.fieldRoles });
+
+/** How many connections hold a value for each custom attribute (definition id to count). */
+const definitionUsage = computed(() => {
+  const counts: Record<string, number> = {};
+  for (const connection of connections.value) {
+    for (const value of connection.attribute_values) {
+      counts[value.attribute_definition_id] = (counts[value.attribute_definition_id] ?? 0) + 1;
+    }
+  }
+  return counts;
+});
 
 const showNewForm = ref(false);
 const newName = ref('');
@@ -59,7 +107,23 @@ const sortedSources = computed(() => [...sources.value].sort((a, b) => a.label.l
  * editing, just for one connection at a time now instead of all of them
  * simultaneously.
  */
-const selectedConnectionId = ref<string | null>(null);
+const initialHash = typeof window === 'undefined' ? {} : parseConnectionsHash(window.location.hash);
+/** An id from the hash only counts if that record exists, so a stale link just opens nothing. */
+function known(list: { id: string }[], id?: string): string | null {
+  return id && list.some((item) => item.id === id) ? id : null;
+}
+
+const selectedConnectionId = ref<string | null>(known(props.connections, initialHash.connection));
+/** The open connection card's tab (a CONNECTION_TABS id). */
+const connectionTab = ref<string>(selectedConnectionId.value && initialHash.tab ? initialHash.tab : CONNECTION_TABS.overview);
+const selectedSourceId = ref<string | null>(known(props.sources, initialHash.source));
+const selectedCategoryId = ref<string | null>(known(props.categories, initialHash.category));
+const selectedDefinitionId = ref<string | null>(known(props.attributeDefinitions, initialHash.attribute));
+
+function selectConnection(id: string): void {
+  selectedConnectionId.value = id;
+  connectionTab.value = CONNECTION_TABS.overview;
+}
 const selectedConnection = computed(() => connections.value.find((c) => c.id === selectedConnectionId.value) ?? null);
 
 const connectionFilter = ref('');
@@ -77,49 +141,38 @@ const filteredConnections = computed(() => {
 watch(vaultUnlocked, async (unlocked) => {
   if (!unlocked) return;
 
-  for (const source of props.sources) {
+  for (const source of sourceItems.value) {
+    if (source.label !== undefined) continue;
     try {
       const key = await getRecordKey(source.id);
-      sources.value.push({
-        id: source.id,
-        category_id: source.category_id,
-        label: await decryptString(key, source.name_ciphertext),
-      });
+      source.label = await decryptString(key, source.name_ciphertext);
     } catch (error) {
       console.error(error);
     }
   }
 
-  for (const category of props.categories) {
+  for (const category of categoryItems.value) {
+    if (category.label !== undefined) continue;
     try {
       const key = await getRecordKey(category.id);
-      categories.value.push({
-        id: category.id,
-        color_key: category.color_key,
-        label: await decryptString(key, category.name_ciphertext),
-      });
+      category.label = await decryptString(key, category.name_ciphertext);
     } catch (error) {
       console.error(error);
     }
   }
 
-  for (const definition of props.attributeDefinitions) {
+  for (const definition of definitionItems.value) {
+    if (definition.label !== undefined) continue;
     try {
       const key = await getRecordKey(definition.id);
-      let options: string[] = [];
       if (definition.options_ciphertext) {
         try {
-          options = JSON.parse(await decryptString(key, definition.options_ciphertext)).choices ?? [];
+          definition.options = JSON.parse(await decryptString(key, definition.options_ciphertext)).choices ?? [];
         } catch (error) {
           console.error(error);
         }
       }
-      definitions.value.push({
-        id: definition.id,
-        label: await decryptString(key, definition.label_ciphertext),
-        type: definition.type,
-        options,
-      });
+      definition.label = await decryptString(key, definition.label_ciphertext);
     } catch (error) {
       console.error(error);
     }
@@ -138,28 +191,67 @@ watch(vaultUnlocked, async (unlocked) => {
 }, { immediate: true });
 
 /**
- * QuickSearch.vue (the dashboard-wide search box) links here as
- * /dashboard/connections#connection-<id> rather than trying to select from
- * the header component itself — that raced Inertia's page swap, since
- * nextTick() there only waits for a Vue update already scheduled at the
- * moment it's called, not one queued moments later. Reacting to
- * vaultUnlocked from inside this page instead means the select+scroll only
- * ever runs once this component's own detail pane can actually render:
- * either immediately (vault was already unlocked when this page loaded) or
- * once VaultGate's own unlock prompt resolves (it wasn't). Selecting the
- * connection in the master-detail layout below replaces what used to be
- * "scroll to this one's card in a long list" — the detail pane itself is
- * what gets scrolled into view now.
+ * The open records and the connection card's tab live in the URL hash
+ * (see connectionsHash.ts), so a reload — or a link — reopens the same view.
+ * It is written with replaceState (keeping Inertia's history state), so
+ * selecting things doesn't pile up history entries or jump the page.
  */
-watch(vaultUnlocked, (unlocked) => {
-  if (!unlocked || !window.location.hash.startsWith('#connection-')) return;
-
-  selectedConnectionId.value = window.location.hash.slice('#connection-'.length);
-
-  nextTick(() => {
-    document.getElementById('connection-detail-pane')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+function writeHash(): void {
+  const hash = buildConnectionsHash({
+    connection: selectedConnectionId.value ?? undefined,
+    tab: connectionTab.value,
+    source: selectedSourceId.value ?? undefined,
+    category: selectedCategoryId.value ?? undefined,
+    attribute: selectedDefinitionId.value ?? undefined,
   });
-}, { immediate: true });
+
+  if (window.location.hash === hash) return;
+
+  window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}${hash}`);
+}
+
+watch([selectedConnectionId, connectionTab, selectedSourceId, selectedCategoryId, selectedDefinitionId], writeHash);
+
+/** Applies whatever the hash names (a hand-edited hash or an in-page link). */
+function applyHash(): void {
+  const state = parseConnectionsHash(window.location.hash);
+  selectedConnectionId.value = known(connections.value, state.connection);
+  connectionTab.value = selectedConnectionId.value && state.tab ? state.tab : CONNECTION_TABS.overview;
+  selectedSourceId.value = known(sourceItems.value, state.source);
+  selectedCategoryId.value = known(categoryItems.value, state.category);
+  selectedDefinitionId.value = known(definitionItems.value, state.attribute);
+}
+
+/**
+ * A hash that names a record is an explicit request to look at it, so it asks
+ * for the unlock straight away — its form is already on screen, undecrypted,
+ * under the locked overlay. Without a record (or without a hash) nothing
+ * prompts; the lists only ask when clicked.
+ */
+function openFromHash(): void {
+  if (!hasRecord(parseConnectionsHash(window.location.hash))) return;
+
+  void requestUnlock();
+
+  if (selectedConnectionId.value) {
+    nextTick(() => {
+      document.getElementById('connection-detail-pane')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+}
+
+function onHashChange(): void {
+  applyHash();
+  openFromHash();
+}
+
+onMounted(() => {
+  writeHash(); // normalizes an older #connection-<id> link to the current form
+  window.addEventListener('hashchange', onHashChange);
+  openFromHash();
+});
+
+onBeforeUnmount(() => window.removeEventListener('hashchange', onHashChange));
 
 function toggleNewForm(): void {
   showNewForm.value = !showNewForm.value;
@@ -187,7 +279,7 @@ async function createConnection(): Promise<void> {
 
     connections.value.unshift(data);
     decryptedNames.value[id] = newName.value;
-    selectedConnectionId.value = id;
+    selectConnection(id);
 
     newName.value = '';
     newSourceIds.value = [];
@@ -266,11 +358,9 @@ async function addSource(name: string): Promise<void> {
   try {
     const id = crypto.randomUUID();
     const key = await createRecordKey(id);
-    await axios.post('/dashboard/connection-sources', {
-      id,
-      name_ciphertext: await encryptString(key, name),
-    });
-    sources.value.push({ id, category_id: null, label: name });
+    const nameCiphertext = await encryptString(key, name);
+    await axios.post('/dashboard/connection-sources', { id, name_ciphertext: nameCiphertext });
+    sourceItems.value.push({ id, category_id: null, name_ciphertext: nameCiphertext, label: name });
   } catch (error) {
     console.error(error);
   }
@@ -279,12 +369,14 @@ async function addSource(name: string): Promise<void> {
 async function updateSource(id: string, name: string, categoryId: string | null): Promise<void> {
   try {
     const key = await getRecordKey(id);
+    const nameCiphertext = await encryptString(key, name);
     await axios.patch(`/dashboard/connection-sources/${id}`, {
-      name_ciphertext: await encryptString(key, name),
+      name_ciphertext: nameCiphertext,
       category_id: categoryId,
     });
-    const source = sources.value.find((s) => s.id === id);
+    const source = sourceItems.value.find((s) => s.id === id);
     if (source) {
+      source.name_ciphertext = nameCiphertext;
       source.label = name;
       source.category_id = categoryId;
     }
@@ -296,7 +388,7 @@ async function updateSource(id: string, name: string, categoryId: string | null)
 async function removeSource(id: string): Promise<void> {
   try {
     await axios.delete(`/dashboard/connection-sources/${id}`);
-    sources.value = sources.value.filter((s) => s.id !== id);
+    sourceItems.value = sourceItems.value.filter((s) => s.id !== id);
   } catch (error) {
     console.error(error);
   }
@@ -306,11 +398,9 @@ async function addCategory(name: string): Promise<void> {
   try {
     const id = crypto.randomUUID();
     const key = await createRecordKey(id);
-    await axios.post('/dashboard/connection-source-categories', {
-      id,
-      name_ciphertext: await encryptString(key, name),
-    });
-    categories.value.push({ id, color_key: null, label: name });
+    const nameCiphertext = await encryptString(key, name);
+    await axios.post('/dashboard/connection-source-categories', { id, name_ciphertext: nameCiphertext });
+    categoryItems.value.push({ id, color_key: null, name_ciphertext: nameCiphertext, label: name });
   } catch (error) {
     console.error(error);
   }
@@ -319,12 +409,14 @@ async function addCategory(name: string): Promise<void> {
 async function updateCategory(id: string, name: string, colorKey: string | null): Promise<void> {
   try {
     const key = await getRecordKey(id);
+    const nameCiphertext = await encryptString(key, name);
     await axios.patch(`/dashboard/connection-source-categories/${id}`, {
-      name_ciphertext: await encryptString(key, name),
+      name_ciphertext: nameCiphertext,
       color_key: colorKey,
     });
-    const category = categories.value.find((c) => c.id === id);
+    const category = categoryItems.value.find((c) => c.id === id);
     if (category) {
+      category.name_ciphertext = nameCiphertext;
       category.label = name;
       category.color_key = colorKey;
     }
@@ -336,7 +428,7 @@ async function updateCategory(id: string, name: string, colorKey: string | null)
 async function removeCategory(id: string): Promise<void> {
   try {
     await axios.delete(`/dashboard/connection-source-categories/${id}`);
-    categories.value = categories.value.filter((c) => c.id !== id);
+    categoryItems.value = categoryItems.value.filter((c) => c.id !== id);
   } catch (error) {
     console.error(error);
   }
@@ -347,13 +439,14 @@ async function addDefinition(label: string, type: string, choices: string[]): Pr
     const id = crypto.randomUUID();
     const key = await createRecordKey(id);
     const optionsCiphertext = type === 'radio' ? await encryptString(key, JSON.stringify({ choices })) : null;
+    const labelCiphertext = await encryptString(key, label);
     await axios.post('/dashboard/connection-attribute-definitions', {
       id,
-      label_ciphertext: await encryptString(key, label),
+      label_ciphertext: labelCiphertext,
       type,
       options_ciphertext: optionsCiphertext,
     });
-    definitions.value.push({ id, label, type, options: choices });
+    definitionItems.value.push({ id, type, label_ciphertext: labelCiphertext, options_ciphertext: optionsCiphertext, label, options: choices });
   } catch (error) {
     console.error(error);
   }
@@ -416,10 +509,34 @@ async function copyToIdentifier(sourceId: string, targetId: string): Promise<voi
   }
 }
 
+async function renameDefinition(id: string, label: string): Promise<void> {
+  try {
+    const key = await getRecordKey(id);
+    const labelCiphertext = await encryptString(key, label);
+    await axios.patch(`/dashboard/connection-attribute-definitions/${id}`, { label_ciphertext: labelCiphertext });
+    const definition = definitionItems.value.find((d) => d.id === id);
+    if (definition) {
+      definition.label_ciphertext = labelCiphertext;
+      definition.label = label;
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+/** The panel has already asked for confirmation. */
 async function removeDefinition(id: string): Promise<void> {
   try {
     await axios.delete(`/dashboard/connection-attribute-definitions/${id}`);
-    definitions.value = definitions.value.filter((d) => d.id !== id);
+    definitionItems.value = definitionItems.value.filter((d) => d.id !== id);
+
+    // The server deleted every connection's value for it and cleared it as the highlight/bypass source.
+    connections.value = connections.value.map((c) => ({
+      ...c,
+      attribute_values: c.attribute_values.filter((v) => v.attribute_definition_id !== id),
+    }));
+    if (fieldRoles.value.highlight === id) fieldRoles.value.highlight = null;
+    if (fieldRoles.value.bypass === id) fieldRoles.value.bypass = null;
   } catch (error) {
     console.error(error);
   }
@@ -468,10 +585,10 @@ async function removeEdge(id: string): Promise<void> {
     </div>
   </BCard>
 
-  <VaultGate>
-    <BCard class="mb-4">
-      <div class="row">
-        <div class="col-md-4">
+  <BCard class="mb-4">
+    <div class="row">
+      <div class="col-md-4">
+        <LockedOverlay>
           <div class="input-group input-group-sm mb-2">
             <BFormInput v-model="connectionFilter" type="text" placeholder="Search or new connection name" />
             <BButton variant="outline-secondary" @click="toggleNewForm">New</BButton>
@@ -501,18 +618,21 @@ async function removeEdge(id: string): Promise<void> {
               type="button"
               class="list-group-item list-group-item-action"
               :class="{ active: selectedConnectionId === connection.id }"
-              @click="selectedConnectionId = connection.id"
+              @click="selectConnection(connection.id)"
             >
               <EncryptedText :value="decryptedNames[connection.id]" :ciphertext="connection.name_ciphertext" />
               <span v-if="connection.archived" class="small text-muted">(archived)</span>
             </button>
           </div>
-        </div>
+        </LockedOverlay>
+      </div>
 
-        <div id="connection-detail-pane" class="col-md-8">
+      <div id="connection-detail-pane" class="col-md-8">
+        <LockedOverlay>
           <ConnectionCard
             v-if="selectedConnection"
             :key="selectedConnection.id"
+            v-model:tab="connectionTab"
             :connection="selectedConnection"
             :sources="sources"
             :attribute-definitions="definitions"
@@ -524,22 +644,26 @@ async function removeEdge(id: string): Promise<void> {
             @remove-edge="removeEdge"
           />
           <p v-else class="text-muted">Select a connection on the left to view or edit it.</p>
-        </div>
+        </LockedOverlay>
       </div>
-    </BCard>
+    </div>
+  </BCard>
 
-    <SourcesPanel :sources="sources" :categories="categories" @add="addSource" @update="updateSource" @remove="removeSource" />
+  <SourcesPanel v-model:selected-id="selectedSourceId" :sources="sourceItems" :categories="categories" @add="addSource" @update="updateSource" @remove="removeSource" />
 
-    <CategoriesPanel :categories="categories" @add="addCategory" @update="updateCategory" @remove="removeCategory" />
+  <CategoriesPanel v-model:selected-id="selectedCategoryId" :categories="categoryItems" @add="addCategory" @update="updateCategory" @remove="removeCategory" />
 
-    <AttributesPanel
-      :definitions="definitions"
-      :copy-status="copyStatus"
-      :copy-busy="copyBusy"
-      @add="addDefinition"
-      @remove="removeDefinition"
-      @copy-to-identifier="copyToIdentifier"
-      @sweep-orphans="sweepOrphans"
-    />
-  </VaultGate>
+  <AttributesPanel
+    v-model:selected-id="selectedDefinitionId"
+    :definitions="definitionItems"
+    :usage="definitionUsage"
+    :field-roles="fieldRoles"
+    :copy-status="copyStatus"
+    :copy-busy="copyBusy"
+    @add="addDefinition"
+    @rename="renameDefinition"
+    @remove="removeDefinition"
+    @copy-to-identifier="copyToIdentifier"
+    @sweep-orphans="sweepOrphans"
+  />
 </template>

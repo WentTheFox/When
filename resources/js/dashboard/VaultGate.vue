@@ -3,8 +3,10 @@
  * compact: a small inline "Unlock vault" prompt instead of a full-height
  * placeholder — for gating a single vault-tier piece of a page that's
  * otherwise usable unlocked (e.g. sleep exceptions' optional private
- * note), rather than an entire page that's vault-tier top to bottom
- * (Connections). Either way, the actual dialog is the one
+ * note), rather than an entire page that's vault-tier top to bottom.
+ * (The Connections page no longer uses a whole-page gate: its lists sit
+ * under LockedOverlay and only ask for the unlock when clicked.)
+ * Either way, the actual dialog is the one
  * global VaultUnlockModal (mounted once in DashboardLayout.vue) — this
  * component only ever requests it and gates its slot on the result.
  */
