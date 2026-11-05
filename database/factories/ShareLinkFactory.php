@@ -21,7 +21,6 @@ class ShareLinkFactory extends Factory
             // Every share link belongs to a connection (of the same user).
             'connection_id' => fn (array $attributes) => Connection::factory()->create(['user_id' => $attributes['user_id']])->id,
             'archived' => false,
-            'bypass_dnd' => false,
             // Every real share link gets one at creation (see
             // ConnectionShareLinkController::store()) — a factory-made one
             // should too, so a test resolving `/free/{link->highlight_token}`

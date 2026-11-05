@@ -13,7 +13,6 @@ use App\Models\ConnectionSourceCategory;
 use App\Models\Invite;
 use App\Models\InviteRedemption;
 use App\Models\ShareLink;
-use App\Models\ShareLinkWord;
 use App\Models\SleepException;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -74,7 +73,6 @@ class AccountExportTest extends TestCase
         ]);
 
         $shareLink = ShareLink::factory()->for($user)->create();
-        ShareLinkWord::create(['share_link_id' => $shareLink->id, 'word_ciphertext' => Crypt::encryptString('dinner')]);
 
         SleepException::create([
             'user_id' => $user->id,
@@ -132,7 +130,6 @@ class AccountExportTest extends TestCase
             'availability/sleep-exceptions.json',
             'availability/activity-localizations.json',
             'share-links/share-links.json',
-            'share-links/share-link-words.json',
             'share-links/share-link-cache-note.txt',
             'connections/connections.json',
             'connections/sources.json',
@@ -162,10 +159,6 @@ class AccountExportTest extends TestCase
         $attributeValues = json_decode($zip->getFromName('connections/attribute-values.json'), true);
         $exportedValue = $attributeValues['records'][0];
         $this->assertSame($connection->id, $exportedValue['key_ring_id'], 'attribute value key_ring_id must be the parent connection id');
-
-        $shareLinkWords = json_decode($zip->getFromName('share-links/share-link-words.json'), true);
-        $this->assertSame('server-decrypted', $shareLinkWords['tier']);
-        $this->assertSame('dinner', $shareLinkWords['records'][0]['word']);
 
         $shareLinks = json_decode($zip->getFromName('share-links/share-links.json'), true);
         $this->assertSame('plaintext', $shareLinks['tier']);

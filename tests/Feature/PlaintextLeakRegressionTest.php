@@ -10,7 +10,6 @@ use App\Models\ConnectionEdge;
 use App\Models\ConnectionSource;
 use App\Models\ConnectionSourceCategory;
 use App\Models\ShareLink;
-use App\Models\ShareLinkWord;
 use App\Models\SleepException;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -124,11 +123,18 @@ class PlaintextLeakRegressionTest extends TestCase
         ]);
 
         // Highlight words are matched server-side against ICS titles during
-        // recompute (§5.1), so they're encrypted at rest with the runtime
-        // key — same tier as calendar_url, not the client vault key.
-        ShareLinkWord::create([
-            'share_link_id' => $shareLink->id,
-            'word_ciphertext' => Crypt::encryptString(self::HIGHLIGHT_WORD),
+        // recompute (§5.1), so they live in an identifier_list value encrypted
+        // at rest with the runtime key — same tier as calendar_url, not the
+        // client vault key.
+        $highlightDefinition = ConnectionAttributeDefinition::create([
+            'user_id' => $user->id,
+            'label_ciphertext' => $this->fakeClientCiphertext('PlaintextSentinelLabel_HighlightField'),
+            'type' => 'identifier_list',
+        ]);
+        ConnectionAttributeValue::create([
+            'connection_id' => $connection->id,
+            'attribute_definition_id' => $highlightDefinition->id,
+            'identifier_list_value' => [self::HIGHLIGHT_WORD],
         ]);
 
         $otherConnection = Connection::create([
@@ -305,7 +311,7 @@ class PlaintextLeakRegressionTest extends TestCase
     {
         $tables = [
             'users', 'sleep_exceptions', 'connection_source_categories',
-            'connection_sources', 'share_links', 'share_link_words',
+            'connection_sources', 'share_links',
             'share_link_cache', 'connections', 'connection_attribute_definitions',
             'connection_attribute_values', 'connection_edges', 'invites',
             'invite_redemptions', 'activity_localizations', 'availability_windows',

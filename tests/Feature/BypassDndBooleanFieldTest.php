@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
-/** 'boolean' values (§0.2 tier) as the source of a share link's bypass-DND flag, with NO fallback to share_links.bypass_dnd. */
+/** 'boolean' values (§0.2 tier) as the source of a share link's bypass-DND flag. */
 class BypassDndBooleanFieldTest extends TestCase
 {
     use RefreshDatabase;
@@ -64,7 +64,7 @@ class BypassDndBooleanFieldTest extends TestCase
     public function test_nobody_bypasses_dnd_until_a_field_is_selected_and_set(): void
     {
         $user = User::factory()->create();
-        $link = ShareLink::factory()->create(['user_id' => $user->id, 'bypass_dnd' => true]);
+        $link = ShareLink::factory()->create(['user_id' => $user->id]);
         $connection = $this->connection($user, $link);
         $definition = $this->definition($user);
         $resolver = app(BypassDndResolver::class);
