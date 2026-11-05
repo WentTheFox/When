@@ -700,7 +700,7 @@ async function removeEdge(id: string): Promise<void> {
                   <span
                     v-if="connection.archived"
                     class="ms-1 connection-archived"
-                    :class="selectedConnectionId === connection.id ? '' : 'text-muted'"
+                    :class="selectedConnectionId === connection.id ? '' : 'text-warning'"
                     title="Archived"
                   >
                     <FontAwesomeIcon :icon="faBoxArchive" />
