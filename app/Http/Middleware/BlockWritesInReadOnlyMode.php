@@ -56,6 +56,6 @@ class BlockWritesInReadOnlyMode
             return true;
         }
 
-        return self::WRITING_GET_PATTERNS !== [] && $request->is(...self::WRITING_GET_PATTERNS);
+        return $request->is(...self::WRITING_GET_PATTERNS);
     }
 }

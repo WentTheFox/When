@@ -174,7 +174,7 @@ class ShareLinkController extends Controller
             'textDirection' => in_array($locale, Locales::RTL, true) ? 'rtl' : 'ltr',
             'pageTitle' => $owner !== null ? $this->resolveTitle($owner, $locale) : null,
             // TODO Define based on locale
-            'weekStart' => $owner?->week_start ?? 1,
+            'weekStart' => $owner->week_start ?? 1,
             // Every slot including now is a palette KEY, not a hex — the
             // frontend resolves it to an actual light/dark hex pair via
             // resources/js/free/color-palette.ts (now: now-color-presets.ts),

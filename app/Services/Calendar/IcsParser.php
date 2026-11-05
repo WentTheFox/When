@@ -91,7 +91,6 @@ class IcsParser
         string $parsingMode = 'full_detail',
         ?string $publicEventTitlePattern = null,
     ): array {
-        /** @var VCalendar $calendar */
         $calendar = Reader::read($icsBody, Reader::OPTION_FORGIVING);
 
         if (! $calendar instanceof VCalendar) {
