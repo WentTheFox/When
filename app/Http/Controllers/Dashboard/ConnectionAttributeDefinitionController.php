@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\ConnectionAttributeValue;
+use App\Services\Calendar\HighlightWordsResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,7 @@ class ConnectionAttributeDefinitionController extends Controller
         $data = $request->validate([
             'id' => ['required', 'uuid', 'unique:connection_attribute_definitions,id'],
             'label_ciphertext' => ['required', 'string'],
-            'type' => ['required', 'in:text,textarea,date,number,url,email,phone,radio,identifier,connection'],
+            'type' => ['required', 'in:text,textarea,date,number,url,email,phone,radio,identifier,identifier_list,boolean,connection'],
             // Only meaningful for 'radio' (JSON-encoded {"choices": [...]},
             // client-encrypted with this definition's own record key — same
             // key as label_ciphertext, not any connection's key.
@@ -117,7 +118,16 @@ class ConnectionAttributeDefinitionController extends Controller
         // forceDelete(), not delete() — see ActivityLocalizationController::destroy's
         // comment: SoftDeletes on this model exists only for account-wide
         // deletion, not this single-record user action.
-        $request->user()->connectionAttributeDefinitions()->where('id', $definition)->firstOrFail()->forceDelete();
+        $user = $request->user();
+        $definition = $user->connectionAttributeDefinitions()->where('id', $definition)->firstOrFail();
+        $wasHighlightSource = $user->highlight_identifier_definition_id === $definition->id;
+        $wasBypassSource = $user->bypass_dnd_definition_id === $definition->id;
+        $definition->forceDelete();
+
+        // The users FK is nullOnDelete, so links silently revert to their legacy words; drop results built from the old lists.
+        if ($wasHighlightSource || $wasBypassSource) {
+            HighlightWordsResolver::invalidateCaches($user->shareLinks()->pluck('id'));
+        }
 
         return response()->json(['status' => 'ok']);
     }

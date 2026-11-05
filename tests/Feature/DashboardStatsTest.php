@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Connection;
 use App\Models\ShareLink;
-use App\Models\ShareLinkWord;
 use App\Models\User;
 use GuzzleHttp\Client;
 use GuzzleHttp\Handler\MockHandler;
@@ -13,11 +12,13 @@ use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
+use Tests\Concerns\SeedsHighlightWords;
 use Tests\TestCase;
 
 class DashboardStatsTest extends TestCase
 {
     use RefreshDatabase;
+    use SeedsHighlightWords;
 
     private function icsFixture(): string
     {
@@ -118,10 +119,6 @@ class DashboardStatsTest extends TestCase
         ]);
 
         $shareLink = ShareLink::factory()->for($user)->create();
-        ShareLinkWord::create([
-            'share_link_id' => $shareLink->id,
-            'word_ciphertext' => Crypt::encryptString('Alice'),
-        ]);
 
         $connection = Connection::create([
             'id' => Str::uuid(),
@@ -129,6 +126,7 @@ class DashboardStatsTest extends TestCase
             'name_ciphertext' => 'opaque-ciphertext-blob',
             'share_link_id' => $shareLink->id,
         ]);
+        $this->seedHighlightWords($user, $shareLink, ['Alice']);
 
         $response = $this->actingAs($user)->getJson('/dashboard/stats/availability');
 
@@ -173,10 +171,7 @@ class DashboardStatsTest extends TestCase
         ]);
 
         $shareLink = ShareLink::factory()->for($user)->create();
-        ShareLinkWord::create([
-            'share_link_id' => $shareLink->id,
-            'word_ciphertext' => Crypt::encryptString('Bob'),
-        ]);
+        $this->seedHighlightWords($user, $shareLink, ['Bob']);
 
         $response = $this->actingAs($user)->getJson('/dashboard/stats/availability');
 
@@ -198,10 +193,7 @@ class DashboardStatsTest extends TestCase
         ]);
 
         $shareLink = ShareLink::factory()->for($user)->create(['archived' => true]);
-        ShareLinkWord::create([
-            'share_link_id' => $shareLink->id,
-            'word_ciphertext' => Crypt::encryptString('Bob'),
-        ]);
+        $this->seedHighlightWords($user, $shareLink, ['Bob']);
 
         $response = $this->actingAs($user)->getJson('/dashboard/stats/availability');
 

@@ -26,6 +26,10 @@ interface AttributeValue {
   value_ciphertext: string | null;
   /** Server-decrypted (§0.2 tier), not E2EE; only set for identifier-type definitions. */
   identifier_value?: string | null;
+  /** Server-decrypted (§0.2 tier), not E2EE; only set for identifier_list-type definitions. */
+  identifier_list_value?: string[] | null;
+  /** Server-decrypted (§0.2 tier), not E2EE; only set for boolean-type definitions. */
+  boolean_value?: boolean | null;
 }
 
 export interface ConnectionRow {
@@ -136,9 +140,15 @@ async function decryptAll(): Promise<void> {
 
     const values: Record<string, string> = {};
     for (const attributeValue of props.connection.attribute_values) {
+      // Lists are edited as one entry per line, so they ride in the same string map as every other value.
+      // Booleans ride in the same string map as 'true'/'false' ('' = unset).
       values[attributeValue.attribute_definition_id] = attributeValue.value_ciphertext
         ? await decryptString(key, attributeValue.value_ciphertext)
-        : (attributeValue.identifier_value ?? '');
+        : attributeValue.boolean_value != null
+          ? String(attributeValue.boolean_value)
+          : attributeValue.identifier_list_value
+          ? attributeValue.identifier_list_value.join('\n')
+          : (attributeValue.identifier_value ?? '');
     }
     attributeValues.value = values;
   } catch (error) {
@@ -193,13 +203,29 @@ async function save(): Promise<void> {
   try {
     const key = await getRecordKey(props.connection.id);
 
-    const values: { attribute_definition_id: string; value_ciphertext?: string; identifier_value?: string }[] = [];
+    const values: {
+      attribute_definition_id: string;
+      value_ciphertext?: string;
+      identifier_value?: string;
+      identifier_list_value?: string[];
+      boolean_value?: boolean;
+    }[] = [];
     for (const definition of props.attributeDefinitions) {
       const value = editAttributeValues.value[definition.id];
       if (!value) continue;
+      if (definition.type === 'boolean') {
+        // §0.2 tier on purpose, like identifier: plaintext on the wire, app-key encrypted at rest.
+        values.push({ attribute_definition_id: definition.id, boolean_value: value === 'true' });
+        continue;
+      }
+      if (definition.type === 'identifier_list') {
+        // §0.2 tier on purpose, same as identifier: plaintext on the wire, app-key encrypted at rest.
+        const list = value.split('\n').map((v) => v.trim()).filter(Boolean);
+        if (list.length) values.push({ attribute_definition_id: definition.id, identifier_list_value: list });
+        continue;
+      }
       values.push(
         definition.type === 'identifier'
-          // §0.2 tier on purpose: sent as plaintext, encrypted at rest with the app key.
           ? { attribute_definition_id: definition.id, identifier_value: value }
           : { attribute_definition_id: definition.id, value_ciphertext: await encryptString(key, value) },
       );
@@ -272,6 +298,12 @@ async function remove(): Promise<void> {
               <span v-if="connectionRefLabel(value)">{{ connectionRefLabel(value) }}</span>
               <span v-else class="text-muted fst-italic">(deleted connection)</span>
             </div>
+            <div v-else-if="value && attributeType(definitionId) === 'boolean'" class="col-12">
+              {{ attributeLabel(definitionId) }}: {{ value === 'true' ? 'Yes' : 'No' }}
+            </div>
+            <div v-else-if="value && attributeType(definitionId) === 'identifier_list'" class="col-12">
+              {{ attributeLabel(definitionId) }}: {{ value.split('\n').join(', ') }}
+            </div>
             <div v-else-if="value" class="col-12">{{ attributeLabel(definitionId) }}: {{ value }}</div>
           </template>
         </dl>
@@ -334,6 +366,25 @@ async function remove(): Promise<void> {
           <option value="">(none)</option>
           <option v-for="c in relatableConnections" :key="c.id" :value="c.id">{{ c.label }}</option>
         </BFormSelect>
+        <BFormSelect
+          v-else-if="definition.type === 'boolean'"
+          v-model="editAttributeValues[definition.id]"
+          size="sm"
+        >
+          <option value="">(unset)</option>
+          <option value="true">Yes</option>
+          <option value="false">No</option>
+        </BFormSelect>
+        <div v-else-if="definition.type === 'identifier_list'">
+          <BFormTextarea
+            v-model="editAttributeValues[definition.id]"
+            size="sm"
+            rows="3"
+            placeholder="One entry per line"
+            autocomplete="off"
+          />
+          <div class="form-text">Not end-to-end encrypted — one entry per line.</div>
+        </div>
         <BFormInput
           v-else-if="definition.type === 'identifier'"
           v-model="editAttributeValues[definition.id]"

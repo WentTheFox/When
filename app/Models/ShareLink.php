@@ -20,8 +20,6 @@ class ShareLink extends Model
         'label_ciphertext',
         'archived',
         'bypass_dnd',
-        'show_activity',
-        'show_recurring',
         'highlight_token',
     ];
 
@@ -30,8 +28,6 @@ class ShareLink extends Model
         return [
             'archived' => 'boolean',
             'bypass_dnd' => 'boolean',
-            'show_activity' => 'boolean',
-            'show_recurring' => 'boolean',
         ];
     }
 

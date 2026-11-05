@@ -67,6 +67,12 @@ class UpdateSettingsRequest extends FormRequest
             'public_page_title' => ['sometimes', 'nullable', 'array'],
             'public_page_title.default' => ['nullable', 'string', 'max:255'],
             'public_page_title.*' => ['nullable', 'string', 'max:255'],
+            // Must be one of this owner's own identifier_list fields; null reverts to the legacy per-link words.
+            'highlight_identifier_definition_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('connection_attribute_definitions', 'id')
+                ->where('user_id', Auth::id())->where('type', 'identifier_list')->whereNull('deleted_at')],
+            // Must be one of this owner's own boolean fields; null reverts to each link's own bypass_dnd flag.
+            'bypass_dnd_definition_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('connection_attribute_definitions', 'id')
+                ->where('user_id', Auth::id())->where('type', 'boolean')->whereNull('deleted_at')],
             'accent_color_key' => ['sometimes', 'nullable', Rule::enum(ColorSwatchKey::class)],
             'secondary_color_key' => ['sometimes', 'nullable', Rule::enum(ColorSwatchKey::class)],
             'sleep_color_key' => ['sometimes', 'nullable', Rule::enum(ColorSwatchKey::class)],

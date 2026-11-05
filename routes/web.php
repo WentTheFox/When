@@ -191,6 +191,12 @@ Route::middleware('auth')->group(function () {
     Route::patch('/settings/calendar-url', [SettingsController::class, 'updateCalendarUrl'])
         ->name('settings.calendar-url.update');
 
+    Route::post('/settings/highlight-words/migrate', [SettingsController::class, 'migrateHighlightWords'])
+        ->name('settings.highlight-words.migrate');
+
+    Route::post('/settings/bypass-dnd/migrate', [SettingsController::class, 'migrateBypassDnd'])
+        ->name('settings.bypass-dnd.migrate');
+
     Route::post('/settings/sleep-exceptions', [SleepExceptionController::class, 'store'])
         ->name('sleep-exceptions.store');
     Route::delete('/settings/sleep-exceptions/{sleepException}', [SleepExceptionController::class, 'destroy'])

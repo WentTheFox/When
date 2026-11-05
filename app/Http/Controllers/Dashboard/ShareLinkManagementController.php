@@ -7,6 +7,8 @@ use App\Models\ShareLink;
 use App\Models\ShareLinkCache;
 use App\Models\ShareLinkVisit;
 use App\Models\ShareLinkWord;
+use App\Services\Calendar\BypassDndResolver;
+use App\Services\Calendar\HighlightWordsResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
@@ -60,13 +62,23 @@ class ShareLinkManagementController extends Controller
      */
     private function serializeForOwner(ShareLink $shareLink): array
     {
+        // highlight_words/bypass_dnd are the legacy per-link values (migration
+        // source only); effective_* is what actually applies — the tied
+        // connection's field values, or nothing when no field is selected.
+        $effective = app(HighlightWordsResolver::class)->resolve($shareLink, $shareLink->user);
+        $bypass = app(BypassDndResolver::class)->resolve($shareLink, $shareLink->user);
+
         return [
+            'highlight_field_set' => $shareLink->user->highlight_identifier_definition_id !== null,
+            'bypass_field_set' => $shareLink->user->bypass_dnd_definition_id !== null,
+            'effective_bypass_dnd' => $bypass['value'],
+            'bypass_dnd_source' => $bypass['source'],
+            'effective_highlight_words' => $effective['words'],
+            'highlight_words_source' => $effective['source'],
             'id' => $shareLink->id,
             'label_ciphertext' => $shareLink->label_ciphertext,
             'archived' => $shareLink->archived,
             'bypass_dnd' => $shareLink->bypass_dnd,
-            'show_activity' => $shareLink->show_activity,
-            'show_recurring' => $shareLink->show_recurring,
             'highlight_token' => $shareLink->highlight_token,
             'connection_id' => $shareLink->connection?->id,
             'highlight_words' => $shareLink->words->map(
@@ -94,8 +106,6 @@ class ShareLinkManagementController extends Controller
             'id' => ['required', 'uuid', 'unique:share_links,id'],
             'label_ciphertext' => ['nullable', 'string'],
             'bypass_dnd' => ['nullable', 'boolean'],
-            'show_activity' => ['nullable', 'boolean'],
-            'show_recurring' => ['nullable', 'boolean'],
         ]);
 
         $shareLink = $request->user()->shareLinks()->create([
@@ -103,8 +113,6 @@ class ShareLinkManagementController extends Controller
             'highlight_token' => ShareLink::generateHighlightToken(),
             'label_ciphertext' => $data['label_ciphertext'] ?? null,
             'bypass_dnd' => $data['bypass_dnd'] ?? false,
-            'show_activity' => $data['show_activity'] ?? true,
-            'show_recurring' => $data['show_recurring'] ?? true,
         ]);
 
         return response()->json($this->serializeForOwner($shareLink), 201);
@@ -117,8 +125,6 @@ class ShareLinkManagementController extends Controller
         $data = $request->validate([
             'label_ciphertext' => ['nullable', 'string'],
             'bypass_dnd' => ['nullable', 'boolean'],
-            'show_activity' => ['nullable', 'boolean'],
-            'show_recurring' => ['nullable', 'boolean'],
             'archived' => ['nullable', 'boolean'],
             'highlight_words' => ['nullable', 'array'],
             'highlight_words.*' => ['string'],
@@ -136,8 +142,6 @@ class ShareLinkManagementController extends Controller
             $shareLink->fill(array_filter([
                 'label_ciphertext' => $data['label_ciphertext'] ?? null,
                 'bypass_dnd' => $data['bypass_dnd'] ?? null,
-                'show_activity' => $data['show_activity'] ?? null,
-                'show_recurring' => $data['show_recurring'] ?? null,
                 'archived' => $data['archived'] ?? null,
             ], fn ($value) => $value !== null))->save();
 
@@ -193,8 +197,7 @@ class ShareLinkManagementController extends Controller
     }
 
     /**
-     * Exports each link's plaintext-tier config (words/tags/bypass_dnd/
-     * show_activity) plus
+     * Exports each link's plaintext-tier config (words/tags/bypass_dnd) plus
      * the label as still-encrypted ciphertext — "adjusted for encrypted
      * shapes" per PLAN.md, since this controller has no way to decrypt a
      * client-vault-encrypted label and shouldn't gain one.
@@ -208,8 +211,6 @@ class ShareLinkManagementController extends Controller
                 'id' => $shareLink->id,
                 'label_ciphertext' => $shareLink->label_ciphertext,
                 'bypass_dnd' => $shareLink->bypass_dnd,
-                'show_activity' => $shareLink->show_activity,
-                'show_recurring' => $shareLink->show_recurring,
                 'highlight_words' => $shareLink->words->map(
                     fn (ShareLinkWord $word) => Crypt::decryptString($word->word_ciphertext),
                 )->all(),
@@ -225,8 +226,6 @@ class ShareLinkManagementController extends Controller
             'share_links.*.id' => ['required', 'uuid'],
             'share_links.*.label_ciphertext' => ['nullable', 'string'],
             'share_links.*.bypass_dnd' => ['nullable', 'boolean'],
-            'share_links.*.show_activity' => ['nullable', 'boolean'],
-            'share_links.*.show_recurring' => ['nullable', 'boolean'],
             'share_links.*.highlight_words' => ['nullable', 'array'],
             'share_links.*.highlight_words.*' => ['string'],
         ]);

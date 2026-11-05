@@ -8,9 +8,11 @@ use App\Models\ShareLink;
 use App\Models\ShareLinkCache;
 use App\Models\SleepException;
 use App\Services\Calendar\AvailabilityService;
+use App\Services\Calendar\BypassDndResolver;
 use App\Services\Calendar\CalendarFetcher;
 use App\Services\Calendar\EventNormalizer;
 use App\Services\Calendar\FeedClassifier;
+use App\Services\Calendar\HighlightWordsResolver;
 use App\Services\Calendar\IcsParser;
 use App\Services\Crypto\AesGcm;
 use App\Services\Crypto\HighlightTokenKey;
@@ -141,10 +143,7 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
         $events = $normalizer->normalize($rawItems, $user->calendar_parsing_mode);
         $timer->lap('normalize', ['event_count' => count($events)]);
 
-        $highlightWords = $shareLink->words()
-            ->pluck('word_ciphertext')
-            ->map(fn (string $ciphertext) => Crypt::decryptString($ciphertext))
-            ->all();
+        $highlightWords = app(HighlightWordsResolver::class)->forShareLink($shareLink, $user);
 
         $sleepExceptions = SleepException::where('user_id', $user->id)
             ->get(['start_date', 'end_date'])
@@ -164,15 +163,13 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
             dndEventPattern: $user->dnd_event_pattern,
             napEventPattern: $user->nap_event_pattern,
             highlightWords: $highlightWords,
-            bypassDnd: $shareLink->bypass_dnd,
+            bypassDnd: app(BypassDndResolver::class)->forShareLink($shareLink, $user),
             rangeStart: $rangeStart,
             rangeEnd: $rangeEnd,
             highlightClausePattern: $user->highlight_clause_pattern,
             activityClausePattern: $user->activity_clause_pattern,
-            showActivity: $shareLink->show_activity,
             highlightSplitPattern: $user->highlight_split_pattern,
             activityLocalizations: $activityLocalizations,
-            showRecurring: $shareLink->show_recurring,
         );
 
         $timer->lap('compute_availability', array_merge(

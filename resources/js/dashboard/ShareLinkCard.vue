@@ -13,11 +13,17 @@ export interface ShareLinkRow {
   label_ciphertext: string | null;
   archived: boolean;
   bypass_dnd: boolean;
-  show_activity: boolean;
-  show_recurring: boolean;
   highlight_token: string | null;
   connection_id: string | null;
   highlight_words: string[];
+  /** What actually applies: the tied connection's identifier list under the field chosen in Settings; empty when none is chosen. */
+  effective_highlight_words: string[];
+  highlight_words_source: 'connection' | 'none';
+  highlight_field_set: boolean;
+  bypass_field_set: boolean;
+  /** What actually applies: the tied connection's boolean field chosen in Settings; false when none is chosen. */
+  effective_bypass_dnd: boolean;
+  bypass_dnd_source: 'connection' | 'none';
 }
 
 export interface ConnectionOption {
@@ -33,10 +39,6 @@ const { getRecordKey, vaultUnlocked } = useVault();
 
 const label = ref('');
 const editLabel = ref('');
-const editBypassDnd = ref(props.link.bypass_dnd);
-const editShowActivity = ref(props.link.show_activity);
-const editShowRecurring = ref(props.link.show_recurring);
-const editWords = ref(props.link.highlight_words.join('\n'));
 
 // Populated once the vault unlocks — both this card's own connection
 // names (for the "tie to a connection" picker) and, if the link is
@@ -132,8 +134,6 @@ const displayLabel = computed(() => {
  */
 const url = computed(() => `${window.location.origin}/free/${props.link.highlight_token}`);
 
-/** Reacts to the draft textarea, not just the last-saved words, so the warning clears the moment the owner types one in, not only after Save. */
-const hasHighlightWords = computed(() => editWords.value.split('\n').some((w) => w.trim().length > 0));
 
 onMounted(async () => {
   if (!props.link.label_ciphertext) {
@@ -222,10 +222,6 @@ async function save(): Promise<void> {
 
     const { data } = await axios.patch(`/dashboard/share-links/${props.link.id}`, {
       label_ciphertext: labelCiphertext,
-      bypass_dnd: editBypassDnd.value,
-      show_activity: editShowActivity.value,
-      show_recurring: editShowRecurring.value,
-      highlight_words: editWords.value.split('\n').map((w) => w.trim()).filter(Boolean),
     });
 
     label.value = editLabel.value || '(no label)';
@@ -330,20 +326,37 @@ async function remove(): Promise<void> {
       <BFormGroup label="Label" class="mb-3">
         <BFormInput v-model="editLabel" type="text" size="sm" />
       </BFormGroup>
-      <BFormCheckbox :id="`bypass-${link.id}`" v-model="editBypassDnd" class="mb-2">Bypass DND for this link</BFormCheckbox>
-      <BFormCheckbox :id="`show-activity-${link.id}`" v-model="editShowActivity" class="mb-2">
-        Show the activity name (e.g. "Dinner") on highlighted events, not just who it's with
-      </BFormCheckbox>
-      <BFormCheckbox :id="`show-recurring-${link.id}`" v-model="editShowRecurring" class="mb-2">
-        Mark recurring events as recurring and show how often they repeat (e.g. "Every week"), even when their details stay hidden
-      </BFormCheckbox>
-      <BFormGroup label="Highlight words (one per line)" class="mb-3">
-        <BFormTextarea v-model="editWords" size="sm" :rows="Math.max(2, editWords.split('\n').length)" />
-        <div v-if="!hasHighlightWords" class="small text-warning mt-1">
+      <div class="mb-3">
+        <div class="form-label">Bypass DND</div>
+        <p v-if="link.bypass_dnd_source === 'connection'" class="small mb-0">
+          <strong>{{ link.effective_bypass_dnd ? 'Yes' : 'No' }}</strong> — set on the tied connection's yes/no field.
+        </p>
+        <p v-else class="small text-warning mb-0">
           <FontAwesomeIcon :icon="faTriangleExclamation" class="me-1" />
-          No highlight words configured — nothing will ever be highlighted on this link.
-        </div>
-      </BFormGroup>
+          This link does not bypass DND.
+          <template v-if="!link.bypass_field_set">
+            No bypass-DND field is selected, so no link does — choose one on the
+            <a href="/settings#bypass-dnd">Settings page</a>.
+          </template>
+          <template v-else>Tie a connection and set its yes/no field to change that.</template>
+        </p>
+      </div>
+      <div class="mb-3">
+        <div class="form-label">Highlight words</div>
+        <ul v-if="link.effective_highlight_words.length" class="small mb-0">
+          <li v-for="word in link.effective_highlight_words" :key="word">{{ word }}</li>
+        </ul>
+        <p v-else class="small text-warning mb-0">
+          <FontAwesomeIcon :icon="faTriangleExclamation" class="me-1" />
+          Nothing will be highlighted on this link.
+          <template v-if="!link.highlight_field_set">
+            No highlight-tokens field is selected, so nothing is highlighted for anyone — choose one on the
+            <a href="/settings#highlight-tokens">Settings page</a>.
+          </template>
+          <template v-else>Tie a connection and fill in its identifier list to highlight events.</template>
+        </p>
+        <p v-if="link.effective_highlight_words.length" class="small text-muted mb-0">Managed on the tied connection's identifier list.</p>
+      </div>
       <BButton size="sm" variant="primary" @click="save">Save</BButton>
     </div>
 

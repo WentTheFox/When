@@ -48,8 +48,6 @@ class CalendarPreviewController extends Controller
             'tentative_pattern' => ['nullable', 'string'],
             'open_end_pattern' => ['nullable', 'string'],
             'open_start_pattern' => ['nullable', 'string'],
-            'show_activity' => ['nullable', 'boolean'],
-            'show_recurring' => ['nullable', 'boolean'],
             'highlight_words' => ['nullable', 'array'],
             'highlight_words.*' => ['string'],
             'bypass_dnd' => ['nullable', 'boolean'],
@@ -110,7 +108,6 @@ class CalendarPreviewController extends Controller
             rangeEnd: $rangeEnd,
             highlightClausePattern: $data['highlight_clause_pattern'] ?? null,
             activityClausePattern: $data['activity_clause_pattern'] ?? null,
-            showActivity: $data['show_activity'] ?? true,
             highlightSplitPattern: $data['highlight_split_pattern'] ?? null,
             // Not part of the request body — activity_localizations are each
             // saved immediately through their own endpoint (like sleep
@@ -118,7 +115,6 @@ class CalendarPreviewController extends Controller
             // preview should reflect, same as every other already-saved
             // setting this endpoint doesn't re-accept as an override.
             activityLocalizations: $user->activityLocalizations->map(fn ($r) => ['pattern' => $r->pattern, 'label' => $r->label, 'icon_key' => $r->icon_key, 'color_key' => $r->color_key, 'has_capture_group' => $r->has_capture_group])->all(),
-            showRecurring: $data['show_recurring'] ?? true,
         );
 
         $timer->lap('compute_availability', array_merge(

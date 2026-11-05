@@ -10,6 +10,10 @@ export interface Settings {
   timezone: string | null;
   /** 0=Sunday..6=Saturday, date-fns' own weekStartsOn convention. */
   week_start: number;
+  /** The identifier_list custom field supplying share-link highlight tokens; null = legacy per-link words. */
+  highlight_identifier_definition_id: string | null;
+  /** The boolean custom field supplying share-link bypass DND; null = each link's own flag. */
+  bypass_dnd_definition_id: string | null;
   dnd_event_pattern: string | null;
   dnd_event_pattern_preview: string | null;
   nap_event_pattern: string | null;

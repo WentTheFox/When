@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\EncryptedBoolean;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,8 @@ class ConnectionAttributeValue extends Model
         'attribute_definition_id',
         'value_ciphertext',
         'identifier_value',
+        'identifier_list_value',
+        'boolean_value',
     ];
 
     /**
@@ -26,6 +29,10 @@ class ConnectionAttributeValue extends Model
     {
         return [
             'identifier_value' => 'encrypted',
+            // Same §0.2 tier, list-valued: a JSON array of strings (identifier_list definitions).
+            'identifier_list_value' => 'encrypted:array',
+            // Same §0.2 tier: a yes/no the server can act on (boolean definitions).
+            'boolean_value' => EncryptedBoolean::class,
         ];
     }
 
