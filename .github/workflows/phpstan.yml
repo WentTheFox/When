@@ -1,6 +1,6 @@
 name: PHPStan
 
-# Static analysis (Larastan, level 2) plus spaze/phpstan-disallowed-calls, which
+# Static analysis (Larastan, level 3) plus spaze/phpstan-disallowed-calls, which
 # bans the zone-less Blueprint timestamp methods (timestamp(), timestamps(),
 # softDeletes(), dateTime(), ...): every timestamp column must be timestamptz,
 # see phpstan.neon. Migrations that predate the rule are in phpstan-baseline.neon.

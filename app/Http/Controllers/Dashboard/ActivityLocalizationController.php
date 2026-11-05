@@ -30,7 +30,7 @@ class ActivityLocalizationController extends Controller
      * force a default label here, which this relaxes). `label` may
      * therefore arrive as `{}` (empty object) or be omitted outright.
      *
-     * @return array<int, string>
+     * @return array<string, list<string>>
      */
     private static function localizedTextRules(): array
     {
