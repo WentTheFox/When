@@ -14,7 +14,6 @@ use App\Models\Invite;
 use App\Models\InviteRedemption;
 use App\Models\ShareLink;
 use App\Models\ShareLinkCache;
-use App\Models\ShareLinkWord;
 use App\Models\SleepException;
 use App\Models\User;
 use App\Services\Account\AccountDeletionService;
@@ -45,7 +44,6 @@ class AccountDeletionServiceTest extends TestCase
     private function seedFullGraph(User $user): array
     {
         $shareLink = ShareLink::factory()->for($user)->create();
-        ShareLinkWord::create(['share_link_id' => $shareLink->id, 'word_ciphertext' => 'opaque']);
         ShareLinkCache::create([
             'share_link_id' => $shareLink->id,
             'ciphertext' => 'opaque',

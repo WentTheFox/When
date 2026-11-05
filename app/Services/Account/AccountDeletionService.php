@@ -14,7 +14,6 @@ use App\Models\InviteRedemption;
 use App\Models\Passkey;
 use App\Models\ShareLink;
 use App\Models\ShareLinkCache;
-use App\Models\ShareLinkWord;
 use App\Models\SleepException;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -56,7 +55,6 @@ class AccountDeletionService
 
             $shareLinkIds = ShareLink::where('user_id', $user->id)->pluck('id');
             ShareLink::whereIn('id', $shareLinkIds)->update(['deleted_at' => $now]);
-            ShareLinkWord::whereIn('share_link_id', $shareLinkIds)->update(['deleted_at' => $now]);
             // A purely derived/re-computable artifact, not independently
             // meaningful user data — deleted outright rather than soft-deleted.
             ShareLinkCache::whereIn('share_link_id', $shareLinkIds)->delete();

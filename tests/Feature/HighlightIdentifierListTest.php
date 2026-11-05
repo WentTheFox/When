@@ -7,7 +7,6 @@ use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionAttributeValue;
 use App\Models\ShareLink;
 use App\Models\ShareLinkCache;
-use App\Models\ShareLinkWord;
 use App\Models\User;
 use App\Services\Calendar\HighlightWordsResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -16,7 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
-/** identifier_list values (§0.2 tier) as the source of share-link highlight tokens, with NO fallback to the legacy words. */
+/** identifier_list values (§0.2 tier) as the source of share-link highlight tokens. */
 class HighlightIdentifierListTest extends TestCase
 {
     use RefreshDatabase;
@@ -34,13 +33,6 @@ class HighlightIdentifierListTest extends TestCase
         return $link?->connection ?? Connection::create([
             'id' => (string) Str::uuid(), 'user_id' => $user->id, 'name_ciphertext' => 'opaque',
         ]);
-    }
-
-    private function legacyWords(ShareLink $link, array $words): void
-    {
-        foreach ($words as $word) {
-            ShareLinkWord::create(['share_link_id' => $link->id, 'word_ciphertext' => Crypt::encryptString($word)]);
-        }
     }
 
     private function cache(ShareLink $link): void
@@ -90,12 +82,11 @@ class HighlightIdentifierListTest extends TestCase
     {
         $user = User::factory()->create();
         $link = ShareLink::factory()->create(['user_id' => $user->id]);
-        $this->legacyWords($link, ['legacy']);
         $connection = $this->connection($user, $link);
         $definition = $this->definition($user);
         $resolver = app(HighlightWordsResolver::class);
 
-        // No field chosen: legacy words are ignored.
+        // No field chosen: nothing is highlighted.
         $this->assertSame(['words' => [], 'source' => 'none'], $resolver->resolve($link->fresh(), $user->fresh()));
 
         $user->update(['highlight_identifier_definition_id' => $definition->id]);
@@ -107,16 +98,6 @@ class HighlightIdentifierListTest extends TestCase
             'connection_id' => $connection->id, 'attribute_definition_id' => $definition->id, 'identifier_list_value' => ['from-connection'],
         ]);
         $this->assertSame(['words' => ['from-connection'], 'source' => 'connection'], $resolver->resolve($link->fresh(), $user->fresh()));
-    }
-
-    public function test_link_without_a_connection_highlights_nothing_even_with_a_field_selected(): void
-    {
-        $user = User::factory()->create();
-        $user->update(['highlight_identifier_definition_id' => $this->definition($user)->id]);
-        $link = ShareLink::factory()->create(['user_id' => $user->id]);
-        $this->legacyWords($link, ['legacy']);
-
-        $this->assertSame([], app(HighlightWordsResolver::class)->forShareLink($link, $user->fresh()));
     }
 
     public function test_setting_only_accepts_own_identifier_list_definitions(): void

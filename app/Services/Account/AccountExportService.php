@@ -5,11 +5,9 @@ namespace App\Services\Account;
 use App\Models\CalendarDetection;
 use App\Models\ConnectionAttributeValue;
 use App\Models\InviteRedemption;
-use App\Models\ShareLinkWord;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use ZipStream\ZipStream;
@@ -56,10 +54,7 @@ class AccountExportService
         $zip->addFile('availability/sleep-exceptions.json', $this->json($this->sleepExceptions($user)));
         $zip->addFile('availability/activity-localizations.json', $this->json($this->activityLocalizations($user)));
 
-        $shareLinkIds = $user->shareLinks()->pluck('id');
-
         $zip->addFile('share-links/share-links.json', $this->json($this->shareLinks($user)));
-        $zip->addFile('share-links/share-link-words.json', $this->json($this->shareLinkWords($shareLinkIds)));
         $zip->addFile('share-links/share-link-cache-note.txt', $this->shareLinkCacheNote());
 
         $zip->addFile('connections/connections.json', $this->json($this->connections($user)));
@@ -265,38 +260,14 @@ class AccountExportService
             'tier' => 'plaintext',
             'note' => 'A share link has no label of its own: its name is the connection it belongs to (connection_id). Every field here is plaintext.',
             'records' => $user->shareLinks()
-                ->get(['id', 'connection_id', 'highlight_token', 'archived', 'bypass_dnd', 'created_at'])
+                ->get(['id', 'connection_id', 'highlight_token', 'archived', 'created_at'])
                 ->map(fn ($link) => [
                     'id' => $link->id,
                     'connection_id' => $link->connection_id,
                     'highlight_token' => $link->highlight_token,
                     'archived' => $link->archived,
-                    'bypass_dnd' => $link->bypass_dnd,
                     'created_at' => $link->created_at,
                 ])->all(),
-        ];
-    }
-
-    /**
-     * @param  Collection<int, string>  $shareLinkIds
-     * @return array<string, mixed>
-     */
-    private function shareLinkWords(Collection $shareLinkIds): array
-    {
-        // word_ciphertext is server-runtime tier (§0.2, Crypt/APP_KEY) —
-        // NOT vault-key E2EE — see ShareLinkManagementController's own doc
-        // comment. Decrypted here the same way
-        // RecomputeShareLinkAvailability does.
-        $words = ShareLinkWord::whereIn('share_link_id', $shareLinkIds)
-            ->get(['id', 'share_link_id', 'word_ciphertext']);
-
-        return [
-            'tier' => 'server-decrypted',
-            'records' => $words->map(fn ($word) => [
-                'id' => $word->id,
-                'share_link_id' => $word->share_link_id,
-                'word' => Crypt::decryptString($word->word_ciphertext),
-            ])->all(),
         ];
     }
 

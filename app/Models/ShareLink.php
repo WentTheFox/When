@@ -19,7 +19,6 @@ class ShareLink extends Model
         'user_id',
         'connection_id',
         'archived',
-        'bypass_dnd',
         'highlight_token',
     ];
 
@@ -27,7 +26,6 @@ class ShareLink extends Model
     {
         return [
             'archived' => 'boolean',
-            'bypass_dnd' => 'boolean',
         ];
     }
 
@@ -54,11 +52,6 @@ class ShareLink extends Model
         } while (str_contains($token, '-') || str_contains($token, '_') || static::where('highlight_token', $token)->exists());
 
         return $token;
-    }
-
-    public function words(): HasMany
-    {
-        return $this->hasMany(ShareLinkWord::class);
     }
 
     public function visits(): HasMany

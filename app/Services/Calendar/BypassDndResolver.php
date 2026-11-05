@@ -9,10 +9,8 @@ use App\Models\User;
 /**
  * Whether a share link bypasses do-not-disturb. Decided ONLY by the boolean
  * custom field the owner selected (users.bypass_dnd_definition_id) on the
- * connection tied to the link. No field selected, no tied connection, or no
- * value set means no bypass: nobody bypasses DND. share_links.bypass_dnd is
- * no longer consulted at runtime; it remains only as the source that
- * {@see BypassDndMigrator} copies from.
+ * connection the link belongs to. No field selected or no value set means no
+ * bypass: nobody bypasses DND.
  */
 class BypassDndResolver
 {

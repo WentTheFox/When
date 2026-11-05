@@ -14,8 +14,7 @@ use App\Models\User;
  * Tokens come ONLY from the identifier_list custom field the owner selected
  * (users.highlight_identifier_definition_id) on the connection tied to the
  * link. No field selected, no tied connection, or no value on it means no
- * tokens: nothing is highlighted for anyone. The legacy share_link_words rows
- * are no longer consulted.
+ * tokens: nothing is highlighted for anyone. There is no per-link fallback.
  *
  * Both sources are §0.2 tier (APP_KEY-encrypted at rest), so decrypting here
  * is within the documented model; callers must still never log the result.
