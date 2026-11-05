@@ -165,7 +165,7 @@ function hideSwatchTooltip(): void {
             </div>
           </BFormGroup>
           <BButton size="sm" variant="primary" :disabled="pending" @click="save">Save</BButton>
-          <BButton size="sm" variant="outline-danger" :disabled="pending" @click="remove">Delete</BButton>
+          <BButton size="sm" variant="outline-danger" class="ms-2" :disabled="pending" @click="remove">Delete</BButton>
         </LockedOverlay>
         <p v-else class="text-muted">Select a category on the left to rename, recolor, or delete it.</p>
       </div>

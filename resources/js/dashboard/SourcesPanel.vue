@@ -115,7 +115,7 @@ async function remove(): Promise<void> {
             </BFormSelect>
           </BFormGroup>
           <BButton size="sm" variant="primary" :disabled="pending" @click="save">Save</BButton>
-          <BButton size="sm" variant="outline-danger" :disabled="pending" @click="remove">Delete</BButton>
+          <BButton size="sm" variant="outline-danger" class="ms-2" :disabled="pending" @click="remove">Delete</BButton>
         </LockedOverlay>
         <p v-else class="text-muted">Select a source on the left to rename or delete it.</p>
       </div>
