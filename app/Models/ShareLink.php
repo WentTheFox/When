@@ -64,18 +64,11 @@ class ShareLink extends Model
     }
 
     /**
-     * Whether the link is archived. A link has no archive flag of its own: it is
-     * archived exactly when its connection is, so there is one thing to toggle
-     * and nothing to keep in sync.
+     * Links whose connection is not archived. Archiving is only a flag that
+     * hides a connection, and so its link, from the dashboard stats: the link
+     * itself stays live. A link has no archive flag of its own; it follows its
+     * connection's, so there is one thing to toggle and nothing to keep in sync.
      */
-    public function isArchived(): bool
-    {
-        // getRelationValue, not $this->connection: inside the model that name is Eloquent's own
-        // protected property (the database connection name), not the relationship.
-        return (bool) $this->getRelationValue('connection')?->archived;
-    }
-
-    /** Links whose connection is not archived. */
     public function scopeActive(Builder $query): void
     {
         $query->whereHas('connection', fn (Builder $connections) => $connections->where('archived', false));

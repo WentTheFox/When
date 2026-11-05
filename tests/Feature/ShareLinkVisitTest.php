@@ -120,15 +120,16 @@ class ShareLinkVisitTest extends TestCase
         ])->assertNotFound();
     }
 
-    public function test_an_archived_link_returns_not_found(): void
+    /** Archiving only hides a connection from the dashboard stats; its link keeps working. */
+    public function test_a_visit_is_still_recorded_for_an_archived_link(): void
     {
         $shareLink = ShareLink::factory()->for(User::factory())->archived()->create();
 
         $this->postJson(route('api.share-links.visits.store', $shareLink->highlight_token), [
             'timezone' => 'UTC',
-        ])->assertNotFound();
+        ])->assertCreated();
 
-        $this->assertSame(0, $shareLink->visits()->count());
+        $this->assertSame(1, $shareLink->visits()->count());
     }
 
     public function test_the_owner_can_list_a_links_visit_history_paginated(): void

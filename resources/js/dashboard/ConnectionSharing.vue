@@ -169,7 +169,7 @@ async function deleteAllVisits(): Promise<void> {
       </div>
       <p class="small text-muted mt-2 mb-2">
         What this link highlights and whether it bypasses do-not-disturb come from this connection's fields
-        (chosen on the Settings page). Archiving the connection archives its link.
+        (chosen on the Settings page). Archiving the connection only hides it from the dashboard stats; the link keeps working.
       </p>
 
       <BButton variant="link" size="sm" class="p-0" @click="toggleVisits">

@@ -123,14 +123,17 @@ class ShareLinkAvailabilityApiTest extends TestCase
         ]);
     }
 
-    public function test_archived_share_links_return_401_as_the_link_expired_signal(): void
+    /** Archiving only hides a connection from the dashboard stats; its link keeps working. */
+    public function test_an_archived_share_link_keeps_serving_availability(): void
     {
+        Bus::fake();
+
         $shareLink = ShareLink::factory()->for($this->userWithCalendar())->archived()->create();
 
-        $response = $this->getJson(route('api.share-links.show', $shareLink->highlight_token));
+        $this->getJson(route('api.share-links.show', $shareLink->highlight_token))
+            ->assertStatus(202)->assertJson(['status' => 'pending']);
 
-        // 401, not 404 — the link *was* valid, this is "expired," not "never existed."
-        $response->assertStatus(401);
+        Bus::assertDispatched(RecomputeShareLinkAvailability::class);
     }
 
     public function test_response_includes_the_owners_timezone(): void

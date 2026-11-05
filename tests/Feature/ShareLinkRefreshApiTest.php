@@ -150,13 +150,18 @@ class ShareLinkRefreshApiTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_an_archived_link_returns_not_found(): void
+    /** Archiving only hides a connection from the dashboard stats; its link keeps working. */
+    public function test_an_archived_link_can_still_be_refreshed(): void
     {
+        Bus::fake();
+
         $owner = $this->userWithCalendar();
         $shareLink = ShareLink::factory()->for($owner)->archived()->create();
 
         $this->actingAs($owner)
             ->postJson(route('api.share-links.refresh', $shareLink->highlight_token))
-            ->assertNotFound();
+            ->assertOk()->assertJson(['status' => 'queued']);
+
+        Bus::assertDispatched(RecomputeShareLinkAvailability::class);
     }
 }

@@ -122,23 +122,26 @@ class ShareLinkManagementTest extends TestCase
         $this->assertNull(ShareLink::find($shareLink->id));
     }
 
-    /** A link has no archive flag of its own: it is archived exactly when its connection is. */
-    public function test_a_link_is_archived_exactly_when_its_connection_is(): void
+    /** Whether the link counts in the dashboard stats (its connection is not archived). */
+    private function inStats(ShareLink $link): bool
+    {
+        return ShareLink::active()->whereKey($link->id)->exists();
+    }
+
+    /** A link has no archive flag of its own: it is hidden from the stats exactly when its connection is archived. */
+    public function test_a_link_is_hidden_from_the_stats_exactly_when_its_connection_is_archived(): void
     {
         $owner = User::factory()->create();
         $shareLink = ShareLink::factory()->for($owner)->create();
         $url = "/dashboard/connections/{$shareLink->connection_id}";
 
-        $this->assertFalse($shareLink->fresh()->isArchived());
-        $this->assertSame(1, ShareLink::active()->count());
+        $this->assertTrue($this->inStats($shareLink));
 
         $this->actingAs($owner)->patchJson($url, ['archived' => true])->assertOk();
-        $this->assertTrue($shareLink->fresh()->isArchived());
-        $this->assertSame(0, ShareLink::active()->count());
+        $this->assertFalse($this->inStats($shareLink));
 
         $this->actingAs($owner)->patchJson($url, ['archived' => false])->assertOk();
-        $this->assertFalse($shareLink->fresh()->isArchived());
-        $this->assertSame(1, ShareLink::active()->count());
+        $this->assertTrue($this->inStats($shareLink));
     }
 
     public function test_a_share_link_has_no_archived_column_of_its_own(): void
