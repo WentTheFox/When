@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EncryptedText from '../Components/EncryptedText.vue';
 import { faUserLock } from '@fortawesome/free-solid-svg-icons';
 
 /** label_ciphertext is client-vault E2EE (§0.1/§0.3) — see ConnectionController's doc comment. */
@@ -140,7 +141,7 @@ function onNoteFocus(event: FocusEvent): void {
             <FontAwesomeIcon :icon="faUserLock" />
             Vault is locked
           </BButton>
-          <template v-else>{{ exception.label }}</template>
+          <EncryptedText v-else-if="exception.label_ciphertext" :value="exception.label" :ciphertext="exception.label_ciphertext" />
         </td>
         <td>
           <BButton variant="outline-danger" size="sm" @click="remove(exception)">Remove</BButton>

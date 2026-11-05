@@ -32,6 +32,8 @@
  * app-wide but leaves .bg-primary at Bootstrap's own stock blue, so the
  * label text and its own bar segment didn't even agree with each other).
  */
+import EncryptedText from '../Components/EncryptedText.vue';
+import { rawPreview } from './rawCiphertext';
 import axios from 'axios';
 import { BModal, BProgress, BProgressBar } from 'bootstrap-vue-next';
 import { computed, onMounted, ref, watch } from 'vue';
@@ -138,7 +140,7 @@ async function decryptLabels(): Promise<void> {
 }
 
 function labelFor(entry: HighlightEntry): string {
-  return labels.value[entry.connection.id] ?? '…';
+  return labels.value[entry.connection.id] ?? rawPreview(entry.connection.name_ciphertext);
 }
 
 watch(vaultUnlocked, (unlocked) => {
@@ -210,14 +212,14 @@ onMounted(async () => {
       <ol v-else class="list-unstyled mb-0 small">
         <li v-for="entry in highlights" :key="entry.share_link_id" class="d-flex justify-content-between">
           <button type="button" class="btn btn-link p-0 align-baseline text-start text-decoration-none" @click="openEventsModal(entry)">
-            {{ labelFor(entry) }}
+            <EncryptedText :value="labels[entry.connection.id]" :ciphertext="entry.connection.name_ciphertext" />
           </button>
           <span class="ms-2 flex-shrink-0">{{ fmtMin(entry.minutes) }}</span>
         </li>
         <li v-if="highlightsRest.length > 0" class="d-flex justify-content-between text-muted">
           <span>
             <template v-for="(entry, i) in highlightsRest" :key="entry.share_link_id">
-              <button type="button" class="btn btn-link p-0 align-baseline text-muted text-decoration-none" @click="openEventsModal(entry)">{{ labelFor(entry) }}</button>{{ i < highlightsRest.length - 1 ? ', ' : '' }}
+              <button type="button" class="btn btn-link p-0 align-baseline text-muted text-decoration-none" @click="openEventsModal(entry)"><EncryptedText :value="labels[entry.connection.id]" :ciphertext="entry.connection.name_ciphertext" /></button>{{ i < highlightsRest.length - 1 ? ', ' : '' }}
             </template>
           </span>
           <span class="ms-2 flex-shrink-0">&le;&nbsp;{{ fmtMin(highlightsRest[0].minutes) }}</span>
@@ -232,7 +234,7 @@ onMounted(async () => {
       </p>
       <p v-else class="small text-muted mb-0">
         <template v-for="(entry, i) in highlightsNoTime" :key="entry.share_link_id">
-          <button type="button" class="btn btn-link p-0 align-baseline text-muted text-decoration-none" @click="openEventsModal(entry)">{{ labelFor(entry) }}</button>{{ i < highlightsNoTime.length - 1 ? ', ' : '' }}
+          <button type="button" class="btn btn-link p-0 align-baseline text-muted text-decoration-none" @click="openEventsModal(entry)"><EncryptedText :value="labels[entry.connection.id]" :ciphertext="entry.connection.name_ciphertext" /></button>{{ i < highlightsNoTime.length - 1 ? ', ' : '' }}
         </template>
       </p>
     </template>

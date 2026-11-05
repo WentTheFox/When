@@ -6,6 +6,7 @@ import { computed, nextTick, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../../crypto';
 import AttributesPanel from '../../dashboard/AttributesPanel.vue';
 import CategoriesPanel from '../../dashboard/CategoriesPanel.vue';
+import EncryptedText from '../../Components/EncryptedText.vue';
 import ConnectionCard, { type ConnectionRow } from '../../dashboard/ConnectionCard.vue';
 import SourcesPanel from '../../dashboard/SourcesPanel.vue';
 import VaultGate from '../../dashboard/VaultGate.vue';
@@ -502,7 +503,7 @@ async function removeEdge(id: string): Promise<void> {
               :class="{ active: selectedConnectionId === connection.id }"
               @click="selectedConnectionId = connection.id"
             >
-              {{ decryptedNames[connection.id] ?? '…' }}
+              <EncryptedText :value="decryptedNames[connection.id]" :ciphertext="connection.name_ciphertext" />
               <span v-if="connection.archived" class="small text-muted">(archived)</span>
             </button>
           </div>

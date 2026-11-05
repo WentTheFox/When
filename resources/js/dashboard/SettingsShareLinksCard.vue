@@ -12,6 +12,7 @@ import { useForm } from '@inertiajs/vue3';
 import { BButton, BCard, BFormGroup, BFormSelect } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
 import { decryptString } from '../crypto';
+import { rawPreview } from './rawCiphertext';
 import VaultGate from './VaultGate.vue';
 import { useVault } from './useVault';
 
@@ -42,7 +43,7 @@ watch(vaultUnlocked, async (unlocked) => {
 function optionsFor(definitions: Definition[], noneText: string) {
   return [
     { value: '', text: noneText },
-    ...definitions.map((d) => ({ value: d.id, text: labels.value[d.id] ?? '…' })),
+    ...definitions.map((d) => ({ value: d.id, text: labels.value[d.id] ?? rawPreview(d.label_ciphertext) })),
   ];
 }
 
