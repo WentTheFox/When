@@ -29,7 +29,7 @@ const props = {
   fieldFeatures: {},
 };
 
-function renderWith(pageProps: typeof props, hash: string): Promise<string> {
+function renderWith(pageProps: object, hash: string): Promise<string> {
   vi.stubGlobal('window', { location: { hash, origin: 'https://when.test', pathname: '/dashboard/connections', search: '' } });
   return renderToString(createSSRApp({ render: () => h(Connections as object, pageProps) }));
 }
@@ -66,6 +66,26 @@ describe('Connections page', () => {
     const html = await renderWith({ ...props, connections: [props.connections[0], second] }, '');
     // The one that would sort first by its (unreadable) name still comes second: order is the stored one.
     expect(html.indexOf(props.connections[0].name_ciphertext)).toBeLessThan(html.indexOf(second.name_ciphertext));
+  });
+
+  it('marks the connections that have a share link, and only those', async () => {
+    const shared = { ...props.connections[0], share_link: { id: 'l1', highlight_token: 'tok', archived: false } };
+    const plain = { ...props.connections[0], id: '66666666-6666-4666-8666-666666666666', share_link: null };
+
+    const html = await renderWith({ ...props, connections: [shared, plain] }, '');
+    expect(html.match(/connection-shared/g)).toHaveLength(1);
+    expect(html).toContain('Has a share link');
+
+    expect(await render('')).not.toContain('connection-shared');
+  });
+
+  it('keeps the share-link mark visible on the selected (blue) row', async () => {
+    const shared = { ...props.connections[0], share_link: { id: 'l1', highlight_token: 'tok', archived: false } };
+
+    const html = await renderWith({ ...props, connections: [shared] }, '#id=' + CONNECTION);
+    const mark = html.slice(html.indexOf('connection-shared') - 40, html.indexOf('connection-shared') + 60);
+    expect(mark).toContain('connection-shared');
+    expect(mark).not.toContain('text-info');
   });
 
   it('only overlays the detail panes when a record is open', async () => {
