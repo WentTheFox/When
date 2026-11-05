@@ -646,7 +646,7 @@ async function removeEdge(id: string): Promise<void> {
   </BCard>
 
   <BCard id="connections-workspace" class="mb-4">
-    <BTabs v-model="pageTab" pills content-class="pt-3">
+    <BTabs v-model="pageTab" pills no-fade content-class="pt-3">
       <BTab :id="PAGE_TABS.connections">
         <template #title>Connections <span class="text-muted">({{ connections.length }})</span></template>
         <div class="row">

@@ -50,6 +50,11 @@ describe('Connections page', () => {
     expect(html).toMatch(/nav-link active[^>]*aria-controls="connections-tab-connections"/);
   });
 
+  it('switches tabs instantly, without the fade animation', async () => {
+    const html = await render('');
+    expect(html).not.toMatch(/class="tab-pane[^"]*\bfade\b/);
+  });
+
   it('shows the lists under the locked overlay without asking for the unlock itself', async () => {
     const html = await render('');
     expect(html).toContain('Vault locked');
