@@ -106,6 +106,9 @@ const page = usePage();
     with the same server-held key, and the tokens are never included in your data export. As with VRChat friends, only
     your browser creates a connection or adds a Discord user ID to one, when you choose, so connection names stay
     end-to-end encrypted. Disconnecting revokes the access at Discord and forgets the tokens.
+    A connection's Discord card can also ask Discord about one user ID you put on it, using the server's own Discord bot
+    credential (not your account): Discord answers with that person's public profile (username, display name, avatar),
+    which is stored the same way, encrypted at rest, and never sent anywhere else.
   </p>
 
   <h2 class="h5">Account security</h2>

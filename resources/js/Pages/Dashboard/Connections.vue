@@ -25,7 +25,7 @@ import { moveLegacyNotes, NOTES_FIELD_LABEL, notesTextOf, saveNotes } from '../.
 import type { NotesFieldDeps, NotesFieldResponse } from '../../dashboard/notesField';
 import MergeConnectionModal from '../../dashboard/MergeConnectionModal.vue';
 import { holdsOtherId, type MatchCandidate } from '../../dashboard/friendMatching';
-import { type DiscordSummary, emptyDiscordSummary, discordFriendName, type PendingDiscordFriend } from '../../dashboard/discord';
+import { type DiscordProfile, type DiscordSummary, emptyDiscordSummary, discordFriendName, type PendingDiscordFriend } from '../../dashboard/discord';
 import type { FriendDecision, PendingFriend, VrchatSummary } from '../../dashboard/vrchat';
 import {
   buildConnectionsHash,
@@ -195,10 +195,15 @@ function vrchatState(connection: ConnectionRow): MarkState {
   return vrchatMark(vrchatIdsOf(connection).length > 0, vrchat.value.profiles[connection.id]);
 }
 
+/** A connection's Discord card looked its IDs up: show what came back at once. */
+function onDiscordSynced(connectionId: string, profiles: DiscordProfile[]): void {
+  discord.value = { ...discord.value, profiles: { ...discord.value.profiles, [connectionId]: profiles } };
+}
+
 /** The mark for a connection's Discord ID: from the chosen custom field, or reported by VRCX. */
 function discordState(connection: ConnectionRow): MarkState {
   // A synced Discord friend is linked to it: the account is confirmed, whichever way the id got there.
-  if (discord.value.profiles[connection.id]?.length) return 'active';
+  if (discord.value.profiles[connection.id]?.some((p) => p.known)) return 'active';
 
   const fieldId = vrchat.value.discord_field_id;
   const value = fieldId ? connection.attribute_values.find((v) => v.attribute_definition_id === fieldId) : undefined;
@@ -1644,6 +1649,8 @@ async function removeEdge(id: string): Promise<void> {
                 :vrchat-synced-at="vrchat.synced_at"
                 :discord-profiles="discord.profiles[selectedConnection.id]"
                 :discord-synced-at="discord.synced_at"
+                :discord-can-look-up="discord.lookup_available"
+                @discord-synced="onDiscordSynced"
                 @vrchat-synced="vrchat = $event"
                 @updated="onConnectionUpdated"
                 @renamed="onConnectionRenamed"

@@ -380,24 +380,33 @@ class DiscordIntegrationTest extends TestCase
         }
     }
 
-    public function test_the_summary_gives_each_connection_the_synced_friends_linked_to_it(): void
+    public function test_the_summary_gives_each_connection_its_linked_friends_and_a_placeholder_for_unknown_ids(): void
     {
         $user = $this->owner();
         $linked = $this->connectionWith($user, self::LINKED);
-        $this->connectionWith($user, '100000000000000077'); // an id that is not one of the friends: nothing to show
+        $stranger = $this->connectionWith($user, '100000000000000077'); // not one of the friends, never looked up
         $this->fakeFriends([self::OLD, self::LINKED]);
         app(DiscordSyncService::class)->sync($user);
 
         $profiles = app(DiscordSyncService::class)->summary($user->refresh())['profiles'];
 
-        $this->assertSame([$linked->id], array_keys($profiles));
+        $this->assertEqualsCanonicalizing([$linked->id, $stranger->id], array_keys($profiles));
         $this->assertSame([[
             'discord_user_id' => self::LINKED,
+            'known' => true,
             'username' => 'user02',
             'global_name' => 'Friend 02',
             'nickname' => null,
             'picture_url' => 'https://cdn.discordapp.com/avatars/'.self::LINKED.'/abc.png?size=64',
         ]], $profiles[$linked->id]);
+        $this->assertSame([[
+            'discord_user_id' => '100000000000000077',
+            'known' => false,
+            'username' => null,
+            'global_name' => null,
+            'nickname' => null,
+            'picture_url' => null,
+        ]], $profiles[$stranger->id]);
     }
 
     public function test_a_discord_id_learned_through_vrcx_also_gets_its_profile(): void
@@ -426,12 +435,20 @@ class DiscordIntegrationTest extends TestCase
         app(DiscordSyncService::class)->sync($user);
         DiscordFriend::where('user_id', $user->id)->update(['status' => DiscordFriend::DISMISSED]);
 
-        // Someone else's connection with the same id has no friend row of their own, so shows nothing.
+        // Someone else's connection with the same id has no friend row of their own: a bare placeholder,
+        // none of this owner's friend data.
         $other = $this->owner();
-        $this->connectionWith($other, self::OLD);
+        $theirs = $this->connectionWith($other, self::OLD);
 
-        $this->assertSame([$mine->id], array_keys(app(DiscordSyncService::class)->summary($user->refresh())['profiles']));
-        $this->assertSame([], app(DiscordSyncService::class)->summary($other->refresh())['profiles']);
+        $mineProfiles = app(DiscordSyncService::class)->summary($user->refresh())['profiles'];
+        $this->assertSame([$mine->id], array_keys($mineProfiles));
+        $this->assertTrue($mineProfiles[$mine->id][0]['known']);
+
+        $theirProfiles = app(DiscordSyncService::class)->summary($other->refresh())['profiles'];
+        $this->assertSame([$theirs->id], array_keys($theirProfiles));
+        $this->assertFalse($theirProfiles[$theirs->id][0]['known']);
+        $this->assertNull($theirProfiles[$theirs->id][0]['username']);
+        $this->assertNull($theirProfiles[$theirs->id][0]['global_name']);
     }
 
     private function withHighlightField(User $user): ConnectionAttributeDefinition
@@ -545,5 +562,136 @@ class DiscordIntegrationTest extends TestCase
         app(DiscordSyncService::class)->sync($user);
 
         $this->assertSame(['Maple Sparrow', 'maplesparrow'], $this->highlightTokens($user, $connection));
+    }
+
+    private const BOT = 'bot-token-secret-xyz';
+
+    private function fakeLookup(string $id, int $status = 200, ?array $body = null): void
+    {
+        Http::swap($factory = new Factory);
+        $factory->fake(['discord.com/api/v10/users/'.$id => Http::response($body ?? [
+            'id' => $id, 'username' => 'plumfinch', 'global_name' => 'Plum Finch', 'avatar' => 'def',
+        ], $status)]);
+    }
+
+    public function test_the_lookup_saves_a_non_friends_profile_without_making_them_a_pending_friend(): void
+    {
+        config(['services.discord.bot_token' => self::BOT]);
+        $user = $this->owner(connected: false); // needs no connected Discord account
+        $connection = $this->connectionWith($user, self::NEW);
+        $this->fakeLookup(self::NEW);
+
+        $response = $this->actingAs($user)->postJson("/dashboard/connections/{$connection->id}/discord/lookup")->assertOk();
+
+        $this->assertSame([
+            'discord_user_id' => self::NEW,
+            'known' => true,
+            'username' => 'plumfinch',
+            'global_name' => 'Plum Finch',
+            'nickname' => null,
+            'picture_url' => 'https://cdn.discordapp.com/avatars/'.self::NEW.'/def.png?size=64',
+        ], $response->json('profiles.0'));
+        $this->assertSame([self::NEW => 'lookup'], $this->statuses($user));
+        $this->assertSame([], $this->actingAs($this->owner())->getJson('/dashboard/discord/friends')->json('friends'));
+        Http::assertSent(fn (Request $r) => $r->hasHeader('Authorization', 'Bot '.self::BOT));
+        Http::assertNotSent(fn (Request $r) => str_contains($r->header('Authorization')[0] ?? '', self::ACCESS));
+    }
+
+    public function test_a_looked_up_person_never_appears_in_the_pending_list_even_when_connected(): void
+    {
+        config(['services.discord.bot_token' => self::BOT]);
+        $user = $this->owner();
+        $connection = $this->connectionWith($user, self::NEW);
+        $this->fakeLookup(self::NEW);
+        $this->actingAs($user)->postJson("/dashboard/connections/{$connection->id}/discord/lookup")->assertOk();
+
+        $this->assertSame([], $this->actingAs($user)->getJson('/dashboard/discord/friends')->json('friends'));
+        $this->assertSame(0, app(DiscordSyncService::class)->summary($user->refresh())['pending_friends']);
+    }
+
+    public function test_a_lookup_adds_the_names_as_highlight_tokens_and_keeps_a_friends_nickname(): void
+    {
+        config(['services.discord.bot_token' => self::BOT]);
+        $user = $this->owner();
+        $this->withHighlightField($user);
+        $connection = $this->connectionWith($user, self::NEW);
+        $this->fakeFriend(self::NEW, 'Plum Finch', 'plumfinch', 'Plummy');
+        app(DiscordSyncService::class)->sync($user);
+        $this->fakeLookup(self::NEW, body: ['id' => self::NEW, 'username' => 'plumfinch2', 'global_name' => 'Plum Finch the Second', 'avatar' => null]);
+
+        $this->actingAs($user)->postJson("/dashboard/connections/{$connection->id}/discord/lookup")->assertOk();
+
+        $friend = DiscordFriend::where('user_id', $user->id)->firstOrFail();
+        $this->assertSame('Plummy', $friend->nickname, 'a lookup never touches your nickname for a friend');
+        $this->assertSame(DiscordFriend::CREATED, $friend->status, 'and does not change a friend status');
+        $this->assertContains('Plum Finch the Second', $this->highlightTokens($user, $connection));
+    }
+
+    public function test_a_looked_up_person_who_is_later_a_friend_joins_the_friend_flow(): void
+    {
+        config(['services.discord.bot_token' => self::BOT]);
+        $user = $this->owner();
+        $connection = $this->connectionWith($user, self::NEW);
+        $this->fakeLookup(self::NEW);
+        $this->actingAs($user)->postJson("/dashboard/connections/{$connection->id}/discord/lookup")->assertOk();
+
+        $this->fakeFriends([self::NEW]);
+        app(DiscordSyncService::class)->sync($user);
+
+        $this->assertSame([self::NEW => 'created'], $this->statuses($user), 'already on a connection, so settled');
+        $this->assertSame(1, DiscordFriend::count());
+    }
+
+    public function test_the_lookup_needs_a_bot_token_and_a_discord_id(): void
+    {
+        $user = $this->owner();
+        $connection = $this->connectionWith($user, self::NEW);
+
+        $this->actingAs($user)->postJson("/dashboard/connections/{$connection->id}/discord/lookup")
+            ->assertStatus(422)->assertJsonPath('message', 'Looking up Discord users is not set up on this server.');
+
+        config(['services.discord.bot_token' => self::BOT]);
+        $empty = Connection::create(['id' => (string) Str::uuid(), 'user_id' => $user->id, 'name_ciphertext' => 'opaque']);
+        $this->actingAs($user)->postJson("/dashboard/connections/{$empty->id}/discord/lookup")
+            ->assertStatus(422)->assertJsonPath('message', 'This connection has no Discord user ID.');
+    }
+
+    public function test_a_missing_user_and_a_rejected_bot_token_are_reported_without_leaking_the_token(): void
+    {
+        config(['services.discord.bot_token' => self::BOT]);
+        $user = $this->owner();
+        $connection = $this->connectionWith($user, self::NEW);
+
+        $this->fakeLookup(self::NEW, 404, ['message' => 'Unknown User']);
+        $missing = $this->actingAs($user)->postJson("/dashboard/connections/{$connection->id}/discord/lookup")->assertStatus(422);
+        $this->assertStringContainsString('no user with the ID', $missing->json('message'));
+
+        $this->fakeLookup(self::NEW, 401, ['message' => 'Bot '.self::BOT]);
+        $rejected = $this->actingAs($user)->postJson("/dashboard/connections/{$connection->id}/discord/lookup")->assertStatus(422);
+        $this->assertStringContainsString('rejected the bot token', $rejected->json('message'));
+        $this->assertStringNotContainsString(self::BOT, $rejected->getContent());
+        $this->assertSame(0, DiscordFriend::count());
+        $this->assertNotNull($user->refresh()->discord_access_token, 'a failed lookup never disconnects the owner');
+    }
+
+    public function test_one_owner_cannot_look_up_through_another_owners_connection(): void
+    {
+        config(['services.discord.bot_token' => self::BOT]);
+        $other = $this->owner();
+        $theirs = $this->connectionWith($other, self::NEW);
+        Http::fake();
+
+        $this->actingAs($this->owner())->postJson("/dashboard/connections/{$theirs->id}/discord/lookup")->assertNotFound();
+
+        Http::assertNothingSent();
+    }
+
+    public function test_the_summary_says_whether_a_lookup_is_possible(): void
+    {
+        $user = $this->owner();
+        $this->assertFalse(app(DiscordSyncService::class)->summary($user)['lookup_available']);
+
+        config(['services.discord.bot_token' => self::BOT]);
+        $this->assertTrue(app(DiscordSyncService::class)->summary($user)['lookup_available']);
     }
 }

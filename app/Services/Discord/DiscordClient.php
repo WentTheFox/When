@@ -27,6 +27,12 @@ class DiscordClient
         return filled(config('services.discord.client_id')) && filled(config('services.discord.client_secret'));
     }
 
+    /** The per-user lookup needs the app's bot token (the owner's OAuth grant can only read their own data). */
+    public static function canLookUp(): bool
+    {
+        return filled(config('services.discord.bot_token'));
+    }
+
     public static function redirectUri(): string
     {
         return (string) (config('services.discord.redirect') ?: route('settings.discord.callback'));
@@ -119,13 +125,61 @@ class DiscordClient
                 'username' => $text($user['username'] ?? null),
                 'globalName' => $text($user['global_name'] ?? null),
                 'nickname' => $text($row['nickname'] ?? null),
-                'avatarUrl' => is_string($user['avatar'] ?? null) && $user['avatar'] !== ''
-                    ? "https://cdn.discordapp.com/avatars/{$id}/{$user['avatar']}.png?size=64"
-                    : null,
+                'avatarUrl' => $this->avatarUrl($id, $text($user['avatar'] ?? null)),
             ];
         }
 
         return $friends;
+    }
+
+    /**
+     * Any Discord user by id, with the app's bot token: their public profile only.
+     *
+     * @return array{username: ?string, globalName: ?string, avatarUrl: ?string}
+     *
+     * @throws DiscordException
+     */
+    public function user(string $id): array
+    {
+        $id = DiscordUserId::normalize($id) ?? throw new DiscordException('That is not a Discord user ID.');
+
+        try {
+            $response = Http::withHeaders(['Authorization' => 'Bot '.config('services.discord.bot_token')])
+                ->acceptJson()->timeout(20)->get(self::API.'/users/'.$id);
+        } catch (ConnectionException) {
+            throw new DiscordException('Discord could not be reached.');
+        }
+
+        // Not decode(): a 401 here means the bot token is wrong, not that an owner's grant ended.
+        if ($response->status() === 404) {
+            throw new DiscordException("Discord has no user with the ID {$id}.", 404);
+        }
+
+        if (in_array($response->status(), [401, 403], true)) {
+            throw new DiscordException('Discord rejected the bot token this server has.', $response->status());
+        }
+
+        if ($response->status() === 429) {
+            throw new DiscordException('Discord is rate limiting requests. Try again in a minute.', 429);
+        }
+
+        if (! $response->successful() || ! is_array($response->json())) {
+            throw new DiscordException('Discord answered with an error ('.$response->status().').', $response->status());
+        }
+
+        $user = $response->json();
+        $text = fn (mixed $v) => is_string($v) && $v !== '' ? $v : null;
+
+        return [
+            'username' => $text($user['username'] ?? null),
+            'globalName' => $text($user['global_name'] ?? null),
+            'avatarUrl' => $this->avatarUrl($id, $text($user['avatar'] ?? null)),
+        ];
+    }
+
+    private function avatarUrl(string $id, ?string $hash): ?string
+    {
+        return $hash === null ? null : "https://cdn.discordapp.com/avatars/{$id}/{$hash}.png?size=64";
     }
 
     /** @param array<string, mixed> $user */

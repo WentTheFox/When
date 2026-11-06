@@ -5,6 +5,11 @@
 /** A Discord friend linked to a connection, as the sync saw them (§0.2 tier, not E2EE). */
 export interface DiscordProfile {
   discord_user_id: string;
+  /**
+   * The server has this person's names (from the friend list or an earlier lookup). False is a
+   * placeholder for an ID nobody has looked up yet: everything else is null.
+   */
+  known: boolean;
   username: string | null;
   /** Their display name. */
   global_name: string | null;
@@ -24,6 +29,8 @@ export interface DiscordSummary {
   synced_at: string | null;
   /** Friends still waiting for the browser to link or create their connection. */
   pending_friends: number;
+  /** The server can look a user up by ID (it has the app's bot token), so a connection's Discord card can offer to. */
+  lookup_available: boolean;
   /** The custom field holding Discord user ids, with the value shape its type takes. */
   field: { id: string; type: string } | null;
   /** Connection id to the synced Discord friends linked to it. */
@@ -37,6 +44,7 @@ export const emptyDiscordSummary: DiscordSummary = {
   account_name: null,
   synced_at: null,
   pending_friends: 0,
+  lookup_available: false,
   field: null,
   profiles: {},
 };

@@ -177,6 +177,11 @@ class DiscordSyncService
                 $row->status = DiscordFriend::CREATED;
             }
 
+            // Looked up by id earlier and now a friend: they take part in the friend flow like any other.
+            if ($row->status === DiscordFriend::LOOKUP) {
+                $row->status = $isLinked ? DiscordFriend::CREATED : DiscordFriend::PENDING;
+            }
+
             $row->save();
         }
     }
@@ -262,11 +267,10 @@ class DiscordSyncService
     }
 
     /**
-     * What the connection form shows per connection: every Discord account on it that is
-     * one of the owner's synced friends (names and avatar come from the friend list, so an id
-     * that isn't a friend has nothing to show).
+     * What the connection form shows per connection: every Discord account on it. Names and avatar
+     * come from the friend list or an earlier lookup; an id with neither is a placeholder.
      *
-     * @return array<string, list<array{discord_user_id: string, username: ?string, global_name: ?string, nickname: ?string, picture_url: ?string}>>
+     * @return array<string, list<array{discord_user_id: string, known: bool, username: ?string, global_name: ?string, nickname: ?string, picture_url: ?string}>>
      */
     private function profiles(User $user): array
     {
@@ -283,15 +287,16 @@ class DiscordSyncService
             foreach ($ids as $id) {
                 $friend = $friends->get(DiscordUserId::hash($id));
 
-                if ($friend !== null) {
-                    $profiles[$connectionId][] = [
-                        'discord_user_id' => $id,
-                        'username' => $friend->username,
-                        'global_name' => $friend->global_name,
-                        'nickname' => $friend->nickname,
-                        'picture_url' => $friend->avatar_url,
-                    ];
-                }
+                // An id nobody has looked up (and who isn't a synced friend) is still listed, as a placeholder
+                // (known = false) the card can offer to look up.
+                $profiles[$connectionId][] = [
+                    'discord_user_id' => $id,
+                    'known' => $friend !== null,
+                    'username' => $friend?->username,
+                    'global_name' => $friend?->global_name,
+                    'nickname' => $friend?->nickname,
+                    'picture_url' => $friend?->avatar_url,
+                ];
             }
         }
 
@@ -320,9 +325,78 @@ class DiscordSyncService
     }
 
     /**
+     * Looks up the Discord accounts on one connection by id (the app's bot token: works for anyone,
+     * friend or not), saves what Discord says so the connection form can show it, and adds the names as
+     * highlight tokens. A lookup never makes someone a pending friend, and an existing friend's
+     * nickname is left alone.
+     *
+     * @return list<array{discord_user_id: string, known: bool, username: ?string, global_name: ?string, nickname: ?string, picture_url: ?string}>
+     *
+     * @throws DiscordException
+     */
+    public function lookup(User $user, string $connectionId): array
+    {
+        if (! DiscordClient::canLookUp()) {
+            throw new DiscordException('Looking up Discord users is not set up on this server.');
+        }
+
+        // A connection has a handful of ids at most; the cap keeps one click from becoming a burst of calls.
+        $ids = array_slice($this->idsByConnection($user)[$connectionId] ?? [], 0, 10);
+
+        if ($ids === []) {
+            throw new DiscordException('This connection has no Discord user ID.');
+        }
+
+        $known = DiscordFriend::where('user_id', $user->id)->get()->keyBy('discord_user_id_hash');
+        $found = 0;
+        $error = null;
+
+        foreach ($ids as $id) {
+            try {
+                $profile = $this->client->user($id);
+            } catch (DiscordException $e) {
+                $error ??= $e;
+
+                continue;
+            }
+
+            $found++;
+            $hash = DiscordUserId::hash($id);
+            $row = $known->get($hash);
+
+            if ($row === null) {
+                DiscordFriend::create([
+                    'user_id' => $user->id,
+                    'discord_user_id_hash' => $hash,
+                    'discord_user_id' => $id,
+                    'username' => $profile['username'],
+                    'global_name' => $profile['globalName'],
+                    'avatar_url' => $profile['avatarUrl'],
+                    'status' => DiscordFriend::LOOKUP,
+                ]);
+            } else {
+                $row->update([
+                    'username' => $profile['username'] ?? $row->username,
+                    'global_name' => $profile['globalName'] ?? $row->global_name,
+                    'avatar_url' => $profile['avatarUrl'] ?? $row->avatar_url,
+                ]);
+            }
+        }
+
+        // Nothing came back at all (so every lookup failed): tell the owner why, instead of silently showing the same placeholder.
+        if ($found === 0) {
+            throw $error;
+        }
+
+        $this->addNameTokens($user);
+
+        return $this->profiles($user)[$connectionId] ?? [];
+    }
+
+    /**
      * What the Connections and Settings pages show.
      *
-     * @return array{available: bool, connected: bool, configured: bool, account_name: ?string, synced_at: ?string, pending_friends: int, field: array{id: string, type: string}|null, profiles: array<string, list<array{discord_user_id: string, username: ?string, global_name: ?string, nickname: ?string, picture_url: ?string}>>}
+     * @return array{available: bool, connected: bool, configured: bool, account_name: ?string, synced_at: ?string, pending_friends: int, lookup_available: bool, field: array{id: string, type: string}|null, profiles: array<string, list<array{discord_user_id: string, known: bool, username: ?string, global_name: ?string, nickname: ?string, picture_url: ?string}>>}
      */
     public function summary(User $user): array
     {
@@ -332,6 +406,8 @@ class DiscordSyncService
 
         return [
             'available' => DiscordClient::isConfigured(),
+            // The server has a bot token, so a connection's Discord card can look a user up by id.
+            'lookup_available' => DiscordClient::canLookUp(),
             'connected' => $this->isConnected($user),
             'configured' => $this->isConfigured($user),
             'account_name' => $user->discord_account_name,

@@ -35,6 +35,8 @@ return [
         'client_id' => env('DISCORD_CLIENT_ID'),
         'client_secret' => env('DISCORD_CLIENT_SECRET'),
         'redirect' => env('DISCORD_REDIRECT_URI'),
+        // The app's bot token: only used to look up a user by id (GET /users/{id}) for a connection's Discord card.
+        'bot_token' => env('DISCORD_BOT_TOKEN'),
     ],
 
     'slack' => [

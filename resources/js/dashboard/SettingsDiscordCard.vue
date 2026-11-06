@@ -117,6 +117,12 @@ const syncedAt = computed(() => (props.discord.synced_at ? new Date(props.discor
       name is added next to the old one, and nothing is ever removed. Your private nickname for them is not copied.
     </p>
     <p class="small text-muted">
+      A connection with a Discord user ID but no known profile (the person isn't one of your friends, or nothing has been synced yet) shows a
+      placeholder on its Discord card. Where the server has a Discord bot token set up, its <strong>Sync</strong> button asks Discord about that
+      one ID directly and fills in the avatar, display name and username, and adds the names as highlight tokens just the same. This works for
+      people who are not your friends, and needs no connected account. Those people are never added to the friends waiting to be linked.
+    </p>
+    <p class="small text-muted">
       This data is <strong>not</strong> end-to-end encrypted: the server asks Discord for your friend list (the <code>identify</code> and
       <code>relationships.read</code> permissions) and stores the access tokens and the friends it saw encrypted at rest with the app key.
       Your connections' names stay end-to-end encrypted, so your browser does the matching and creating. You can disconnect at any time,
