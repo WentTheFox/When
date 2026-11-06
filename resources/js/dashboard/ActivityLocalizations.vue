@@ -26,11 +26,10 @@
  * directly, not a snapshot taken at render time.
  */
 import axios from 'axios';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faLanguage } from '@fortawesome/free-solid-svg-icons';
+import { LanguagesIcon } from '@lucide/vue';
 import { BAccordion, BAccordionItem, BButton } from 'bootstrap-vue-next';
 import { ref } from 'vue';
-import PaletteIcon from '../Components/PaletteIcon.vue';
+import AppIcon from '../Components/AppIcon.vue';
 import { paletteIconFor } from '../free/icon-palette';
 import ActivityLocalizationForm from './ActivityLocalizationForm.vue';
 
@@ -185,9 +184,9 @@ async function add(): Promise<void> {
     <BAccordionItem v-for="role in roles" :key="role.id">
       <template #title>
         <span class="d-flex align-items-center gap-2 flex-wrap">
-          <PaletteIcon v-if="role.icon_key && paletteIconFor(role.icon_key)" :icon="paletteIconFor(role.icon_key)!" />
+          <AppIcon v-if="role.icon_key && paletteIconFor(role.icon_key)" :icon="paletteIconFor(role.icon_key)!" />
           <code>{{ role.pattern || '(no pattern yet)' }}</code>
-          <span v-if="labelCodes(role.label).length" class="small text-muted"><FontAwesomeIcon :icon="faLanguage" class="me-1"/>{{ labelCodes(role.label).join(', ') }}</span>
+          <span v-if="labelCodes(role.label).length" class="small text-muted"><AppIcon :icon="LanguagesIcon" class="me-1"/>{{ labelCodes(role.label).join(', ') }}</span>
         </span>
       </template>
       <ActivityLocalizationForm

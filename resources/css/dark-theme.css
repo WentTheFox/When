@@ -2295,11 +2295,34 @@ hr {
     opacity: 0.6;
 }
 
-/* PaletteIcon.vue: baseline-aligned like the Font Awesome glyphs it replaced, and never squashed in a flex row. */
+/* AppIcon.vue: a Lucide icon sized in em, baseline-aligned, and never squashed in a flex row. */
 
-.wtf-palette-icon {
+.wtf-icon {
     width: 1em;
     height: 1em;
     vertical-align: -0.125em;
     flex-shrink: 0;
+}
+
+.wtf-icon-2x {
+    width: 2em;
+    height: 2em;
+}
+
+/* `spin` on AppIcon.vue (loading and refreshing). Reduced motion keeps the turning, only slower and in steps,
+   so it still reads as "working" without the continuous movement. */
+.wtf-icon-spin {
+    animation: wtf-icon-spin 1s linear infinite;
+}
+
+@keyframes wtf-icon-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wtf-icon-spin {
+        animation: wtf-icon-spin 3s steps(8, end) infinite;
+    }
 }

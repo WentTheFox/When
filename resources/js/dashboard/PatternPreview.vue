@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faCheck, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { CheckIcon, XIcon } from '@lucide/vue';
+import AppIcon from '../Components/AppIcon.vue';
 import { BButton } from 'bootstrap-vue-next';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import type { PatternPreviewConfig } from './patternPreviewTypes';
@@ -279,7 +279,7 @@ onUnmounted(() => resizeObserver?.disconnect());
   <div class="wtf-pattern-preview">
     <div class="wtf-pattern-preview-gutter">
       <div v-for="(r, i) in results" :key="i" class="wtf-pattern-preview-gutter-row" :class="r.matched ? 'wtf-pattern-preview-icon-match' : 'wtf-pattern-preview-icon-no-match'">
-        <FontAwesomeIcon :icon="r.matched ? faCheck : faXmark" />
+        <AppIcon :icon="r.matched ? CheckIcon : XIcon" />
       </div>
     </div>
     <div class="wtf-pattern-preview-editor">

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /** Settings.vue's "Public page" card — title/colors/icons/current-time-color, all part of the shared `form` Settings.vue owns and saves via its own submit(). */
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
+import { MoonIcon, SunIcon } from '@lucide/vue';
+import AppIcon from '../Components/AppIcon.vue';
 import { BButton, BFormGroup, BFormInput } from 'bootstrap-vue-next';
 import { addDays as addDaysFns, startOfWeek as startOfWeekFns } from 'date-fns';
 import { computed } from 'vue';
@@ -480,7 +480,7 @@ function submit(): void {
               :style="theme === 'dark' ? previewStyleDark : previewStyleLight"
             >
               <p class="small fw-bold text-uppercase mb-1" :style="{ color: theme === 'dark' ? previewSecondaryColorDark : previewSecondaryColorLight }">
-                <FontAwesomeIcon :icon="theme === 'dark' ? faMoon : faSun" class="me-1" />{{ theme === 'dark' ? 'Dark theme' : 'Light theme' }}
+                <AppIcon :icon="theme === 'dark' ? MoonIcon : SunIcon" class="me-1" />{{ theme === 'dark' ? 'Dark theme' : 'Light theme' }}
               </p>
               <p class="small fw-bold mb-1">
                 {{

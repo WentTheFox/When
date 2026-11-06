@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { faDiscord } from '@fortawesome/free-brands-svg-icons';
-import { faBoxArchive, faLink, faUserPlus, faVrCardboard } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { ArchiveIcon, LinkIcon, RectangleGogglesIcon, UserPlusIcon } from '@lucide/vue';
+import { DiscordMark } from '../../Components/BrandIcons';
 import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
 import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput, BTab, BTabs } from 'bootstrap-vue-next';
@@ -12,7 +11,7 @@ import { paddedListText } from '../../dashboard/encryptedList';
 import { useResolvedTheme } from '../../composables/useTheme';
 import { requestConfirm } from '../../dashboard/confirmModal';
 import PageHeader from '../../Components/PageHeader.vue';
-import PaletteIcon from '../../Components/PaletteIcon.vue';
+import AppIcon from '../../Components/AppIcon.vue';
 import SearchableSelect from '../../Components/SearchableSelect.vue';
 import AttributesPanel from '../../dashboard/AttributesPanel.vue';
 import CategoriesPanel from '../../dashboard/CategoriesPanel.vue';
@@ -1696,7 +1695,7 @@ async function removeEdge(id: string): Promise<void> {
                     :style="selectedConnectionId === connection.id && shareLinkState(connection) === 'unhighlighted' ? 'color: #ff9e9e' : undefined"
                     :title="SHARE_LINK_TEXT[shareLinkState(connection)]"
                   >
-                    <FontAwesomeIcon :icon="faLink" />
+                    <AppIcon :icon="LinkIcon" />
                     <span class="visually-hidden">{{ SHARE_LINK_TEXT[shareLinkState(connection)] }}</span>
                   </span>
                   <!-- VRChat / Discord IDs: muted when only set, colored when confirmed by VRCX. The selected row is blue itself, so there they are all just white. -->
@@ -1706,7 +1705,7 @@ async function removeEdge(id: string): Promise<void> {
                     :class="selectedConnectionId === connection.id ? '' : (vrchatState(connection) === 'active' ? 'text-info' : 'text-muted')"
                     :title="vrchatState(connection) === 'active' ? 'VRChat account linked (VRCX knows it)' : 'VRChat ID set, but VRCX has no profile for it yet'"
                   >
-                    <FontAwesomeIcon :icon="faVrCardboard" />
+                    <AppIcon :icon="RectangleGogglesIcon" />
                     <span class="visually-hidden">{{ vrchatState(connection) === 'active' ? 'VRChat account linked' : 'VRChat ID set, not confirmed by VRCX' }}</span>
                   </span>
                   <span
@@ -1716,7 +1715,7 @@ async function removeEdge(id: string): Promise<void> {
                     :style="selectedConnectionId !== connection.id && discordState(connection) === 'active' ? 'color: #5865f2' : undefined"
                     :title="discordState(connection) === 'active' ? 'Discord ID known' : 'Discord ID set in the custom field only'"
                   >
-                    <FontAwesomeIcon :icon="faDiscord" />
+                    <DiscordMark />
                     <span class="visually-hidden">{{ discordState(connection) === 'active' ? 'Discord ID known' : 'Discord ID set, not confirmed by VRCX' }}</span>
                   </span>
                   <!-- Made from a VRChat friend during this visit (listed first). -->
@@ -1726,7 +1725,7 @@ async function removeEdge(id: string): Promise<void> {
                     :class="selectedConnectionId === connection.id ? '' : 'text-success'"
                     title="Added from your VRChat friends on this visit"
                   >
-                    <FontAwesomeIcon :icon="faUserPlus" />
+                    <AppIcon :icon="UserPlusIcon" />
                     <span class="visually-hidden">Added from your VRChat friends on this visit</span>
                   </span>
                   <!-- Archived. Muted, except on the selected row, where the inherited white stays readable. -->
@@ -1736,7 +1735,7 @@ async function removeEdge(id: string): Promise<void> {
                     :class="selectedConnectionId === connection.id ? '' : 'text-warning'"
                     title="Archived"
                   >
-                    <FontAwesomeIcon :icon="faBoxArchive" />
+                    <AppIcon :icon="ArchiveIcon" />
                     <span class="visually-hidden">Archived</span>
                   </span>
                   <!-- Icons from the per-field icon rules (Fields tab). Evaluated in the browser against decrypted values. -->
@@ -1748,7 +1747,7 @@ async function removeEdge(id: string): Promise<void> {
                       :style="{ color: ruleIconColor(icon, selectedConnectionId === connection.id) }"
                       :title="icon.label ?? undefined"
                     >
-                      <PaletteIcon :icon="paletteIconFor(icon.icon)!" />
+                      <AppIcon :icon="paletteIconFor(icon.icon)!" />
                       <span v-if="icon.label" class="visually-hidden">{{ icon.label }}</span>
                     </span>
                   </template>

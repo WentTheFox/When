@@ -9,8 +9,8 @@
  * The dialog itself is the one global VaultUnlockModal (DashboardLayout.vue);
  * this only requests it.
  */
-import { faLock } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { LockIcon } from '@lucide/vue';
+import AppIcon from '../Components/AppIcon.vue';
 import { requestUnlock } from './vaultModal';
 import { useVault } from './useVault';
 
@@ -23,7 +23,7 @@ const { vaultUnlocked } = useVault();
       <slot />
     </div>
     <button v-if="!vaultUnlocked" type="button" class="locked-overlay" @click="requestUnlock()">
-      <FontAwesomeIcon :icon="faLock" />
+      <AppIcon :icon="LockIcon" />
       <span>Vault locked — click to unlock</span>
     </button>
   </div>

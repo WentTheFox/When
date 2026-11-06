@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { faDoorOpen } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { LogOutIcon } from '@lucide/vue';
+import AppIcon from './AppIcon.vue';
 
 /**
  * The one header used everywhere — PublicLayout.vue (guest and public
@@ -152,7 +152,7 @@ function logout(): void {
           >
           <span>{{ page.props.auth.user.name }}</span>
         </Link>
-        <BButton variant="outline-secondary" size="sm" @click="logout"><FontAwesomeIcon :icon="faDoorOpen"/></BButton>
+        <BButton variant="outline-secondary" size="sm" @click="logout"><AppIcon :icon="LogOutIcon"/></BButton>
       </div>
     </template>
   </HeaderBar>

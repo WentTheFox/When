@@ -21,8 +21,8 @@
  * comment for why that's needed specifically for the switch-to-English
  * case.
  */
-import { faLanguage } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { LanguagesIcon } from '@lucide/vue';
+import AppIcon from './AppIcon.vue';
 import { BDropdown, BDropdownDivider, BDropdownItem } from 'bootstrap-vue-next';
 import { loadLanguageAsync } from 'laravel-vue-i18n';
 import { computed, ref } from 'vue';
@@ -124,7 +124,7 @@ async function handleClick(event: MouseEvent, code: string): Promise<void> {
 <template>
   <BDropdown variant="link" toggle-class="nav-link" menu-class="wtf-language-menu" no-caret>
     <template #button-content>
-      <FontAwesomeIcon :icon="faLanguage" class="me-1" />{{ current?.native }}
+      <AppIcon :icon="LanguagesIcon" class="me-1" />{{ current?.native }}
     </template>
     <template v-for="(l, i) in orderedLocales" :key="l.code">
       <BDropdownDivider v-if="i === preferredLocales.length && i > 0" />

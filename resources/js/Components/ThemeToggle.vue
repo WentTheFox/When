@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import AppIcon from './AppIcon.vue';
 import { useTheme } from '../composables/useTheme';
 
 const { icon, cycle } = useTheme();
@@ -7,6 +7,6 @@ const { icon, cycle } = useTheme();
 
 <template>
   <button type="button" class="nav-link btn btn-link" aria-label="Change theme" @click="cycle">
-    <FontAwesomeIcon :icon="icon" />
+    <AppIcon :icon="icon" />
   </button>
 </template>

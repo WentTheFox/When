@@ -15,7 +15,7 @@
  */
 import { BDropdown, BFormInput, BInputGroup, BInputGroupText } from 'bootstrap-vue-next';
 import { computed, nextTick, ref } from 'vue';
-import PaletteIcon from '../Components/PaletteIcon.vue';
+import AppIcon from '../Components/AppIcon.vue';
 import { getIconPalette, paletteIconFor } from '../free/icon-palette';
 import type { IconOption } from '../free/icon-palette';
 
@@ -73,7 +73,7 @@ function onShown(): void {
 <template>
   <BInputGroup>
     <BInputGroupText>
-      <PaletteIcon
+      <AppIcon
         v-if="currentIcon"
         :icon="currentIcon"
         class="wtf-icon-picker-toggle-icon"
@@ -118,7 +118,7 @@ function onShown(): void {
                 :title="icon.label"
                 @click="select(icon)"
               >
-                <PaletteIcon v-if="paletteIconFor(icon.key)" :icon="paletteIconFor(icon.key)!" />
+                <AppIcon v-if="paletteIconFor(icon.key)" :icon="paletteIconFor(icon.key)!" />
                 <span class="visually-hidden">{{ icon.label }}</span>
               </button>
             </div>

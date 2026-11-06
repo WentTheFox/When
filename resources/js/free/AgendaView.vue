@@ -3,7 +3,7 @@
  * Ported from WentTheNuxt's app/components/free/AgendaView.vue — same
  * adaptations as CalendarView.vue (see that file's header comment): laravel-
  * vue-i18n instead of vue-i18n, plain wtf-fagenda-* CSS classes instead of a
- * CSS module, local FontAwesomeIcon import, a spinning icon instead of
+ * CSS module, the AppIcon wrapper (Lucide), a spinning icon instead of
  * CutieMarkPlayer. This is the mobile/narrow-viewport view (shown by
  * .wtf-mobile-only below md, same breakpoint CalendarView.vue hides itself
  * at) — a per-day list instead of a side-by-side week grid.
@@ -12,15 +12,14 @@ import { format } from 'date-fns';
 import { resolveDateFnsLocale } from './dateFnsLocale';
 import { isBeyondRange } from './rangeEnd';
 import { TZDate } from '@date-fns/tz';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faRepeat, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { LoaderCircleIcon, RepeatIcon } from '@lucide/vue';
 import { computed } from 'vue';
 import { currentLocale, trans } from 'laravel-vue-i18n';
 import { recurrenceText } from './recurrence';
 import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, isTentativeSuffixShown, pctToTime, tildeTime } from './nuxt-blocks';
 import type { DayBlock, EventSlot } from './nuxt-blocks';
 import { resolveLocalizedText } from './localizedText';
-import PaletteIcon from '../Components/PaletteIcon.vue';
+import AppIcon from '../Components/AppIcon.vue';
 import { resolveIcon } from './icon-palette';
 import type { PaletteIcon as PaletteIconType } from './icon-palette';
 import { activityColorStyle as activityColorStyleFor, tentativeFadeStyle } from './blockColors';
@@ -176,7 +175,7 @@ const agendaEntries = computed(() =>
 <template>
   <div class="wtf-fagenda-wrap">
     <div v-if="pending" class="wtf-fagenda-loading-overlay">
-      <FontAwesomeIcon :icon="faSpinner" spin size="2x" />
+      <AppIcon :icon="LoaderCircleIcon" spin size="2x" />
     </div>
     <div v-else-if="hasError" class="wtf-fagenda-error-state">
       {{ $t('free.error') }}
@@ -207,7 +206,7 @@ const agendaEntries = computed(() =>
             :style="{ top: `${currentTimeOffsetPct}%` }"
           />
           <span class="wtf-fagenda-slot-time">{{ slotTimeText(slot) }}</span>
-          <span class="wtf-fagenda-slot-label"><PaletteIcon :icon="iconFor(slot)" class="wtf-fagenda-slot-icon me-1" />{{ slotLabel(slot) }}{{ isTentativeSuffixShown(slot) ? $t('free.tentativeSuffix') : '' }}<span v-if="slot.recurrence" class="wtf-recurrence" :title="$t('free.recurring')"> · <FontAwesomeIcon :icon="faRepeat" class="me-1" />{{ recurrenceText(slot.recurrence) }}</span></span>
+          <span class="wtf-fagenda-slot-label"><AppIcon :icon="iconFor(slot)" class="wtf-fagenda-slot-icon me-1" />{{ slotLabel(slot) }}{{ isTentativeSuffixShown(slot) ? $t('free.tentativeSuffix') : '' }}<span v-if="slot.recurrence" class="wtf-recurrence" :title="$t('free.recurring')"> · <AppIcon :icon="RepeatIcon" class="me-1" />{{ recurrenceText(slot.recurrence) }}</span></span>
         </div>
       </div>
     </div>
