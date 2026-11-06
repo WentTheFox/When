@@ -24,6 +24,7 @@
     "free.error": "تعذّر تحميل بيانات التوفر.",
     "free.noData": "لا يوجد وقت فراغ متبقٍ هذا الشهر.",
     "free.noDataWeek": "لا يوجد وقت فراغ متبقٍ هذا الأسبوع.",
+    "free.notSharedYet": "لم تتم المشاركة بعد",
     "free.today": "اليوم",
     "free.monthView": "شهر",
     "free.weekView": "أسبوع",

@@ -24,6 +24,7 @@
     "free.error": "Kan beschikbaarheidsgegevens niet laden.",
     "free.noData": "Geen vrije tijd meer deze maand.",
     "free.noDataWeek": "Geen vrije tijd meer deze week.",
+    "free.notSharedYet": "Nog niet gedeeld",
     "free.today": "Vandaag",
     "free.monthView": "Maand",
     "free.weekView": "Week",

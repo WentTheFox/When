@@ -8,6 +8,7 @@
  */
 import { addDays, format, getDay, subDays } from 'date-fns';
 import { resolveDateFnsLocale } from './dateFnsLocale';
+import { isBeyondRange } from './rangeEnd';
 import { TZDate } from '@date-fns/tz';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faSpinner } from '@fortawesome/free-solid-svg-icons';
@@ -41,6 +42,8 @@ const props = defineProps<{
   showBlocks: boolean;
   showCurrentTime: boolean;
   currentTimePct: number;
+  /** First day the server did not compute — days from here on are hidden (not shared yet), not empty. */
+  hiddenFrom?: Date | null;
   /** 0=Sunday..6=Saturday, same convention as date-fns' weekStartsOn. */
   weekStart: number;
 }>();
@@ -126,6 +129,8 @@ type DayStatus = {
   number: string;
   isToday: boolean;
   isPast: boolean;
+  /** Past the computed range — hidden, not empty. */
+  isBeyondRange: boolean;
   /** A leading/trailing padding day from the adjacent month, not part of the month actually being viewed — rendered dimmed. */
   isOutsideMonth: boolean;
   allBlocks: ReturnType<typeof getBlocksForDay>;
@@ -158,6 +163,7 @@ const dayStatuses = computed(() => {
       number: formatDay(day, 'd'),
       isToday,
       isPast: isDayPast(day),
+      isBeyondRange: isBeyondRange(day, props.hiddenFrom ?? null, props.timezone),
       isOutsideMonth: !monthStart || !monthEnd || day < monthStart || day > monthEnd,
       allBlocks: blocks,
       currentBlockIndex,
@@ -229,7 +235,8 @@ const weekRows = computed(() => {
             <div
               v-else
               class="wtf-fmonth-day-cell"
-              :class="{ 'is-today': cell.isToday, 'wtf-fmonth-day-cell-outside': cell.isOutsideMonth }"
+              :class="{ 'is-today': cell.isToday, 'wtf-fmonth-day-cell-outside': cell.isOutsideMonth, 'is-beyond-range': cell.isBeyondRange }"
+              :title="cell.isBeyondRange ? $t('free.notSharedYet') : undefined"
             >
               <span class="wtf-fmonth-day-number" :class="{ 'wtf-fmonth-day-number-today': cell.isToday }">
                 {{ cell.number }}

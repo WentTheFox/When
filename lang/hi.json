@@ -24,6 +24,7 @@
     "free.error": "उपलब्धता डेटा लोड नहीं हो सका।",
     "free.noData": "इस महीने कोई खाली समय नहीं बचा है।",
     "free.noDataWeek": "इस सप्ताह कोई खाली समय नहीं बचा है।",
+    "free.notSharedYet": "अभी साझा नहीं किया गया",
     "free.today": "आज",
     "free.monthView": "महीना",
     "free.weekView": "सप्ताह",

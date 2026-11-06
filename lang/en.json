@@ -24,6 +24,7 @@
     "free.error": "Could not load availability data.",
     "free.noData": "No free time left this month.",
     "free.noDataWeek": "No free time left this week.",
+    "free.notSharedYet": "Not shared yet",
     "free.today": "Today",
     "free.monthView": "Month",
     "free.weekView": "Week",

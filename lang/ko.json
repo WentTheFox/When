@@ -24,6 +24,7 @@
     "free.error": "가용성 데이터를 불러올 수 없습니다.",
     "free.noData": "이번 달에는 더 이상 여유 시간이 없습니다.",
     "free.noDataWeek": "이번 주에는 더 이상 여유 시간이 없습니다.",
+    "free.notSharedYet": "아직 공유되지 않음",
     "free.today": "오늘",
     "free.monthView": "월",
     "free.weekView": "주",

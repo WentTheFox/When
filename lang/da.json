@@ -24,6 +24,7 @@
     "free.error": "Kunne ikke indlæse tilgængelighedsdata.",
     "free.noData": "Ingen ledig tid tilbage denne måned.",
     "free.noDataWeek": "Ingen ledig tid tilbage denne uge.",
+    "free.notSharedYet": "Ikke delt endnu",
     "free.today": "I dag",
     "free.monthView": "Måned",
     "free.weekView": "Uge",

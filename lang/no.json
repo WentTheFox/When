@@ -24,6 +24,7 @@
     "free.error": "Kunne ikke laste inn tilgjengelighetsdata.",
     "free.noData": "Ingen ledig tid igjen denne måneden.",
     "free.noDataWeek": "Ingen ledig tid igjen denne uken.",
+    "free.notSharedYet": "Ikke delt ennå",
     "free.today": "I dag",
     "free.monthView": "Måned",
     "free.weekView": "Uke",

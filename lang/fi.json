@@ -24,6 +24,7 @@
     "free.error": "Saatavuustietoja ei voitu ladata.",
     "free.noData": "Vapaata aikaa ei ole enää jäljellä tässä kuussa.",
     "free.noDataWeek": "Vapaata aikaa ei ole enää jäljellä tällä viikolla.",
+    "free.notSharedYet": "Ei vielä jaettu",
     "free.today": "Tänään",
     "free.monthView": "Kuukausi",
     "free.weekView": "Viikko",
