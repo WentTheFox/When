@@ -24,10 +24,11 @@ const emit = defineEmits<{ apply: [Record<string, ReviewChoice>] }>();
 
 const choices = ref<Record<string, ReviewChoice>>({});
 
-// Every friend starts on "new connection": a duplicate is easy to merge later, a wrong mapping is not.
+// A friend with a single candidate starts on that connection (the match was exact, it only needs the owner's OK
+// because of the occupied field); with several to pick from, starting on "new" avoids a wrong mapping.
 watch(() => props.items, (items) => {
   const next: Record<string, ReviewChoice> = {};
-  for (const item of items) next[item.friendId] = choices.value[item.friendId] ?? 'new';
+  for (const item of items) next[item.friendId] = choices.value[item.friendId] ?? (item.candidates.length === 1 ? item.candidates[0].id : 'new');
   choices.value = next;
 }, { immediate: true });
 
