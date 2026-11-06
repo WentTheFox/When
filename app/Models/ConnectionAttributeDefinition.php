@@ -19,6 +19,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property string|null $options_ciphertext
+ * @property string|null $icon_rules_ciphertext
  * @property Carbon|null $deleted_at
  * @property int $sort_order
  * @property-read User|null $user
@@ -32,6 +33,7 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition whereDeletedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition whereIconRulesCiphertext($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition whereLabelCiphertext($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition whereOptionsCiphertext($value)
@@ -54,6 +56,7 @@ class ConnectionAttributeDefinition extends Model
         'label_ciphertext',
         'type',
         'options_ciphertext',
+        'icon_rules_ciphertext',
         'sort_order',
     ];
 

@@ -115,9 +115,11 @@ class AccountExportDecryptionScriptsTest extends TestCase
         ]);
         $plaintexts['definition_label'] = 'Definition Label';
         $plaintexts['definition_options'] = '["A","B"]';
+        $plaintexts['definition_icon_rules'] = '{"version":1,"rules":[]}';
         $definition->forceFill([
             'label_ciphertext' => $this->encryptFor($definition->id, $plaintexts['definition_label']),
             'options_ciphertext' => $this->encryptFor($definition->id, $plaintexts['definition_options']),
+            'icon_rules_ciphertext' => $this->encryptFor($definition->id, $plaintexts['definition_icon_rules']),
         ])->save();
 
         // Attribute values are keyed by their PARENT connection's id, not
@@ -186,6 +188,7 @@ class AccountExportDecryptionScriptsTest extends TestCase
         $this->assertContains($plaintexts['category_name'], collect($decryptedFiles['connections/source-categories']['records'])->pluck('name'));
         $this->assertContains($plaintexts['definition_label'], collect($decryptedFiles['connections/attribute-definitions']['records'])->pluck('label'));
         $this->assertContains($plaintexts['definition_options'], collect($decryptedFiles['connections/attribute-definitions']['records'])->pluck('options'));
+        $this->assertContains($plaintexts['definition_icon_rules'], collect($decryptedFiles['connections/attribute-definitions']['records'])->pluck('icon_rules'));
         $this->assertContains($plaintexts['attribute_value'], collect($decryptedFiles['connections/attribute-values']['records'])->pluck('value'));
         $this->assertContains($plaintexts['sleep_exception_label'], collect($decryptedFiles['availability/sleep-exceptions']['records'])->pluck('label'));
     }

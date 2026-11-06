@@ -7,6 +7,8 @@ import { computed, ref, watch } from 'vue';
 import EncryptedInput from '../Components/EncryptedInput.vue';
 import EncryptedText from '../Components/EncryptedText.vue';
 import { requestConfirm } from './confirmModal';
+import IconRulesEditor from './IconRulesEditor.vue';
+import type { IconRuleSet, ParsedRuleSet } from './iconRules';
 import LockedOverlay from './LockedOverlay.vue';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -41,6 +43,8 @@ const props = defineProps<{
   fieldFeatures: Record<string, string[]>;
   /** Why the server last refused to delete a field, if it did. */
   removeError?: string | null;
+  /** Decrypted icon rules per field id (only fields that have some). */
+  iconRuleSets: Record<string, ParsedRuleSet>;
   /** Null while idle; otherwise the bulk identifier copy's progress/result line. */
   copyStatus: string | null;
   copyBusy: boolean;
@@ -51,6 +55,8 @@ const emit = defineEmits<{
   /** Choice field: the full new list (existing choices reordered, new ones appended). */
   updateOptions: [string, string[]];
   remove: [string];
+  /** Icon rules: the field id and its full new rule set, to be encrypted and saved. */
+  saveIconRules: [string, IconRuleSet];
   convertToList: [string];
   /** Create an identifier field with this name, then copy the text field (first id) into it. */
   createIdentifierAndCopy: [string, string];
@@ -311,6 +317,13 @@ function add(): void {
               <BButton size="sm" variant="primary" :disabled="pending || optionsUnchanged" @click="saveOptions">Save choices</BButton>
             </div>
           </BFormGroup>
+          <IconRulesEditor
+            :type="selected.type"
+            :choices="selected.options"
+            :parsed="iconRuleSets[selected.id]"
+            :pending="pending"
+            @save="emit('saveIconRules', selected.id, $event)"
+          />
           <dl class="row small mb-3">
             <dt class="col-sm-3">Type</dt>
             <dd class="col-sm-9">

@@ -24,7 +24,8 @@ const page = usePage();
     Connections CRM
   </h2>
   <p class="mb-2">
-    Names, notes, custom attributes, and sources you store in the
+    Names, notes, custom attributes (including the icon rules you set on
+    a field), and sources you store in the
     Connections CRM are encrypted in your browser before they're ever
     sent anywhere. We store only opaque ciphertext blobs and serve them
     back unmodified &mdash; we cannot read this data, at rest, in

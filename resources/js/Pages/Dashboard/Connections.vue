@@ -7,8 +7,10 @@ import axios from 'axios';
 import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput, BFormSelect, BFormTextarea, BTab, BTabs } from 'bootstrap-vue-next';
 import { computed, nextTick, onBeforeUnmount, onMounted, type Ref, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../../crypto';
+import { useResolvedTheme } from '../../composables/useTheme';
 import { requestConfirm } from '../../dashboard/confirmModal';
 import PageHeader from '../../Components/PageHeader.vue';
+import PaletteIcon from '../../Components/PaletteIcon.vue';
 import AttributesPanel from '../../dashboard/AttributesPanel.vue';
 import CategoriesPanel from '../../dashboard/CategoriesPanel.vue';
 import EncryptedText from '../../Components/EncryptedText.vue';
@@ -33,14 +35,18 @@ import {
 import LockedOverlay from '../../dashboard/LockedOverlay.vue';
 import { alphabetical, type LabelOf, placeAlphabetically, sameOrder } from '../../dashboard/listOrder';
 import { requestUnlock } from '../../dashboard/vaultModal';
+import { useRuleIcons } from '../../dashboard/useRuleIcons';
 import { useVault } from '../../dashboard/useVault';
+import { swatchByKey } from '../../free/color-palette';
+import { paletteIconFor } from '../../free/icon-palette';
+import { type IconRuleSet, serializeIconRules, type ResolvedIcon } from '../../dashboard/iconRules';
 import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 
 defineOptions({ layout: DashboardLayout });
 
 interface SourceRow { id: string; category_id: string | null; name_ciphertext: string }
 interface CategoryRow { id: string; color_key: string | null; name_ciphertext: string }
-interface DefinitionRow { id: string; label_ciphertext: string; type: string; options_ciphertext: string | null }
+interface DefinitionRow { id: string; label_ciphertext: string; type: string; options_ciphertext: string | null; icon_rules_ciphertext: string | null }
 interface EdgeRow { id: string; from_connection_id: string; to_connection_id: string }
 
 const props = defineProps<{
@@ -71,11 +77,23 @@ const discord = ref<DiscordSummary>(props.discord ?? emptyDiscordSummary);
  */
 interface SourceItem { id: string; category_id: string | null; name_ciphertext: string; label?: string }
 interface CategoryItem { id: string; color_key: string | null; name_ciphertext: string; label?: string }
-interface DefinitionItem { id: string; type: string; label_ciphertext: string; options_ciphertext: string | null; label?: string; options: string[] }
+interface DefinitionItem { id: string; type: string; label_ciphertext: string; options_ciphertext: string | null; icon_rules_ciphertext: string | null; label?: string; options: string[] }
 
 const sourceItems = ref<SourceItem[]>(props.sources.map((s) => ({ ...s })));
 const categoryItems = ref<CategoryItem[]>(props.categories.map((c) => ({ ...c })));
 const definitionItems = ref<DefinitionItem[]>(props.attributeDefinitions.map((d) => ({ ...d, options: [] })));
+
+/** The rule-driven icons (per-field icon rules, see iconRules.ts) shown after the fixed marks in each row. */
+const { ruleIcons, ruleSets } = useRuleIcons(connections, definitionItems, vaultUnlocked, getRecordKey);
+const resolvedTheme = useResolvedTheme();
+
+/** A rule icon's palette colour for the current theme; undefined (inherit) when it has none or the row is selected, where the inherited white stays readable. */
+function ruleIconColor(icon: ResolvedIcon, selected: boolean): string | undefined {
+  if (selected || !icon.color) return undefined;
+  const swatch = swatchByKey(icon.color);
+
+  return swatch ? swatch[resolvedTheme.value] : undefined;
+}
 
 const sources = computed(() =>
   sourceItems.value
@@ -1140,7 +1158,7 @@ async function addDefinition(label: string, type: string, choices: string[]): Pr
       type,
       options_ciphertext: optionsCiphertext,
     });
-    definitionItems.value.push({ id, type, label_ciphertext: labelCiphertext, options_ciphertext: optionsCiphertext, label, options: choices });
+    definitionItems.value.push({ id, type, label_ciphertext: labelCiphertext, options_ciphertext: optionsCiphertext, icon_rules_ciphertext: null, label, options: choices });
     await placeAndSave(definitionItems, 'attributes', id, labelOfItem);
     return id;
   } catch (error) {
@@ -1245,6 +1263,19 @@ async function updateDefinitionOptions(id: string, choices: string[]): Promise<v
       definition.options_ciphertext = optionsCiphertext;
       definition.options = choices;
     }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+/** Icon rules: the whole rule set is one E2EE blob under the field's own record key. */
+async function saveIconRules(id: string, set: IconRuleSet): Promise<void> {
+  try {
+    const key = await getRecordKey(id);
+    const ciphertext = await encryptString(key, serializeIconRules(set));
+    await axios.patch(`/dashboard/connection-attribute-definitions/${id}`, { icon_rules_ciphertext: ciphertext });
+    const definition = definitionItems.value.find((d) => d.id === id);
+    if (definition) definition.icon_rules_ciphertext = ciphertext;
   } catch (error) {
     console.error(error);
   }
@@ -1524,6 +1555,19 @@ async function removeEdge(id: string): Promise<void> {
                     <FontAwesomeIcon :icon="faBoxArchive" />
                     <span class="visually-hidden">Archived</span>
                   </span>
+                  <!-- Icons from the per-field icon rules (Fields tab). Evaluated in the browser against decrypted values. -->
+                  <template v-for="icon in ruleIcons[connection.id] ?? []" :key="icon.ruleId">
+                    <span
+                      v-if="paletteIconFor(icon.icon)"
+                      class="ms-1 connection-rule-icon"
+                      :class="selectedConnectionId === connection.id || icon.color ? '' : 'text-secondary'"
+                      :style="{ color: ruleIconColor(icon, selectedConnectionId === connection.id) }"
+                      :title="icon.label ?? undefined"
+                    >
+                      <PaletteIcon :icon="paletteIconFor(icon.icon)!" />
+                      <span v-if="icon.label" class="visually-hidden">{{ icon.label }}</span>
+                    </span>
+                  </template>
                 </button>
               </div>
             </LockedOverlay>
@@ -1575,11 +1619,13 @@ async function removeEdge(id: string): Promise<void> {
           :usage="definitionUsage"
           :field-features="fieldFeatures"
           :remove-error="definitionError"
+          :icon-rule-sets="ruleSets"
           :copy-status="copyStatus"
           :copy-busy="copyBusy"
           @add="addDefinition"
           @rename="renameDefinition"
           @update-options="updateDefinitionOptions"
+          @save-icon-rules="saveIconRules"
           @remove="removeDefinition"
           @convert-to-identifier="convertDefinitionToIdentifier"
           @convert-to-list="convertDefinitionToList"

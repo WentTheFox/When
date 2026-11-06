@@ -43,6 +43,31 @@ class ConnectionAttributeDefinitionTest extends TestCase
         $this->assertSame('new-options', $definition->fresh()->options_ciphertext);
     }
 
+    public function test_icon_rules_can_be_saved_on_any_field_type(): void
+    {
+        $owner = User::factory()->create();
+
+        foreach (['text', 'boolean', 'number', 'radio'] as $type) {
+            $definition = $this->definition($owner, $type);
+
+            $this->actingAs($owner)
+                ->patchJson("/dashboard/connection-attribute-definitions/{$definition->id}", ['icon_rules_ciphertext' => 'rules-blob'])
+                ->assertOk();
+
+            $this->assertSame('rules-blob', $definition->fresh()->icon_rules_ciphertext);
+        }
+    }
+
+    public function test_an_update_needs_at_least_one_field(): void
+    {
+        $owner = User::factory()->create();
+        $definition = $this->definition($owner, 'text');
+
+        $this->actingAs($owner)
+            ->patchJson("/dashboard/connection-attribute-definitions/{$definition->id}", [])
+            ->assertUnprocessable();
+    }
+
     public function test_only_a_choice_field_has_options(): void
     {
         $owner = User::factory()->create();
