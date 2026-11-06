@@ -54,7 +54,7 @@ class ConnectionController extends Controller
             ])->map(fn (Connection $c) => $this->serialize($c)),
             'sources' => $user->connectionSources()->ordered()->get(['id', 'category_id', 'name_ciphertext']),
             'categories' => $user->connectionSourceCategories()->ordered()->get(['id', 'name_ciphertext', 'color_key']),
-            'attributeDefinitions' => $user->connectionAttributeDefinitions()->ordered()->get(['id', 'label_ciphertext', 'type', 'options_ciphertext']),
+            'attributeDefinitions' => $user->connectionAttributeDefinitions()->ordered()->get(['id', 'label_ciphertext', 'type', 'options_ciphertext', 'icon_rules_ciphertext']),
             // Fields that site features depend on (field id => feature labels): those can't be deleted.
             'fieldFeatures' => (object) FieldFeatures::forUser($user),
             'edges' => $user->connectionEdges()->get(['id', 'from_connection_id', 'to_connection_id']),

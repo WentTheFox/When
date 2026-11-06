@@ -45,8 +45,13 @@ class ConnectionAttributeDefinitionController extends Controller
         $definition = $request->user()->connectionAttributeDefinitions()->where('id', $definition)->firstOrFail();
 
         $data = $request->validate([
-            'label_ciphertext' => ['required_without:options_ciphertext', 'string'],
-            'options_ciphertext' => ['required_without:label_ciphertext', 'string'],
+            'label_ciphertext' => ['required_without_all:options_ciphertext,icon_rules_ciphertext', 'string'],
+            'options_ciphertext' => ['required_without_all:label_ciphertext,icon_rules_ciphertext', 'string'],
+            // Per-field icon rules, any field type. One E2EE blob that carries
+            // its own schema version inside the ciphertext, so the server can
+            // neither read nor validate it. Clearing the rules means saving an
+            // encrypted empty list, not null.
+            'icon_rules_ciphertext' => ['required_without_all:label_ciphertext,options_ciphertext', 'string'],
         ]);
 
         if (isset($data['options_ciphertext']) && $definition->type !== 'radio') {

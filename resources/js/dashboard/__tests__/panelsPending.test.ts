@@ -54,6 +54,7 @@ describe('opening a record before it is decrypted', () => {
       fieldFeatures: {},
       copyStatus: null,
       copyBusy: false,
+      iconRuleSets: {},
     });
     expect(html).toMatch(new RegExp(`<input[^>]*value="${RAW}"[^>]*\\bdisabled\\b`));
     expect(buttonState(html, 'Delete')).toBe('disabled');
@@ -82,7 +83,7 @@ describe('opening a record before it is decrypted', () => {
 
 describe('a custom field that a site feature uses', () => {
   const definition = { id: ID, type: 'identifier_list', label_ciphertext: RAW, label: 'Highlight words', options: [] };
-  const base = { selectedId: ID, definitions: [definition], usage: {}, copyStatus: null, copyBusy: false };
+  const base = { selectedId: ID, definitions: [definition], usage: {}, copyStatus: null, copyBusy: false, iconRuleSets: {} };
 
   it('has its Delete button disabled and says why, with a way to Settings', async () => {
     const html = await render(AttributesPanel, { ...base, fieldFeatures: { [ID]: ['Highlight tokens'] } });
@@ -143,6 +144,7 @@ describe('list order', () => {
       fieldFeatures: {},
       copyStatus: null,
       copyBusy: false,
+      iconRuleSets: {},
     });
     expect(order(html, 'Zulu field', 'Alpha field')).toEqual(['Zulu field', 'Alpha field']);
   });
@@ -158,6 +160,7 @@ describe('the custom attributes list', () => {
     usage: {},
     copyStatus: null,
     copyBusy: false,
+    iconRuleSets: {},
   };
 
   /** The markup of just the left-hand list. */
