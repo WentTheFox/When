@@ -13,10 +13,10 @@
  * extra search terms beyond an icon's own label (so "home" still finds
  * "House", "job" still finds "Briefcase", etc.) — see matches() below.
  */
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { BDropdown, BFormInput, BInputGroup, BInputGroupText } from 'bootstrap-vue-next';
 import { computed, nextTick, ref } from 'vue';
-import { faIconFor, getIconPalette } from '../free/icon-palette';
+import PaletteIcon from '../Components/PaletteIcon.vue';
+import { getIconPalette, paletteIconFor } from '../free/icon-palette';
 import type { IconOption } from '../free/icon-palette';
 
 const props = defineProps<{
@@ -34,7 +34,7 @@ const dropdownRef = ref<{ hide: () => void } | null>(null);
 
 const allIcons = getIconPalette();
 
-const currentIcon = computed(() => (modelValue.value ? faIconFor(modelValue.value) : undefined));
+const currentIcon = computed(() => (modelValue.value ? paletteIconFor(modelValue.value) : undefined));
 const currentLabel = computed(() => allIcons.find((i) => i.key === modelValue.value)?.label ?? null);
 
 /** Matches label, the key itself (dashes read as spaces, so "cloud-moon" is searchable as "cloud moon"), and every configured alias — see IconKey::keywords()'s own doc comment for why aliases exist at all. */
@@ -73,7 +73,7 @@ function onShown(): void {
 <template>
   <BInputGroup>
     <BInputGroupText>
-      <FontAwesomeIcon
+      <PaletteIcon
         v-if="currentIcon"
         :icon="currentIcon"
         class="wtf-icon-picker-toggle-icon"
@@ -118,7 +118,7 @@ function onShown(): void {
                 :title="icon.label"
                 @click="select(icon)"
               >
-                <FontAwesomeIcon v-if="faIconFor(icon.key)" :icon="faIconFor(icon.key)!" />
+                <PaletteIcon v-if="paletteIconFor(icon.key)" :icon="paletteIconFor(icon.key)!" />
                 <span class="visually-hidden">{{ icon.label }}</span>
               </button>
             </div>

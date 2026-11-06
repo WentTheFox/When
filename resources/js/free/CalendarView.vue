@@ -22,14 +22,15 @@ import { isBeyondRange } from './rangeEnd';
 import { TZDate } from '@date-fns/tz';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faRepeat, faSpinner } from '@fortawesome/free-solid-svg-icons';
-import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import { computed } from 'vue';
 import { currentLocale, trans } from 'laravel-vue-i18n';
 import { recurrenceText } from './recurrence';
 import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, isTentativeSuffixShown, tildeTime } from './nuxt-blocks';
 import type { DayBlock, EventSlot } from './nuxt-blocks';
 import { resolveLocalizedText } from './localizedText';
+import PaletteIcon from '../Components/PaletteIcon.vue';
 import { resolveIcon } from './icon-palette';
+import type { PaletteIcon as PaletteIconType } from './icon-palette';
 import { activityColorStyle as activityColorStyleFor, tentativeFadeStyle } from './blockColors';
 import { useResolvedTheme } from '../composables/useTheme';
 import { vFitText } from './fitText';
@@ -60,7 +61,7 @@ const props = defineProps<{
   visibleDays: Date[];
   events: EventSlot[];
   /** Owner-customizable per block type — already resolved to real FA icons by Free/Show.vue's resolvedIcons (icon-palette.ts). */
-  icons: { free: IconDefinition; busy: IconDefinition; work: IconDefinition; school: IconDefinition; public: IconDefinition; sleep: IconDefinition; highlighted: IconDefinition };
+  icons: { free: PaletteIconType; busy: PaletteIconType; work: PaletteIconType; school: PaletteIconType; public: PaletteIconType; sleep: PaletteIconType; highlighted: PaletteIconType };
   pending: boolean;
   hasError: boolean;
   hasAnyFreeTime: boolean;
@@ -76,7 +77,7 @@ const props = defineProps<{
 // icons prop's slot names ('busy') — see nuxt-blocks.ts vs
 // icon-palette.ts's IconSlot for why (unavailable/busy naming has
 // always been split between the wire shape and the owner-facing slot).
-const blockTypeIcon = computed<Record<DayBlock['type'], IconDefinition>>(() => ({
+const blockTypeIcon = computed<Record<DayBlock['type'], PaletteIconType>>(() => ({
   free: props.icons.free,
   unavailable: props.icons.busy,
   highlighted: props.icons.highlighted,
@@ -100,7 +101,7 @@ const dateFnsLocale = computed(() => resolveDateFnsLocale(currentLocale.value));
  * hardcoded default) when unset, so an owner who's never touched a role's
  * icon sees no change at all.
  */
-function iconFor(block: DayBlock): IconDefinition {
+function iconFor(block: DayBlock): PaletteIconType {
   if ((block.type === 'highlighted' || block.type === 'public') && block.activityIcon) {
     return resolveIcon(block.activityIcon, block.type);
   }
@@ -250,7 +251,7 @@ function formatDay(day: Date, fmt: string): string {
                 :style="{ top: `${block.topPct}%`, height: `${block.heightPct}%`, ...fadeStyle(day, blocks, i), ...activityColorStyle(block) }"
               >
                 <span v-fit-text class="wtf-fcal-block-label">
-                  <strong><FontAwesomeIcon :icon="iconFor(block)" class="wtf-fcal-block-label-icon me-1" />{{ blockLabel(block) }}{{ isTentativeSuffixShown(block) ? $t('free.tentativeSuffix') : '' }}</strong><span class="wtf-fcal-block-label-time">{{ blockTimeText(block) }}</span><span v-if="block.recurrence" class="wtf-fcal-block-label-time wtf-recurrence" :title="$t('free.recurring')"><FontAwesomeIcon :icon="faRepeat" class="me-1" />{{ recurrenceText(block.recurrence) }}</span>
+                  <strong><PaletteIcon :icon="iconFor(block)" class="wtf-fcal-block-label-icon me-1" />{{ blockLabel(block) }}{{ isTentativeSuffixShown(block) ? $t('free.tentativeSuffix') : '' }}</strong><span class="wtf-fcal-block-label-time">{{ blockTimeText(block) }}</span><span v-if="block.recurrence" class="wtf-fcal-block-label-time wtf-recurrence" :title="$t('free.recurring')"><FontAwesomeIcon :icon="faRepeat" class="me-1" />{{ recurrenceText(block.recurrence) }}</span>
                 </span>
               </div>
             </template>
