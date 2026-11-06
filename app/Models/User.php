@@ -76,6 +76,7 @@ use Illuminate\Support\Facades\Crypt;
  * @property string|null $vrcx_api_key
  * @property Carbon|null $vrcx_synced_at
  * @property string|null $vrchat_user_id_definition_id
+ * @property string|null $discord_user_id_definition_id
  * @property bool $vrcx_auto_create_friends
  * @property string|null $vrcx_friends_source_id
  * @property-read Collection<int, ActivityLocalization> $activityLocalizations
@@ -176,6 +177,7 @@ use Illuminate\Support\Facades\Crypt;
  * @method static Builder<static>|User whereVrcxAutoCreateFriends($value)
  * @method static Builder<static>|User whereVrcxFriendsBaselineAt($value)
  * @method static Builder<static>|User whereVrcxFriendsSourceId($value)
+ * @method static Builder<static>|User whereDiscordUserIdDefinitionId($value)
  *
  * @mixin \Eloquent
  */
@@ -203,6 +205,7 @@ class User extends Authenticatable
         'highlight_identifier_definition_id',
         'bypass_dnd_definition_id',
         'vrchat_user_id_definition_id',
+        'discord_user_id_definition_id',
         'vrcx_base_url',
         'vrcx_api_key',
         'vrcx_auto_create_friends',

@@ -139,6 +139,7 @@ class SettingsController extends Controller
                 // Shown back to the owner verbatim, like the calendar URL below: the server can decrypt it either way.
                 'api_key' => $user->vrcx_api_key,
                 'vrchat_user_id_definition_id' => $user->vrchat_user_id_definition_id,
+                'discord_user_id_definition_id' => $user->discord_user_id_definition_id,
                 'auto_create_friends' => $user->vrcx_auto_create_friends,
                 'friends_source_id' => $user->vrcx_friends_source_id,
                 'synced_at' => $user->vrcx_synced_at?->toIso8601String(),

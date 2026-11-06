@@ -13,6 +13,7 @@ use App\Services\Account\AccountExportService;
 use App\Services\Vrcx\VrcxClient;
 use App\Services\Vrcx\VrcxException;
 use App\Services\Vrcx\VrcxSyncService;
+use App\Support\VrchatUserId;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory;
@@ -540,5 +541,204 @@ class VrcxIntegrationTest extends TestCase
         $this->freshHttp()->fake(['*/api/v1/openapi.json' => Http::response('nope', 403)]);
         $this->actingAs(User::factory()->create())->patch('/settings/vrcx', ['vrcx_base_url' => 'https://vrcx.example.test'])->assertSessionHasErrors('vrcx_base_url');
         $this->assertStringContainsString('HTTP 403', session('errors')->first('vrcx_base_url'));
+    }
+
+    public function test_the_discord_field_must_be_my_own_identifier_or_list_field_and_not_the_vrchat_one(): void
+    {
+        [$user, $vrchat] = $this->configuredOwner();
+        $mine = $this->definition($user, 'identifier');
+        $theirs = $this->definition(User::factory()->create(), 'identifier');
+        $text = $this->definition($user, 'text');
+
+        foreach ([$theirs, $text] as $bad) {
+            $this->actingAs($user)->patch('/settings/vrcx', ['discord_user_id_definition_id' => $bad->id])->assertSessionHasErrors('discord_user_id_definition_id');
+        }
+
+        // One field holds one kind of id, whichever of the two is being changed.
+        $this->actingAs($user)->patch('/settings/vrcx', ['discord_user_id_definition_id' => $vrchat->id])->assertSessionHasErrors('discord_user_id_definition_id');
+        $this->assertNull($user->refresh()->discord_user_id_definition_id);
+
+        $this->actingAs($user)->patch('/settings/vrcx', ['discord_user_id_definition_id' => $mine->id])->assertSessionHasNoErrors();
+        $this->assertSame($mine->id, $user->refresh()->discord_user_id_definition_id);
+
+        $this->actingAs($user)->patch('/settings/vrcx', ['vrchat_user_id_definition_id' => $mine->id])->assertSessionHasErrors('vrchat_user_id_definition_id');
+        $this->assertSame($vrchat->id, $user->refresh()->vrchat_user_id_definition_id);
+
+        $this->actingAs($user)->patch('/settings/vrcx', ['discord_user_id_definition_id' => null])->assertSessionHasNoErrors();
+        $this->assertNull($user->refresh()->discord_user_id_definition_id);
+    }
+
+    public function test_the_selected_discord_field_cannot_be_deleted_and_the_settings_page_reports_it(): void
+    {
+        [$user] = $this->configuredOwner();
+        $discord = $this->definition($user, 'identifier_list');
+        $user->forceFill(['discord_user_id_definition_id' => $discord->id])->save();
+
+        $this->actingAs($user)->deleteJson("/dashboard/connection-attribute-definitions/{$discord->id}")
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.definition.0', fn ($m) => str_contains($m, 'Discord user ID'));
+
+        $this->actingAs($user)->get('/settings')->assertInertia(fn ($page) => $page->where('vrcx.discord_user_id_definition_id', $discord->id));
+    }
+
+    public function test_the_discord_id_vrcx_reports_is_stored_encrypted_shown_and_never_cleared(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $connection = $this->link($user, $definition, [self::ALICE]);
+        $service = app(VrcxSyncService::class);
+
+        $withDiscord = fn (mixed $discord) => $this->freshHttp()->fake([
+            '*/api/v1/users*' => Http::response(['ok' => true, 'missing' => [], 'users' => [self::ALICE => [
+                'id' => self::ALICE, 'displayName' => 'Alice', 'profilePictureUrl' => '', 'avatarThumbnailUrl' => '', 'discordId' => $discord,
+            ]]]),
+            '*/api/v1/time-together*' => $this->together([]),
+        ]);
+
+        $withDiscord('123456789012345678');
+        $service->sync($user);
+
+        $this->assertSame('123456789012345678', ConnectionVrchatProfile::where('connection_id', $connection->id)->sole()->discord_id);
+        $this->assertStringNotContainsString('123456789012345678', (string) DB::table('connection_vrchat_profiles')->value('discord_id'));
+        $this->assertSame('123456789012345678', $service->summary($user->refresh())['profiles'][$connection->id][0]['discord_id']);
+
+        // VRCX no longer reports one (null, empty, or junk): the stored id stays.
+        foreach ([null, '', 'not-a-snowflake'] as $nothing) {
+            $withDiscord($nothing);
+            $service->sync($user->refresh());
+            $this->assertSame('123456789012345678', ConnectionVrchatProfile::where('connection_id', $connection->id)->sole()->discord_id);
+        }
+
+        // A different id replaces it.
+        $withDiscord('987654321098765432');
+        $service->sync($user->refresh());
+        $this->assertSame('987654321098765432', ConnectionVrchatProfile::where('connection_id', $connection->id)->sole()->discord_id);
+    }
+
+    public function test_the_export_carries_the_discord_id_and_field_choice(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $discord = $this->definition($user, 'identifier');
+        $user->forceFill(['discord_user_id_definition_id' => $discord->id])->save();
+        $connection = $this->link($user, $definition, [self::ALICE]);
+        ConnectionVrchatProfile::create([
+            'connection_id' => $connection->id, 'vrchat_user_id_hash' => VrchatUserId::hash(self::ALICE),
+            'vrchat_user_id' => self::ALICE, 'discord_id' => '123456789012345678',
+        ]);
+
+        $files = [];
+        $zip = \Mockery::mock(ZipStream::class);
+        $zip->shouldReceive('addFile')->andReturnUsing(function (string $name, string $data) use (&$files) {
+            $files[$name] = $data;
+        });
+        app(AccountExportService::class)->build($zip, $user);
+
+        $this->assertSame('123456789012345678', json_decode($files['connections/vrchat-profiles.json'], true)['records'][0]['discord_id']);
+        $this->assertSame($discord->id, json_decode($files['account/profile.json'], true)['records'][0]['discord_user_id_definition_id']);
+    }
+
+    /** @param array<string, string|null> $notes VRChat id => the note VRCX reports (null/absent: none) */
+    private function fakeNotes(array $notes): void
+    {
+        $this->freshHttp()->fake([
+            '*/api/v1/users*' => Http::response(['ok' => true, 'missing' => [], 'users' => collect($notes)->map(fn ($note, $id) => array_filter([
+                'id' => $id, 'displayName' => 'Someone', 'profilePictureUrl' => '', 'avatarThumbnailUrl' => '', 'discordId' => null, 'note' => $note,
+            ], fn ($v, $k) => $k !== 'note' || $v !== null, ARRAY_FILTER_USE_BOTH))->all()]),
+            '*/api/v1/time-together*' => $this->together([]),
+        ]);
+    }
+
+    public function test_a_vrchat_note_is_kept_encrypted_until_it_is_carried_over(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $connection = $this->link($user, $definition, [self::ALICE]);
+        $service = app(VrcxSyncService::class);
+
+        $this->fakeNotes([self::ALICE => "  Met at the fox meetup\nlikes tea  "]);
+        $service->sync($user);
+
+        $profile = ConnectionVrchatProfile::where('connection_id', $connection->id)->sole();
+        $this->assertSame("Met at the fox meetup\nlikes tea", $profile->vrchat_note);
+        $this->assertStringNotContainsString('fox meetup', (string) DB::table('connection_vrchat_profiles')->value('vrchat_note'));
+        $this->assertSame("Met at the fox meetup\nlikes tea", $service->summary($user->refresh())['profiles'][$connection->id][0]['note']);
+
+        // A sync where no note comes back (no notes:read scope, or the note was removed) changes nothing.
+        $this->fakeNotes([self::ALICE => null]);
+        $service->sync($user->refresh());
+        $this->assertSame("Met at the fox meetup\nlikes tea", $profile->refresh()->vrchat_note);
+    }
+
+    public function test_confirming_the_import_drops_the_plaintext_and_the_same_note_is_never_offered_again(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $connection = $this->link($user, $definition, [self::ALICE]);
+        $service = app(VrcxSyncService::class);
+        $this->fakeNotes([self::ALICE => 'Likes tea']);
+        $service->sync($user);
+
+        $this->actingAs($user)->postJson('/dashboard/vrchat/notes/imported', ['imported' => [
+            ['connection_id' => $connection->id, 'vrchat_user_id' => strtoupper(self::ALICE), 'note' => ' Likes tea '],
+        ]])->assertOk()->assertJson(['settled' => 1]);
+
+        $profile = ConnectionVrchatProfile::where('connection_id', $connection->id)->sole();
+        $this->assertNull($profile->vrchat_note, 'the server no longer holds the note itself');
+        $this->assertNotNull($profile->note_imported_hash);
+        $this->assertStringNotContainsString('Likes tea', json_encode(DB::table('connection_vrchat_profiles')->get()));
+        $this->assertNull($service->summary($user->refresh())['profiles'][$connection->id][0]['note']);
+
+        // The same note comes back from VRCX on every sync: it is not stored, so not offered, again.
+        $service->sync($user->refresh());
+        $this->assertNull($profile->refresh()->vrchat_note);
+
+        // A note that was changed in VRChat is offered once more.
+        $this->fakeNotes([self::ALICE => 'Likes tea and cake']);
+        $service->sync($user->refresh());
+        $this->assertSame('Likes tea and cake', $profile->refresh()->vrchat_note);
+    }
+
+    public function test_an_import_confirmation_for_a_note_that_changed_meanwhile_or_is_not_mine_settles_nothing(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $connection = $this->link($user, $definition, [self::ALICE]);
+        $this->fakeNotes([self::ALICE => 'The new note']);
+        app(VrcxSyncService::class)->sync($user);
+
+        // The browser merged an older version of the note.
+        $this->actingAs($user)->postJson('/dashboard/vrchat/notes/imported', ['imported' => [
+            ['connection_id' => $connection->id, 'vrchat_user_id' => self::ALICE, 'note' => 'The old note'],
+        ]])->assertOk()->assertJson(['settled' => 0]);
+        $this->assertSame('The new note', ConnectionVrchatProfile::where('connection_id', $connection->id)->sole()->vrchat_note);
+
+        // Another owner cannot settle it either.
+        $this->actingAs(User::factory()->create())->postJson('/dashboard/vrchat/notes/imported', ['imported' => [
+            ['connection_id' => $connection->id, 'vrchat_user_id' => self::ALICE, 'note' => 'The new note'],
+        ]])->assertOk()->assertJson(['settled' => 0]);
+        $this->assertSame('The new note', ConnectionVrchatProfile::where('connection_id', $connection->id)->sole()->vrchat_note);
+    }
+
+    public function test_the_export_lists_notes_still_waiting_to_be_carried_over(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $this->link($user, $definition, [self::ALICE]);
+        $this->fakeNotes([self::ALICE => 'Waiting note']);
+        app(VrcxSyncService::class)->sync($user);
+
+        $files = [];
+        $zip = \Mockery::mock(ZipStream::class);
+        $zip->shouldReceive('addFile')->andReturnUsing(function (string $name, string $data) use (&$files) {
+            $files[$name] = $data;
+        });
+        app(AccountExportService::class)->build($zip, $user);
+
+        $this->assertSame('Waiting note', json_decode($files['connections/vrchat-profiles.json'], true)['records'][0]['vrchat_note_awaiting_import']);
+    }
+
+    public function test_the_summary_names_the_discord_field_so_the_list_can_mark_connections(): void
+    {
+        [$user] = $this->configuredOwner();
+        $discord = $this->definition($user, 'identifier');
+        $this->assertNull(app(VrcxSyncService::class)->summary($user)['discord_field_id']);
+
+        $user->forceFill(['discord_user_id_definition_id' => $discord->id])->save();
+        $this->assertSame($discord->id, app(VrcxSyncService::class)->summary($user->refresh())['discord_field_id']);
     }
 }

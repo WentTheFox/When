@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { faBoxArchive, faLink, faUserPlus } from '@fortawesome/free-solid-svg-icons';
+import { faDiscord } from '@fortawesome/free-brands-svg-icons';
+import { faBoxArchive, faLink, faUserPlus, faVrCardboard } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
@@ -13,7 +14,10 @@ import CategoriesPanel from '../../dashboard/CategoriesPanel.vue';
 import EncryptedText from '../../Components/EncryptedText.vue';
 import ConnectionCard, { type ConnectionRow } from '../../dashboard/ConnectionCard.vue';
 import SourcesPanel from '../../dashboard/SourcesPanel.vue';
+import { discordMark, type MarkState, vrchatMark } from '../../dashboard/connectionMarks';
 import PendingFriendsPanel from '../../dashboard/PendingFriendsPanel.vue';
+import VrchatNotesPanel, { type NoteImportItem } from '../../dashboard/VrchatNotesPanel.vue';
+import { appendNote } from '../../dashboard/vrchatNotes';
 import MergeConnectionModal from '../../dashboard/MergeConnectionModal.vue';
 import { holdsOtherId, type MatchCandidate } from '../../dashboard/friendMatching';
 import type { FriendDecision, PendingFriend, VrchatSummary } from '../../dashboard/vrchat';
@@ -145,6 +149,20 @@ const connectionFilter = ref('');
  * reload they are back in their place and unmarked.
  */
 const newConnectionIds = ref<string[]>([]);
+
+/** The mark for a connection's VRChat ID: none, muted (set but unconfirmed) or active (VRCX knows the account). See connectionMarks.ts. */
+function vrchatState(connection: ConnectionRow): MarkState {
+  return vrchatMark(vrchatIdsOf(connection).length > 0, vrchat.value.profiles[connection.id]);
+}
+
+/** The mark for a connection's Discord ID: from the chosen custom field, or reported by VRCX. */
+function discordState(connection: ConnectionRow): MarkState {
+  const fieldId = vrchat.value.discord_field_id;
+  const value = fieldId ? connection.attribute_values.find((v) => v.attribute_definition_id === fieldId) : undefined;
+  const filled = !!value && ((value.identifier_value ?? '').trim() !== '' || (value.identifier_list_value ?? []).some((v) => v.trim() !== ''));
+
+  return discordMark(filled, vrchat.value.profiles[connection.id]);
+}
 
 const filteredConnections = computed(() => {
   const query = connectionFilter.value.trim().toLowerCase();
@@ -699,6 +717,86 @@ async function applyFriendDecisions(decisions: FriendDecision[]): Promise<void> 
   }
 }
 
+/** Connections whose linked VRChat accounts have a note waiting to be carried over (see VrchatNotesPanel). */
+const noteImports = computed<NoteImportItem[]>(() =>
+  connections.value.flatMap((connection) => {
+    const notes = (vrchat.value.profiles[connection.id] ?? [])
+      .filter((p) => p.note)
+      .map((p) => ({ vrchatId: p.vrchat_user_id, note: p.note as string }));
+
+    return notes.length ? [{ connectionId: connection.id, name: decryptedNames.value[connection.id] ?? '', notes }] : [];
+  }),
+);
+const notesBusy = ref(false);
+const notesProgress = ref('');
+
+/**
+ * Appends each waiting VRChat note to its connection's notes, on a new line, in this
+ * browser (the notes are end-to-end encrypted), then tells the server which ones are done
+ * so it can forget the plaintext. A connection whose notes can't be read or saved is left
+ * as it was and stays waiting.
+ */
+async function importVrchatNotes(): Promise<void> {
+  if (notesBusy.value || !vaultUnlocked.value) return;
+
+  const work = noteImports.value;
+  notesBusy.value = true;
+  let appended = 0;
+  let failed = 0;
+  const imported: { connection_id: string; vrchat_user_id: string; note: string }[] = [];
+
+  try {
+    for (const [index, item] of work.entries()) {
+      notesProgress.value = `${index + 1} of ${work.length}`;
+      const connection = connections.value.find((c) => c.id === item.connectionId);
+
+      try {
+        if (!connection) continue;
+
+        const key = await getRecordKey(connection.id);
+        let text = connection.notes_ciphertext ? await decryptString(key, connection.notes_ciphertext) : '';
+        let changed = false;
+
+        for (const n of item.notes) {
+          const next = appendNote(text, n.note);
+          text = next.text;
+          changed ||= next.changed;
+        }
+
+        if (changed) {
+          const { data } = await axios.patch<ConnectionRow>(`/dashboard/connections/${connection.id}`, { notes_ciphertext: await encryptString(key, text) });
+          onConnectionUpdated(data);
+          appended++;
+        }
+
+        for (const n of item.notes) imported.push({ connection_id: connection.id, vrchat_user_id: n.vrchatId, note: n.note });
+      } catch (error) {
+        console.error(error);
+        failed++;
+      }
+    }
+
+    for (let i = 0; i < imported.length; i += 500) {
+      await axios.post('/dashboard/vrchat/notes/imported', { imported: imported.slice(i, i + 500) });
+    }
+  } catch (error) {
+    console.error(error);
+  } finally {
+    notesBusy.value = false;
+    notesProgress.value = '';
+  }
+
+  friendNotice.value = `VRChat notes: added to ${appended} connection${appended === 1 ? '' : 's'}`
+    + `${imported.length > appended ? `, ${imported.length - appended} already there` : ''}`
+    + `${failed ? `; ${failed} could not be imported and ${failed === 1 ? 'is' : 'are'} still waiting` : ''}.`;
+
+  try {
+    vrchat.value = (await axios.get<VrchatSummary>('/dashboard/vrchat')).data;
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 watch(vaultUnlocked, prepareFriendMatching);
 onMounted(async () => {
   await loadPendingFriends();
@@ -1134,6 +1232,14 @@ async function removeEdge(id: string): Promise<void> {
     :error="mergeError"
     @merge="mergeConnectionInto"
   />
+  <VrchatNotesPanel
+    v-if="noteImports.length"
+    :items="noteImports"
+    :ready="vaultUnlocked"
+    :busy="notesBusy"
+    :progress="notesProgress"
+    @import="importVrchatNotes"
+  />
   <PendingFriendsPanel
     v-if="friendsEnabled && pendingFriends.length"
     :friends="pendingFriends"
@@ -1192,6 +1298,26 @@ async function removeEdge(id: string): Promise<void> {
                   >
                     <FontAwesomeIcon :icon="faLink" />
                     <span class="visually-hidden">{{ connection.share_link.last_visited_at ? 'Has a share link' : 'Has a share link (never visited)' }}</span>
+                  </span>
+                  <!-- VRChat / Discord IDs: muted when only set, colored when confirmed by VRCX. The selected row is blue itself, so there they stay white, dimmed when muted. -->
+                  <span
+                    v-if="vrchatState(connection) !== 'none'"
+                    class="ms-1 connection-vrchat"
+                    :class="selectedConnectionId === connection.id ? (vrchatState(connection) === 'active' ? '' : 'opacity-50') : (vrchatState(connection) === 'active' ? 'text-info' : 'text-muted')"
+                    :title="vrchatState(connection) === 'active' ? 'VRChat account linked (VRCX knows it)' : 'VRChat ID set, but VRCX has no profile for it yet'"
+                  >
+                    <FontAwesomeIcon :icon="faVrCardboard" />
+                    <span class="visually-hidden">{{ vrchatState(connection) === 'active' ? 'VRChat account linked' : 'VRChat ID set, not confirmed by VRCX' }}</span>
+                  </span>
+                  <span
+                    v-if="discordState(connection) !== 'none'"
+                    class="ms-1 connection-discord"
+                    :class="selectedConnectionId === connection.id ? (discordState(connection) === 'active' ? '' : 'opacity-50') : (discordState(connection) === 'active' ? '' : 'text-muted')"
+                    :style="selectedConnectionId !== connection.id && discordState(connection) === 'active' ? 'color: #5865f2' : undefined"
+                    :title="discordState(connection) === 'active' ? 'Discord ID known (reported by VRCX)' : 'Discord ID set in the custom field only'"
+                  >
+                    <FontAwesomeIcon :icon="faDiscord" />
+                    <span class="visually-hidden">{{ discordState(connection) === 'active' ? 'Discord ID known' : 'Discord ID set, not confirmed by VRCX' }}</span>
                   </span>
                   <!-- Made from a VRChat friend during this visit (listed first). -->
                   <span

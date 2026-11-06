@@ -31,6 +31,7 @@ const props = defineProps<{
     base_url: string | null;
     api_key: string | null;
     vrchat_user_id_definition_id: string | null;
+    discord_user_id_definition_id: string | null;
     auto_create_friends: boolean;
     friends_source_id: string | null;
     synced_at: string | null;
@@ -73,10 +74,19 @@ const fieldOptions = computed(() => [
   })),
 ]);
 
+const discordOptions = computed(() => [
+  { value: '', text: '(none)' },
+  ...props.definitions.map((d) => ({
+    value: d.id,
+    text: `${labels.value[d.id] ?? rawPreview(d.label_ciphertext)} (${d.type === 'identifier_list' ? 'list' : 'single'})`,
+  })),
+]);
+
 const form = useForm({
   vrcx_base_url: props.vrcx.base_url ?? '',
   vrcx_api_key: props.vrcx.api_key ?? '',
   vrchat_user_id_definition_id: props.vrcx.vrchat_user_id_definition_id ?? '',
+  discord_user_id_definition_id: props.vrcx.discord_user_id_definition_id ?? '',
   vrcx_auto_create_friends: props.vrcx.auto_create_friends,
   vrcx_friends_source_id: props.vrcx.friends_source_id ?? '',
 });
@@ -87,6 +97,7 @@ function save(): void {
     // Blank keeps the stored key (Disconnect removes it).
     vrcx_api_key: data.vrcx_api_key || null,
     vrchat_user_id_definition_id: data.vrchat_user_id_definition_id || null,
+    discord_user_id_definition_id: data.discord_user_id_definition_id || null,
     vrcx_auto_create_friends: data.vrcx_auto_create_friends,
     vrcx_friends_source_id: data.vrcx_friends_source_id || null,
   })).patch('/settings/vrcx', {
@@ -139,7 +150,8 @@ const syncedAt = computed(() => (props.vrcx.synced_at ? new Date(props.vrcx.sync
       to show a connection's VRChat name and profile picture, and to total the time you've spent together in VRChat. Mark one identifier (or identifier list) custom field as holding
       VRChat user IDs (<code>usr_…</code>) and every connection with a value there is looked up. VRCX Headless only reports the last 90 days;
       what's already been pulled is kept, so totals keep growing. Needs an API key with the <code>profile:read</code>,
-      <code>users:read</code> and <code>playtime:read</code> scopes.
+      <code>users:read</code> and <code>playtime:read</code> scopes; add <code>notes:read</code> to also carry your private VRChat notes
+      over to your connections' notes (you press Import on the Connections page).
     </p>
     <p class="small text-muted">
       This data is <strong>not</strong> end-to-end encrypted: the server reads it to talk to VRCX Headless, and stores it
@@ -173,6 +185,18 @@ const syncedAt = computed(() => (props.vrcx.synced_at ? new Date(props.vrcx.sync
           <BFormGroup v-else label="VRChat user ID field" style="max-width: 28rem;">
             <BFormSelect v-model="form.vrchat_user_id_definition_id" :options="fieldOptions" size="sm" />
             <div v-if="form.errors.vrchat_user_id_definition_id" class="text-danger small">{{ form.errors.vrchat_user_id_definition_id }}</div>
+          </BFormGroup>
+        </div>
+
+        <div id="discord-user-id" class="mb-3">
+          <BFormGroup
+            v-if="definitions.length"
+            label="Discord user ID field (optional)"
+            description="VRCX reports a friend's Discord user ID when VRChat has ever shown one. It is shown on the connection's VRChat card, and this field is where Discord IDs belong. It has to be a different field from the VRChat one."
+            style="max-width: 28rem;"
+          >
+            <BFormSelect v-model="form.discord_user_id_definition_id" :options="discordOptions" size="sm" />
+            <div v-if="form.errors.discord_user_id_definition_id" class="text-danger small">{{ form.errors.discord_user_id_definition_id }}</div>
           </BFormGroup>
         </div>
 

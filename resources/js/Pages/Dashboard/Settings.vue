@@ -60,6 +60,7 @@ const props = defineProps<{
     base_url: string | null;
     api_key: string | null;
     vrchat_user_id_definition_id: string | null;
+    discord_user_id_definition_id: string | null;
     auto_create_friends: boolean;
     friends_source_id: string | null;
     synced_at: string | null;

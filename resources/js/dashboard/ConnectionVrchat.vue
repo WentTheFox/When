@@ -81,6 +81,7 @@ async function toggleStays(): Promise<void> {
       <div class="small">
         <div class="fw-semibold">{{ profile.display_name ?? 'Not cached by VRCX Headless yet' }}</div>
         <div class="text-muted font-monospace">{{ profile.vrchat_user_id }}</div>
+        <div v-if="profile.discord_id" class="text-muted">Discord ID <span class="font-monospace">{{ profile.discord_id }}</span></div>
         <div v-if="profile.stays">
           <strong>{{ formatDuration(profile.total_ms) }}</strong> together over {{ profile.stays }} visit{{ profile.stays === 1 ? '' : 's' }}
           <span class="text-muted">

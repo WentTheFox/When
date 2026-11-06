@@ -276,7 +276,7 @@ class VrcxSyncService
     }
 
     /**
-     * @param  array{displayName: string, profilePictureUrl: string, avatarThumbnailUrl: string}|null  $profile  Null when VRCX has not cached this user: the previous values stay.
+     * @param  array{displayName: string, profilePictureUrl: string, avatarThumbnailUrl: string, discordId: ?string, note: ?string}|null  $profile  Null when VRCX has not cached this user: the previous values stay.
      * @param  list<array{start: string, end: string, duration_ms: int, other_player_count: int}>  $intervals
      */
     private function store(User $user, string $connectionId, string $vrchatId, ?array $profile, array $intervals): void
@@ -313,6 +313,14 @@ class VrcxSyncService
             $record->display_name = $profile['displayName'] !== '' ? $profile['displayName'] : $record->display_name;
             $record->profile_picture_url = $profile['profilePictureUrl'] !== '' ? $profile['profilePictureUrl'] : null;
             $record->avatar_thumbnail_url = $profile['avatarThumbnailUrl'] !== '' ? $profile['avatarThumbnailUrl'] : null;
+            // Replaced by another id, never cleared: VRCX keeps the last one VRChat showed.
+            $record->discord_id = $profile['discordId'] ?? $record->discord_id;
+
+            // A note is only kept while it waits to be carried over. One already imported (same text) isn't stored again;
+            // a changed one is, so it is offered once more. A missing note (no notes:read scope, or none) changes nothing.
+            if ($profile['note'] !== null && self::noteHash($profile['note']) !== $record->note_imported_hash) {
+                $record->vrchat_note = $profile['note'];
+            }
             $record->profile_fetched_at = now();
         }
 
@@ -376,6 +384,42 @@ class VrcxSyncService
             });
     }
 
+    /** Keyed hash of a VRChat note's text (never the text itself). */
+    public static function noteHash(string $note): string
+    {
+        return VrchatUserId::hash('note:'.$note);
+    }
+
+    /**
+     * The browser carried these notes over to the connections' encrypted notes: remember
+     * which text that was and drop the plaintext. Each entry only counts if the note it
+     * names is still exactly the one that was merged, so a note that changed in the
+     * meantime stays pending.
+     *
+     * @param  list<array{connection_id: string, vrchat_user_id: string, note: string}>  $imported
+     * @return int How many were settled.
+     */
+    public function markNotesImported(User $user, array $imported): int
+    {
+        $settled = 0;
+
+        foreach ($imported as $item) {
+            $profile = ConnectionVrchatProfile::whereIn('connection_id', $user->connections()->select('id'))
+                ->where('connection_id', $item['connection_id'])
+                ->where('vrchat_user_id_hash', VrchatUserId::hash(strtolower(trim($item['vrchat_user_id']))))
+                ->first();
+
+            if ($profile === null || $profile->vrchat_note === null || $profile->vrchat_note !== trim($item['note'])) {
+                continue;
+            }
+
+            $profile->update(['note_imported_hash' => self::noteHash($profile->vrchat_note), 'vrchat_note' => null]);
+            $settled++;
+        }
+
+        return $settled;
+    }
+
     /**
      * One connection's linked accounts as the page shows them.
      *
@@ -397,6 +441,9 @@ class VrcxSyncService
             'vrchat_user_id' => $row->vrchat_user_id,
             'display_name' => $row->display_name,
             'picture_url' => $row->profile_picture_url ?: $row->avatar_thumbnail_url,
+            'discord_id' => $row->discord_id,
+            // Present only while the note waits to be carried over to the connection's (encrypted) notes.
+            'note' => $row->vrchat_note,
             'stays' => (int) ($stats['stays'] ?? 0),
             'total_ms' => (int) ($stats['total_ms'] ?? 0),
             'one_on_one_ms' => (int) ($stats['one_on_one_ms'] ?? 0),
@@ -409,7 +456,7 @@ class VrcxSyncService
      * What the Connections page shows: per connection, each linked account's
      * profile and stats.
      *
-     * @return array{configured: bool, synced_at: ?string, auto_create_friends: bool, pending_friends: int, field: array{id: string, type: string}|null, friends_source_id: ?string, highlight_field_id: ?string, profiles: array<string, list<array<string, mixed>>>}
+     * @return array{configured: bool, synced_at: ?string, auto_create_friends: bool, pending_friends: int, field: array{id: string, type: string}|null, friends_source_id: ?string, highlight_field_id: ?string, discord_field_id: ?string, profiles: array<string, list<array<string, mixed>>>}
      */
     public function summary(User $user): array
     {
@@ -433,6 +480,8 @@ class VrcxSyncService
                 ? VrchatFriend::where('user_id', $user->id)->where('status', VrchatFriend::PENDING)->count()
                 : 0,
             'friends_source_id' => $user->vrcx_friends_source_id,
+            // The custom field the owner picked for Discord user IDs (the connection list marks connections that have one).
+            'discord_field_id' => $user->discord_user_id_definition_id,
             // The identifier list holding each connection's highlight tokens: the browser also matches friends against it.
             'highlight_field_id' => $user->highlight_identifier_definition_id,
             'field' => $field === null ? null : ['id' => $field->id, 'type' => $field->type],

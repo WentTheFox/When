@@ -6,6 +6,10 @@ export interface VrchatProfile {
   vrchat_user_id: string;
   display_name: string | null;
   picture_url: string | null;
+  /** Your private VRChat note, present only while it waits to be carried over to the connection's notes. */
+  note: string | null;
+  /** The Discord user ID VRCX last reported for this account (when VRChat has ever shown one). */
+  discord_id: string | null;
   /** How many shared-instance intervals were recorded. */
   stays: number;
   total_ms: number;
@@ -25,6 +29,8 @@ export interface VrchatSummary {
   pending_friends: number;
   /** The connection source new-friend connections are tied to, if one is chosen. */
   friends_source_id: string | null;
+  /** The custom field chosen for Discord user IDs, if any. */
+  discord_field_id: string | null;
   /** The identifier list holding each connection's highlight tokens, which friends are also matched against. */
   highlight_field_id: string | null;
   /** The custom field holding VRChat user ids, with the value shape its type takes. */
