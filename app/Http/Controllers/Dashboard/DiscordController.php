@@ -83,6 +83,23 @@ class DiscordController extends Controller
         return response()->json(['ran' => $ran] + $this->sync->summary($user->refresh()));
     }
 
+    /**
+     * Looks up the Discord accounts on one connection by id (see DiscordSyncService::lookup).
+     * Needs no connected Discord account: it uses the server's own bot token.
+     */
+    public function lookup(Request $request, string $connection): JsonResponse
+    {
+        $connection = $request->user()->connections()->where('id', $connection)->firstOrFail();
+
+        try {
+            $profiles = $this->sync->lookup($request->user(), $connection->id);
+        } catch (DiscordException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['profiles' => $profiles]);
+    }
+
     /** Current state, for refreshing the page without a reload. */
     public function summary(Request $request): JsonResponse
     {

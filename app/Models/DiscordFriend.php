@@ -53,6 +53,9 @@ class DiscordFriend extends Model
 
     public const DISMISSED = 'dismissed';
 
+    /** Not a friend: looked up by id for a connection's Discord card. Never listed as pending. */
+    public const LOOKUP = 'lookup';
+
     protected $fillable = [
         'user_id',
         'discord_user_id_hash',

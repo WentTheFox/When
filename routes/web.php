@@ -214,6 +214,8 @@ Route::middleware('auth')->group(function () {
     Route::delete('/settings/discord', [DiscordController::class, 'destroy'])->name('settings.discord.destroy');
     Route::post('/settings/discord/sync', [DiscordController::class, 'syncNow'])->name('settings.discord.sync');
     Route::get('/dashboard/discord', [DiscordController::class, 'summary'])->name('dashboard.discord');
+    Route::post('/dashboard/connections/{connection}/discord/lookup', [DiscordController::class, 'lookup'])
+        ->middleware('throttle:30,1')->name('dashboard.connections.discord.lookup');
     Route::get('/dashboard/discord/friends', [DiscordController::class, 'pendingFriends'])->name('dashboard.discord.friends');
     Route::post('/dashboard/discord/friends/complete', [DiscordController::class, 'completeFriends'])->name('dashboard.discord.friends.complete');
 

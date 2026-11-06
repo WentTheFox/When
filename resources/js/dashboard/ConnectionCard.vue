@@ -72,6 +72,8 @@ const props = defineProps<{
   /** Linked Discord friends with their avatar and names (§0.2 tier, not E2EE). */
   discordProfiles?: DiscordProfile[];
   discordSyncedAt?: string | null;
+  /** The server can look a Discord ID up by itself, so the Discord card offers a Sync button. */
+  discordCanLookUp?: boolean;
   /** The VRChat user ID field is set up, so connections can be merged by moving their VRChat IDs. */
   canMerge?: boolean;
 }>();
@@ -83,6 +85,8 @@ const emit = defineEmits<{
   addEdge: [string, string];
   removeEdge: [string];
   vrchatSynced: [VrchatSummary];
+  /** The Discord card looked this connection's IDs up: its connection id and the new profiles. */
+  discordSynced: [string, DiscordProfile[]];
   /** The owner wants to merge this connection into another (the page asks which). */
   merge: [string];
 }>();
@@ -433,7 +437,13 @@ async function remove(): Promise<void> {
       />
     </BFormGroup>
     <BFormGroup v-if="discordProfiles?.length" label="Discord" class="mb-3">
-      <ConnectionDiscord :profiles="discordProfiles" :synced-at="discordSyncedAt ?? null" />
+      <ConnectionDiscord
+        :connection-id="connection.id"
+        :profiles="discordProfiles"
+        :synced-at="discordSyncedAt ?? null"
+        :can-look-up="discordCanLookUp ?? false"
+        @synced="emit('discordSynced', connection.id, $event)"
+      />
     </BFormGroup>
     <BFormGroup v-for="definition in attributeDefinitions" :key="definition.id" :label="definition.label" class="mb-3">
       <EncryptedInput

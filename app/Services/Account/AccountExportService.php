@@ -464,7 +464,7 @@ class AccountExportService
     {
         return [
             'tier' => 'server-decrypted',
-            'note' => 'Discord friends seen by the sync, used to link or create connections. status: pending, created, or dismissed. Your Discord access tokens are never exported.',
+            'note' => 'Discord friends seen by the sync, used to link or create connections. status: pending, created, or dismissed; lookup = not a friend, looked up by ID for the Discord card on a connection. Your Discord access tokens are never exported.',
             'records' => DiscordFriend::where('user_id', $user->id)->get()->map(fn ($f) => [
                 'id' => $f->id,
                 'discord_user_id' => $f->discord_user_id,
