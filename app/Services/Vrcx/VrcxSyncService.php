@@ -29,6 +29,15 @@ use Illuminate\Support\Facades\Log;
  */
 class VrcxSyncService
 {
+    /** @var list<string> Things the last sync() could not do but carried on without (see fetchProfiles). */
+    private array $warnings = [];
+
+    /** @return list<string> */
+    public function warnings(): array
+    {
+        return $this->warnings;
+    }
+
     /** An automatic sync is queued when the last one is older than this. */
     public const STALE_AFTER_MINUTES = 15;
 
@@ -68,6 +77,7 @@ class VrcxSyncService
             throw new VrcxException('Set the VRCX server, an API key and the VRChat user ID field in Settings first.');
         }
 
+        $this->warnings = [];
         $lock = Cache::lock("vrcx-sync:{$user->id}", 300);
 
         if (! $lock->get()) {
@@ -83,12 +93,38 @@ class VrcxSyncService
         return true;
     }
 
+    /**
+     * Names, pictures, Discord IDs and notes. When VRCX itself fails on this (a 5xx), that is
+     * reported as a warning and the rest of the sync (time together, friends) carries on; the
+     * previous profile data stays. A bad key, missing scope or unreachable server still stops the sync.
+     *
+     * @param  list<string>  $ids
+     * @return array<string, array{displayName: string, profilePictureUrl: string, avatarThumbnailUrl: string, discordId: ?string, note: ?string}>
+     */
+    private function fetchProfiles(VrcxClient $client, array $ids): array
+    {
+        try {
+            $profiles = $client->users($ids);
+        } catch (VrcxException $e) {
+            if (! $e->isServerError()) {
+                throw $e;
+            }
+
+            $this->warnings[] = 'Names, pictures, Discord IDs and notes could not be fetched, so the previous ones were kept: '.$e->getMessage()
+                .' Time together and friends were still synced.';
+
+            return [];
+        }
+
+        return $profiles;
+    }
+
     private function run(User $user, VrcxClient $client, string $definitionId): void
     {
         $links = $this->links($user, $definitionId);
         $ids = array_values(array_unique(array_merge([], ...array_values($links))));
 
-        $profiles = $ids === [] ? [] : $client->users($ids);
+        $profiles = $ids === [] ? [] : $this->fetchProfiles($client, $ids);
         $stays = $ids === [] ? [] : $client->timeTogether($ids);
 
         foreach ($links as $connectionId => $connectionIds) {
@@ -100,7 +136,16 @@ class VrcxSyncService
         $this->prune($user, $links);
 
         if ($user->vrcx_auto_create_friends) {
-            $this->syncFriends($user, $client, $links);
+            try {
+                $this->syncFriends($user, $client, $links);
+            } catch (VrcxException $e) {
+                // VRCX itself failing on the friend list shouldn't undo the rest; a bad key or missing scope still stops the sync.
+                if (! $e->isServerError()) {
+                    throw $e;
+                }
+
+                $this->warnings[] = 'The friend list could not be fetched: '.$e->getMessage().' Everything else was synced.';
+            }
         }
 
         $user->forceFill(['vrcx_synced_at' => now()])->save();

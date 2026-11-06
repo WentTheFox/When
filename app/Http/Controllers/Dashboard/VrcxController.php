@@ -201,7 +201,7 @@ class VrcxController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        return response()->json(['ran' => $ran] + $this->sync->summary($user->refresh()));
+        return response()->json(['ran' => $ran, 'warnings' => $this->sync->warnings()] + $this->sync->summary($user->refresh()));
     }
 
     /** Current profiles and stats, for refreshing the Connections page without a reload. */

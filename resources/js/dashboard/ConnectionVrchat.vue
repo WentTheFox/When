@@ -19,6 +19,7 @@ const emit = defineEmits<{ synced: [VrchatSummary] }>();
 
 const syncing = ref(false);
 const syncError = ref('');
+const syncWarnings = ref<string[]>([]);
 const stays = ref<VrchatStay[] | null>(null);
 const staysOpen = ref(false);
 const staysLoading = ref(false);
@@ -35,7 +36,8 @@ async function syncNow(): Promise<void> {
   syncError.value = '';
 
   try {
-    const { data } = await axios.post<VrchatSummary & { ran: boolean }>('/settings/vrcx/sync');
+    const { data } = await axios.post<VrchatSummary & { ran: boolean; warnings?: string[] }>('/settings/vrcx/sync');
+    syncWarnings.value = data.warnings ?? [];
     emit('synced', data);
     if (staysOpen.value) await loadStays();
   } catch (error) {
@@ -98,6 +100,7 @@ async function toggleStays(): Promise<void> {
       <span class="text-muted">{{ syncedAt ? `Synced ${formatDate(syncedAt)}` : 'Not synced yet' }} · not end-to-end encrypted</span>
     </div>
     <div v-if="syncError" class="text-danger small mt-1">{{ syncError }}</div>
+    <div v-for="warning in syncWarnings" :key="warning" class="text-warning small mt-1">{{ warning }}</div>
 
     <div v-if="staysOpen" class="mt-2">
       <p v-if="staysLoading" class="small text-muted mb-0">Loading…</p>

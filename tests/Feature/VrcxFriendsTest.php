@@ -6,6 +6,7 @@ use App\Models\Connection;
 use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionAttributeValue;
 use App\Models\ConnectionSource;
+use App\Models\ConnectionVrchatProfile;
 use App\Models\User;
 use App\Models\VrchatFriend;
 use App\Services\Vrcx\VrcxException;
@@ -128,6 +129,28 @@ class VrcxFriendsTest extends TestCase
 
         Http::assertNotSent(fn ($r) => str_contains($r->url(), '/api/v1/friends'));
         $this->assertSame([], $this->statuses($user));
+    }
+
+    public function test_a_server_error_on_the_friend_list_is_a_warning_and_the_rest_is_still_synced(): void
+    {
+        $user = $this->owner();
+        $connection = $this->connectionWith($user, self::LINKED);
+        $this->fakeFriends([self::OLD]);
+        Http::swap($factory = new Factory);
+        $factory->fake([
+            '*/api/v1/friends*' => Http::response(['ok' => false, 'error' => 'Internal error.'], 500),
+            '*/api/v1/users*' => Http::response(['ok' => true, 'users' => [], 'missing' => []]),
+            '*/api/v1/time-together*' => fn ($request) => Http::response(['ok' => true, 'users' => collect($request['ids'])->mapWithKeys(fn ($id) => [$id => ['total' => 0, 'results' => []]])->all()]),
+        ]);
+
+        $service = app(VrcxSyncService::class);
+        $this->assertTrue($service->sync($user));
+
+        $this->assertCount(1, $service->warnings());
+        $this->assertStringContainsString('friend list could not be fetched', $service->warnings()[0]);
+        $this->assertStringContainsString('Internal error.', $service->warnings()[0]);
+        $this->assertSame(1, ConnectionVrchatProfile::where('connection_id', $connection->id)->count(), 'the profile sync still ran');
+        $this->assertNotNull($user->refresh()->vrcx_synced_at);
     }
 
     public function test_a_key_without_the_friends_scope_gets_a_clear_message(): void
