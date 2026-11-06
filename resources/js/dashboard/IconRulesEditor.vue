@@ -155,7 +155,7 @@ function discard(): void {
 </script>
 
 <template>
-  <div class="mb-3">
+  <div class="mt-3">
     <p class="fw-semibold mb-1">Icon rules</p>
     <p class="small text-muted mb-2">
       Show an icon next to a connection in the list depending on this field's value. Rules are checked in the order shown, and every rule that matches adds its icon.
