@@ -461,24 +461,126 @@ class VrcxIntegrationTest extends TestCase
         $this->actingAs($user)->postJson('/settings/vrcx/sync')->assertUnprocessable()->assertJsonPath('message', fn ($m) => str_contains($m, 'API key'));
     }
 
-    public function test_connection_sync_asks_for_each_id_on_its_own_and_leaves_other_connections_alone(): void
+    /**
+     * The single-user call (GET /api/v1/users/{userId}), which is what lets VRCX fall back to VRChat for a user it has
+     * not cached. $users maps an id to its user object, or to null for "VRCX does not know them" (404); a closure
+     * answers a request itself instead. POST /api/v1/users is deliberately not stubbed into success: it never falls back.
+     *
+     * @param  array<string, array<string, mixed>|null>|\Closure  $users
+     */
+    private function fakeVrcxSingleUsers(array|\Closure $users, ?\Closure $together = null): void
+    {
+        $this->freshHttp()->fake([
+            '*/api/v1/users/*' => fn ($request) => $users instanceof \Closure
+                ? $users($request)
+                : (($user = $users[basename(parse_url($request->url(), PHP_URL_PATH))] ?? null) !== null
+                    ? Http::response(['ok' => true, 'user' => $user])
+                    : Http::response(['ok' => false, 'error' => 'User is not in the cache'], 404)),
+            '*/api/v1/time-together' => $together ?? $this->together([$this->interval('2026-10-01T10:00:00.000Z', 60)]),
+            '*' => Http::response(['ok' => false, 'error' => 'unexpected request'], 500),
+        ]);
+    }
+
+    private function aliceUser(array $over = []): array
+    {
+        return $over + ['id' => self::ALICE, 'displayName' => 'Alice', 'profilePictureUrl' => 'https://img.test/a.png', 'avatarThumbnailUrl' => 'https://img.test/a-t.png', 'discordId' => null];
+    }
+
+    public function test_connection_sync_fetches_each_id_with_the_single_user_call_and_leaves_other_connections_alone(): void
     {
         [$user, $definition] = $this->configuredOwner();
         $mine = $this->link($user, $definition, [self::ALICE, self::BOB]);
         $other = $this->link($user, $definition, ['usr_00000000-0000-0000-0000-0000000000c0']);
-        $this->fakeVrcx([$this->interval('2026-10-01T10:00:00.000Z', 60)]);
+        $this->fakeVrcxSingleUsers([self::ALICE => $this->aliceUser(['note' => 'met at a meetup'])]);
 
-        $this->actingAs($user)->postJson("/dashboard/connections/{$mine->id}/vrchat/sync")
+        $response = $this->actingAs($user)->postJson("/dashboard/connections/{$mine->id}/vrchat/sync")
             ->assertOk()
             ->assertJsonPath("profiles.{$mine->id}.0.display_name", 'Alice');
 
-        $userCalls = Http::recorded(fn ($request) => str_contains($request->url(), '/api/v1/users'));
-        $this->assertCount(2, $userCalls);
-        foreach ($userCalls as [$request]) {
-            $this->assertCount(1, $request['ids']);
-        }
+        $this->assertCount(2, Http::recorded(fn ($request) => $request->method() === 'GET' && str_contains($request->url(), '/api/v1/users/usr_')));
+        $this->assertCount(0, Http::recorded(fn ($request) => $request->method() === 'POST' && str_ends_with($request->url(), '/api/v1/users')));
+        $this->assertSame('met at a meetup', ConnectionVrchatProfile::where('connection_id', $mine->id)->where('vrchat_user_id_hash', VrchatUserId::hash(self::ALICE))->value('vrchat_note'));
         $this->assertSame(0, ConnectionVrchatProfile::where('connection_id', $other->id)->count());
         $this->assertNull($user->refresh()->vrcx_synced_at);
+
+        // Bob is unknown to VRCX: his id is kept, with no profile, and the owner is told once.
+        $this->assertCount(1, $response->json('warnings'));
+        $this->assertStringContainsString('does not know one of this connection', $response->json('warnings.0'));
+        $this->assertNull(ConnectionVrchatProfile::where('connection_id', $mine->id)->where('vrchat_user_id_hash', VrchatUserId::hash(self::BOB))->value('display_name'));
+    }
+
+    public function test_connection_sync_turns_a_vrcx_server_error_into_a_warning_and_carries_on(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $connection = $this->link($user, $definition, [self::ALICE, self::BOB]);
+        $this->fakeVrcxSingleUsers(
+            [self::ALICE => $this->aliceUser(), self::BOB => $this->aliceUser(['id' => self::BOB, 'displayName' => 'Bob'])],
+            fn ($request) => Http::response(['ok' => false, 'error' => 'Internal error'], 500),
+        );
+
+        $response = $this->actingAs($user)->postJson("/dashboard/connections/{$connection->id}/vrchat/sync")->assertOk();
+
+        $this->assertSame(['Alice', 'Bob'], ConnectionVrchatProfile::where('connection_id', $connection->id)->get()->pluck('display_name')->sort()->values()->all());
+        $this->assertCount(1, $response->json('warnings'));
+        $this->assertStringContainsString('Time together could not be fetched', $response->json('warnings.0'));
+        $this->assertStringNotContainsString(self::ALICE, $response->json('warnings.0'));
+    }
+
+    public function test_connection_sync_keeps_the_previous_profile_when_vrcx_fails_on_the_user(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $connection = $this->link($user, $definition, [self::ALICE]);
+        $this->fakeVrcxSingleUsers([self::ALICE => $this->aliceUser()]);
+        $this->actingAs($user)->postJson("/dashboard/connections/{$connection->id}/vrchat/sync")->assertOk();
+
+        $this->fakeVrcxSingleUsers(fn ($request) => Http::response(['ok' => false, 'error' => 'Internal error'], 500));
+        $response = $this->actingAs($user)->postJson("/dashboard/connections/{$connection->id}/vrchat/sync")->assertOk();
+
+        $this->assertSame('Alice', ConnectionVrchatProfile::where('connection_id', $connection->id)->sole()->display_name);
+        $this->assertStringContainsString('the previous ones were kept', $response->json('warnings.0'));
+        $this->assertStringNotContainsString(self::ALICE, $response->json('warnings.0'));
+    }
+
+    public function test_connection_sync_stops_on_a_bad_key_without_putting_the_vrchat_id_in_the_message(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $connection = $this->link($user, $definition, [self::ALICE]);
+        $this->fakeVrcxSingleUsers(fn ($request) => Http::response(['ok' => false, 'error' => 'Unauthorized'], 401));
+
+        $this->actingAs($user)->postJson("/dashboard/connections/{$connection->id}/vrchat/sync")
+            ->assertUnprocessable()
+            ->assertJsonPath('message', fn ($message) => str_contains($message, 'API key') && ! str_contains($message, 'usr_'));
+    }
+
+    public function test_the_client_reads_one_user_and_maps_every_not_found_to_null(): void
+    {
+        $client = new VrcxClient('https://vrcx.example.test', 'vrcx_key_secret');
+
+        $this->fakeVrcxSingleUsers([self::ALICE => $this->aliceUser(['discordId' => '123456789012345678'])]);
+        $found = $client->user(self::ALICE);
+        $this->assertSame('Alice', $found['displayName']);
+        $this->assertSame('123456789012345678', $found['discordId']);
+        $this->assertNull($found['note']); // No notes:read in this response, so no note field.
+
+        $this->assertNull($client->user(self::BOB)); // "User is not in the cache"
+
+        $this->freshHttp()->fake(['*' => Http::response(['ok' => false, 'error' => 'Not found'], 404)]);
+        $this->assertNull($client->user(self::ALICE)); // The other 404 (malformed id, or VRChat said no).
+    }
+
+    public function test_the_client_never_puts_a_vrchat_id_in_a_single_user_error(): void
+    {
+        $client = new VrcxClient('https://vrcx.example.test', 'vrcx_key_secret');
+        $this->freshHttp()->fake(['*' => Http::response(['ok' => false, 'error' => 'Internal error'], 500)]);
+
+        try {
+            $client->user(self::ALICE);
+            $this->fail('expected a VrcxException');
+        } catch (VrcxException $e) {
+            $this->assertTrue($e->isServerError());
+            $this->assertStringContainsString('GET /api/v1/users/{userId}', $e->getMessage());
+            $this->assertStringNotContainsString(self::ALICE, $e->getMessage());
+        }
     }
 
     public function test_connection_sync_is_refused_for_someone_elses_connection(): void

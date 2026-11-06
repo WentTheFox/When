@@ -11,6 +11,7 @@ use App\Services\Vrcx\VrcxSyncService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -214,6 +215,9 @@ class VrcxController extends Controller
         try {
             $this->sync->refreshConnection($user, $connection);
         } catch (VrcxException $e) {
+            // The connection's own id only (never a VRChat id): a failure here leaves the owner just the message in their browser otherwise.
+            Log::warning("VRCX sync of connection {$connection->id} failed: ".$e->getMessage());
+
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
