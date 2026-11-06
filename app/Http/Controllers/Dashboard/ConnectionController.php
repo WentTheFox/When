@@ -62,6 +62,8 @@ class ConnectionController extends Controller
             'discord' => $this->discord->summary($user),
             // The multi-line custom field that holds what used to be the built-in notes; null until there is one.
             'notesFieldId' => $user->notes_field_definition_id,
+            // The custom field listing a connection's other names; the connection search matches on it too.
+            'alternativeNamesFieldId' => $user->alternative_names_definition_id,
         ]);
     }
 

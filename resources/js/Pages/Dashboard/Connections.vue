@@ -7,6 +7,7 @@ import axios from 'axios';
 import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput, BFormSelect, BTab, BTabs } from 'bootstrap-vue-next';
 import { computed, nextTick, onBeforeUnmount, onMounted, type Ref, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../../crypto';
+import { matchConnection, parseAlternativeNames } from '../../dashboard/alternativeNames';
 import { useResolvedTheme } from '../../composables/useTheme';
 import { requestConfirm } from '../../dashboard/confirmModal';
 import PageHeader from '../../Components/PageHeader.vue';
@@ -65,6 +66,8 @@ const props = defineProps<{
   discord?: DiscordSummary;
   /** The multi-line custom field that holds the notes (they used to be built in); null until there is one. */
   notesFieldId?: string | null;
+  /** The identifier-list or multi-line field holding each connection's other names; the search matches on it too. */
+  alternativeNamesFieldId?: string | null;
 }>();
 
 const { createRecordKey, getRecordKey, vaultUnlocked } = useVault();
@@ -212,11 +215,71 @@ function discordState(connection: ConnectionRow): MarkState {
   return discordMark(filled, vrchat.value.profiles[connection.id]);
 }
 
+/**
+ * Each connection's other names, from the field chosen in Settings. An identifier list arrives as plain
+ * values; a multi-line field is E2EE, so it is decrypted here once the vault is open.
+ */
+const alternativeNames = ref<Record<string, string[]>>({});
+let alternativeNamesRun = 0;
+
+watch(
+  () => [
+    vaultUnlocked.value,
+    props.alternativeNamesFieldId,
+    connections.value
+      .map((c) => {
+        const value = c.attribute_values.find((v) => v.attribute_definition_id === props.alternativeNamesFieldId);
+        return `${c.id}:${value?.value_ciphertext ?? ''}:${(value?.identifier_list_value ?? []).join('\n')}`;
+      })
+      .join('|'),
+  ],
+  async () => {
+    const run = ++alternativeNamesRun;
+    const fieldId = props.alternativeNamesFieldId ?? null;
+
+    if (!fieldId) {
+      alternativeNames.value = {};
+      return;
+    }
+
+    const next: Record<string, string[]> = {};
+
+    for (const connection of connections.value) {
+      const value = connection.attribute_values.find((v) => v.attribute_definition_id === fieldId);
+      if (!value) continue;
+
+      if (value.identifier_list_value) {
+        next[connection.id] = parseAlternativeNames(value.identifier_list_value);
+      } else if (value.value_ciphertext && vaultUnlocked.value) {
+        try {
+          next[connection.id] = parseAlternativeNames(await decryptString(await getRecordKey(connection.id), value.value_ciphertext));
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    }
+
+    // A newer change may have started while this one decrypted: only the latest result is kept.
+    if (run === alternativeNamesRun) alternativeNames.value = next;
+  },
+  { immediate: true },
+);
+
+/** The search, applied to one connection: whether it matches and, if only an other name did, which one. */
+function searchMatch(connection: ConnectionRow, query: string): { matches: boolean; via: string | null } {
+  return matchConnection(decryptedNames.value[connection.id] ?? '', alternativeNames.value[connection.id] ?? [], query);
+}
+
+/** The other name that made a connection match the current search, if the real name didn't. */
+function matchedAlternativeName(connection: ConnectionRow): string | null {
+  const query = connectionFilter.value.trim().toLowerCase();
+
+  return query ? searchMatch(connection, query).via : null;
+}
+
 const filteredConnections = computed(() => {
   const query = connectionFilter.value.trim().toLowerCase();
-  const matching = query
-    ? connections.value.filter((c) => (decryptedNames.value[c.id] ?? '').toLowerCase().includes(query))
-    : connections.value;
+  const matching = query ? connections.value.filter((c) => searchMatch(c, query).matches) : connections.value;
 
   if (newConnectionIds.value.length === 0) return matching;
 
@@ -1567,6 +1630,8 @@ async function removeEdge(id: string): Promise<void> {
                   @click="selectedConnectionId = connection.id"
                 >
                   <EncryptedText :value="decryptedNames[connection.id]" :ciphertext="connection.name_ciphertext" />
+                  <!-- The search found this connection by another of its names. -->
+                  <small v-if="matchedAlternativeName(connection)" class="ms-1 opacity-75">(also “{{ matchedAlternativeName(connection) }}”)</small>
                   <!-- Has a share link set up. The selected row is blue itself, so there it just inherits the white text. -->
                   <span
                     v-if="connection.share_link"

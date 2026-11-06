@@ -113,6 +113,7 @@ class AccountExportService
                 'calendar_parsing_mode' => $user->calendar_parsing_mode,
                 'highlight_identifier_definition_id' => $user->highlight_identifier_definition_id,
                 'bypass_dnd_definition_id' => $user->bypass_dnd_definition_id,
+                'alternative_names_definition_id' => $user->alternative_names_definition_id,
                 'vrchat_user_id_definition_id' => $user->vrchat_user_id_definition_id,
                 'discord_user_id_definition_id' => $user->discord_user_id_definition_id,
                 'vrcx_base_url' => $user->vrcx_base_url,

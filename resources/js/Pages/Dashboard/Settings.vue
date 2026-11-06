@@ -31,6 +31,7 @@ import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 import { useLiveThemePreview } from '../../dashboard/liveThemePreview';
 import SettingsActivityLocalizationsCard from '../../dashboard/SettingsActivityLocalizationsCard.vue';
 import SettingsCalendarCard from '../../dashboard/SettingsCalendarCard.vue';
+import SettingsConnectionsCard from '../../dashboard/SettingsConnectionsCard.vue';
 import SettingsShareLinksCard from '../../dashboard/SettingsShareLinksCard.vue';
 import SettingsDiscordCard from '../../dashboard/SettingsDiscordCard.vue';
 import SettingsVrchatCard from '../../dashboard/SettingsVrchatCard.vue';
@@ -55,6 +56,7 @@ const props = defineProps<{
   calendarUrl: string | null;
   identifierListDefinitions: { id: string; label_ciphertext: string }[];
   booleanDefinitions: { id: string; label_ciphertext: string }[];
+  alternativeNamesDefinitions: { id: string; label_ciphertext: string; type: string }[];
   connectionSources: { id: string; name_ciphertext: string }[];
   vrchatIdDefinitions: { id: string; label_ciphertext: string; type: string }[];
   vrcx: {
@@ -305,6 +307,13 @@ const previewAvailability = ref<AvailabilityResponse | null>(null);
           :bypass-definitions="booleanDefinitions"
           :selected-highlight-id="settings.highlight_identifier_definition_id"
           :selected-bypass-id="settings.bypass_dnd_definition_id"
+        />
+      </BTab>
+
+      <BTab :id="SETTINGS_TABS.connections" title="Connections">
+        <SettingsConnectionsCard
+          :definitions="alternativeNamesDefinitions"
+          :selected-id="settings.alternative_names_definition_id"
         />
       </BTab>
 

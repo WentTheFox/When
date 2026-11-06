@@ -14,6 +14,8 @@ export interface Settings {
   highlight_identifier_definition_id: string | null;
   /** The boolean custom field supplying share-link bypass DND; null = each link's own flag. */
   bypass_dnd_definition_id: string | null;
+  /** The identifier_list or multi-line custom field listing a connection's other names; null = search by name only. */
+  alternative_names_definition_id: string | null;
   dnd_event_pattern: string | null;
   dnd_event_pattern_preview: string | null;
   nap_event_pattern: string | null;
