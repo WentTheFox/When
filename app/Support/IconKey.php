@@ -268,6 +268,9 @@ enum IconKey: string
 
     // Notes.
     case StickyNote = 'sticky-note';
+    case Signature = 'signature';
+    case IdCard = 'id-card';
+    case VenetianMask = 'venetian-mask';
 
     public function label(): string
     {
@@ -289,6 +292,9 @@ enum IconKey: string
             self::BuildingColumns => 'Office building',
             self::UserTie => 'Businessperson',
             self::PeopleGroup => 'People group',
+            self::Signature => 'Names',
+            self::IdCard => 'ID card',
+            self::VenetianMask => 'Alternate identities',
             self::DoorOpen => 'Open door',
             self::DoorClosed => 'Closed door',
             self::ToggleOn => 'Toggle on',
@@ -385,7 +391,7 @@ enum IconKey: string
             self::Check, self::CalendarCheck, self::CalendarX, self::Clock,
             self::DoorOpen, self::DoorClosed, self::ToggleOn, self::ToggleOff, self::CircleCheck, self::CircleXmark, self::Lock, self::X => 'Time & status',
             self::Alert, self::Ban, self::NoEntry, self::Info, self::CircleExclamation, self::OctagonExclamation, self::Stop => 'Warnings & signs',
-            self::Users, self::Handshake, self::PeopleGroup, self::Baby, self::Child, self::Crown, self::Ring => 'People & social',
+            self::Users, self::Handshake, self::PeopleGroup, self::Baby, self::Child, self::Crown, self::Ring, self::Signature, self::IdCard, self::VenetianMask => 'People & social',
             self::Tree, self::Sun, self::Mountain, self::Leaf, self::Seedling, self::Compass, self::UmbrellaBeach, self::PersonHiking, self::Fire => 'Nature & outdoors',
             self::Cloud, self::CloudRain, self::Snowflake, self::Bolt, self::Umbrella, self::Droplet => 'Weather',
             self::Paw, self::Cat, self::Dog, self::Fish => 'Animals',
@@ -444,6 +450,9 @@ enum IconKey: string
             self::Pills => ['medicine', 'medication', 'health'],
             self::Users, self::PeopleGroup => ['friends', 'family', 'social', 'group'],
             self::Handshake => ['deal', 'meeting', 'agreement'],
+            self::Signature => ['name', 'names', 'signature'],
+            self::IdCard => ['id', 'identity', 'identification', 'badge'],
+            self::VenetianMask => ['alias', 'alt', 'alternate', 'identity', 'mask', 'nickname'],
             self::Gamepad => ['games', 'gaming', 'video games'],
             self::Music => ['song', 'concert'],
             self::Camera => ['photo', 'photography'],
