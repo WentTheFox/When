@@ -15,6 +15,7 @@ const TYPE_LABELS: Record<string, string> = {
   text: 'Text',
   textarea: 'Multi-line',
   radio: 'Choice',
+  country: 'Country',
   date: 'Date',
   number: 'Number',
   url: 'URL',
