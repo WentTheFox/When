@@ -1,0 +1,269 @@
+<?php
+
+namespace App\Services\Discord;
+
+use App\Jobs\SyncDiscordFriends;
+use App\Models\ConnectionAttributeValue;
+use App\Models\ConnectionVrchatProfile;
+use App\Models\DiscordFriend;
+use App\Models\User;
+use App\Support\DiscordUserId;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
+
+/**
+ * Pulls the owner's Discord friend list and remembers it (§0.2 tier) so friends
+ * without a connection can be linked or turned into one. The browser does that
+ * part: it alone can read and encrypt connection names.
+ *
+ * Triggered by request traffic (see maybeQueue) or the owner's "Sync now", not a
+ * cron sweep. Every friend is remembered, so deleting a connection never turns its
+ * friend "new" again, and a sync never deletes anything.
+ */
+class DiscordSyncService
+{
+    /** An automatic sync is queued when the last one is older than this. */
+    public const STALE_AFTER_MINUTES = 30;
+
+    /** After an attempt (success or not), no automatic retry for this long. */
+    private const AUTO_COOLDOWN_MINUTES = 10;
+
+    /** Refresh the access token when it expires within this many seconds. */
+    private const REFRESH_MARGIN_SECONDS = 120;
+
+    public function __construct(private readonly DiscordClient $client) {}
+
+    public function isConnected(User $user): bool
+    {
+        return $user->discord_refresh_token !== null && $user->discord_access_token !== null;
+    }
+
+    public function isConfigured(User $user): bool
+    {
+        return DiscordClient::isConfigured() && $this->isConnected($user) && $user->discord_user_id_definition_id !== null;
+    }
+
+    /** Queues a background sync if this owner's friend list is stale and nobody tried recently. */
+    public function maybeQueue(User $user): void
+    {
+        if (! $this->isConfigured($user)) {
+            return;
+        }
+
+        $stale = $user->discord_synced_at === null || $user->discord_synced_at->lt(now()->subMinutes(self::STALE_AFTER_MINUTES));
+
+        if ($stale && Cache::add("discord-auto-sync:{$user->id}", 1, now()->addMinutes(self::AUTO_COOLDOWN_MINUTES))) {
+            SyncDiscordFriends::dispatch($user->id);
+        }
+    }
+
+    /** Stores a fresh grant (after the OAuth callback) and who it belongs to. */
+    public function connect(User $user, string $code): void
+    {
+        $tokens = $this->client->exchangeCode($code);
+        $me = $this->client->me($tokens['access_token']);
+
+        $this->storeTokens($user, $tokens);
+        $user->forceFill(['discord_account_name' => $me['name'], 'discord_synced_at' => null])->save();
+    }
+
+    /** Forgets the grant (revoking it at Discord, best effort). Friends already seen are kept. */
+    public function disconnect(User $user): void
+    {
+        if ($user->discord_refresh_token !== null) {
+            $this->client->revoke($user->discord_refresh_token);
+        }
+
+        $this->forgetTokens($user);
+    }
+
+    /**
+     * @return bool False when another sync of this owner was already running (nothing was done).
+     *
+     * @throws DiscordException
+     */
+    public function sync(User $user): bool
+    {
+        if (! $this->isConnected($user)) {
+            throw new DiscordException('Connect your Discord account in Settings first.');
+        }
+
+        if ($user->discord_user_id_definition_id === null) {
+            throw new DiscordException('Choose the Discord user ID field in Settings first.');
+        }
+
+        $lock = Cache::lock("discord-sync:{$user->id}", 300);
+
+        if (! $lock->get()) {
+            return false;
+        }
+
+        try {
+            $friends = $this->fetch($user);
+            $this->store($user, $friends);
+            $user->forceFill(['discord_synced_at' => now()])->save();
+        } finally {
+            $lock->release();
+        }
+
+        return true;
+    }
+
+    /**
+     * @return array<string, array{username: ?string, globalName: ?string, nickname: ?string, avatarUrl: ?string}>
+     *
+     * @throws DiscordException
+     */
+    private function fetch(User $user): array
+    {
+        try {
+            $expires = $user->discord_token_expires_at;
+
+            if ($expires === null || $expires->lt(now()->addSeconds(self::REFRESH_MARGIN_SECONDS))) {
+                $this->storeTokens($user, $this->client->refresh((string) $user->discord_refresh_token));
+            }
+
+            return $this->client->friends((string) $user->discord_access_token);
+        } catch (DiscordException $e) {
+            // The grant is gone for good: forget it so the owner is asked to reconnect, rather than retrying forever.
+            if ($e->authRevoked) {
+                $this->forgetTokens($user);
+            }
+
+            throw $e;
+        }
+    }
+
+    /**
+     * @param  array<string, array{username: ?string, globalName: ?string, nickname: ?string, avatarUrl: ?string}>  $friends
+     */
+    private function store(User $user, array $friends): void
+    {
+        $linked = array_flip($this->linkedIds($user));
+        $known = DiscordFriend::where('user_id', $user->id)->get()->keyBy('discord_user_id_hash');
+
+        foreach ($friends as $id => $friend) {
+            $hash = DiscordUserId::hash((string) $id);
+            $row = $known->get($hash);
+            $isLinked = isset($linked[$id]);
+
+            if ($row === null) {
+                DiscordFriend::create([
+                    'user_id' => $user->id,
+                    'discord_user_id_hash' => $hash,
+                    'discord_user_id' => (string) $id,
+                    'username' => $friend['username'],
+                    'global_name' => $friend['globalName'],
+                    'nickname' => $friend['nickname'],
+                    'avatar_url' => $friend['avatarUrl'],
+                    'status' => $isLinked ? DiscordFriend::CREATED : DiscordFriend::PENDING,
+                ]);
+
+                continue;
+            }
+
+            // Names change: keep them fresh on every row. Only a pending one can still change status
+            // (a connection made by hand in the meantime settles it); a dismissed friend stays dismissed.
+            $row->fill([
+                'username' => $friend['username'] ?? $row->username,
+                'global_name' => $friend['globalName'] ?? $row->global_name,
+                'nickname' => $friend['nickname'],
+                'avatar_url' => $friend['avatarUrl'] ?? $row->avatar_url,
+            ]);
+
+            if ($row->status === DiscordFriend::PENDING && $isLinked) {
+                $row->status = DiscordFriend::CREATED;
+            }
+
+            $row->save();
+        }
+    }
+
+    /**
+     * Every Discord user id already on one of this owner's connections: in the
+     * chosen Discord field, or learned through VRCX.
+     *
+     * @return list<string>
+     */
+    public function linkedIds(User $user): array
+    {
+        $ids = [];
+
+        if ($user->discord_user_id_definition_id !== null) {
+            ConnectionAttributeValue::where('attribute_definition_id', $user->discord_user_id_definition_id)
+                ->whereHas('connection', fn ($q) => $q->where('user_id', $user->id))
+                ->get()
+                ->each(function (ConnectionAttributeValue $row) use (&$ids) {
+                    $candidates = $row->identifier_list_value ?? [];
+                    $candidates[] = $row->identifier_value;
+
+                    foreach ($candidates as $value) {
+                        $id = is_string($value) ? DiscordUserId::normalize($value) : null;
+
+                        if ($id !== null) {
+                            $ids[] = $id;
+                        }
+                    }
+                });
+        }
+
+        ConnectionVrchatProfile::whereIn('connection_id', $user->connections()->select('id'))
+            ->whereNotNull('discord_id')
+            ->get()
+            ->each(function (ConnectionVrchatProfile $profile) use (&$ids) {
+                $id = DiscordUserId::normalize($profile->discord_id);
+
+                if ($id !== null) {
+                    $ids[] = $id;
+                }
+            });
+
+        return array_values(array_unique($ids));
+    }
+
+    /** @param array{access_token: string, refresh_token: string, expires_at: Carbon, scope: string} $tokens */
+    private function storeTokens(User $user, array $tokens): void
+    {
+        $user->forceFill([
+            'discord_access_token' => $tokens['access_token'],
+            'discord_refresh_token' => $tokens['refresh_token'],
+            'discord_token_expires_at' => $tokens['expires_at'],
+        ])->save();
+    }
+
+    private function forgetTokens(User $user): void
+    {
+        $user->forceFill([
+            'discord_access_token' => null,
+            'discord_refresh_token' => null,
+            'discord_token_expires_at' => null,
+            'discord_account_name' => null,
+            'discord_synced_at' => null,
+        ])->save();
+    }
+
+    /**
+     * What the Connections and Settings pages show.
+     *
+     * @return array{available: bool, connected: bool, configured: bool, account_name: ?string, synced_at: ?string, pending_friends: int, field: array{id: string, type: string}|null}
+     */
+    public function summary(User $user): array
+    {
+        $field = $user->discord_user_id_definition_id === null
+            ? null
+            : $user->connectionAttributeDefinitions()->where('id', $user->discord_user_id_definition_id)->first(['id', 'type']);
+
+        return [
+            'available' => DiscordClient::isConfigured(),
+            'connected' => $this->isConnected($user),
+            'configured' => $this->isConfigured($user),
+            'account_name' => $user->discord_account_name,
+            'synced_at' => $user->discord_synced_at instanceof Carbon ? $user->discord_synced_at->toIso8601String() : null,
+            'pending_friends' => $this->isConfigured($user)
+                ? DiscordFriend::where('user_id', $user->id)->where('status', DiscordFriend::PENDING)->count()
+                : 0,
+            // The custom field holding Discord user ids, with the value shape its type takes.
+            'field' => $field === null ? null : ['id' => $field->id, 'type' => $field->type],
+        ];
+    }
+}

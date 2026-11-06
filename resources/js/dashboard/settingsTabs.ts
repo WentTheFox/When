@@ -19,6 +19,7 @@ export const SETTINGS_TABS = {
   activities: 'settings-tab-activities',
   sharing: 'settings-tab-sharing',
   vrchat: 'settings-tab-vrchat',
+  discord: 'settings-tab-discord',
   public: 'settings-tab-public',
 } as const;
 
@@ -38,7 +39,8 @@ const ANCHOR_TABS: Record<string, SettingsTabName> = {
   vrchat: 'vrchat',
   'vrchat-user-id': 'vrchat',
   'vrchat-friends': 'vrchat',
-  'discord-user-id': 'vrchat',
+  discord: 'discord',
+  'discord-user-id': 'discord',
   public_page_title: 'public',
 };
 

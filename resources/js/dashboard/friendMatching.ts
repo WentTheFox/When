@@ -5,8 +5,10 @@
  *
  * A friend matches a connection when their VRChat display name equals the
  * connection's name, or equals one of its highlight tokens, ignoring case,
- * surrounding space and repeated spaces. Exact only: a fuzzy match would link
- * the wrong person, which is worse than a duplicate.
+ * surrounding space and repeated spaces. When nothing matches that way, a name
+ * that is the same once decoration is stripped (see coreName: "Maple Sparrow" and
+ * "Maple Sparrow星星") counts too. Anything looser is only ever a hint
+ * (possibleMatches): a fuzzy link to the wrong person is worse than a duplicate.
  */
 
 export interface MatchCandidate {
@@ -17,13 +19,29 @@ export interface MatchCandidate {
   tokens: string[];
 }
 
+/** 'core' = the same name apart from decoration (symbols, emoji, characters from another script, spacing). */
+export type MatchBy = 'name' | 'token' | 'core';
+
 export type FriendMatch =
   | { kind: 'none' }
-  | { kind: 'one'; connectionId: string; by: 'name' | 'token' }
+  | { kind: 'one'; connectionId: string; by: MatchBy }
   | { kind: 'several'; connectionIds: string[] };
 
 export function normalizeName(value: string): string {
   return value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+/** Shorter than this, a stripped name is too generic to identify anyone ("Al", "J"). */
+const MIN_CORE = 4;
+
+/**
+ * A name reduced to its Latin letters and digits: no spaces, punctuation, emoji or
+ * characters from other scripts. "Maple Sparrow星星", "maple_sparrow ✨" and "MapleSparrow"
+ * all become "maplesparrow". Digits stay, so "Wolfgang99" is not "Wolfgang". '' when
+ * there is nothing Latin to go on (a name wholly in another script).
+ */
+export function coreName(value: string): string {
+  return normalizeName(value).replace(/[^\p{Script=Latin}\p{N}]+/gu, '');
 }
 
 /** Zero matches: create a connection. One: link to it. Several: ambiguous, leave it to the owner. */
@@ -31,13 +49,23 @@ export function matchFriend(displayName: string | null, candidates: readonly Mat
   const wanted = normalizeName(displayName ?? '');
   if (wanted === '') return { kind: 'none' };
 
-  const hits: { id: string; by: 'name' | 'token' }[] = [];
+  const hits: { id: string; by: MatchBy }[] = [];
 
   for (const candidate of candidates) {
     if (normalizeName(candidate.name) === wanted) {
       hits.push({ id: candidate.id, by: 'name' });
     } else if (candidate.tokens.some((token) => normalizeName(token) === wanted)) {
       hits.push({ id: candidate.id, by: 'token' });
+    }
+  }
+
+  // Only when nothing matched exactly: the same name under different decoration.
+  const core = coreName(wanted);
+  if (hits.length === 0 && core.length >= MIN_CORE) {
+    for (const candidate of candidates) {
+      if ([candidate.name, ...candidate.tokens].some((value) => coreName(value) === core)) {
+        hits.push({ id: candidate.id, by: 'core' });
+      }
     }
   }
 
@@ -77,12 +105,16 @@ export interface PossibleMatch {
   score: number;
 }
 
-/** Words of a name, split on punctuation, spaces and camelCase humps: "AerieBerry" gives aerie, berry. Short words are noise. */
+/**
+ * Words of a name, split on punctuation, spaces, camelCase humps and changes of script:
+ * "AerieBerry" gives aerie, berry; "Sparrow星星" gives sparrow (and 星星, too short to count).
+ * Short words are noise.
+ */
 function wordsOf(value: string): string[] {
-  return value
+  return (value
     .normalize('NFKC')
     .replace(/(\p{Ll})(\p{Lu})/gu, '$1 $2')
-    .split(/[^\p{L}\p{N}]+/u)
+    .match(/[\p{Script=Latin}\p{N}]+|(?:(?![\p{Script=Latin}])\p{L})+/gu) ?? [])
     .map((w) => w.toLowerCase())
     .filter((w) => w.length >= 4);
 }
@@ -109,7 +141,9 @@ function compareNames(wanted: string, other: string): Omit<PossibleMatch, 'id' |
   const b = normalizeName(other).replace(/\s+/g, '');
   if (a === '' || b === '' || a === b) return null;
 
-  const shared = wordsOf(wanted).find((w) => wordsOf(other).includes(w));
+  // The longest shared word is the most telling one ("sparrow" over "pop").
+  const otherWords = wordsOf(other);
+  const shared = wordsOf(wanted).filter((w) => otherWords.includes(w)).sort((x, y) => y.length - x.length)[0];
   if (shared) return { reason: 'word', detail: shared, score: 0.8 + Math.min(shared.length, 10) / 100 };
 
   let prefix = 0;
@@ -137,6 +171,8 @@ export function possibleMatches(displayName: string | null, candidates: readonly
   for (const candidate of candidates) {
     // An exact match (by name or token) belongs to matchFriend, not to the guesses.
     if ([candidate.name, ...candidate.tokens].some((value) => normalizeName(value) === normalizeName(wanted))) continue;
+    const wantedCore = coreName(wanted);
+    if (wantedCore.length >= MIN_CORE && [candidate.name, ...candidate.tokens].some((value) => coreName(value) === wantedCore)) continue;
 
     let best: PossibleMatch | null = null;
 
@@ -149,4 +185,32 @@ export function possibleMatches(displayName: string | null, candidates: readonly
   }
 
   return found.sort((a, b) => b.score - a.score || a.via.localeCompare(b.via)).slice(0, limit);
+}
+
+/**
+ * Like matchFriend, for a friend who goes by several names (a Discord friend has
+ * your own nickname for them, a display name and a username): the first name that
+ * matches anything decides, so a nickname you chose outranks their public name.
+ */
+export function matchFriendByNames(names: readonly (string | null)[], candidates: readonly MatchCandidate[]): FriendMatch {
+  for (const name of names) {
+    const match = matchFriend(name, candidates);
+    if (match.kind !== 'none') return match;
+  }
+
+  return { kind: 'none' };
+}
+
+/** possibleMatches across several names: the best-scoring guess per connection, best first. */
+export function possibleMatchesByNames(names: readonly (string | null)[], candidates: readonly MatchCandidate[], limit = 3): PossibleMatch[] {
+  const best = new Map<string, PossibleMatch>();
+
+  for (const name of names) {
+    for (const guess of possibleMatches(name, candidates, candidates.length)) {
+      const current = best.get(guess.id);
+      if (!current || guess.score > current.score) best.set(guess.id, guess);
+    }
+  }
+
+  return [...best.values()].sort((a, b) => b.score - a.score || a.via.localeCompare(b.via)).slice(0, limit);
 }

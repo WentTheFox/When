@@ -28,6 +28,15 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    // Discord OAuth2 (identify + relationships.read) for the friends import. The app needs Discord's Social SDK
+    // approval for relationships.read. The redirect URI must be registered in the Developer Portal exactly as
+    // it is here (default: the app's own settings.discord.callback route).
+    'discord' => [
+        'client_id' => env('DISCORD_CLIENT_ID'),
+        'client_secret' => env('DISCORD_CLIENT_SECRET'),
+        'redirect' => env('DISCORD_REDIRECT_URI'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

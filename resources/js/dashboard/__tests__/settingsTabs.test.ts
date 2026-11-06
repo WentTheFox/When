@@ -22,7 +22,7 @@ describe('settings tab hash', () => {
     expect(parseSettingsHash('#highlight-tokens')).toEqual({ tab: 'sharing', anchor: 'highlight-tokens' });
     expect(parseSettingsHash('#bypass-dnd')).toEqual({ tab: 'sharing', anchor: 'bypass-dnd' });
     expect(parseSettingsHash('#vrchat-friends')).toEqual({ tab: 'vrchat', anchor: 'vrchat-friends' });
-    expect(parseSettingsHash('#discord-user-id')).toEqual({ tab: 'vrchat', anchor: 'discord-user-id' });
+    expect(parseSettingsHash('#discord-user-id')).toEqual({ tab: 'discord', anchor: 'discord-user-id' });
     expect(parseSettingsHash('#dnd_event_pattern')).toEqual({ tab: 'matching', anchor: 'dnd_event_pattern' });
     expect(parseSettingsHash('#timezone')).toEqual({ tab: 'calendar', anchor: 'timezone' });
   });
@@ -36,7 +36,7 @@ describe('settings tab hash', () => {
   });
 
   it('has one tab per settings section', () => {
-    expect(Object.keys(SETTINGS_TABS)).toEqual(['calendar', 'availability', 'sleep', 'matching', 'activities', 'sharing', 'vrchat', 'public']);
+    expect(Object.keys(SETTINGS_TABS)).toEqual(['calendar', 'availability', 'sleep', 'matching', 'activities', 'sharing', 'vrchat', 'discord', 'public']);
   });
 
   it('survives malformed percent-encoding', () => {

@@ -97,6 +97,15 @@ const page = usePage();
     are only ever created by your browser when you choose to add a friend, so their names stay
     end-to-end encrypted.
   </p>
+  <p class="mb-4">
+    If you connect your Discord account in Settings, the server holds the access Discord gives it
+    (permission to read your identity and your friends list, nothing else) and uses it to fetch your
+    friends. That is not end-to-end encrypted either: the access tokens and the friends the server has seen
+    (their Discord user IDs, names, your own nicknames for them and avatars) are stored encrypted at rest
+    with the same server-held key, and the tokens are never included in your data export. As with VRChat friends, only
+    your browser creates a connection or adds a Discord user ID to one, when you choose, so connection names stay
+    end-to-end encrypted. Disconnecting revokes the access at Discord and forgets the tokens.
+  </p>
 
   <h2 class="h5">Account security</h2>
   <p class="mb-2">

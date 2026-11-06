@@ -9,6 +9,7 @@ use App\Services\Calendar\ActivityExtractor;
 use App\Services\Calendar\HighlightMatcher;
 use App\Services\Calendar\HighlightWordsResolver;
 use App\Services\Calendar\IcsParser;
+use App\Services\Discord\DiscordClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
@@ -143,6 +144,14 @@ class SettingsController extends Controller
                 'auto_create_friends' => $user->vrcx_auto_create_friends,
                 'friends_source_id' => $user->vrcx_friends_source_id,
                 'synced_at' => $user->vrcx_synced_at?->toIso8601String(),
+            ],
+            // §0.2 tier: only whether a grant exists and whose it is. The tokens themselves never leave the server.
+            'discord' => [
+                'available' => DiscordClient::isConfigured(),
+                'connected' => $user->discord_refresh_token !== null,
+                'account_name' => $user->discord_account_name,
+                'synced_at' => $user->discord_synced_at?->toIso8601String(),
+                'user_id_definition_id' => $user->discord_user_id_definition_id,
             ],
             'booleanDefinitions' => $user->connectionAttributeDefinitions()->where('type', 'boolean')->get(['id', 'label_ciphertext']),
             'timezones' => \DateTimeZone::listIdentifiers(),
