@@ -318,13 +318,6 @@ function add(): void {
               <BButton size="sm" variant="primary" :disabled="pending || optionsUnchanged" @click="saveOptions">Save choices</BButton>
             </div>
           </BFormGroup>
-          <IconRulesEditor
-            :type="selected.type"
-            :choices="selected.options"
-            :parsed="iconRuleSets[selected.id]"
-            :pending="pending"
-            @save="emit('saveIconRules', selected.id, $event)"
-          />
           <dl class="row small mb-3">
             <dt class="col-sm-3">Type</dt>
             <dd class="col-sm-9">
@@ -370,6 +363,13 @@ function add(): void {
           >
             Convert to list…
           </BButton>
+          <IconRulesEditor
+            :type="selected.type"
+            :choices="selected.options"
+            :parsed="iconRuleSets[selected.id]"
+            :pending="pending"
+            @save="emit('saveIconRules', selected.id, $event)"
+          />
         </LockedOverlay>
         <p v-else class="text-muted">Select an attribute on the left to rename or delete it.</p>
       </div>
