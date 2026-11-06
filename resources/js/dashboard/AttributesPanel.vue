@@ -313,7 +313,7 @@ function add(): void {
             </ul>
             <div class="d-flex gap-1">
               <BFormInput v-model="newOption" type="text" size="sm" placeholder="New choice" @keyup.enter="addOption" />
-              <BButton size="sm" variant="outline-primary" :disabled="!newOption.trim() || editOptions.includes(newOption.trim())" @click="addOption">Add</BButton>
+              <BButton size="sm" variant="outline-secondary" :disabled="!newOption.trim() || editOptions.includes(newOption.trim())" @click="addOption">Add</BButton>
               <BButton size="sm" variant="primary" :disabled="pending || optionsUnchanged" @click="saveOptions">Save choices</BButton>
             </div>
           </BFormGroup>

@@ -166,7 +166,7 @@ const counts = computed(() => {
               <option value="skip">Dismiss (don't ask again)</option>
             </select>
 
-            <BButton variant="outline-primary" size="sm" :disabled="busy" @click="emit('apply', [decision(row)])">Apply</BButton>
+            <BButton variant="outline-secondary" size="sm" :disabled="busy" @click="emit('apply', [decision(row)])">Apply</BButton>
           </div>
           <div v-if="converting(row)" class="small text-muted mt-1 ms-5 ps-3">
             That connection already has a different VRChat ID: applying turns the VRChat ID field into an identifier list first (one way).
