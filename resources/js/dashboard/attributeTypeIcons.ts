@@ -1,0 +1,35 @@
+import {
+  AlignLeftIcon,
+  CalendarIcon,
+  CircleDotIcon,
+  FingerprintIcon,
+  GlobeIcon,
+  HashIcon,
+  LinkIcon,
+  ListChecksIcon,
+  ListIcon,
+  MailIcon,
+  PhoneIcon,
+  ToggleLeftIcon,
+  TypeIcon,
+  UserIcon,
+  type LucideIcon,
+} from '@lucide/vue';
+
+/** One icon per custom field type, shown before the field's name in the list and in the type picker. */
+export const ATTRIBUTE_TYPE_ICONS: Record<string, LucideIcon> = {
+  text: TypeIcon,
+  textarea: AlignLeftIcon,
+  list: ListIcon,
+  radio: CircleDotIcon,
+  country: GlobeIcon,
+  date: CalendarIcon,
+  number: HashIcon,
+  url: LinkIcon,
+  email: MailIcon,
+  phone: PhoneIcon,
+  connection: UserIcon,
+  identifier: FingerprintIcon,
+  identifier_list: ListChecksIcon,
+  boolean: ToggleLeftIcon,
+};

@@ -20,7 +20,7 @@ import { format } from 'date-fns';
 import { resolveDateFnsLocale } from './dateFnsLocale';
 import { isBeyondRange } from './rangeEnd';
 import { TZDate } from '@date-fns/tz';
-import { LoaderCircleIcon, RepeatIcon } from '@lucide/vue';
+import { RepeatIcon } from '@lucide/vue';
 import { computed } from 'vue';
 import { currentLocale, trans } from 'laravel-vue-i18n';
 import { recurrenceText } from './recurrence';

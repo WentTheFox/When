@@ -201,17 +201,26 @@ describe('ConnectionCard', () => {
       }
     });
 
-    // A dropdown's selected option is set in the browser, so a server render can't show it; the unset-as-empty
-    // binding it relies on is covered in fieldBinding.test.ts. This only checks the control and its "(none)" option exist.
-    it('offers "(none)" on a connection field, which is a dropdown', async () => {
+    // A connection field is a searchable select: a closed button showing the current choice, with the options
+    // only rendered once opened. The unset-as-empty binding is covered in fieldBinding.test.ts; this only checks
+    // the control exists and shows "(none)" while unset.
+    it('shows "(none)" on an unset connection field, which is a searchable select', async () => {
       const group = groupOf(await render({
         attributeDefinitions: definitions,
         connectionOptions: [{ id: 'other', label: 'Alice' }],
       }), 'Referrer');
-      expect(group).toContain('<select');
+      expect(group).toContain('searchable-select');
+      expect(group).not.toContain('<select');
       expect(group).toContain('(none)');
-      expect(group).toContain('Alice');
     });
+  });
+
+  it('gives a url field an open-in-a-new-tab button, disabled while there is no valid link', async () => {
+    const html = await render({ attributeDefinitions: [{ id: 'u1', type: 'url', label: 'Website', label_ciphertext: 'x', options: [] }] });
+
+    expect(html).toContain('type="url"');
+    expect(html).toContain('aria-label="Open in a new tab"');
+    expect(html).toMatch(/<button[^>]*\bdisabled\b[^>]*aria-label="Open in a new tab"/);
   });
 });
 
