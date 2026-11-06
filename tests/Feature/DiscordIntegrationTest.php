@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\SyncDiscordFriends;
 use App\Models\Connection;
 use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionAttributeValue;
@@ -41,6 +40,9 @@ class DiscordIntegrationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // No test may reach the real Discord API: an unfaked request fails the test instead of going out.
+        Http::preventStrayRequests();
 
         config([
             'services.discord.client_id' => 'client-id',
@@ -89,7 +91,9 @@ class DiscordIntegrationTest extends TestCase
         $rows[] = ['id' => '9', 'type' => 2, 'user' => ['id' => '100000000000000099', 'username' => 'blocked', 'global_name' => null, 'avatar' => null]];
         $rows[] = ['id' => '8', 'type' => 3, 'user' => ['id' => '100000000000000098', 'username' => 'incoming', 'global_name' => null, 'avatar' => null]];
 
-        Http::fake(['discord.com/api/v10/users/@me/relationships' => Http::response($rows)]);
+        Http::swap($factory = new Factory);
+        $factory->preventStrayRequests();
+        $factory->fake(['discord.com/api/v10/users/@me/relationships' => Http::response($rows)]);
     }
 
     /** @return array<string, string> */
@@ -333,27 +337,32 @@ class DiscordIntegrationTest extends TestCase
         $this->assertSame([], $this->actingAs($user)->getJson('/dashboard/discord/friends')->json('friends'));
     }
 
-    public function test_an_automatic_sync_is_queued_when_stale_and_not_again_during_the_cooldown(): void
+    public function test_nothing_syncs_in_the_background_loading_the_page_never_calls_discord(): void
     {
         Queue::fake();
         Cache::flush();
+        // Connected, a field chosen, and never synced: exactly the state an automatic sync would have fired in.
         $user = $this->owner();
+        $this->assertNull($user->discord_synced_at);
+        Http::fake();
 
-        $this->actingAs($user)->get('/dashboard/connections');
-        $this->actingAs($user)->get('/dashboard/connections');
-
-        Queue::assertPushed(SyncDiscordFriends::class, 1);
-    }
-
-    public function test_nothing_is_queued_when_fresh_or_not_connected(): void
-    {
-        Queue::fake();
-        $fresh = $this->owner();
-        $fresh->forceFill(['discord_synced_at' => now()->subMinutes(5)])->save();
-        app(DiscordSyncService::class)->maybeQueue($fresh);
-        app(DiscordSyncService::class)->maybeQueue($this->owner(connected: false));
+        $this->actingAs($user)->get('/dashboard/connections')->assertOk();
+        $this->actingAs($user)->get('/dashboard/connections')->assertOk();
 
         Queue::assertNothingPushed();
+        Http::assertNothingSent();
+    }
+
+    public function test_the_manual_sync_is_rate_limited_so_a_click_cannot_become_a_burst(): void
+    {
+        $user = $this->owner();
+        $this->fakeFriends([self::OLD]);
+
+        for ($i = 0; $i < 6; $i++) {
+            $this->actingAs($user)->postJson('/settings/discord/sync')->assertOk();
+        }
+
+        $this->actingAs($user)->postJson('/settings/discord/sync')->assertStatus(429);
     }
 
     public function test_the_export_includes_friends_and_the_account_name_but_never_a_token(): void
@@ -473,6 +482,7 @@ class DiscordIntegrationTest extends TestCase
     {
         // A fresh factory each time: stubs stack, and the first match would win over a later "renamed" one.
         Http::swap($factory = new Factory);
+        $factory->preventStrayRequests();
         $factory->fake(['discord.com/api/v10/users/@me/relationships' => Http::response([[
             'id' => '1', 'type' => 1, 'nickname' => $nickname,
             'user' => ['id' => $id, 'username' => $username, 'global_name' => $globalName, 'avatar' => null],
@@ -569,6 +579,7 @@ class DiscordIntegrationTest extends TestCase
     private function fakeLookup(string $id, int $status = 200, ?array $body = null): void
     {
         Http::swap($factory = new Factory);
+        $factory->preventStrayRequests();
         $factory->fake(['discord.com/api/v10/users/'.$id => Http::response($body ?? [
             'id' => $id, 'username' => 'plumfinch', 'global_name' => 'Plum Finch', 'avatar' => 'def',
         ], $status)]);
