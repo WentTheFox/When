@@ -38,7 +38,6 @@ import {
   Bed,
   Bell,
   Bike,
-  Bolt,
   Book,
   Brain,
   Briefcase,
@@ -61,8 +60,10 @@ import {
   ChevronsDown,
   ChevronsUp,
   ChevronUp,
+  CircleAlert,
   CircleCheck,
   CircleDot,
+  CircleMinus,
   CircleX,
   Clock,
   Cloud,
@@ -108,6 +109,7 @@ import {
   Hourglass,
   House,
   IceCream,
+  Info,
   Key,
   Landmark,
   Laptop,
@@ -123,6 +125,8 @@ import {
   Moon,
   Mountain,
   Music,
+  OctagonAlert,
+  OctagonX,
   Paintbrush,
   Palette,
   PawPrint,
@@ -151,6 +155,7 @@ import {
   Star,
   StarHalf,
   Stethoscope,
+  StickyNote,
   Sun,
   Tent,
   TentTree,
@@ -183,6 +188,7 @@ import {
   Waves,
   Wrench,
   X,
+  Zap,
 } from '@lucide/vue';
 import type { LucideIcon } from '@lucide/vue';
 
@@ -300,7 +306,7 @@ const ICON_KEY_TO_LUCIDE: Record<string, PaletteIcon> = {
   cloud: Cloud,
   'cloud-rain': CloudRain,
   snowflake: Snowflake,
-  bolt: Bolt,
+  bolt: Zap,
   umbrella: Umbrella,
   droplet: Droplet,
   cat: Cat,
@@ -385,6 +391,12 @@ const ICON_KEY_TO_LUCIDE: Record<string, PaletteIcon> = {
   'arrow-trend-down': TrendingDown,
   'traffic-light': trafficLight,
   'flag-checkered': flagCheckered,
+  'no-entry': CircleMinus,
+  info: Info,
+  'circle-exclamation': CircleAlert,
+  'octagon-exclamation': OctagonAlert,
+  stop: OctagonX,
+  'sticky-note': StickyNote,
 };
 
 let icons: IconOption[] = [];
