@@ -81,6 +81,15 @@ const page = usePage();
     “bypass do not disturb” switch, and is stored the same way.
   </p>
   <p class="mb-4">
+    A custom field's type can be changed later with <strong>Migrate field</strong>,
+    and a few of those changes cross this boundary. Turning a text or list field into an
+    identifier or identifier list sends its values to the server in plaintext, so from then on
+    the server can read them. Turning an identifier list or yes/no field into a list or choice
+    field does the opposite: your browser encrypts the values and the server stops holding them
+    in plaintext. Every such change is done in your browser, asks you to confirm first, and
+    says which direction it goes.
+  </p>
+  <p class="mb-4">
     An identifier or identifier list field can also be marked as holding
     <strong>VRChat user IDs</strong>. If you connect your own VRCX Headless server
     in Settings, the server reads those IDs, asks your VRCX Headless server for the

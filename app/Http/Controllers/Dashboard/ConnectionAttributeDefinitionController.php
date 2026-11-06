@@ -7,6 +7,7 @@ use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionAttributeValue;
 use App\Models\User;
 use App\Support\FieldFeatures;
+use App\Support\FieldMigrations;
 use App\Support\SortOrder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -35,9 +36,8 @@ class ConnectionAttributeDefinitionController extends Controller
     }
 
     /**
-     * Rename and/or update a choice field's options. The type is fixed for the
-     * life of the field, since existing values are stored in the column that
-     * type dictates. The options blob is E2EE, so the server cannot verify the
+     * Rename and/or update a choice field's options. The type changes only through migrate(),
+     * since existing values are stored in the column that type dictates. The options blob is E2EE, so the server cannot verify the
      * change is additive (new choices / reordering only); the client enforces it.
      */
     public function update(Request $request, string $definition): JsonResponse
@@ -118,123 +118,167 @@ class ConnectionAttributeDefinitionController extends Controller
     }
 
     /**
-     * One-way migration: an 'identifier' field becomes an 'identifier_list'
-     * field in place. Each existing value turns into a one-entry list (empty
-     * values are dropped). The field keeps its id, label, position and every
-     * feature binding. There is deliberately no way back: a list can hold
-     * several entries, a single identifier can't.
-     * Returns how many values were converted.
-     */
-    public function convertToList(Request $request, string $definition): JsonResponse
-    {
-        $userId = $request->user()->getKey();
-
-        $converted = DB::transaction(function () use ($userId, $definition) {
-            // Same row lock as destroy() and the Settings save: no binding or delete can interleave.
-            User::whereKey($userId)->lockForUpdate()->firstOrFail();
-            $definition = ConnectionAttributeDefinition::where('user_id', $userId)->where('id', $definition)->lockForUpdate()->firstOrFail();
-
-            if ($definition->type !== 'identifier') {
-                throw ValidationException::withMessages(['definition' => 'Only an identifier field can be converted to a list.']);
-            }
-
-            $converted = 0;
-
-            ConnectionAttributeValue::where('attribute_definition_id', $definition->id)->lockForUpdate()->get()
-                ->each(function (ConnectionAttributeValue $row) use (&$converted) {
-                    $value = trim((string) $row->identifier_value);
-
-                    if ($value === '') {
-                        $row->delete();
-
-                        return;
-                    }
-
-                    $row->update(['identifier_value' => null, 'identifier_list_value' => [$value]]);
-                    $converted++;
-                });
-
-            $definition->update(['type' => 'identifier_list']);
-
-            return $converted;
-        });
-
-        return response()->json(['converted' => $converted]);
-    }
-
-    /**
-     * One-way migration: a 'textarea' field becomes an E2EE 'list' field in place.
+     * In-place type change ("Migrate field"). Which changes exist is App\Support\FieldMigrations; this runs one.
      *
-     * The values are E2EE, so only the browser can do the work: it decrypts each one, normalizes it to
-     * one entry per line, pads it (see encryptedList.ts) and re-encrypts it. This endpoint takes those
-     * new ciphertexts together with the ciphertext each was made from (`base_ciphertext`), swaps them in
-     * and flips the type in one all-or-nothing step. If any value changed since the browser read it, or
-     * the set of values differs, nothing is changed (409) and the page reloads its data.
-     * `value_ciphertext` null means the list came out empty: that value is removed.
-     * The Notes field cannot be converted, since the notes feature relies on it being multi-line.
-     * Returns how many values were converted.
+     * Values that are E2EE can only be converted by the browser, so it sends the new values together with what each
+     * was made from (`base_ciphertext`, or `base_identifier_list` / `base_boolean` for a plaintext source). All
+     * values are swapped, the type flipped and the options / icon rules replaced in one all-or-nothing step: if any
+     * value changed since the browser read it, or the set of values differs, nothing changes (409) and the page
+     * reloads. A converted value that comes out empty removes the value. Plaintext-to-plaintext changes
+     * (identifier <-> identifier list) need nothing from the browser and are done here.
+     *
+     * Features the new type can't serve (FieldFeatures::bindingsBrokenBy) block the change unless the owner agreed to
+     * release them (`release_bindings`). The Notes field can't be migrated: the notes feature relies on it being multi-line.
+     * Returns how many values were converted and the labels of the released bindings.
      */
-    public function convertToEncryptedList(Request $request, string $definition): JsonResponse
+    public function migrate(Request $request, string $definition): JsonResponse
     {
         $user = $request->user();
 
         $data = $request->validate([
-            'values' => ['present', 'array', 'max:5000'],
+            'to' => ['required', 'string'],
+            'strategy' => ['nullable', 'in:first,join'],
+            'values' => ['sometimes', 'array', 'max:5000'],
             'values.*.connection_id' => ['required', 'uuid', 'distinct', Rule::exists('connections', 'id')->where('user_id', $user->id)],
-            'values.*.base_ciphertext' => ['required', 'string'],
+            'values.*.base_ciphertext' => ['nullable', 'string'],
+            'values.*.base_identifier_list' => ['nullable', 'array'],
+            'values.*.base_identifier_list.*' => ['string'],
+            'values.*.base_boolean' => ['nullable', 'boolean'],
             'values.*.value_ciphertext' => ['nullable', 'string'],
+            'values.*.identifier_value' => ['nullable', 'string', 'max:1000'],
+            'values.*.identifier_list_value' => ['nullable', 'array', 'max:500'],
+            'values.*.identifier_list_value.*' => ['nullable', 'string', 'max:1000'],
+            // Replaces the field's choices: required when it becomes a choice field.
+            'options_ciphertext' => ['nullable', 'string'],
+            // The browser re-filters the field's icon rules for the new type; the server can't read them.
+            'icon_rules_ciphertext' => ['nullable', 'string'],
+            'release_bindings' => ['sometimes', 'boolean'],
         ]);
 
-        $converted = DB::transaction(function () use ($user, $definition, $data) {
+        $result = DB::transaction(function () use ($user, $definition, $data) {
             // Same row lock as destroy() and the Settings save: no binding or delete can interleave.
             $owner = User::whereKey($user->getKey())->lockForUpdate()->firstOrFail();
             $definition = ConnectionAttributeDefinition::where('user_id', $owner->id)->where('id', $definition)->lockForUpdate()->firstOrFail();
 
-            if ($definition->type !== 'textarea') {
-                throw ValidationException::withMessages(['definition' => 'Only a multi-line field can be converted to a list.']);
+            $path = FieldMigrations::find($definition->type, $data['to']);
+            if ($path === null) {
+                throw ValidationException::withMessages(['definition' => 'This field can\'t be migrated to that type.']);
             }
 
             if ($owner->notes_field_definition_id === $definition->id) {
                 throw ValidationException::withMessages(['definition' => 'The Notes field has to stay multi-line.']);
             }
 
+            if (isset($path['strategies']) && ! in_array($data['strategy'] ?? null, $path['strategies'], true)) {
+                throw ValidationException::withMessages(['strategy' => 'Say how to turn several entries into one.']);
+            }
+
+            if ($data['to'] === 'radio' && empty($data['options_ciphertext'])) {
+                throw ValidationException::withMessages(['options_ciphertext' => 'A choice field needs its choices.']);
+            }
+
+            $broken = FieldFeatures::bindingsBrokenBy($owner, $definition->id, $data['to']);
+            if ($broken !== [] && ! ($data['release_bindings'] ?? false)) {
+                throw ValidationException::withMessages([
+                    'definition' => 'This type can\'t be used by: '.implode(', ', $broken).'. Agree to release them, or choose another field in Settings first.',
+                ]);
+            }
+
             $rows = ConnectionAttributeValue::where('attribute_definition_id', $definition->id)->lockForUpdate()->get()->keyBy('connection_id');
-            /** @var array<string, array{connection_id: string, base_ciphertext: string, value_ciphertext?: string|null}> $sent */
-            $sent = array_column($data['values'], null, 'connection_id');
+            /** @var array<string, array<string, mixed>> $sent */
+            $sent = array_column($data['values'] ?? [], null, 'connection_id');
 
-            $held = $rows->keys()->all();
-            $given = array_keys($sent);
-            sort($held);
-            sort($given);
+            if ($path['tier'] !== FieldMigrations::TIER_PLAIN) {
+                $held = $rows->keys()->all();
+                $given = array_keys($sent);
+                sort($held);
+                sort($given);
 
-            $stale = $held !== $given
-                || $rows->contains(fn (ConnectionAttributeValue $row) => $row->value_ciphertext !== $sent[$row->connection_id]['base_ciphertext']);
-
-            if ($stale) {
-                abort(409, 'The values changed while converting. Nothing was converted; reload and try again.');
+                if ($held !== $given || $rows->contains(fn (ConnectionAttributeValue $row) => ! $this->isBasedOn($row, $definition->type, $sent[$row->connection_id]))) {
+                    abort(409, 'The values changed while migrating. Nothing was migrated; reload and try again.');
+                }
             }
 
             $converted = 0;
 
             foreach ($rows as $connectionId => $row) {
-                $next = $sent[$connectionId]['value_ciphertext'] ?? null;
+                $next = $this->migratedColumns($row, $path, $data['to'], $sent[$connectionId] ?? [], $data['strategy'] ?? null);
 
-                if ($next === null || $next === '') {
+                if ($next === null) {
                     $row->delete();
 
                     continue;
                 }
 
-                $row->update(['value_ciphertext' => $next]);
+                // Exactly the target's column is set (ConnectionController::assertValueShapesMatchDefinitions).
+                $row->update($next + ['value_ciphertext' => null, 'identifier_value' => null, 'identifier_list_value' => null, 'boolean_value' => null]);
                 $converted++;
             }
 
-            $definition->update(['type' => 'list']);
+            $update = ['type' => $data['to'], 'options_ciphertext' => $data['to'] === 'radio' ? $data['options_ciphertext'] : null];
+            if (! empty($data['icon_rules_ciphertext'])) {
+                $update['icon_rules_ciphertext'] = $data['icon_rules_ciphertext'];
+            }
+            $definition->update($update);
 
-            return $converted;
+            FieldFeatures::release($owner, $definition->id, array_keys($broken));
+
+            return ['converted' => $converted, 'released' => array_values($broken)];
         });
 
-        return response()->json(['converted' => $converted]);
+        return response()->json($result);
+    }
+
+    /** @param array<string, mixed> $sent */
+    private function isBasedOn(ConnectionAttributeValue $row, string $fromType, array $sent): bool
+    {
+        return match ($fromType) {
+            'identifier_list' => array_values((array) $row->identifier_list_value) === array_values((array) ($sent['base_identifier_list'] ?? [])),
+            'boolean' => array_key_exists('base_boolean', $sent) && $row->boolean_value === (bool) $sent['base_boolean'],
+            default => $row->value_ciphertext !== null && $row->value_ciphertext === ($sent['base_ciphertext'] ?? null),
+        };
+    }
+
+    /**
+     * The column to write for one value, or null when it came out empty (the value is then removed).
+     *
+     * @param  array{from: string, to: string, tier: string}  $path
+     * @param  array<string, mixed>  $sent
+     * @return array<string, mixed>|null
+     */
+    private function migratedColumns(ConnectionAttributeValue $row, array $path, string $to, array $sent, ?string $strategy): ?array
+    {
+        if ($path['tier'] === FieldMigrations::TIER_PLAIN) {
+            if ($to === 'identifier_list') {
+                $value = trim((string) $row->identifier_value);
+
+                return $value === '' ? null : ['identifier_list_value' => [$value]];
+            }
+
+            $entries = array_values(array_filter(array_map(fn ($e) => trim((string) $e), (array) $row->identifier_list_value), fn ($e) => $e !== ''));
+            if ($entries === []) {
+                return null;
+            }
+
+            // An identifier holds 1000 characters at most; a joined list longer than that is cut.
+            return ['identifier_value' => mb_substr($strategy === 'join' ? implode(', ', $entries) : $entries[0], 0, 1000)];
+        }
+
+        if ($to === 'identifier') {
+            $value = trim((string) ($sent['identifier_value'] ?? ''));
+
+            return $value === '' ? null : ['identifier_value' => $value];
+        }
+
+        if ($to === 'identifier_list') {
+            $entries = array_values(array_filter(array_map(fn ($e) => trim((string) $e), (array) ($sent['identifier_list_value'] ?? [])), fn ($e) => $e !== ''));
+
+            return $entries === [] ? null : ['identifier_list_value' => $entries];
+        }
+
+        $ciphertext = $sent['value_ciphertext'] ?? null;
+
+        return $ciphertext === null || $ciphertext === '' ? null : ['value_ciphertext' => $ciphertext];
     }
 
     /**

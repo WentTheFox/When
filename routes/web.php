@@ -285,10 +285,8 @@ Route::middleware('auth')->group(function () {
         ->name('dashboard.connection-attribute-definitions.store');
     Route::post('/dashboard/connection-attribute-definitions/{definition}/fill-identifiers', [ConnectionAttributeDefinitionController::class, 'fillIdentifiers'])
         ->name('dashboard.connection-attribute-definitions.fill-identifiers');
-    Route::post('/dashboard/connection-attribute-definitions/{definition}/convert-to-list', [ConnectionAttributeDefinitionController::class, 'convertToList'])
-        ->name('dashboard.connection-attribute-definitions.convert-to-list');
-    Route::post('/dashboard/connection-attribute-definitions/{definition}/convert-to-encrypted-list', [ConnectionAttributeDefinitionController::class, 'convertToEncryptedList'])
-        ->name('dashboard.connection-attribute-definitions.convert-to-encrypted-list');
+    Route::post('/dashboard/connection-attribute-definitions/{definition}/migrate', [ConnectionAttributeDefinitionController::class, 'migrate'])
+        ->name('dashboard.connection-attribute-definitions.migrate');
     Route::post('/dashboard/connection-attribute-definitions/{definition}/clear-values', [ConnectionAttributeDefinitionController::class, 'clearValues'])
         ->name('dashboard.connection-attribute-definitions.clear-values');
     Route::patch('/dashboard/connection-attribute-definitions/{definition}', [ConnectionAttributeDefinitionController::class, 'update'])

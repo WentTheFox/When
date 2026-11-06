@@ -2,13 +2,15 @@
 import { LockIcon } from '@lucide/vue';
 import AppIcon from '../Components/AppIcon.vue';
 import { Link } from '@inertiajs/vue3';
-import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput, BFormSelect } from 'bootstrap-vue-next';
+import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
 import SearchableSelect from '../Components/SearchableSelect.vue';
 import { ATTRIBUTE_TYPE_ICONS } from './attributeTypeIcons';
 import EncryptedInput from '../Components/EncryptedInput.vue';
 import EncryptedText from '../Components/EncryptedText.vue';
 import { requestConfirm } from './confirmModal';
+import { type MigrationPath, pathsFrom } from './fieldMigrations';
+import MigrateFieldSection from './MigrateFieldSection.vue';
 import IconRulesEditor from './IconRulesEditor.vue';
 import type { IconRuleSet, ParsedRuleSet } from './iconRules';
 import LockedOverlay from './LockedOverlay.vue';
@@ -46,6 +48,10 @@ const props = defineProps<{
   usage: Record<string, number>;
   /** Fields that site features depend on (field id to feature labels); those can't be deleted. */
   fieldFeatures: Record<string, string[]>;
+  /** Which field types each feature (by label) can use. */
+  fieldFeatureTypes: Record<string, string[]>;
+  /** Every type change a field may go through. */
+  migrations: MigrationPath[];
   /** Why the server last refused to delete a field, if it did. */
   removeError?: string | null;
   /** Decrypted icon rules per field id (only fields that have some). */
@@ -62,9 +68,8 @@ const emit = defineEmits<{
   remove: [string];
   /** Icon rules: the field id and its full new rule set, to be encrypted and saved. */
   saveIconRules: [string, IconRuleSet];
-  convertToList: [string];
-  /** Multi-line field to E2EE list: the page re-encrypts every value, then asks the server to swap them in. */
-  convertToEncryptedList: [string];
+  /** Migrate the field (id) to another type: the page converts every value, then asks the server to swap them in. */
+  migrate: [string, string, { strategy?: string; releaseBindings?: boolean }];
   /** Create an identifier field with this name, then copy the text field (first id) into it. */
   createIdentifierAndCopy: [string, string];
   copyToIdentifier: [string, string];
@@ -75,12 +80,8 @@ const emit = defineEmits<{
 const decryptedDefinitions = computed(() =>
   props.definitions.filter((d): d is DefinitionItem & { label: string } => d.label !== undefined),
 );
-const textDefinitions = computed(() => decryptedDefinitions.value.filter((d) => d.type === 'text'));
 const identifierDefinitions = computed(() => decryptedDefinitions.value.filter((d) => d.type === 'identifier'));
 const hasConnectionDefinitions = computed(() => props.definitions.some((d) => d.type === 'connection'));
-const copySourceId = ref('');
-const newIdentifierLabel = ref('');
-const copyTargetId = ref('');
 
 const filter = ref('');
 // Lists render in the order they were given (their stored order, see listOrder.ts); sorting by name here would reshuffle them as names decrypt.
@@ -183,44 +184,6 @@ async function confirmRemove(): Promise<void> {
 
   emit('remove', definition.id);
   selectedId.value = null;
-}
-
-/** One-way: there is deliberately no conversion back to a single identifier. */
-async function confirmConvertToList(): Promise<void> {
-  const definition = selected.value;
-  if (!definition || definition.label === undefined || definition.type !== 'identifier') return;
-
-  const used = props.usage[definition.id] ?? 0;
-
-  const confirmed = await requestConfirm({
-    title: `Turn “${definition.label}” into a list?`,
-    message: `${used > 0 ? `Each of the ${used} existing value${used === 1 ? '' : 's'} becomes a list with that one entry. ` : ''}`
-      + 'The field keeps its name and everything that uses it. This cannot be undone: a list can hold several entries, so it cannot be turned back into a single identifier.',
-    confirmText: 'Convert to list',
-    variant: 'primary',
-  });
-  if (!confirmed) return;
-
-  emit('convertToList', definition.id);
-}
-
-/** One-way: a multi-line field becomes a list (entries one per line, still end-to-end encrypted). */
-async function confirmConvertToEncryptedList(): Promise<void> {
-  const definition = selected.value;
-  if (!definition || definition.label === undefined || definition.type !== 'textarea') return;
-
-  const used = props.usage[definition.id] ?? 0;
-
-  const confirmed = await requestConfirm({
-    title: `Turn “${definition.label}” into a list?`,
-    message: `${used > 0 ? `Each of the ${used} existing value${used === 1 ? '' : 's'} is read as one entry per line (blank lines and repeats are dropped) and encrypted again. ` : ''}`
-      + 'It stays end-to-end encrypted, and the field keeps its name and everything that uses it. This cannot be undone.',
-    confirmText: 'Convert to list',
-    variant: 'primary',
-  });
-  if (!confirmed) return;
-
-  emit('convertToEncryptedList', definition.id);
 }
 
 const showNewForm = ref(false);
@@ -348,22 +311,8 @@ function add(): void {
             <dd class="col-sm-9">
               <AppIcon v-if="ATTRIBUTE_TYPE_ICONS[selected.type]" :icon="ATTRIBUTE_TYPE_ICONS[selected.type]!" class="me-1" />
               {{ TYPE_LABELS[selected.type] ?? selected.type }}
-              <template v-if="selected.type === 'identifier' || selected.type === 'textarea'">
-                <span class="text-muted">(can be converted to a list, one way only)</span>
-                <BButton
-                  size="sm"
-                  variant="outline-secondary"
-                  class="ms-2 py-0"
-                  :disabled="pending || (selected.type === 'textarea' && copyBusy)"
-                  :title="selected.type === 'textarea'
-                    ? 'Turn this multi-line field into an encrypted list, one entry per line (cannot be undone)'
-                    : 'Turn this single identifier into a list of identifiers (cannot be undone)'"
-                  @click="selected.type === 'textarea' ? confirmConvertToEncryptedList() : confirmConvertToList()"
-                >
-                  Convert to list…
-                </BButton>
-              </template>
-              <span v-else class="text-muted">(fixed once created)</span>
+              <span v-if="!pathsFrom(migrations, selected.type).length" class="text-muted">(fixed: nothing to migrate it to)</span>
+              <span v-else class="text-muted">(see Migrate field below)</span>
             </dd>
             <dt class="col-sm-3">Used on</dt>
             <dd class="col-sm-9">{{ usage[selected.id] ?? 0 }} connection{{ (usage[selected.id] ?? 0) === 1 ? '' : 's' }}</dd>
@@ -392,6 +341,21 @@ function add(): void {
           >
             Delete
           </BButton>
+          <MigrateFieldSection
+            :definition="selected"
+            :paths="migrations"
+            :type-labels="TYPE_LABELS"
+            :usage="usage[selected.id] ?? 0"
+            :used-by="featuresOf(selected.id)"
+            :feature-types="fieldFeatureTypes"
+            :identifier-targets="identifierDefinitions.map((d) => ({ id: d.id, label: d.label }))"
+            :copy-status="copyStatus"
+            :busy="copyBusy"
+            :disabled="pending"
+            @migrate="(id, to, options) => emit('migrate', id, to, options)"
+            @copy-to-identifier="(from, to) => emit('copyToIdentifier', from, to)"
+            @create-identifier-and-copy="(from, label) => emit('createIdentifierAndCopy', from, label)"
+          />
           <IconRulesEditor
             :type="selected.type"
             :choices="selected.options"
@@ -411,51 +375,5 @@ function add(): void {
       <span class="text-muted ms-1">Deleting a connection already does this; use it if a reference was left behind.</span>
     </div>
 
-    <template v-if="textDefinitions.length">
-      <hr>
-      <h3 class="h6">Copy a text field into an identifier</h3>
-      <p class="small text-muted mb-2">
-        Decrypts the chosen text field in your browser and sends each value to the server in plaintext, for every
-        connection whose identifier is still empty. The text field itself is left exactly as it is, and existing
-        identifiers are never overwritten, so it's safe to re-run.
-      </p>
-      <div v-if="identifierDefinitions.length" class="input-group input-group-sm mb-1">
-        <BFormSelect v-model="copySourceId">
-          <option value="" disabled>From (text)…</option>
-          <option v-for="d in textDefinitions" :key="d.id" :value="d.id">{{ d.label }}</option>
-        </BFormSelect>
-        <BFormSelect v-model="copyTargetId">
-          <option value="" disabled>To (identifier)…</option>
-          <option v-for="d in identifierDefinitions" :key="d.id" :value="d.id">{{ d.label }}</option>
-        </BFormSelect>
-        <BButton
-          variant="outline-secondary"
-          :disabled="copyBusy || !copySourceId || !copyTargetId"
-          @click="emit('copyToIdentifier', copySourceId, copyTargetId)"
-        >
-          Copy
-        </BButton>
-      </div>
-      <template v-else>
-        <p class="small mb-2">
-          You have no identifier field yet. Name one and it is created for you, then the text field is copied into it.
-        </p>
-        <div class="input-group input-group-sm mb-1">
-          <BFormSelect v-model="copySourceId">
-            <option value="" disabled>From (text)…</option>
-            <option v-for="d in textDefinitions" :key="d.id" :value="d.id">{{ d.label }}</option>
-          </BFormSelect>
-          <BFormInput v-model="newIdentifierLabel" type="text" placeholder="New identifier field name" />
-          <BButton
-            variant="outline-secondary"
-            :disabled="copyBusy || !copySourceId || !newIdentifierLabel.trim()"
-            @click="emit('createIdentifierAndCopy', copySourceId, newIdentifierLabel.trim())"
-          >
-            Create and copy
-          </BButton>
-        </div>
-      </template>
-      <div v-if="copyStatus" class="small text-muted">{{ copyStatus }}</div>
-    </template>
   </div>
 </template>

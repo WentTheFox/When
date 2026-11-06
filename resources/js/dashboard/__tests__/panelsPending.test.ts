@@ -52,6 +52,8 @@ describe('opening a record before it is decrypted', () => {
       definitions: [{ id: ID, type: 'text', label_ciphertext: RAW, options: [] }],
       usage: {},
       fieldFeatures: {},
+      fieldFeatureTypes: {},
+      migrations: [],
       copyStatus: null,
       copyBusy: false,
       iconRuleSets: {},
@@ -83,7 +85,7 @@ describe('opening a record before it is decrypted', () => {
 
 describe('a custom field that a site feature uses', () => {
   const definition = { id: ID, type: 'identifier_list', label_ciphertext: RAW, label: 'Highlight words', options: [] };
-  const base = { selectedId: ID, definitions: [definition], usage: {}, copyStatus: null, copyBusy: false, iconRuleSets: {} };
+  const base = { selectedId: ID, definitions: [definition], usage: {}, copyStatus: null, copyBusy: false, iconRuleSets: {}, fieldFeatureTypes: {}, migrations: [] };
 
   it('has its Delete button disabled and says why, with a way to Settings', async () => {
     const html = await render(AttributesPanel, { ...base, fieldFeatures: { [ID]: ['Highlight tokens'] } });
@@ -144,6 +146,8 @@ describe('list order', () => {
       fieldFeatures: {},
       copyStatus: null,
       copyBusy: false,
+      fieldFeatureTypes: {},
+      migrations: [],
       iconRuleSets: {},
     });
     expect(order(html, 'Zulu field', 'Alpha field')).toEqual(['Zulu field', 'Alpha field']);
@@ -161,6 +165,8 @@ describe('the custom attributes list', () => {
     copyStatus: null,
     copyBusy: false,
     iconRuleSets: {},
+    fieldFeatureTypes: {},
+    migrations: [],
   };
 
   /** The markup of just the left-hand list. */
