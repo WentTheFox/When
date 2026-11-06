@@ -40,7 +40,7 @@ function submit(): void {
   <form @submit.prevent="submit">
     <BCard class="mb-4">
       <h2 class="h5 mb-3">Wake &amp; sleep times</h2>
-      <p class="small text-muted">Set a wake/sleep time per day. Leave both blank for no default sleep block that day.</p>
+      <p class="small text-muted">Set a wake/sleep time per day. Leave both blank for no default sleep block that day. If the sleep time is the same as or earlier than the wake-up time, it counts as the next day (e.g. wake 08:00, sleep 01:00 means asleep from 01:00 the following morning).</p>
       <table class="table table-sm">
         <thead>
           <tr><th>Day</th><th>Wake up</th><th>Go to sleep</th></tr>
