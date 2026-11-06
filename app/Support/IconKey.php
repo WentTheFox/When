@@ -203,6 +203,52 @@ enum IconKey: string
     // Misc.
     case Lightbulb = 'lightbulb';
 
+    // Graded levels (signal bars, thermometer, gauge, hourglass, volume, mood), rankings and
+    // arrows. Meant for icon rules on choice/number fields, so a rule can show "how much".
+    case Signal0 = 'signal-0';
+    case Signal1 = 'signal-1';
+    case Signal2 = 'signal-2';
+    case Signal3 = 'signal-3';
+    case TemperatureEmpty = 'temperature-empty';
+    case TemperatureQuarter = 'temperature-quarter';
+    case TemperatureHalf = 'temperature-half';
+    case TemperatureThreeQuarters = 'temperature-three-quarters';
+    case TemperatureFull = 'temperature-full';
+    case GaugeLow = 'gauge-low';
+    case GaugeMedium = 'gauge-medium';
+    case GaugeHigh = 'gauge-high';
+    case HourglassStart = 'hourglass-start';
+    case HourglassHalf = 'hourglass-half';
+    case HourglassEnd = 'hourglass-end';
+    case VolumeOff = 'volume-off';
+    case VolumeLow = 'volume-low';
+    case VolumeHigh = 'volume-high';
+    case FaceFrown = 'face-frown';
+    case FaceMeh = 'face-meh';
+    case FaceSmile = 'face-smile';
+    case FaceGrinBeam = 'face-grin-beam';
+    case StarHalf = 'star-half';
+    case CircleDot = 'circle-dot';
+    case CircleHalfStroke = 'circle-half-stroke';
+    case Medal = 'medal';
+    case Trophy = 'trophy';
+    case RankingStar = 'ranking-star';
+    case ThumbsDown = 'thumbs-down';
+    case Equals = 'equals';
+    case Minus = 'minus';
+    case ArrowUp = 'arrow-up';
+    case ArrowDown = 'arrow-down';
+    case ArrowLeft = 'arrow-left';
+    case ArrowRight = 'arrow-right';
+    case AngleUp = 'angle-up';
+    case AngleDown = 'angle-down';
+    case AnglesUp = 'angles-up';
+    case AnglesDown = 'angles-down';
+    case ArrowTrendUp = 'arrow-trend-up';
+    case ArrowTrendDown = 'arrow-trend-down';
+    case TrafficLight = 'traffic-light';
+    case FlagCheckered = 'flag-checkered';
+
     public function label(): string
     {
         return match ($this) {
@@ -243,6 +289,50 @@ enum IconKey: string
             self::PuzzlePiece => 'Puzzle piece',
             self::MasksTheater => 'Theater masks',
             self::ChessKnight => 'Chess',
+            self::TrafficLight => 'Traffic light',
+            self::FlagCheckered => 'Checkered flag',
+            self::Signal0 => 'Signal none',
+            self::Signal1 => 'Signal 1 bar',
+            self::Signal2 => 'Signal 2 bars',
+            self::Signal3 => 'Signal 3 bars',
+            self::TemperatureEmpty => 'Thermometer empty',
+            self::TemperatureQuarter => 'Thermometer quarter',
+            self::TemperatureHalf => 'Thermometer half',
+            self::TemperatureThreeQuarters => 'Thermometer three quarters',
+            self::TemperatureFull => 'Thermometer full',
+            self::GaugeLow => 'Gauge low',
+            self::GaugeMedium => 'Gauge medium',
+            self::GaugeHigh => 'Gauge high',
+            self::HourglassStart => 'Hourglass start',
+            self::HourglassHalf => 'Hourglass half',
+            self::HourglassEnd => 'Hourglass end',
+            self::VolumeOff => 'Volume off',
+            self::VolumeLow => 'Volume low',
+            self::VolumeHigh => 'Volume high',
+            self::FaceFrown => 'Face frown',
+            self::FaceMeh => 'Face meh',
+            self::FaceSmile => 'Face smile',
+            self::FaceGrinBeam => 'Face grin',
+            self::StarHalf => 'Star half',
+            self::CircleDot => 'Circle dot',
+            self::CircleHalfStroke => 'Circle half',
+            self::Medal => 'Medal',
+            self::Trophy => 'Trophy',
+            self::RankingStar => 'Ranking',
+            self::ThumbsDown => 'Thumbs down',
+            self::Equals => 'Equals',
+            self::Minus => 'Minus',
+            self::ArrowUp => 'Arrow up',
+            self::ArrowDown => 'Arrow down',
+            self::ArrowLeft => 'Arrow left',
+            self::ArrowRight => 'Arrow right',
+            self::AngleUp => 'Angle up',
+            self::AngleDown => 'Angle down',
+            self::AnglesUp => 'Double angle up',
+            self::AnglesDown => 'Double angle down',
+            self::ArrowTrendUp => 'Trend up',
+            self::ArrowTrendDown => 'Trend down',
+            self::Signal => 'Signal full',
             default => $this->name,
         };
     }
@@ -262,8 +352,8 @@ enum IconKey: string
             self::Moon, self::Bed, self::CloudMoon, self::Caravan, self::Trailer, self::Tent, self::Campground, self::Couch => 'Sleep & rest',
             self::Briefcase, self::Laptop, self::Building, self::ChartLine, self::City, self::Industry, self::Warehouse, self::BuildingColumns, self::UserTie, self::ScaleBalanced => 'Work & business',
             self::Books, self::Apple, self::School, self::Brain, self::Math, self::Chemistry, self::Science, self::History, self::Geography, self::Computer, self::Graduate, self::GraduationCap => 'School & learning',
-            self::Check, self::CalendarCheck, self::CalendarX, self::Clock, self::BatteryFull, self::BatteryThreeQuarters, self::BatteryHalf, self::BatteryQuarter, self::BatteryEmpty,
-            self::DoorOpen, self::DoorClosed, self::ToggleOn, self::ToggleOff, self::Signal, self::CircleCheck, self::CircleXmark, self::Ban, self::Lock, self::X, self::Alert => 'Time & status',
+            self::Check, self::CalendarCheck, self::CalendarX, self::Clock,
+            self::DoorOpen, self::DoorClosed, self::ToggleOn, self::ToggleOff, self::CircleCheck, self::CircleXmark, self::Ban, self::Lock, self::X, self::Alert => 'Time & status',
             self::Users, self::Handshake, self::PeopleGroup, self::Baby, self::Child, self::Crown, self::Ring => 'People & social',
             self::Tree, self::Sun, self::Mountain, self::Leaf, self::Seedling, self::Compass, self::UmbrellaBeach, self::PersonHiking, self::Fire => 'Nature & outdoors',
             self::Cloud, self::CloudRain, self::Snowflake, self::Bolt, self::Umbrella, self::Droplet => 'Weather',
@@ -274,7 +364,10 @@ enum IconKey: string
             self::HeartPulse, self::Pills, self::Stethoscope, self::BriefcaseMedical => 'Health',
             self::Wrench, self::Hammer, self::Key, self::House => 'Home & tools',
             self::Music, self::Gamepad, self::Book, self::Palette, self::Paintbrush, self::Camera, self::Film, self::Guitar, self::Drum, self::PuzzlePiece, self::Ticket, self::MasksTheater, self::ChessKnight, self::VR => 'Arts & hobbies',
-            self::Star, self::Heart, self::Gift, self::Bell, self::Flag, self::ThumbsUp, self::Poop, self::Lightbulb => 'Misc',
+            self::Signal, self::BatteryFull, self::BatteryThreeQuarters, self::BatteryHalf, self::BatteryQuarter, self::BatteryEmpty,
+            self::Signal0, self::Signal1, self::Signal2, self::Signal3, self::TemperatureEmpty, self::TemperatureQuarter, self::TemperatureHalf, self::TemperatureThreeQuarters, self::TemperatureFull, self::GaugeLow, self::GaugeMedium, self::GaugeHigh, self::HourglassStart, self::HourglassHalf, self::HourglassEnd, self::VolumeOff, self::VolumeLow, self::VolumeHigh, self::FaceFrown, self::FaceMeh, self::FaceSmile, self::FaceGrinBeam, self::StarHalf, self::CircleDot, self::CircleHalfStroke, self::TrafficLight, self::Flag, self::FlagCheckered, self::Medal, self::Trophy, self::RankingStar, self::ThumbsDown => 'Levels & ranking',
+            self::Equals, self::Minus, self::ArrowUp, self::ArrowDown, self::ArrowLeft, self::ArrowRight, self::AngleUp, self::AngleDown, self::AnglesUp, self::AnglesDown, self::ArrowTrendUp, self::ArrowTrendDown => 'Arrows & direction',
+            self::Star, self::Heart, self::Gift, self::Bell, self::ThumbsUp, self::Poop, self::Lightbulb => 'Misc',
         };
     }
 
@@ -331,7 +424,52 @@ enum IconKey: string
             self::MasksTheater => ['theatre', 'drama', 'performance'],
             self::Ticket => ['event', 'show', 'concert'],
             self::Lightbulb => ['idea', 'inspiration'],
+            self::TrafficLight => ['status', 'red', 'amber', 'green', 'stop', 'go', 'rag'],
+            self::Flag => ['marker', 'mark', 'flagged', 'status'],
+            self::FlagCheckered => ['finish', 'done', 'race', 'complete'],
             self::VR => ['goggles', 'virtual', 'reality', 'virtual reality', 'steamvr', 'vrchat'],
+            self::Signal0 => ['reception', 'bars', 'level', 'none'],
+            self::Signal1 => ['reception', 'bars', 'level', 'low'],
+            self::Signal2 => ['reception', 'bars', 'level', 'medium'],
+            self::Signal3 => ['reception', 'bars', 'level', 'high'],
+            self::TemperatureEmpty => ['level', 'cold', 'low', 'temperature'],
+            self::TemperatureQuarter => ['level', 'temperature'],
+            self::TemperatureHalf => ['level', 'temperature'],
+            self::TemperatureThreeQuarters => ['level', 'temperature'],
+            self::TemperatureFull => ['level', 'hot', 'high', 'temperature'],
+            self::GaugeLow => ['level', 'speed', 'meter'],
+            self::GaugeMedium => ['level', 'speed', 'meter'],
+            self::GaugeHigh => ['level', 'speed', 'meter'],
+            self::HourglassStart => ['time', 'progress', 'level'],
+            self::HourglassHalf => ['time', 'progress', 'level'],
+            self::HourglassEnd => ['time', 'progress', 'level'],
+            self::VolumeOff => ['sound', 'mute', 'level'],
+            self::VolumeLow => ['sound', 'quiet', 'level'],
+            self::VolumeHigh => ['sound', 'loud', 'level'],
+            self::FaceFrown => ['mood', 'rating', 'sad', 'bad'],
+            self::FaceMeh => ['mood', 'rating', 'neutral', 'ok'],
+            self::FaceSmile => ['mood', 'rating', 'happy', 'good'],
+            self::FaceGrinBeam => ['mood', 'rating', 'happy', 'great'],
+            self::StarHalf => ['rating', 'half'],
+            self::CircleDot => ['fill', 'level', 'radio'],
+            self::CircleHalfStroke => ['fill', 'level', 'half', 'contrast'],
+            self::Medal => ['rank', 'ranking', 'award', 'first'],
+            self::Trophy => ['rank', 'ranking', 'award', 'win'],
+            self::RankingStar => ['rank', 'podium', 'leaderboard'],
+            self::ThumbsDown => ['dislike', 'rating', 'bad'],
+            self::Equals => ['same', 'tie', 'neutral'],
+            self::Minus => ['less', 'decrease', 'negative'],
+            self::ArrowUp => ['up', 'increase', 'higher'],
+            self::ArrowDown => ['down', 'decrease', 'lower'],
+            self::ArrowLeft => ['left', 'back'],
+            self::ArrowRight => ['right', 'forward', 'next'],
+            self::AngleUp => ['chevron', 'up', 'rank', 'higher'],
+            self::AngleDown => ['chevron', 'down', 'rank', 'lower'],
+            self::AnglesUp => ['chevron', 'up', 'rank', 'promote'],
+            self::AnglesDown => ['chevron', 'down', 'rank', 'demote'],
+            self::ArrowTrendUp => ['rising', 'increase', 'growth'],
+            self::ArrowTrendDown => ['falling', 'decrease', 'decline'],
+            self::Signal, self::BatteryFull, self::BatteryThreeQuarters, self::BatteryHalf, self::BatteryQuarter, self::BatteryEmpty => ['level', 'full', 'high'],
             default => [],
         };
     }
