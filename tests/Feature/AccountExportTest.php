@@ -136,6 +136,9 @@ class AccountExportTest extends TestCase
             'connections/attribute-definitions.json',
             'connections/attribute-values.json',
             'connections/attribute-identifiers.json',
+            'connections/vrchat-profiles.json',
+            'connections/vrchat-stays.json',
+            'connections/vrchat-friends.json',
             'connections/edges.json',
             'connections/source-links.json',
         ];

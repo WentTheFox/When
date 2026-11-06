@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** Settings.vue's "Wake & sleep times" card — form.availability plus the separate SleepExceptions CRUD, still saved via Settings.vue's own shared form/submit(). */
-import { BButton, BCard, BFormInput } from 'bootstrap-vue-next';
+import { BButton, BFormInput } from 'bootstrap-vue-next';
 import { computed } from 'vue';
 import type {
   AvailabilitySettingsForm,
@@ -38,7 +38,7 @@ function submit(): void {
 
 <template>
   <form @submit.prevent="submit">
-    <BCard class="mb-4">
+    <section>
       <h2 class="h5 mb-3">Wake &amp; sleep times</h2>
       <p class="small text-muted">Set a wake/sleep time per day. Leave both blank for no default sleep block that day. If the sleep time is the same as or earlier than the wake-up time, it counts as the next day (e.g. wake 08:00, sleep 01:00 means asleep from 01:00 the following morning).</p>
       <table class="table table-sm">
@@ -54,11 +54,11 @@ function submit(): void {
         </tbody>
       </table>
 
-      <template #footer>
+      <div class="border-top pt-3 mt-3">
         <BButton type="submit" variant="primary" :disabled="availabilitySettingsForm.processing">Save settings</BButton>
         <BButton variant="outline-secondary" class="ms-2" @click="availabilitySettingsForm.reset('availability')">Reset</BButton>
         <BButton variant="outline-secondary" class="ms-2" @click="clearAvailability">Clear all</BButton>
-      </template>
-    </BCard>
+      </div>
+    </section>
   </form>
 </template>

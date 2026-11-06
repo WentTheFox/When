@@ -15,6 +15,7 @@ import {
 import { requestConfirm } from '../../dashboard/confirmModal';
 import { requestConfirmation } from '../../dashboard/confirmPasswordModal';
 import { decryptVaultKeyRingWithPassphrase } from '../../dashboard/vault';
+import PageHeader from '../../Components/PageHeader.vue';
 import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 import type { SharedPageProps } from '../../sharedPageProps';
 
@@ -275,9 +276,9 @@ async function deleteAccount(): Promise<void> {
 <template>
   <Head title="Account" />
 
-  <BCard class="mb-4">
-    <h1 class="h3 mb-4">Account</h1>
+  <PageHeader title="Account" subtitle="Your login, security and a copy of your data." />
 
+  <BCard class="mb-4">
     <h2 class="h5 mb-3">Name</h2>
     <p class="small text-muted mb-3">
       No <code>@</code>. Used to log in, alongside your email if you have one.

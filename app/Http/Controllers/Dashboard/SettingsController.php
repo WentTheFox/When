@@ -129,6 +129,20 @@ class SettingsController extends Controller
             'identifierListDefinitions' => $user->connectionAttributeDefinitions()
                 ->where('type', 'identifier_list')
                 ->get(['id', 'label_ciphertext']),
+            'vrchatIdDefinitions' => $user->connectionAttributeDefinitions()
+                ->whereIn('type', ['identifier', 'identifier_list'])
+                ->get(['id', 'label_ciphertext', 'type']),
+            // Names are §0.1 E2EE: the card decrypts them client-side.
+            'connectionSources' => $user->connectionSources()->ordered()->get(['id', 'name_ciphertext']),
+            'vrcx' => [
+                'base_url' => $user->vrcx_base_url,
+                // Shown back to the owner verbatim, like the calendar URL below: the server can decrypt it either way.
+                'api_key' => $user->vrcx_api_key,
+                'vrchat_user_id_definition_id' => $user->vrchat_user_id_definition_id,
+                'auto_create_friends' => $user->vrcx_auto_create_friends,
+                'friends_source_id' => $user->vrcx_friends_source_id,
+                'synced_at' => $user->vrcx_synced_at?->toIso8601String(),
+            ],
             'booleanDefinitions' => $user->connectionAttributeDefinitions()->where('type', 'boolean')->get(['id', 'label_ciphertext']),
             'timezones' => \DateTimeZone::listIdentifiers(),
             // Shown back to the owner verbatim, not masked — this is §0.2

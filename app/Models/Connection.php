@@ -54,6 +54,11 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Connection withTrashed(bool $withTrashed = true)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Connection withoutTrashed()
  *
+ * @property-read Collection<int, ConnectionVrchatProfile> $vrchatProfiles
+ * @property-read int|null $vrchat_profiles_count
+ * @property-read Collection<int, ConnectionVrchatStay> $vrchatStays
+ * @property-read int|null $vrchat_stays_count
+ *
  * @mixin \Eloquent
  */
 class Connection extends Model
@@ -107,6 +112,18 @@ class Connection extends Model
     public function attributeValues(): HasMany
     {
         return $this->hasMany(ConnectionAttributeValue::class);
+    }
+
+    /** @return HasMany<ConnectionVrchatProfile, $this> */
+    public function vrchatProfiles(): HasMany
+    {
+        return $this->hasMany(ConnectionVrchatProfile::class);
+    }
+
+    /** @return HasMany<ConnectionVrchatStay, $this> */
+    public function vrchatStays(): HasMany
+    {
+        return $this->hasMany(ConnectionVrchatStay::class);
     }
 
     /** @return HasMany<ConnectionEdge, $this> */

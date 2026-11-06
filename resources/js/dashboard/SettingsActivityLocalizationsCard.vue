@@ -6,7 +6,6 @@
  * /settings/activity-localization/* endpoints, so this card needs no form wrapper
  * or footer save button of its own.
  */
-import { BCard } from 'bootstrap-vue-next';
 import ActivityLocalizations from './ActivityLocalizations.vue';
 
 defineProps<{
@@ -15,7 +14,7 @@ defineProps<{
 </script>
 
 <template>
-  <BCard class="mb-4">
+  <section>
     <ActivityLocalizations :initial="activityLocalizations" />
-  </BCard>
+  </section>
 </template>

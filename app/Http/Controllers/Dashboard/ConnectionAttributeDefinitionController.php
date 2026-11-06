@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionAttributeValue;
 use App\Models\User;
 use App\Support\FieldFeatures;
@@ -103,6 +104,51 @@ class ConnectionAttributeDefinitionController extends Controller
         });
 
         return response()->json(['filled' => $filled]);
+    }
+
+    /**
+     * One-way migration: an 'identifier' field becomes an 'identifier_list'
+     * field in place. Each existing value turns into a one-entry list (empty
+     * values are dropped). The field keeps its id, label, position and every
+     * feature binding. There is deliberately no way back: a list can hold
+     * several entries, a single identifier can't.
+     * Returns how many values were converted.
+     */
+    public function convertToList(Request $request, string $definition): JsonResponse
+    {
+        $userId = $request->user()->getKey();
+
+        $converted = DB::transaction(function () use ($userId, $definition) {
+            // Same row lock as destroy() and the Settings save: no binding or delete can interleave.
+            User::whereKey($userId)->lockForUpdate()->firstOrFail();
+            $definition = ConnectionAttributeDefinition::where('user_id', $userId)->where('id', $definition)->lockForUpdate()->firstOrFail();
+
+            if ($definition->type !== 'identifier') {
+                throw ValidationException::withMessages(['definition' => 'Only an identifier field can be converted to a list.']);
+            }
+
+            $converted = 0;
+
+            ConnectionAttributeValue::where('attribute_definition_id', $definition->id)->lockForUpdate()->get()
+                ->each(function (ConnectionAttributeValue $row) use (&$converted) {
+                    $value = trim((string) $row->identifier_value);
+
+                    if ($value === '') {
+                        $row->delete();
+
+                        return;
+                    }
+
+                    $row->update(['identifier_value' => null, 'identifier_list_value' => [$value]]);
+                    $converted++;
+                });
+
+            $definition->update(['type' => 'identifier_list']);
+
+            return $converted;
+        });
+
+        return response()->json(['converted' => $converted]);
     }
 
     /**

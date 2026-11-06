@@ -79,6 +79,22 @@ const page = usePage();
     <strong>yes/no</strong> type can likewise drive a share link's
     “bypass do not disturb” switch, and is stored the same way.
   </p>
+  <p class="mb-4">
+    An identifier or identifier list field can also be marked as holding
+    <strong>VRChat user IDs</strong>. If you connect your own VRCX Headless server
+    in Settings, the server reads those IDs, asks your VRCX Headless server for the
+    matching VRChat names, profile pictures and the time you've spent in
+    the same instances, and keeps the results so totals can build up over
+    time. This is not end-to-end encrypted either: it's stored encrypted
+    at rest with the same server-held key, and your VRCX Headless address and API
+    key are stored that way too. The key is shown back to you in Settings
+    (masked until you reveal it, like your calendar URL) but is never
+    included in your data export. If you switch on “create a connection for each new
+    friend”, the server also keeps your VRChat friend list (names and
+    pictures, encrypted at rest) to spot new friends; the connections
+    themselves are still created by your browser, so their names stay
+    end-to-end encrypted.
+  </p>
 
   <h2 class="h5">Account security</h2>
   <p class="mb-2">

@@ -39,6 +39,12 @@ final class FieldFeatures
             'user_column' => 'id',
             'label' => 'Bypass DND',
         ],
+        'vrchat_user_id' => [
+            'table' => 'users',
+            'column' => 'vrchat_user_id_definition_id',
+            'user_column' => 'id',
+            'label' => 'VRChat user ID',
+        ],
     ];
 
     /**

@@ -9,7 +9,7 @@
  * §0.2 tier and never touch the vault.
  */
 import { useForm } from '@inertiajs/vue3';
-import { BButton, BCard, BFormGroup, BFormSelect } from 'bootstrap-vue-next';
+import { BButton, BFormGroup, BFormSelect } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
 import { decryptString } from '../crypto';
 import { rawPreview } from './rawCiphertext';
@@ -64,8 +64,8 @@ function save(): void {
 </script>
 
 <template>
-  <BCard id="share-links" class="mb-4">
-    <h2 class="h5">Share links</h2>
+  <section id="share-links">
+    <h2 class="h5 mb-3">Share links</h2>
     <p class="small text-muted">
       Each connection can have a share link (enable it when editing the connection). What that link highlights, and
       whether it bypasses do-not-disturb, comes from the fields below on <strong>that connection</strong>. With a field
@@ -105,5 +105,5 @@ function save(): void {
         </BButton>
       </form>
     </VaultGate>
-  </BCard>
+  </section>
 </template>
