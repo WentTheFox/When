@@ -461,6 +461,35 @@ class VrcxIntegrationTest extends TestCase
         $this->actingAs($user)->postJson('/settings/vrcx/sync')->assertUnprocessable()->assertJsonPath('message', fn ($m) => str_contains($m, 'API key'));
     }
 
+    public function test_connection_sync_asks_for_each_id_on_its_own_and_leaves_other_connections_alone(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $mine = $this->link($user, $definition, [self::ALICE, self::BOB]);
+        $other = $this->link($user, $definition, ['usr_00000000-0000-0000-0000-0000000000c0']);
+        $this->fakeVrcx([$this->interval('2026-10-01T10:00:00.000Z', 60)]);
+
+        $this->actingAs($user)->postJson("/dashboard/connections/{$mine->id}/vrchat/sync")
+            ->assertOk()
+            ->assertJsonPath("profiles.{$mine->id}.0.display_name", 'Alice');
+
+        $userCalls = Http::recorded(fn ($request) => str_contains($request->url(), '/api/v1/users'));
+        $this->assertCount(2, $userCalls);
+        foreach ($userCalls as [$request]) {
+            $this->assertCount(1, $request['ids']);
+        }
+        $this->assertSame(0, ConnectionVrchatProfile::where('connection_id', $other->id)->count());
+        $this->assertNull($user->refresh()->vrcx_synced_at);
+    }
+
+    public function test_connection_sync_is_refused_for_someone_elses_connection(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        [$stranger, $strangerDefinition] = $this->configuredOwner();
+        $theirs = $this->link($stranger, $strangerDefinition, [self::ALICE]);
+
+        $this->actingAs($user)->postJson("/dashboard/connections/{$theirs->id}/vrchat/sync")->assertNotFound();
+    }
+
     public function test_stays_are_listed_newest_first_and_only_for_my_own_connection(): void
     {
         [$user, $definition] = $this->configuredOwner();
