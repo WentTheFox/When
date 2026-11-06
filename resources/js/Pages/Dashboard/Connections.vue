@@ -14,7 +14,7 @@ import CategoriesPanel from '../../dashboard/CategoriesPanel.vue';
 import EncryptedText from '../../Components/EncryptedText.vue';
 import ConnectionCard, { type ConnectionRow } from '../../dashboard/ConnectionCard.vue';
 import SourcesPanel from '../../dashboard/SourcesPanel.vue';
-import { discordMark, type MarkState, vrchatMark } from '../../dashboard/connectionMarks';
+import { discordMark, type MarkState, type ShareLinkMark, shareLinkMark, vrchatMark } from '../../dashboard/connectionMarks';
 import PendingFriendsPanel from '../../dashboard/PendingFriendsPanel.vue';
 import VrchatNotesPanel, { type NoteImportItem } from '../../dashboard/VrchatNotesPanel.vue';
 import { appendNote } from '../../dashboard/vrchatNotes';
@@ -149,6 +149,20 @@ const connectionFilter = ref('');
  * reload they are back in their place and unmarked.
  */
 const newConnectionIds = ref<string[]>([]);
+
+/** The share-link mark: red when a highlight-tokens field is chosen and this connection has no tokens in it (see connectionMarks.ts). */
+function shareLinkState(connection: ConnectionRow): ShareLinkMark {
+  const fieldId = vrchat.value.highlight_field_id;
+  const tokens = fieldId ? connection.attribute_values.find((v) => v.attribute_definition_id === fieldId)?.identifier_list_value : null;
+
+  return shareLinkMark(!!connection.share_link?.last_visited_at, fieldId !== null, tokens);
+}
+
+const SHARE_LINK_TEXT: Record<ShareLinkMark, string> = {
+  unhighlighted: 'Has a share link, but no highlight tokens, so it highlights nothing',
+  visited: 'Has a share link',
+  idle: 'Has a share link (never visited)',
+};
 
 /** The mark for a connection's VRChat ID: none, muted (set but unconfirmed) or active (VRCX knows the account). See connectionMarks.ts. */
 function vrchatState(connection: ConnectionRow): MarkState {
@@ -1293,11 +1307,12 @@ async function removeEdge(id: string): Promise<void> {
                   <span
                     v-if="connection.share_link"
                     class="ms-1 connection-shared"
-                    :class="selectedConnectionId === connection.id ? '' : connection.share_link.last_visited_at ? 'text-info' : 'text-muted'"
-                    :title="connection.share_link.last_visited_at ? 'Has a share link' : 'Has a share link (never visited)'"
+                    :class="selectedConnectionId === connection.id ? '' : { unhighlighted: 'text-danger', visited: 'text-info', idle: 'text-muted' }[shareLinkState(connection)]"
+                    :style="selectedConnectionId === connection.id && shareLinkState(connection) === 'unhighlighted' ? 'color: #ff9e9e' : undefined"
+                    :title="SHARE_LINK_TEXT[shareLinkState(connection)]"
                   >
                     <FontAwesomeIcon :icon="faLink" />
-                    <span class="visually-hidden">{{ connection.share_link.last_visited_at ? 'Has a share link' : 'Has a share link (never visited)' }}</span>
+                    <span class="visually-hidden">{{ SHARE_LINK_TEXT[shareLinkState(connection)] }}</span>
                   </span>
                   <!-- VRChat / Discord IDs: muted when only set, colored when confirmed by VRCX. The selected row is blue itself, so there they stay white, dimmed when muted. -->
                   <span
