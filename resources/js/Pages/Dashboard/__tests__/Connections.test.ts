@@ -92,6 +92,24 @@ describe('Connections page', () => {
     expect(await render('')).not.toContain('connection-archived');
   });
 
+  it('turns the share-link mark red when a tokens field is chosen and the connection has no tokens', async () => {
+    const field = '99999999-9999-4999-8999-999999999999';
+    const withLink = { ...props.connections[0], share_link: { id: 'l1', highlight_token: 'tok', last_visited_at: '2026-11-01T00:00:00+00:00' } };
+    const withTokens = {
+      ...withLink, id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      attribute_values: [{ attribute_definition_id: field, value_ciphertext: null, identifier_list_value: ['Alice'] }],
+    };
+    const chosen = { ...props.vrchat, highlight_field_id: field };
+
+    const html = await renderWith({ ...props, vrchat: chosen, connections: [withLink, withTokens] }, '');
+    expect(html.match(/connection-shared/g)).toHaveLength(2);
+    expect(html.match(/connection-shared[^"]*text-danger/g)).toHaveLength(1);
+    expect(html).toContain('highlights nothing');
+
+    // No tokens field chosen in Settings: no link is flagged per connection.
+    expect(await render('')).not.toContain('text-danger');
+  });
+
   it('marks the connections that have notes, and only those', async () => {
     const noted = { ...props.connections[0], notes_ciphertext: 'bm90ZXMtY2lwaGVy' };
     const plain = { ...props.connections[0], id: '88888888-8888-4888-8888-888888888888', notes_ciphertext: null };

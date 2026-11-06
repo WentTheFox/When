@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { discordMark, vrchatMark } from '../connectionMarks';
+import { discordMark, shareLinkMark, vrchatMark } from '../connectionMarks';
 import type { VrchatProfile } from '../vrchat';
 
 const profile = (over: Partial<VrchatProfile> = {}): VrchatProfile => ({
@@ -41,5 +41,24 @@ describe('discordMark', () => {
   it('is active when VRCX reported a Discord ID, with or without the field filled in', () => {
     expect(discordMark(false, [profile({ discord_id: '123456789012345678' })])).toBe('active');
     expect(discordMark(true, [profile({ discord_id: '123456789012345678' })])).toBe('active');
+  });
+});
+
+describe('shareLinkMark', () => {
+  it('is red (unhighlighted) when a tokens field is chosen and the connection has none', () => {
+    expect(shareLinkMark(true, true, [])).toBe('unhighlighted');
+    expect(shareLinkMark(false, true, null)).toBe('unhighlighted');
+    expect(shareLinkMark(true, true, undefined)).toBe('unhighlighted');
+    expect(shareLinkMark(true, true, ['', '  '])).toBe('unhighlighted');
+  });
+
+  it('keeps the visited / never-visited look once there is at least one token', () => {
+    expect(shareLinkMark(true, true, ['Alice'])).toBe('visited');
+    expect(shareLinkMark(false, true, ['Alice'])).toBe('idle');
+  });
+
+  it('does not flag per connection when no tokens field is chosen at all', () => {
+    expect(shareLinkMark(true, false, [])).toBe('visited');
+    expect(shareLinkMark(false, false, null)).toBe('idle');
   });
 });
