@@ -75,20 +75,55 @@ final class VrcxClient
 
             foreach (is_array($users) ? $users : [] as $id => $user) {
                 if (is_array($user)) {
-                    $found[(string) $id] = [
-                        'displayName' => (string) ($user['displayName'] ?? ''),
-                        'profilePictureUrl' => (string) ($user['profilePictureUrl'] ?? ''),
-                        'avatarThumbnailUrl' => (string) ($user['avatarThumbnailUrl'] ?? ''),
-                        // Only when VRChat has ever shown one for this user.
-                        'discordId' => self::cleanDiscordId($user['discordId'] ?? null),
-                        // The owner's private VRChat note; only present for a key with the notes:read scope.
-                        'note' => self::cleanNote($user['note'] ?? null),
-                    ];
+                    $found[(string) $id] = self::presentUser($user);
                 }
             }
         }
 
         return $found;
+    }
+
+    /**
+     * One user, from VRCX's cache or, when VRCX has not cached them, fetched from VRChat and stored
+     * (GET /api/v1/users/{userId}; the VRChat fallback needs VRCX server release v20260916.25.0 or later,
+     * older ones only read their cache). POST /api/v1/users never falls back, which is why a user VRCX
+     * has not met only shows up through this call.
+     *
+     * Null for a user VRCX does not know: not cached and not fetchable, which covers "VRChat said no",
+     * "rate limited" and "the server is not logged in" alike (VRCX answers all of them 404 and does not
+     * retry that id for a few minutes), so no 404 is told apart from another. Any other failure throws.
+     *
+     * @return array{displayName: string, profilePictureUrl: string, avatarThumbnailUrl: string, discordId: ?string, note: ?string}|null
+     */
+    public function user(string $id): ?array
+    {
+        // The id is not put in an error message or the log (the app only ever stores VRChat ids hashed).
+        $response = $this->send('get', '/api/v1/users/'.rawurlencode($id), label: '/api/v1/users/{userId}', allowStatuses: [404]);
+
+        if ($response->status() === 404) {
+            return null;
+        }
+
+        $user = $response->json('user');
+
+        return is_array($user) ? self::presentUser($user) : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $user
+     * @return array{displayName: string, profilePictureUrl: string, avatarThumbnailUrl: string, discordId: ?string, note: ?string}
+     */
+    private static function presentUser(array $user): array
+    {
+        return [
+            'displayName' => (string) ($user['displayName'] ?? ''),
+            'profilePictureUrl' => (string) ($user['profilePictureUrl'] ?? ''),
+            'avatarThumbnailUrl' => (string) ($user['avatarThumbnailUrl'] ?? ''),
+            // Only when VRChat has ever shown one for this user.
+            'discordId' => self::cleanDiscordId($user['discordId'] ?? null),
+            // The owner's private VRChat note; only present for a key with the notes:read scope.
+            'note' => self::cleanNote($user['note'] ?? null),
+        ];
     }
 
     /** A VRChat note as text, trimmed; empty or absent counts as "no note". */
@@ -265,8 +300,12 @@ final class VrcxClient
         return $this->send('get', $path, $query);
     }
 
-    /** @param  array<string, mixed>  $data  Query string for GET, JSON body for POST. */
-    private function send(string $method, string $path, array $data = [], ?string $scope = null): Response
+    /**
+     * @param  array<string, mixed>  $data  Query string for GET, JSON body for POST.
+     * @param  string|null  $label  What to call the request in an error message, when its path holds something that must not be shown (an id).
+     * @param  list<int>  $allowStatuses  Statuses returned to the caller instead of thrown (only ever a plain "not found" answer).
+     */
+    private function send(string $method, string $path, array $data = [], ?string $scope = null, ?string $label = null, array $allowStatuses = []): Response
     {
         try {
             $response = $this->request()->{$method}($path, $data);
@@ -275,12 +314,13 @@ final class VrcxClient
         }
 
         return match (true) {
+            in_array($response->status(), $allowStatuses, true) => $response,
             self::blockedByFirewall($response) => throw new VrcxException(self::FIREWALL_MESSAGE, $response->status()),
             $response->status() === 401 => throw new VrcxException('The VRCX server rejected the API key (it may be wrong or expired).', 401),
             $response->status() === 403 => throw new VrcxException($scope !== null
                 ? "The API key lacks the {$scope} scope."
                 : 'The API key lacks a required scope (needs users:read and playtime:read).', 403),
-            $response->failed() => throw $this->failure($method, $path, $response),
+            $response->failed() => throw $this->failure($method, $label ?? $path, $response),
             default => $response,
         };
     }

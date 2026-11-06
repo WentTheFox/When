@@ -245,9 +245,12 @@ class VrcxSyncService
 
     /**
      * The owner's "Sync now" on one connection: refreshes only the VRChat ids that connection
-     * holds, in the request. Each id is asked for on its own (not as one batch), which is what
-     * makes VRCX Headless fall back to VRChat's API for a user it has not cached yet. Unlike
-     * syncConnection() it always fetches, and the owner-wide synced-at stamp is left alone.
+     * holds, in the request. Each id's profile is fetched with the single-user call, because that
+     * is the only one that makes VRCX Headless fall back to VRChat's API for a user it has not
+     * cached yet (the bulk POST only ever reads VRCX's cache). VRCX failing (5xx) on a profile or
+     * on time together is a warning and the other ids carry on, as in the owner-wide sync; a bad
+     * key, missing scope or unreachable server still stops it. Unlike syncConnection() it always
+     * fetches, and the owner-wide synced-at stamp is left alone.
      *
      * @throws VrcxException
      */
@@ -264,14 +267,73 @@ class VrcxSyncService
         $row = ConnectionAttributeValue::where('connection_id', $connection->id)->where('attribute_definition_id', $definitionId)->first();
         $ids = $row === null ? [] : $this->idsOf($row);
 
-        foreach ($ids as $vrchatId) {
-            $profiles = $this->fetchProfiles($client, [$vrchatId]);
-            $stays = $client->timeTogether([$vrchatId]);
+        $unknown = 0;
 
-            $this->store($user, $connection->id, $vrchatId, $profiles[$vrchatId] ?? null, $stays[$vrchatId] ?? []);
+        foreach ($ids as $vrchatId) {
+            $profile = $this->fetchProfile($client, $vrchatId);
+            $unknown += $profile === null ? 1 : 0;
+
+            $this->store($user, $connection->id, $vrchatId, $profile, $this->fetchStays($client, $vrchatId));
+        }
+
+        if ($unknown > 0) {
+            $this->warn(sprintf(
+                'VRCX does not know %s of this connection\'s VRChat IDs: not in its cache, and VRChat did not return %s (or VRCX is not logged in, or is being rate limited). VRCX tries again after a few minutes.',
+                $unknown === 1 ? 'one' : $unknown,
+                $unknown === 1 ? 'it' : 'them',
+            ));
         }
 
         $this->prune($user, $ids === [] ? [] : [$connection->id => $ids], onlyConnection: $connection->id);
+    }
+
+    /**
+     * One user's profile through the single-user call, null when VRCX does not know them. A VRCX 5xx is a warning, and the previous profile stays.
+     *
+     * @return array{displayName: string, profilePictureUrl: string, avatarThumbnailUrl: string, discordId: ?string, note: ?string}|null
+     */
+    private function fetchProfile(VrcxClient $client, string $vrchatId): ?array
+    {
+        try {
+            return $client->user($vrchatId);
+        } catch (VrcxException $e) {
+            if (! $e->isServerError()) {
+                throw $e;
+            }
+
+            $this->warn('Names, pictures, Discord IDs and notes could not be fetched, so the previous ones were kept: '.$e->getMessage());
+
+            return null;
+        }
+    }
+
+    /**
+     * One user's shared-instance intervals. A VRCX 5xx is a warning and nothing new is stored for them
+     * (stays already stored are never deleted by a sync).
+     *
+     * @return list<array{start: string, end: string, duration_ms: int, other_player_count: int}>
+     */
+    private function fetchStays(VrcxClient $client, string $vrchatId): array
+    {
+        try {
+            return $client->timeTogether([$vrchatId])[$vrchatId] ?? [];
+        } catch (VrcxException $e) {
+            if (! $e->isServerError()) {
+                throw $e;
+            }
+
+            $this->warn('Time together could not be fetched, so what was stored is unchanged: '.$e->getMessage());
+
+            return [];
+        }
+    }
+
+    /** Records something the sync carried on without; the same text is only kept once. */
+    private function warn(string $message): void
+    {
+        if (! in_array($message, $this->warnings, true)) {
+            $this->warnings[] = $message;
+        }
     }
 
     /**
