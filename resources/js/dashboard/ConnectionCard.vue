@@ -12,6 +12,7 @@ import {
 } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../crypto';
+import CountrySelect from '../Components/CountrySelect.vue';
 import EncryptedInput from '../Components/EncryptedInput.vue';
 import RadioChoices from '../Components/RadioChoices.vue';
 import EncryptedText from '../Components/EncryptedText.vue';
@@ -255,6 +256,9 @@ function radioChoices(options: readonly string[]) {
   return [{ value: '', text: '(unset)' }, ...options.map((option) => ({ value: option, text: option }))];
 }
 
+/** Country names are shown in the page language. */
+const pageLocale = typeof document === 'undefined' ? undefined : document.documentElement.lang || undefined;
+
 /** Yes/No is three radios, not a dropdown: fewer clicks for three options. */
 const BOOLEAN_CHOICES = [
   { value: '', text: '(unset)' },
@@ -456,6 +460,12 @@ async function remove(): Promise<void> {
         v-model="editAttributeValues[definition.id]"
         :choices="radioChoices(definition.options)"
         :name="`field-${definition.id}`"
+        :disabled="!decrypted"
+      />
+      <CountrySelect
+        v-else-if="definition.type === 'country'"
+        v-model="editAttributeValues[definition.id]"
+        :locale="pageLocale"
         :disabled="!decrypted"
       />
       <BFormSelect

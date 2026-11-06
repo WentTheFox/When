@@ -36,6 +36,7 @@
         "@lucide/vue": "^1.61.0",
         "bootstrap-vue-next": "1.0.2",
         "date-fns": "^4.4.0",
+        "flag-icons": "7.6.0",
         "laravel-vue-i18n": "^2.8.0",
         "qrcode": "^1.5.4",
         "regexpp": "^3.2.0",
