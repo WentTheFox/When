@@ -14,10 +14,20 @@
  * these imports, this is the only line that needs to change — every
  * *_icon_key ever stored in the database keeps working unmodified.
  */
-import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
+import type { IconDefinition, IconName } from '@fortawesome/fontawesome-svg-core';
 import {
   faAnchor,
+  faAngleDown,
+  faAnglesDown,
+  faAnglesUp,
+  faAngleUp,
   faAppleWhole,
+  faArrowDown,
+  faArrowLeft,
+  faArrowRight,
+  faArrowTrendDown,
+  faArrowTrendUp,
+  faArrowUp,
   faBaby,
   faBan,
   faBasketball,
@@ -51,7 +61,9 @@ import {
   faChessKnight,
   faChild,
   faCircleCheck,
+  faCircleDot,
   faCircleExclamation,
+  faCircleHalfStroke,
   faCircleXmark,
   faCity,
   faClock,
@@ -69,13 +81,22 @@ import {
   faDroplet,
   faDrum,
   faDumbbell,
+  faEquals,
+  faFaceFrown,
+  faFaceGrinBeam,
+  faFaceMeh,
+  faFaceSmile,
   faFilm,
   faFire,
   faFish,
   faFlag,
+  faFlagCheckered,
   faFlask,
   faFutbol,
   faGamepad,
+  faGaugeSimple,
+  faGaugeSimpleHigh,
+  faGaugeSimpleMed,
   faGift,
   faGlobe,
   faGraduationCap,
@@ -84,6 +105,9 @@ import {
   faHandshake,
   faHeart,
   faHeartPulse,
+  faHourglassEnd,
+  faHourglassHalf,
+  faHourglassStart,
   faHouse,
   faIceCream,
   faIndustry,
@@ -94,7 +118,9 @@ import {
   faLock,
   faMap,
   faMasksTheater,
+  faMedal,
   faMicroscope,
+  faMinus,
   faMoon,
   faMountain,
   faMugSaucer,
@@ -112,6 +138,7 @@ import {
   faPlane,
   faPoop,
   faPuzzlePiece,
+  faRankingStar,
   faRing,
   faRocket,
   faScaleBalanced,
@@ -123,9 +150,16 @@ import {
   faSnowflake,
   faSquareRootVariable,
   faStar,
+  faStarHalf,
   faStethoscope,
   faSun,
+  faTemperatureEmpty,
+  faTemperatureFull,
+  faTemperatureHalf,
+  faTemperatureQuarter,
+  faTemperatureThreeQuarters,
   faTent,
+  faThumbsDown,
   faThumbsUp,
   faTicket,
   faToggleOff,
@@ -133,18 +167,43 @@ import {
   faTrailer,
   faTrain,
   faTree,
+  faTrafficLight,
+  faTrophy,
   faUmbrella,
   faUmbrellaBeach,
   faUserGraduate,
-  faUserTie,
   faUsers,
+  faUserTie,
   faUtensils,
   faVolleyball,
+  faVolumeHigh,
+  faVolumeLow,
+  faVolumeOff,
   faVrCardboard,
   faWarehouse,
   faWrench,
   faXmark,
 } from '@fortawesome/free-solid-svg-icons';
+
+/**
+ * Signal-strength glyphs. Font Awesome Free ships only the full-strength bars, so the graded ones are
+ * drawn here as ordinary icon definitions (512x512 grid, four bar slots; a slot that isn't lit shrinks
+ * to a small square so the bar count still reads at a glance).
+ */
+function signalBars(lit: number): IconDefinition {
+  const slotWidth = 88;
+  const stub = 88;
+  const path = [0, 1, 2, 3]
+    .map((slot) => {
+      const height = slot < lit ? 120 * (slot + 1) : stub;
+      const x = 32 + slot * 120;
+
+      return `M${x} ${480 - height}h${slotWidth}v${height}h-${slotWidth}z`;
+    })
+    .join('');
+
+  return { prefix: 'fas', iconName: `signal-${lit}` as IconName, icon: [512, 512, [], 'e000', path] };
+}
 
 export interface IconOption {
   key: string;
@@ -292,6 +351,49 @@ const ICON_KEY_TO_FA: Record<string, IconDefinition> = {
   ring: faRing,
   lightbulb: faLightbulb,
   'vr-cardboard': faVrCardboard,
+  'temperature-empty': faTemperatureEmpty,
+  'temperature-quarter': faTemperatureQuarter,
+  'temperature-half': faTemperatureHalf,
+  'temperature-three-quarters': faTemperatureThreeQuarters,
+  'temperature-full': faTemperatureFull,
+  'gauge-low': faGaugeSimple,
+  'gauge-medium': faGaugeSimpleMed,
+  'gauge-high': faGaugeSimpleHigh,
+  'hourglass-start': faHourglassStart,
+  'hourglass-half': faHourglassHalf,
+  'hourglass-end': faHourglassEnd,
+  'volume-off': faVolumeOff,
+  'volume-low': faVolumeLow,
+  'volume-high': faVolumeHigh,
+  'face-frown': faFaceFrown,
+  'face-meh': faFaceMeh,
+  'face-smile': faFaceSmile,
+  'face-grin-beam': faFaceGrinBeam,
+  'star-half': faStarHalf,
+  'circle-dot': faCircleDot,
+  'circle-half-stroke': faCircleHalfStroke,
+  'medal': faMedal,
+  'trophy': faTrophy,
+  'ranking-star': faRankingStar,
+  'thumbs-down': faThumbsDown,
+  'equals': faEquals,
+  'minus': faMinus,
+  'arrow-up': faArrowUp,
+  'arrow-down': faArrowDown,
+  'arrow-left': faArrowLeft,
+  'arrow-right': faArrowRight,
+  'angle-up': faAngleUp,
+  'angle-down': faAngleDown,
+  'angles-up': faAnglesUp,
+  'angles-down': faAnglesDown,
+  'arrow-trend-up': faArrowTrendUp,
+  'arrow-trend-down': faArrowTrendDown,
+  'traffic-light': faTrafficLight,
+  'flag-checkered': faFlagCheckered,
+  'signal-0': signalBars(0),
+  'signal-1': signalBars(1),
+  'signal-2': signalBars(2),
+  'signal-3': signalBars(3),
 };
 
 let icons: IconOption[] = [];
