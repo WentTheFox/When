@@ -56,7 +56,8 @@ function offenders(source: string): number[] {
     if (start - firstEnd > 2) continue; // not neighbours
 
     const second = lines.slice(start, end + 1).join('\n');
-    const context = lines.slice(Math.max(0, firstStart - 4), start + 1).join('\n');
+    // Looks a little way above the first button too: a wrapper's `gap-2` sits above a multi-line button, not beside it.
+    const context = lines.slice(Math.max(0, firstStart - 12), start + 1).join('\n');
 
     if (!SPACED.test(second + context)) found.push(start + 1);
   }

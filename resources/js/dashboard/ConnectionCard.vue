@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { faBoxArchive, faBoxOpen, faTrashCan, faUserMinus } from '@fortawesome/free-solid-svg-icons';
+import { faBoxArchive, faBoxOpen, faCodeMerge, faTrashCan, faUserMinus } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import axios from 'axios';
 import {
@@ -65,6 +65,8 @@ const props = defineProps<{
   /** Linked VRChat accounts with cached profile and time together (§0.2 tier, not E2EE). */
   vrchatProfiles?: VrchatProfile[];
   vrchatSyncedAt?: string | null;
+  /** The VRChat user ID field is set up, so connections can be merged by moving their VRChat IDs. */
+  canMerge?: boolean;
 }>();
 const emit = defineEmits<{
   updated: [ConnectionRow];
@@ -74,6 +76,8 @@ const emit = defineEmits<{
   addEdge: [string, string];
   removeEdge: [string];
   vrchatSynced: [VrchatSummary];
+  /** The owner wants to merge this connection into another (the page asks which). */
+  merge: [string];
 }>();
 
 const { getRecordKey, vaultUnlocked } = useVault();
@@ -379,6 +383,16 @@ async function remove(): Promise<void> {
         >
           <FontAwesomeIcon :icon="connection.archived ? faBoxOpen : faBoxArchive" />
           {{ connection.archived ? 'Unarchive' : 'Archive' }}
+        </BButton>
+        <BButton
+          v-if="canMerge"
+          variant="outline-secondary"
+          size="sm"
+          title="This is the same person as another connection: move its VRChat ID there and delete this one"
+          @click="emit('merge', connection.id)"
+        >
+          <FontAwesomeIcon :icon="faCodeMerge" />
+          Merge into…
         </BButton>
         <BButton variant="outline-danger" size="sm" aria-label="Delete this connection" title="Delete" @click="remove">
           <FontAwesomeIcon :icon="faTrashCan" />
