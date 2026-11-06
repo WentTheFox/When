@@ -61,6 +61,113 @@ class ConnectionController extends Controller
             // §0.2 tier (server-readable): cached VRChat names/pictures and time together.
             'vrchat' => $this->vrcx->summary($user),
             'discord' => $this->discord->summary($user),
+            // The multi-line custom field that holds what used to be the built-in notes; null until there is one.
+            'notesFieldId' => $user->notes_field_definition_id,
+        ]);
+    }
+
+    /**
+     * Notes are an ordinary multi-line custom field now, not a built-in. The browser calls this to
+     *  - create that field (once per owner; the first call says how: its id, its encrypted label and a
+     *    default icon rule, all built client-side because only the browser can encrypt them),
+     *  - move every connection's old note into it, and
+     *  - save new values for it (merged notes, VRChat notes carried over) while clearing the old note.
+     *
+     * The old note and a field value are encrypted with the same key (the connection's own), so moving one
+     * is just moving the ciphertext; the server never reads either. Where a connection already has a value
+     * in the field the two cannot be merged here, so its id comes back as a conflict and the browser merges
+     * them and calls again with `values`. Safe to call repeatedly, and from two tabs at once.
+     */
+    public function notesField(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'id' => ['nullable', 'uuid'],
+            'label_ciphertext' => ['nullable', 'string'],
+            'icon_rules_ciphertext' => ['nullable', 'string'],
+            'values' => ['nullable', 'array', 'max:500'],
+            'values.*.connection_id' => ['required', 'uuid', Rule::exists('connections', 'id')->where('user_id', $user->id)],
+            'values.*.value_ciphertext' => ['required', 'string'],
+        ]);
+
+        [$definition, $created, $changed, $conflicts] = DB::transaction(function () use ($user, $data) {
+            // The same row lock the other field-binding writes take: two tabs can't both create the field.
+            $owner = $user->newQuery()->whereKey($user->getKey())->lockForUpdate()->firstOrFail();
+            $definition = $owner->notes_field_definition_id === null
+                ? null
+                : ConnectionAttributeDefinition::where('user_id', $owner->id)->where('id', $owner->notes_field_definition_id)->first();
+            $created = false;
+
+            if ($definition === null) {
+                if (empty($data['id']) || empty($data['label_ciphertext'])) {
+                    throw ValidationException::withMessages(['id' => 'There is no Notes field yet; say how to create it (id and label_ciphertext).']);
+                }
+
+                if (ConnectionAttributeDefinition::withTrashed()->where('id', $data['id'])->exists()) {
+                    throw ValidationException::withMessages(['id' => 'That id is already taken.']);
+                }
+
+                $definition = $owner->connectionAttributeDefinitions()->create([
+                    'id' => $data['id'],
+                    'label_ciphertext' => $data['label_ciphertext'],
+                    'type' => 'textarea',
+                    'icon_rules_ciphertext' => $data['icon_rules_ciphertext'] ?? null,
+                    'sort_order' => SortOrder::next($owner->connectionAttributeDefinitions()),
+                ]);
+                $owner->forceFill(['notes_field_definition_id' => $definition->id])->save();
+                $created = true;
+            }
+
+            $changed = [];
+            $conflicts = [];
+            // Keyed by connection, so a repeated id is saved once (the last one wins).
+            $given = [];
+            foreach ($data['values'] ?? [] as $item) {
+                $given[$item['connection_id']] = $item;
+            }
+
+            // Values the browser merged itself: they replace whatever is there and retire the old note.
+            foreach ($given as $connectionId => $item) {
+                ConnectionAttributeValue::updateOrCreate(
+                    ['connection_id' => $connectionId, 'attribute_definition_id' => $definition->id],
+                    ['value_ciphertext' => $item['value_ciphertext'], 'identifier_value' => null, 'identifier_list_value' => null, 'boolean_value' => null],
+                );
+                $owner->connections()->where('id', $connectionId)->update(['notes_ciphertext' => null]);
+                $changed[] = $connectionId;
+            }
+
+            // Every other old note moves as it is, unless the connection already has a value in the field.
+            $owner->connections()->whereNotNull('notes_ciphertext')->whereNotIn('id', array_keys($given))->lockForUpdate()->get()
+                ->each(function (Connection $connection) use ($definition, &$changed, &$conflicts) {
+                    $taken = ConnectionAttributeValue::where('connection_id', $connection->id)
+                        ->where('attribute_definition_id', $definition->id)
+                        ->whereNotNull('value_ciphertext')
+                        ->exists();
+
+                    if ($taken) {
+                        $conflicts[] = $connection->id;
+
+                        return;
+                    }
+
+                    ConnectionAttributeValue::updateOrCreate(
+                        ['connection_id' => $connection->id, 'attribute_definition_id' => $definition->id],
+                        ['value_ciphertext' => $connection->notes_ciphertext, 'identifier_value' => null, 'identifier_list_value' => null, 'boolean_value' => null],
+                    );
+                    $connection->forceFill(['notes_ciphertext' => null])->save();
+                    $changed[] = $connection->id;
+                });
+
+            return [$definition, $created, $changed, $conflicts];
+        });
+
+        return response()->json([
+            'definition' => $definition->only(['id', 'label_ciphertext', 'type', 'options_ciphertext', 'icon_rules_ciphertext']),
+            'created' => $created,
+            'connections' => $user->connections()->with(['attributeValues', 'sources', 'shareLink'])->whereIn('id', $changed)->get()
+                ->map(fn (Connection $c) => $this->serialize($c))->values(),
+            'conflicts' => $conflicts,
         ]);
     }
 

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
- * VRChat notes waiting to be carried over to connections' notes. Notes are
- * end-to-end encrypted, so the server can't write them: this panel only
+ * VRChat notes waiting to be carried over to connections' Notes field. The field is
+ * end-to-end encrypted, so the server can't write it: this panel only
  * appears with something to import, and your browser does the writing, after you
- * press Import. Each note is added on a new line after any notes already there.
+ * press Import. Each note is added on a new line after any text already there.
  */
 import { BBadge, BButton, BCard } from 'bootstrap-vue-next';
 import { computed, ref } from 'vue';
@@ -49,12 +49,12 @@ function snippet(note: string): string {
     </div>
     <p class="small text-muted mb-2">
       Your private VRChat notes on {{ items.length === 1 ? 'a linked account' : `${items.length} connections' linked accounts` }}.
-      Importing adds each note to the connection's notes on a new line, after anything already written there, and never
+      Importing adds each note to the connection's Notes field on a new line, after anything already written there, and never
       adds the same text twice. Until then the server keeps the note (encrypted at rest with the app key, not end-to-end); afterwards it
       keeps only a fingerprint of it.
     </p>
 
-    <p v-if="!ready" class="small mb-0">Unlock your vault to import: the connection notes are end-to-end encrypted.</p>
+    <p v-if="!ready" class="small mb-0">Unlock your vault to import: the Notes field is end-to-end encrypted.</p>
 
     <template v-else>
       <ul class="list-unstyled small mb-0">

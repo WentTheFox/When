@@ -44,6 +44,7 @@ export interface ConnectionRow {
   id: string;
   source_ids: string[];
   name_ciphertext: string;
+  /** Only ever set on a connection from before notes became a custom field; the page moves it into the Notes field on load (see notesField.ts). Never edited here. */
   notes_ciphertext: string | null;
   /** The connection's one optional share link; its name is this connection's name. */
   share_link: ShareLinkInfo | null;
@@ -89,10 +90,9 @@ const emit = defineEmits<{
 const { getRecordKey, vaultUnlocked } = useVault();
 
 const name = ref('');
-const notes = ref('');
 /**
  * Until the first decryption settles, the card shows the raw ciphertext (see
- * EncryptedText) — display only. `name`/`notes`/`attributeValues` stay empty
+ * EncryptedText) — display only. `name`/`attributeValues` stay empty
  * until then, and editing is disabled, so the raw blob can never end up in the
  * edit form and be re-encrypted as if it were plaintext.
  */
@@ -102,7 +102,6 @@ const settled = computed(() => decrypted.value || decryptFailed.value);
 const attributeValues = ref<Record<string, string>>({});
 
 const editName = ref('');
-const editNotes = ref('');
 const editSourceIds = ref<string[]>([...props.connection.source_ids]);
 const editAttributeValues = ref<Record<string, string>>({});
 
@@ -166,9 +165,6 @@ async function decryptAll(): Promise<void> {
   try {
     const key = await getRecordKey(props.connection.id);
     name.value = await decryptString(key, props.connection.name_ciphertext);
-    notes.value = props.connection.notes_ciphertext
-      ? await decryptString(key, props.connection.notes_ciphertext)
-      : '';
 
     const values: Record<string, string> = {};
     for (const attributeValue of props.connection.attribute_values) {
@@ -216,7 +212,6 @@ function inputType(type: string): InputType {
 function populateEditForm(): void {
   editSourceIds.value = [...props.connection.source_ids];
   editName.value = name.value;
-  editNotes.value = notes.value;
   editAttributeValues.value = { ...attributeValues.value };
   // Drop dangling connection references so saving clears them instead of resurrecting them.
   for (const definition of props.attributeDefinitions) {
@@ -229,7 +224,7 @@ function populateEditForm(): void {
 
 /** True when the form holds changes that haven't been saved. */
 const isDirty = computed(() => {
-  if (editName.value !== name.value || editNotes.value !== notes.value) return true;
+  if (editName.value !== name.value) return true;
 
   const savedSources = [...props.connection.source_ids].sort();
   const draftSources = [...editSourceIds.value].sort();
@@ -322,13 +317,11 @@ async function save(): Promise<void> {
     const { data } = await axios.patch(`/dashboard/connections/${props.connection.id}`, {
       source_ids: editSourceIds.value,
       name_ciphertext: await encryptString(key, editName.value),
-      notes_ciphertext: editNotes.value ? await encryptString(key, editNotes.value) : null,
       attribute_values: values,
     });
 
     const renamed = editName.value !== name.value;
     name.value = editName.value;
-    notes.value = editNotes.value;
     attributeValues.value = { ...editAttributeValues.value };
     emit('updated', data);
     if (renamed) emit('renamed', props.connection.id, editName.value);
@@ -424,9 +417,6 @@ async function remove(): Promise<void> {
         </BFormGroup>
       </div>
     </div>
-    <BFormGroup label="Notes" class="mb-3">
-      <EncryptedInput v-model="editNotes" :ciphertext="connection.notes_ciphertext" :pending="!decrypted" multiline size="sm" rows="2" />
-    </BFormGroup>
     <BFormGroup label="Sharing" class="mb-3">
       <ConnectionSharing
         :connection-id="connection.id"

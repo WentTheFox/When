@@ -141,7 +141,7 @@ const syncedAt = computed(() => (props.vrcx.synced_at ? new Date(props.vrcx.sync
       VRChat user IDs (<code>usr_…</code>) and every connection with a value there is looked up. VRCX Headless only reports the last 90 days;
       what's already been pulled is kept, so totals keep growing. Needs an API key with the <code>profile:read</code>,
       <code>users:read</code> and <code>playtime:read</code> scopes; add <code>notes:read</code> to also carry your private VRChat notes
-      over to your connections' notes (you press Import on the Connections page).
+      over to your connections' Notes field (you press Import on the Connections page).
     </p>
     <p class="small text-muted">
       This data is <strong>not</strong> end-to-end encrypted: the server reads it to talk to VRCX Headless, and stores it
