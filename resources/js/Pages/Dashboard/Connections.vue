@@ -1,16 +1,20 @@
 <script setup lang="ts">
-import { faBoxArchive, faLink } from '@fortawesome/free-solid-svg-icons';
+import { faBoxArchive, faLink, faUserPlus } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
-import { BButton, BCard, BFormGroup, BFormInput, BFormSelect, BFormTextarea, BTab, BTabs } from 'bootstrap-vue-next';
+import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput, BFormSelect, BFormTextarea, BTab, BTabs } from 'bootstrap-vue-next';
 import { computed, nextTick, onBeforeUnmount, onMounted, type Ref, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../../crypto';
+import PageHeader from '../../Components/PageHeader.vue';
 import AttributesPanel from '../../dashboard/AttributesPanel.vue';
 import CategoriesPanel from '../../dashboard/CategoriesPanel.vue';
 import EncryptedText from '../../Components/EncryptedText.vue';
 import ConnectionCard, { type ConnectionRow } from '../../dashboard/ConnectionCard.vue';
 import SourcesPanel from '../../dashboard/SourcesPanel.vue';
+import FriendReviewModal from '../../dashboard/FriendReviewModal.vue';
+import { holdsOtherId, type MatchCandidate, matchFriend, needsListConversion, type ReviewChoice, type ReviewItem } from '../../dashboard/friendMatching';
+import type { PendingFriend, VrchatSummary } from '../../dashboard/vrchat';
 import {
   buildConnectionsHash,
   hasRecord,
@@ -39,11 +43,14 @@ const props = defineProps<{
   edges: EdgeRow[];
   /** Fields that site features depend on (field id to feature labels); those can't be deleted. */
   fieldFeatures: Record<string, string[]>;
+  /** Cached VRChat names, pictures and time together (§0.2 tier, not E2EE). */
+  vrchat: VrchatSummary;
 }>();
 
 const { createRecordKey, getRecordKey, vaultUnlocked } = useVault();
 
 const connections = ref<ConnectionRow[]>(props.connections);
+const vrchat = ref<VrchatSummary>(props.vrchat);
 /**
  * The lists below are populated from the server's data right away, with every
  * name still as ciphertext (`label` undefined) — they show the raw blobs under
@@ -129,10 +136,26 @@ const selectedDefinitionId = ref<string | null>(initialIdFor('attributes', props
 const selectedConnection = computed(() => connections.value.find((c) => c.id === selectedConnectionId.value) ?? null);
 
 const connectionFilter = ref('');
+/**
+ * Connections made from VRChat friends during this visit, newest first. They are
+ * marked in the list and shown above the rest, so a pile of new people is easy to
+ * find and review. Display only: the stored order stays alphabetical, so after a
+ * reload they are back in their place and unmarked.
+ */
+const newConnectionIds = ref<string[]>([]);
+
 const filteredConnections = computed(() => {
   const query = connectionFilter.value.trim().toLowerCase();
-  if (!query) return connections.value;
-  return connections.value.filter((c) => (decryptedNames.value[c.id] ?? '').toLowerCase().includes(query));
+  const matching = query
+    ? connections.value.filter((c) => (decryptedNames.value[c.id] ?? '').toLowerCase().includes(query))
+    : connections.value;
+
+  if (newConnectionIds.value.length === 0) return matching;
+
+  const rank = (id: string) => newConnectionIds.value.indexOf(id);
+  const fresh = matching.filter((c) => rank(c.id) !== -1).sort((a, b) => rank(b.id) - rank(a.id));
+
+  return [...fresh, ...matching.filter((c) => rank(c.id) === -1)];
 });
 
 type ListKind = 'connections' | 'sources' | 'categories' | 'attributes';
@@ -324,6 +347,7 @@ async function createConnection(): Promise<void> {
     });
 
     connections.value.push(data);
+    applyVrchatProfiles(data);
     decryptedNames.value[id] = newName.value;
     selectedConnectionId.value = id;
     void placeAndSave(connections, 'connections', id, labelOfConnection);
@@ -339,9 +363,331 @@ async function createConnection(): Promise<void> {
   }
 }
 
+const friendNotice = ref('');
+let creatingFriends = false;
+
+/** Friends that need the owner's decision (see FriendReviewModal), and what the claim that delivered them said about the source. */
+const reviewItems = ref<ReviewItem[]>([]);
+const reviewOpen = ref(false);
+const reviewBusy = ref(false);
+let reviewSourceId: string | null = null;
+/** Pending friends this page load has already been handed, so a re-run doesn't fetch them again (a refresh starts empty and gets every unhandled one). */
+const seenFriendIds: string[] = [];
+
+/** The connection's attribute values as the update endpoint wants them back: only the column each one actually uses. */
+function valuePayload(v: ConnectionRow['attribute_values'][number]): Record<string, unknown> {
+  const payload: Record<string, unknown> = { attribute_definition_id: v.attribute_definition_id };
+
+  for (const column of ['value_ciphertext', 'identifier_value', 'identifier_list_value', 'boolean_value'] as const) {
+    if (v[column] !== null && v[column] !== undefined) payload[column] = v[column];
+  }
+
+  // Sent back unchanged, so the server keeps anything it added to the list since this page loaded.
+  if (v.identifier_list_value) payload.identifier_list_base = v.identifier_list_value;
+
+  return payload;
+}
+
+/**
+ * Adds a friend's VRChat id to an existing connection's VRChat user ID field.
+ * 'conflict' when a single-identifier field already holds a different id (it can
+ * only be one person): the caller converts the field to a list first, or asks.
+ */
+async function linkFriend(
+  connection: ConnectionRow,
+  vrchatId: string,
+  field: { id: string; type: string },
+): Promise<'linked' | 'conflict'> {
+  const existing = connection.attribute_values.find((v) => v.attribute_definition_id === field.id);
+  let next: Record<string, unknown>;
+
+  if (field.type === 'identifier_list') {
+    const list = existing?.identifier_list_value ?? [];
+    if (list.some((entry) => entry.trim().toLowerCase() === vrchatId)) return 'linked';
+    next = { attribute_definition_id: field.id, identifier_list_value: [...list, vrchatId], identifier_list_base: list };
+  } else {
+    if (holdsOtherId(existing?.identifier_value, vrchatId)) return 'conflict';
+    if ((existing?.identifier_value ?? '').trim() !== '') return 'linked';
+    next = { attribute_definition_id: field.id, identifier_value: vrchatId };
+  }
+
+  // The update replaces every value, so send the others back unchanged.
+  const values = [...connection.attribute_values.filter((v) => v.attribute_definition_id !== field.id).map(valuePayload), next];
+  const { data } = await axios.patch<ConnectionRow>(`/dashboard/connections/${connection.id}`, { attribute_values: values });
+
+  const index = connections.value.findIndex((c) => c.id === connection.id);
+  if (index !== -1) connections.value[index] = data;
+
+  return 'linked';
+}
+
+/** Makes a connection for a friend: named after them, the VRChat id in the field, the Settings source tied to it. */
+async function createFriendConnection(friend: PendingFriend, field: { id: string; type: string }, sourceId: string | null): Promise<string> {
+  const id = crypto.randomUUID();
+  const key = await createRecordKey(id);
+  const name = friend.display_name || friend.vrchat_user_id;
+  const { data: row } = await axios.post('/dashboard/connections', {
+    id,
+    name_ciphertext: await encryptString(key, name),
+    // The source chosen in Settings (the server omits it once that source is gone).
+    source_ids: sourceId ? [sourceId] : [],
+    attribute_values: [field.type === 'identifier_list'
+      ? { attribute_definition_id: field.id, identifier_list_value: [friend.vrchat_user_id] }
+      : { attribute_definition_id: field.id, identifier_value: friend.vrchat_user_id }],
+  });
+
+  connections.value.push(row);
+  applyVrchatProfiles(row);
+  decryptedNames.value[id] = name;
+  void placeAndSave(connections, 'connections', id, labelOfConnection);
+  newConnectionIds.value.push(id);
+
+  return id;
+}
+
+/** Every connection's decrypted name and highlight tokens: what a friend is matched against (see friendMatching.ts). */
+async function matchCandidates(): Promise<MatchCandidate[]> {
+  const highlightFieldId = vrchat.value.highlight_field_id;
+  const candidates: MatchCandidate[] = [];
+
+  for (const connection of connections.value) {
+    let name = decryptedNames.value[connection.id];
+
+    if (name === undefined) {
+      try {
+        name = await decryptString(await getRecordKey(connection.id), connection.name_ciphertext);
+        decryptedNames.value[connection.id] = name;
+      } catch (error) {
+        console.error(error);
+        name = '';
+      }
+    }
+
+    const tokens = highlightFieldId
+      ? (connection.attribute_values.find((v) => v.attribute_definition_id === highlightFieldId)?.identifier_list_value ?? [])
+      : [];
+
+    candidates.push({ id: connection.id, name, tokens });
+  }
+
+  return candidates;
+}
+
+function showFriendNotice(created: number, linked: number, skipped: string[], review: number): void {
+  const parts: string[] = [];
+  if (created > 0) parts.push(`added ${created} connection${created === 1 ? '' : 's'}`);
+  if (linked > 0) parts.push(`added ${linked} friend${linked === 1 ? '' : 's'} to existing connections`);
+
+  const sentences: string[] = [];
+  if (parts.length > 0) sentences.push(`VRChat friends: ${parts.join(', ')}.`);
+  if (skipped.length > 0) sentences.push(`Skipped: ${skipped.slice(0, 10).join(', ')}${skipped.length > 10 ? `, and ${skipped.length - 10} more` : ''}.`);
+  if (review > 0) sentences.push(`${review} friend${review === 1 ? ' is' : 's are'} waiting for your decision.`);
+
+  if (sentences.length > 0) friendNotice.value = sentences.join(' ');
+}
+
+/**
+ * VRChat friends without a connection (found by the server's sync) are dealt
+ * with here, because a connection's name is encrypted with a key only this
+ * unlocked vault has. Each friend is matched against the connections you
+ * already have, by name or by highlight token (friendMatching.ts):
+ *   - no match: a new connection, named after them, tied to the source chosen in Settings;
+ *   - one match that can take the id: the id is added to that connection's VRChat field;
+ *   - several matches, or one that already holds a different id in a single-identifier
+ *     field: nothing happens yet, the owner decides in FriendReviewModal.
+ * The server hands each friend to one browser at a time (a claim); a friend whose
+ * request fails is simply offered again later.
+ */
+async function createFriendConnections(): Promise<void> {
+  const field = vrchat.value.field;
+  if (creatingFriends || !vaultUnlocked.value || !vrchat.value.auto_create_friends || !field || vrchat.value.pending_friends === 0) return;
+
+  creatingFriends = true;
+  let created = 0;
+  let linked = 0;
+  const undecided: ReviewItem[] = [];
+
+  try {
+    const candidates = await matchCandidates();
+
+    for (;;) {
+      const { data } = await axios.post<{ friends: PendingFriend[]; source_id: string | null }>('/dashboard/vrchat/friends/claim', {
+        exclude: seenFriendIds.slice(-1000),
+      });
+      if (!data.friends.length) break;
+      reviewSourceId = data.source_id;
+      seenFriendIds.push(...data.friends.map((f) => f.id));
+
+      const done: string[] = [];
+      let handled = 0;
+
+      for (const friend of data.friends) {
+        const name = friend.display_name || friend.vrchat_user_id;
+
+        try {
+          const match = matchFriend(friend.display_name, candidates);
+          const review = (ids: string[]) => {
+            undecided.push({
+              friendId: friend.id,
+              vrchatId: friend.vrchat_user_id,
+              name,
+              candidates: ids.map((id) => {
+                const connection = connections.value.find((c) => c.id === id);
+                const existing = connection?.attribute_values.find((v) => v.attribute_definition_id === field.id);
+                return {
+                  id,
+                  name: candidates.find((c) => c.id === id)?.name ?? '',
+                  conflict: field.type === 'identifier' && holdsOtherId(existing?.identifier_value, friend.vrchat_user_id),
+                };
+              }),
+            });
+            handled++;
+          };
+
+          if (match.kind === 'several') {
+            review(match.connectionIds);
+          } else if (match.kind === 'one') {
+            const connection = connections.value.find((c) => c.id === match.connectionId);
+
+            if (connection && (await linkFriend(connection, friend.vrchat_user_id, field)) === 'linked') {
+              done.push(friend.id);
+              linked++;
+              handled++;
+            } else {
+              review([match.connectionId]);
+            }
+          } else {
+            const id = await createFriendConnection(friend, field, data.source_id);
+            // A later friend with the same name must find this one, not make another.
+            candidates.push({ id, name, tokens: [] });
+            done.push(friend.id);
+            created++;
+            handled++;
+          }
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      // Whatever wasn't finished (awaiting a decision, or failed) goes back to being offered: on the next page load, until it is handled.
+      const released = data.friends.map((f) => f.id).filter((id) => !done.includes(id));
+      await axios.post('/dashboard/vrchat/friends/complete', { ids: done, skipped: [], released });
+
+      // Anything that failed is offered again by a later claim; don't spin on it now.
+      if (handled < data.friends.length) break;
+    }
+  } catch (error) {
+    console.error(error);
+  } finally {
+    creatingFriends = false;
+  }
+
+  if (undecided.length > 0) {
+    reviewItems.value = [...reviewItems.value, ...undecided];
+    reviewOpen.value = true;
+  }
+
+  showFriendNotice(created, linked, [], reviewItems.value.length);
+
+  try {
+    vrchat.value = (await axios.get<VrchatSummary>('/dashboard/vrchat')).data;
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+/** Carries out the owner's choices from FriendReviewModal, converting the VRChat field to a list first if one of them needs it. */
+async function applyReview(choices: Record<string, ReviewChoice>): Promise<void> {
+  const items = reviewItems.value;
+  const field = vrchat.value.field;
+  if (reviewBusy.value || !field || items.length === 0) return;
+
+  reviewBusy.value = true;
+  let created = 0;
+  let linked = 0;
+  const skipped: string[] = [];
+  const done: string[] = [];
+  const skippedIds: string[] = [];
+  const handledIds = new Set<string>();
+
+  try {
+    let currentField = field;
+
+    if (currentField.type === 'identifier' && needsListConversion(items, choices)) {
+      await convertDefinitionToList(currentField.id);
+
+      if (definitionItems.value.find((d) => d.id === currentField.id)?.type !== 'identifier_list') {
+        // The conversion failed (the reason is in definitionError): change nothing.
+        return;
+      }
+
+      currentField = { ...currentField, type: 'identifier_list' };
+      vrchat.value = { ...vrchat.value, field: currentField };
+    }
+
+    for (const item of items) {
+      const choice = choices[item.friendId] ?? 'new';
+      const friend: PendingFriend = { id: item.friendId, vrchat_user_id: item.vrchatId, display_name: item.name };
+
+      try {
+        if (choice === 'skip') {
+          skippedIds.push(item.friendId);
+          skipped.push(item.name);
+        } else if (choice === 'new') {
+          await createFriendConnection(friend, currentField, reviewSourceId);
+          done.push(item.friendId);
+          created++;
+        } else {
+          const connection = connections.value.find((c) => c.id === choice);
+
+          if (connection && (await linkFriend(connection, item.vrchatId, currentField)) === 'linked') {
+            done.push(item.friendId);
+            linked++;
+          } else {
+            continue;
+          }
+        }
+
+        handledIds.add(item.friendId);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    if (done.length || skippedIds.length) {
+      await axios.post('/dashboard/vrchat/friends/complete', { ids: done, skipped: skippedIds });
+    }
+  } catch (error) {
+    console.error(error);
+  } finally {
+    reviewBusy.value = false;
+  }
+
+  reviewItems.value = items.filter((item) => !handledIds.has(item.friendId));
+  if (reviewItems.value.length === 0) reviewOpen.value = false;
+
+  showFriendNotice(created, linked, skipped, reviewItems.value.length);
+
+  try {
+    vrchat.value = (await axios.get<VrchatSummary>('/dashboard/vrchat')).data;
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+watch([vaultUnlocked, () => vrchat.value.pending_friends], createFriendConnections, { immediate: true });
+
+/** A saved connection comes back with the VRChat accounts that were looked up as part of the save: show them at once. */
+function applyVrchatProfiles(row: ConnectionRow): void {
+  if (!row.vrchat_profiles) return;
+
+  vrchat.value = { ...vrchat.value, profiles: { ...vrchat.value.profiles, [row.id]: row.vrchat_profiles } };
+}
+
 function onConnectionUpdated(updated: ConnectionRow): void {
   const index = connections.value.findIndex((c) => c.id === updated.id);
   if (index !== -1) connections.value[index] = updated;
+  applyVrchatProfiles(updated);
 }
 
 /** A saved connection whose name changed: show the new name in the list and move it to its alphabetical place. */
@@ -491,7 +837,8 @@ async function removeCategory(id: string): Promise<void> {
   }
 }
 
-async function addDefinition(label: string, type: string, choices: string[]): Promise<void> {
+/** Returns the new field's id, or null when it could not be created. */
+async function addDefinition(label: string, type: string, choices: string[]): Promise<string | null> {
   try {
     const id = crypto.randomUUID();
     const key = await createRecordKey(id);
@@ -505,9 +852,23 @@ async function addDefinition(label: string, type: string, choices: string[]): Pr
     });
     definitionItems.value.push({ id, type, label_ciphertext: labelCiphertext, options_ciphertext: optionsCiphertext, label, options: choices });
     await placeAndSave(definitionItems, 'attributes', id, labelOfItem);
+    return id;
   } catch (error) {
     console.error(error);
+    return null;
   }
+}
+
+/** The target field doesn't exist yet: make it, then run the usual (non-destructive) copy into it. */
+async function createIdentifierAndCopy(sourceId: string, label: string): Promise<void> {
+  const id = await addDefinition(label, 'identifier', []);
+
+  if (id === null) {
+    copyStatus.value = 'Could not create the identifier field.';
+    return;
+  }
+
+  await copyToIdentifier(sourceId, id);
 }
 
 const copyStatus = ref<string | null>(null);
@@ -604,6 +965,82 @@ async function removeDefinition(id: string): Promise<void> {
   }
 }
 
+/**
+ * One-way, out of E2EE: decrypts every connection's value for the text field
+ * here, then hands the plaintext to the server, which swaps it in for the
+ * ciphertext in one all-or-nothing step. If any value can't be decrypted
+ * nothing is sent; if the server finds its data moved on, it changes nothing.
+ */
+async function convertDefinitionToIdentifier(id: string): Promise<void> {
+  definitionError.value = null;
+  copyBusy.value = true;
+
+  try {
+    const values: { connection_id: string; identifier_value: string }[] = [];
+
+    for (const connection of connections.value) {
+      const row = connection.attribute_values.find((v) => v.attribute_definition_id === id);
+      if (!row) continue;
+
+      // A value that can't be decrypted aborts everything: sending it as blank would delete it.
+      const value = row.value_ciphertext ? await decryptString(await getRecordKey(connection.id), row.value_ciphertext) : '';
+      values.push({ connection_id: connection.id, identifier_value: value.trim() });
+    }
+
+    await axios.post(`/dashboard/connection-attribute-definitions/${id}/convert-to-identifier`, { values });
+
+    const definition = definitionItems.value.find((d) => d.id === id);
+    if (definition) definition.type = 'identifier';
+
+    const converted = new Map(values.map((v) => [v.connection_id, v.identifier_value]));
+    connections.value = connections.value.map((c) => ({
+      ...c,
+      attribute_values: c.attribute_values.flatMap((v) => {
+        if (v.attribute_definition_id !== id) return [v];
+        const value = converted.get(c.id) ?? '';
+        return value ? [{ attribute_definition_id: id, value_ciphertext: null, identifier_value: value }] : [];
+      }),
+    }));
+  } catch (error) {
+    console.error(error);
+    definitionError.value = axios.isAxiosError(error)
+      ? (error.response?.data?.errors?.definition?.[0] ?? 'This field could not be converted.')
+      : 'A value could not be decrypted, so nothing was converted.';
+  } finally {
+    copyBusy.value = false;
+  }
+}
+
+/**
+ * One-way: the server turns every value of the field into a one-entry list
+ * (dropping empty ones) and flips its type. Mirror that locally so nothing
+ * needs a reload.
+ */
+async function convertDefinitionToList(id: string): Promise<void> {
+  definitionError.value = null;
+
+  try {
+    await axios.post(`/dashboard/connection-attribute-definitions/${id}/convert-to-list`);
+
+    const definition = definitionItems.value.find((d) => d.id === id);
+    if (definition) definition.type = 'identifier_list';
+
+    connections.value = connections.value.map((c) => ({
+      ...c,
+      attribute_values: c.attribute_values.flatMap((v) => {
+        if (v.attribute_definition_id !== id) return [v];
+        const value = (v.identifier_value ?? '').trim();
+        return value ? [{ ...v, identifier_value: null, identifier_list_value: [value] }] : [];
+      }),
+    }));
+  } catch (error) {
+    console.error(error);
+    definitionError.value = axios.isAxiosError(error)
+      ? (error.response?.data?.errors?.definition?.[0] ?? 'This field could not be converted.')
+      : 'This field could not be converted.';
+  }
+}
+
 /** "Knows" is undirected: at most one edge per pair, whichever side it was added from. */
 async function addEdge(fromId: string, toId: string): Promise<void> {
   const alreadyKnown = edges.value.some(
@@ -638,19 +1075,24 @@ async function removeEdge(id: string): Promise<void> {
 <template>
   <Head title="Connections" />
 
-  <BCard class="mb-4">
-    <div class="d-flex justify-content-between align-items-center">
-      <div>
-        <h1 class="h3 mb-1">Connections</h1>
-        <span class="text-muted small">Your private CRM, end-to-end encrypted.</span>
-      </div>
-    </div>
-  </BCard>
+  <PageHeader title="Connections" subtitle="Your private CRM, end-to-end encrypted." />
+
+  <BAlert :model-value="friendNotice !== ''" variant="success" dismissible @close="friendNotice = ''">
+    {{ friendNotice }}
+    <BButton v-if="reviewItems.length && !reviewOpen" size="sm" variant="outline-success" class="ms-2" @click="reviewOpen = true">Review</BButton>
+  </BAlert>
+  <FriendReviewModal
+    v-model:open="reviewOpen"
+    :items="reviewItems"
+    :field-type="vrchat.field?.type ?? ''"
+    :busy="reviewBusy"
+    @apply="applyReview"
+  />
 
   <BCard id="connections-workspace" class="mb-4">
     <BTabs v-model="pageTab" pills no-fade content-class="pt-3">
       <BTab :id="PAGE_TABS.connections">
-        <template #title>Connections <span class="text-muted">({{ connections.length }})</span></template>
+        <template #title>Connections <BBadge variant="secondary" pill class="ms-1">{{ connections.length }}</BBadge></template>
         <div class="row">
           <div class="col-md-4">
             <LockedOverlay>
@@ -696,6 +1138,16 @@ async function removeEdge(id: string): Promise<void> {
                     <FontAwesomeIcon :icon="faLink" />
                     <span class="visually-hidden">{{ connection.share_link.last_visited_at ? 'Has a share link' : 'Has a share link (never visited)' }}</span>
                   </span>
+                  <!-- Made from a VRChat friend during this visit (listed first). -->
+                  <span
+                    v-if="newConnectionIds.includes(connection.id)"
+                    class="ms-1 connection-new"
+                    :class="selectedConnectionId === connection.id ? '' : 'text-success'"
+                    title="Added from your VRChat friends on this visit"
+                  >
+                    <FontAwesomeIcon :icon="faUserPlus" />
+                    <span class="visually-hidden">Added from your VRChat friends on this visit</span>
+                  </span>
                   <!-- Archived. Muted, except on the selected row, where the inherited white stays readable. -->
                   <span
                     v-if="connection.archived"
@@ -720,6 +1172,9 @@ async function removeEdge(id: string): Promise<void> {
                 :attribute-definitions="definitions"
                 :edges="edges"
                 :connection-options="connectionOptions"
+                :vrchat-profiles="vrchat.profiles[selectedConnection.id]"
+                :vrchat-synced-at="vrchat.synced_at"
+                @vrchat-synced="vrchat = $event"
                 @updated="onConnectionUpdated"
                 @renamed="onConnectionRenamed"
                 @deleted="onConnectionDeleted"
@@ -733,17 +1188,17 @@ async function removeEdge(id: string): Promise<void> {
       </BTab>
 
       <BTab :id="PAGE_TABS.sources">
-        <template #title>Sources <span class="text-muted">({{ sourceItems.length }})</span></template>
+        <template #title>Sources <BBadge variant="secondary" pill class="ms-1">{{ sourceItems.length }}</BBadge></template>
         <SourcesPanel v-model:selected-id="selectedSourceId" :sources="sourceItems" :categories="categories" @add="addSource" @update="updateSource" @remove="removeSource" />
       </BTab>
 
       <BTab :id="PAGE_TABS.categories">
-        <template #title>Categories <span class="text-muted">({{ categoryItems.length }})</span></template>
+        <template #title>Categories <BBadge variant="secondary" pill class="ms-1">{{ categoryItems.length }}</BBadge></template>
         <CategoriesPanel v-model:selected-id="selectedCategoryId" :categories="categoryItems" @add="addCategory" @update="updateCategory" @remove="removeCategory" />
       </BTab>
 
       <BTab :id="PAGE_TABS.attributes">
-        <template #title>Custom attributes <span class="text-muted">({{ definitionItems.length }})</span></template>
+        <template #title>Custom attributes <BBadge variant="secondary" pill class="ms-1">{{ definitionItems.length }}</BBadge></template>
         <AttributesPanel
           v-model:selected-id="selectedDefinitionId"
           :definitions="definitionItems"
@@ -755,7 +1210,10 @@ async function removeEdge(id: string): Promise<void> {
           @add="addDefinition"
           @rename="renameDefinition"
           @remove="removeDefinition"
+          @convert-to-identifier="convertDefinitionToIdentifier"
+          @convert-to-list="convertDefinitionToList"
           @copy-to-identifier="copyToIdentifier"
+          @create-identifier-and-copy="createIdentifierAndCopy"
           @sweep-orphans="sweepOrphans"
         />
       </BTab>

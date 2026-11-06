@@ -72,6 +72,12 @@ use Illuminate\Support\Facades\Crypt;
  * @property string|null $public_icon_key
  * @property string|null $highlight_identifier_definition_id
  * @property string|null $bypass_dnd_definition_id
+ * @property string|null $vrcx_base_url
+ * @property string|null $vrcx_api_key
+ * @property Carbon|null $vrcx_synced_at
+ * @property string|null $vrchat_user_id_definition_id
+ * @property bool $vrcx_auto_create_friends
+ * @property string|null $vrcx_friends_source_id
  * @property-read Collection<int, ActivityLocalization> $activityLocalizations
  * @property-read int|null $activity_localizations_count
  * @property-read Collection<int, AvailabilityWindow> $availabilityWindows
@@ -163,6 +169,13 @@ use Illuminate\Support\Facades\Crypt;
  * @method static Builder<static>|User whereWeekStart($value)
  * @method static Builder<static>|User withTrashed(bool $withTrashed = true)
  * @method static Builder<static>|User withoutTrashed()
+ * @method static Builder<static>|User whereVrchatUserIdDefinitionId($value)
+ * @method static Builder<static>|User whereVrcxApiKey($value)
+ * @method static Builder<static>|User whereVrcxBaseUrl($value)
+ * @method static Builder<static>|User whereVrcxSyncedAt($value)
+ * @method static Builder<static>|User whereVrcxAutoCreateFriends($value)
+ * @method static Builder<static>|User whereVrcxFriendsBaselineAt($value)
+ * @method static Builder<static>|User whereVrcxFriendsSourceId($value)
  *
  * @mixin \Eloquent
  */
@@ -189,6 +202,11 @@ class User extends Authenticatable
         'week_start',
         'highlight_identifier_definition_id',
         'bypass_dnd_definition_id',
+        'vrchat_user_id_definition_id',
+        'vrcx_base_url',
+        'vrcx_api_key',
+        'vrcx_auto_create_friends',
+        'vrcx_friends_source_id',
         'dnd_event_pattern',
         'dnd_event_pattern_preview',
         'nap_event_pattern',
@@ -238,6 +256,8 @@ class User extends Authenticatable
         // Never serialized — decryption only ever happens transiently, inside
         // the ICS-fetch job. See PLAN.md §0.2.
         'calendar_url_ciphertext',
+        // The owner's VRCX API key — same discipline: decrypted only inside the sync.
+        'vrcx_api_key',
     ];
 
     /**
@@ -263,6 +283,11 @@ class User extends Authenticatable
             'two_factor_confirmed_at' => 'datetime',
             'week_start' => 'integer',
             'timezone' => 'encrypted',
+            // §0.2 tier: this owner's VRCX server, APP_KEY-encrypted at rest.
+            'vrcx_base_url' => 'encrypted',
+            'vrcx_api_key' => 'encrypted',
+            'vrcx_synced_at' => 'datetime',
+            'vrcx_auto_create_friends' => 'boolean',
             'dnd_event_pattern' => 'encrypted',
             'dnd_event_pattern_preview' => 'encrypted',
             'nap_event_pattern' => 'encrypted',

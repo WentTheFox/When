@@ -4,8 +4,11 @@ namespace App\Services\Account;
 
 use App\Models\CalendarDetection;
 use App\Models\ConnectionAttributeValue;
+use App\Models\ConnectionVrchatProfile;
+use App\Models\ConnectionVrchatStay;
 use App\Models\InviteRedemption;
 use App\Models\User;
+use App\Models\VrchatFriend;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Crypt;
@@ -64,6 +67,9 @@ class AccountExportService
         $zip->addFile('connections/attribute-values.json', $this->json($this->connectionAttributeValues($user)));
         $zip->addFile('connections/attribute-identifiers.json', $this->json($this->connectionAttributeIdentifiers($user)));
         $zip->addFile('connections/edges.json', $this->json($this->connectionEdges($user)));
+        $zip->addFile('connections/vrchat-profiles.json', $this->json($this->vrchatProfiles($user)));
+        $zip->addFile('connections/vrchat-stays.json', $this->json($this->vrchatStays($user)));
+        $zip->addFile('connections/vrchat-friends.json', $this->json($this->vrchatFriends($user)));
         $zip->addFile('connections/source-links.json', $this->json($this->connectionSourceLinks($user)));
     }
 
@@ -105,6 +111,10 @@ class AccountExportService
                 'calendar_parsing_mode' => $user->calendar_parsing_mode,
                 'highlight_identifier_definition_id' => $user->highlight_identifier_definition_id,
                 'bypass_dnd_definition_id' => $user->bypass_dnd_definition_id,
+                'vrchat_user_id_definition_id' => $user->vrchat_user_id_definition_id,
+                'vrcx_base_url' => $user->vrcx_base_url,
+                'vrcx_auto_create_friends' => $user->vrcx_auto_create_friends,
+                'vrcx_friends_source_id' => $user->vrcx_friends_source_id,
                 'highlight_clause_pattern' => $user->highlight_clause_pattern,
                 'highlight_clause_pattern_preview' => $user->highlight_clause_pattern_preview,
                 'highlight_split_pattern' => $user->highlight_split_pattern,
@@ -417,6 +427,54 @@ class AccountExportService
                     'identifier_list_value' => $v->identifier_list_value,
                     'boolean_value' => $v->boolean_value,
                 ])->all(),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function vrchatProfiles(User $user): array
+    {
+        return [
+            'tier' => 'server-decrypted',
+            'note' => 'VRChat accounts linked to your connections, as cached from your VRCX server. Your VRCX API key is never exported.',
+            'records' => ConnectionVrchatProfile::whereIn('connection_id', $user->connections()->select('id'))->get()
+                ->map(fn ($p) => [
+                    'id' => $p->id,
+                    'connection_id' => $p->connection_id,
+                    'vrchat_user_id' => $p->vrchat_user_id,
+                    'display_name' => $p->display_name,
+                    'profile_picture_url' => $p->profile_picture_url,
+                    'avatar_thumbnail_url' => $p->avatar_thumbnail_url,
+                    'stats' => $p->stats,
+                    'profile_fetched_at' => $p->profile_fetched_at,
+                ])->all(),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function vrchatFriends(User $user): array
+    {
+        return [
+            'tier' => 'server-decrypted',
+            'note' => 'VRChat friends seen by the sync, used to create connections for new friends. status: pending, created, or dismissed (matched several connections and left for you to sort out).',
+            'records' => VrchatFriend::where('user_id', $user->id)->get()->map(fn ($f) => [
+                'id' => $f->id,
+                'vrchat_user_id' => $f->vrchat_user_id,
+                'display_name' => $f->display_name,
+                'profile_picture_url' => $f->profile_picture_url,
+                'status' => $f->status,
+            ])->all(),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function vrchatStays(User $user): array
+    {
+        return [
+            'tier' => 'server-decrypted',
+            'note' => 'Every shared-instance interval recorded from your VRCX server (durations in milliseconds).',
+            'records' => ConnectionVrchatStay::whereIn('connection_id', $user->connections()->select('id'))->get()
+                ->map(fn ($s) => ['id' => $s->id, 'connection_id' => $s->connection_id] + $s->payload)
+                ->all(),
         ];
     }
 

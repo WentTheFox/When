@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link, router, useForm } from '@inertiajs/vue3';
 import { BButton, BCard, BFormGroup, BFormInput } from 'bootstrap-vue-next';
+import PageHeader from '../../Components/PageHeader.vue';
 import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 
 defineOptions({ layout: DashboardLayout });
@@ -31,9 +32,9 @@ function revoke(invite: InviteRow): void {
 </script>
 
 <template>
-  <BCard class="mb-4">
-    <h1 class="h3 mb-4">Invites</h1>
+  <PageHeader title="Invites" subtitle="Registration is invite-only; create links to let someone in." />
 
+  <BCard class="mb-4">
     <h2 class="h5 mb-3">Create an invite</h2>
     <form class="row align-items-end" @submit.prevent="create">
       <div class="col-md-4">
@@ -50,10 +51,8 @@ function revoke(invite: InviteRow): void {
         <BButton type="submit" variant="primary" class="w-100" :disabled="form.processing">Create invite</BButton>
       </div>
     </form>
-  </BCard>
 
-  <BCard body-class="p-0">
-    <div class="table-responsive">
+    <div class="table-responsive mt-3">
       <table class="table table-sm mb-0">
         <thead>
           <tr>

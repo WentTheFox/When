@@ -9,20 +9,17 @@
  */
 import { useForm } from '@inertiajs/vue3';
 import axios from 'axios';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 import {
   BAlert,
   BBadge,
   BButton,
-  BCard,
   BFormGroup,
   BFormInput,
   BFormSelect,
-  BInputGroup,
 } from 'bootstrap-vue-next';
 import { addDays as addDaysFns, startOfWeek as startOfWeekFns } from 'date-fns';
 import { computed, ref } from 'vue';
+import SecretField from '../Components/SecretField.vue';
 import CalendarView from '../free/CalendarView.vue';
 import { resolveIcon } from '../free/icon-palette';
 import { resolveNowColorHex } from '../free/now-color-presets';
@@ -58,7 +55,6 @@ const calendarUrlForm = useForm({
   calendar_url_preview_confirmed: false as boolean,
 });
 const hadSavedCalendarUrl = ref(!!props.calendarUrl);
-const calendarUrlRevealed = ref(false);
 
 const previewStatus = ref('');
 const previewing = ref(false);
@@ -235,9 +231,7 @@ function submit(): void {
 </script>
 
 <template>
-  <BCard class="mb-4">
-    <h1 class="h3 mb-4">Settings</h1>
-
+  <section>
     <h2 class="h5 mb-3">Calendar</h2>
 
     <!--
@@ -247,39 +241,19 @@ function submit(): void {
       block itself, never an unrelated change like timezone.
     -->
     <form @submit.prevent="saveCalendarUrl">
-      <BFormGroup label-for="calendar_url" class="mb-3">
-        <template #label>
-          Calendar URL (ICS feed)
-          <BBadge v-if="hadSavedCalendarUrl" variant="success" class="ms-1">Configured</BBadge>
-          <BBadge v-else variant="secondary" class="ms-1">Not set</BBadge>
-        </template>
-        <BInputGroup>
-          <BFormInput
-            id="calendar_url"
-            v-model="calendarUrlForm.calendar_url"
-            :type="calendarUrlRevealed ? 'text' : 'password'"
-            placeholder="https://…"
-            @input="onUrlInput"
-          />
-          <BButton
-            variant="outline-secondary"
-            :aria-label="calendarUrlRevealed ? 'Hide calendar URL' : 'Show calendar URL'"
-            @click="calendarUrlRevealed = !calendarUrlRevealed"
-          >
-            <FontAwesomeIcon :icon="calendarUrlRevealed ? faEyeSlash : faEye" />
-          </BButton>
-        </BInputGroup>
-        <template #description>
-          {{
-            hadSavedCalendarUrl
-              ? "Edit it and preview before saving to replace it."
-              : "Paste your calendar's ICS URL, then preview it before saving."
-          }}
-        </template>
-        <div v-if="calendarUrlForm.errors.calendar_url" class="text-danger small">
-          {{ calendarUrlForm.errors.calendar_url }}
-        </div>
-      </BFormGroup>
+      <SecretField
+        id="calendar_url"
+        v-model="calendarUrlForm.calendar_url"
+        label="Calendar URL (ICS feed)"
+        noun="calendar URL"
+        :configured="hadSavedCalendarUrl"
+        :description="hadSavedCalendarUrl
+          ? 'Edit it and preview before saving to replace it.'
+          : 'Paste your calendar\'s ICS URL, then preview it before saving.'"
+        :error="calendarUrlForm.errors.calendar_url"
+        placeholder="https://…"
+        @input="onUrlInput"
+      />
 
       <BButton
         variant="outline-secondary"
@@ -368,9 +342,9 @@ function submit(): void {
         </template>
       </BFormGroup>
     </form>
-    <template #footer>
+    <div class="border-top pt-3 mt-3">
       <BButton type="submit" form="calendar-settings-form" variant="primary" :disabled="calendarSettingsForm.processing">Save settings</BButton>
       <BButton variant="outline-secondary" class="ms-2" @click="calendarSettingsForm.reset(...CALENDAR_FIELDS)">Reset</BButton>
-    </template>
-  </BCard>
+    </div>
+  </section>
 </template>

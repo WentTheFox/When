@@ -2,7 +2,7 @@
 /** Settings.vue's "Public page" card — title/colors/icons/current-time-color, all part of the shared `form` Settings.vue owns and saves via its own submit(). */
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
-import { BButton, BCard, BFormGroup, BFormInput } from 'bootstrap-vue-next';
+import { BButton, BFormGroup, BFormInput } from 'bootstrap-vue-next';
 import { addDays as addDaysFns, startOfWeek as startOfWeekFns } from 'date-fns';
 import { computed } from 'vue';
 import CalendarView from '../free/CalendarView.vue';
@@ -408,7 +408,7 @@ function submit(): void {
 
 <template>
   <form @submit.prevent="submit">
-    <BCard class="mb-4">
+    <section>
         <h2 class="h5 mb-3">Public page</h2>
         <p class="small text-muted">
           What a viewer sees at the top of your public share page — separate from your own
@@ -511,10 +511,10 @@ function submit(): void {
           </div>
         </div>
 
-      <template #footer>
+      <div class="border-top pt-3 mt-3">
         <BButton type="submit" variant="primary" :disabled="publicPageSettingsForm.processing">Save public page</BButton>
         <BButton variant="outline-secondary" class="ms-2" @click="publicPageSettingsForm.reset(...PUBLIC_PAGE_FIELDS)">Reset</BButton>
-      </template>
-    </BCard>
+      </div>
+    </section>
   </form>
 </template>

@@ -22,14 +22,17 @@
  * uses it.
  */
 import { Head, useForm, usePage } from '@inertiajs/vue3';
-import { BAlert } from 'bootstrap-vue-next';
-import { nextTick, onMounted, ref, watch, onUnmounted } from 'vue';
+import { BAlert, BBadge, BCard, BTab, BTabs } from 'bootstrap-vue-next';
+import { nextTick, onBeforeUnmount, onMounted, ref, watch, onUnmounted } from 'vue';
+import { buildSettingsHash, parseSettingsHash, SETTINGS_TABS, type SettingsTabName } from '../../dashboard/settingsTabs';
 import SettingsSleepExceptionsCard from '../../dashboard/SettingsSleepExceptionsCard.vue';
+import PageHeader from '../../Components/PageHeader.vue';
 import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 import { useLiveThemePreview } from '../../dashboard/liveThemePreview';
 import SettingsActivityLocalizationsCard from '../../dashboard/SettingsActivityLocalizationsCard.vue';
 import SettingsCalendarCard from '../../dashboard/SettingsCalendarCard.vue';
 import SettingsShareLinksCard from '../../dashboard/SettingsShareLinksCard.vue';
+import SettingsVrchatCard from '../../dashboard/SettingsVrchatCard.vue';
 import SettingsEventMatchingCard from '../../dashboard/SettingsEventMatchingCard.vue';
 import SettingsAvailabilityCard from '../../dashboard/SettingsAvailabilityCard.vue';
 import SettingsPublicPageCard from '../../dashboard/SettingsPublicPageCard.vue';
@@ -51,6 +54,16 @@ const props = defineProps<{
   calendarUrl: string | null;
   identifierListDefinitions: { id: string; label_ciphertext: string }[];
   booleanDefinitions: { id: string; label_ciphertext: string }[];
+  connectionSources: { id: string; name_ciphertext: string }[];
+  vrchatIdDefinitions: { id: string; label_ciphertext: string; type: string }[];
+  vrcx: {
+    base_url: string | null;
+    api_key: string | null;
+    vrchat_user_id_definition_id: string | null;
+    auto_create_friends: boolean;
+    friends_source_id: string | null;
+    synced_at: string | null;
+  };
   sleepExceptions: {
     id: string;
     start_date: string;
@@ -178,11 +191,46 @@ onUnmounted(() => {
   liveTheme.value = null;
 });
 
-// An SPA visit to /settings#some-card doesn't scroll to the fragment by itself (it isn't a full page load), so do it once the cards have rendered.
+/**
+ * The page is split into tabs (the cards sat in one long scroll). Every tab's
+ * content stays mounted while hidden, so nothing is lost switching between them
+ * (the forms live in this component anyway). The active tab is kept in the URL
+ * hash with replaceState, so it survives a reload without piling up history, and
+ * a link to an element id (#share-links, #highlight-tokens, ...) opens the tab
+ * holding it and then scrolls there (see settingsTabs.ts).
+ */
+const initialHash = typeof window === 'undefined' ? { tab: 'calendar' as SettingsTabName } : parseSettingsHash(window.location.hash);
+const activeTab = ref<string>(SETTINGS_TABS[initialHash.tab]);
+
+function activeTabName(): SettingsTabName {
+  return (Object.keys(SETTINGS_TABS) as SettingsTabName[]).find((name) => SETTINGS_TABS[name] === activeTab.value) ?? 'calendar';
+}
+
+function writeHash(): void {
+  // A hash that already leads to this tab (its own form, or an element-id link into it) stays as it is.
+  if (parseSettingsHash(window.location.hash).tab === activeTabName()) return;
+
+  window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}${buildSettingsHash(activeTabName())}`);
+}
+
+watch(activeTab, writeHash);
+
+/** Opens the tab the hash names, then scrolls to the element it points at (once the tab is visible). */
+function followHash(): void {
+  const state = parseSettingsHash(window.location.hash);
+  activeTab.value = SETTINGS_TABS[state.tab];
+
+  if (state.anchor) {
+    const anchor = state.anchor;
+    nextTick(() => document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
+}
+
 onMounted(() => {
-  const id = window.location.hash.slice(1);
-  if (id) nextTick(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  followHash();
+  window.addEventListener('hashchange', followHash);
 });
+onBeforeUnmount(() => window.removeEventListener('hashchange', followHash));
 
 /** Set by SettingsCalendarCard's own "Preview" button; also read by SettingsPublicPageCard's preview panel (preferred over its own made-up example calendar once available) — see this file's own header comment. */
 const previewAvailability = ref<AvailabilityResponse | null>(null);
@@ -191,39 +239,78 @@ const previewAvailability = ref<AvailabilityResponse | null>(null);
 <template>
   <Head title="Settings" />
 
+  <PageHeader title="Settings" subtitle="Your calendar, how event titles are read, sharing, VRChat and your public page." />
+
   <BAlert :model-value="!!page.props.flash?.status" variant="success">{{ page.props.flash?.status }}</BAlert>
 
-  <SettingsCalendarCard
-    v-model:preview-availability="previewAvailability"
-    :availability-settings-form="availabilitySettingsForm"
-    :calendar-url="calendarUrl"
-    :calendarSettingsForm="calendarSettingsForm"
-    :event-matching-settings-form="eventMatchingSettingsForm"
-    :public-page-settings-form="publicPageSettingsForm"
-    :timezones="timezones"
-  />
-  <SettingsEventMatchingCard
-    :defaults="defaults"
-    :eventMatchingSettingsForm="eventMatchingSettingsForm"
-    :highlight-field-set="settings.highlight_identifier_definition_id !== null"
-    :bypass-field-set="settings.bypass_dnd_definition_id !== null"
-  />
-  <SettingsShareLinksCard
-    :highlight-definitions="identifierListDefinitions"
-    :bypass-definitions="booleanDefinitions"
-    :selected-highlight-id="settings.highlight_identifier_definition_id"
-    :selected-bypass-id="settings.bypass_dnd_definition_id"
-  />
-  <SettingsActivityLocalizationsCard :activity-localizations="activityLocalizations" />
-  <SettingsAvailabilityCard
-    :availability-settings-form="availabilitySettingsForm"
-    :calendar-settings-form="calendarSettingsForm"
-  />
-  <SettingsSleepExceptionsCard :sleep-exceptions="sleepExceptions" />
-  <SettingsPublicPageCard
-    :availability-settings-form="availabilitySettingsForm"
-    :calendar-settings-form="calendarSettingsForm"
-    :preview-availability="previewAvailability"
-    :public-page-settings-form="publicPageSettingsForm"
-  />
+  <!-- One card, like Connections: the tab bar inside it and one tab per settings section (each its own form). -->
+  <BCard class="mb-4">
+    <BTabs v-model="activeTab" pills no-fade content-class="pt-3">
+      <BTab :id="SETTINGS_TABS.calendar" title="Calendar">
+        <SettingsCalendarCard
+          v-model:preview-availability="previewAvailability"
+          :availability-settings-form="availabilitySettingsForm"
+          :calendar-url="calendarUrl"
+          :calendarSettingsForm="calendarSettingsForm"
+          :event-matching-settings-form="eventMatchingSettingsForm"
+          :public-page-settings-form="publicPageSettingsForm"
+          :timezones="timezones"
+        />
+      </BTab>
+
+      <BTab :id="SETTINGS_TABS.availability" title="Wake & sleep">
+        <SettingsAvailabilityCard
+          :availability-settings-form="availabilitySettingsForm"
+          :calendar-settings-form="calendarSettingsForm"
+        />
+      </BTab>
+
+      <BTab :id="SETTINGS_TABS.sleep">
+        <template #title>
+          Sleep exceptions
+          <BBadge variant="secondary" pill class="ms-1">{{ sleepExceptions.length }}</BBadge>
+        </template>
+        <SettingsSleepExceptionsCard :sleep-exceptions="sleepExceptions" />
+      </BTab>
+
+      <BTab :id="SETTINGS_TABS.matching" title="Event matching">
+        <SettingsEventMatchingCard
+          :defaults="defaults"
+          :eventMatchingSettingsForm="eventMatchingSettingsForm"
+          :highlight-field-set="settings.highlight_identifier_definition_id !== null"
+          :bypass-field-set="settings.bypass_dnd_definition_id !== null"
+        />
+      </BTab>
+
+      <BTab :id="SETTINGS_TABS.activities">
+        <template #title>
+          Activity labels
+          <BBadge variant="secondary" pill class="ms-1">{{ activityLocalizations.length }}</BBadge>
+        </template>
+        <SettingsActivityLocalizationsCard :activity-localizations="activityLocalizations" />
+      </BTab>
+
+      <BTab :id="SETTINGS_TABS.sharing" title="Share links">
+        <SettingsShareLinksCard
+          :highlight-definitions="identifierListDefinitions"
+          :bypass-definitions="booleanDefinitions"
+          :selected-highlight-id="settings.highlight_identifier_definition_id"
+          :selected-bypass-id="settings.bypass_dnd_definition_id"
+        />
+      </BTab>
+
+      <BTab :id="SETTINGS_TABS.vrchat" title="VRChat">
+        <SettingsVrchatCard :definitions="vrchatIdDefinitions" :sources="connectionSources" :vrcx="vrcx" />
+      </BTab>
+
+      <BTab :id="SETTINGS_TABS.public" title="Public page">
+        <SettingsPublicPageCard
+          :availability-settings-form="availabilitySettingsForm"
+          :calendar-settings-form="calendarSettingsForm"
+          :preview-availability="previewAvailability"
+          :public-page-settings-form="publicPageSettingsForm"
+        />
+      </BTab>
+    </BTabs>
+  </BCard>
 </template>

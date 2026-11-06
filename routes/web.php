@@ -21,6 +21,7 @@ use App\Http\Controllers\Dashboard\PasskeyController;
 use App\Http\Controllers\Dashboard\SettingsController;
 use App\Http\Controllers\Dashboard\SleepExceptionController;
 use App\Http\Controllers\Dashboard\VaultController;
+use App\Http\Controllers\Dashboard\VrcxController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InviteController;
 use App\Http\Controllers\ShareLinkController;
@@ -192,6 +193,16 @@ Route::middleware('auth')->group(function () {
     Route::patch('/settings/calendar-url', [SettingsController::class, 'updateCalendarUrl'])
         ->name('settings.calendar-url.update');
 
+    // VRChat (VRCX) connection: credentials + field choice, manual sync, and read-backs.
+    Route::patch('/settings/vrcx', [VrcxController::class, 'update'])->name('settings.vrcx.update');
+    Route::delete('/settings/vrcx', [VrcxController::class, 'destroy'])->name('settings.vrcx.destroy');
+    Route::post('/settings/vrcx/sync', [VrcxController::class, 'syncNow'])->name('settings.vrcx.sync');
+    Route::get('/dashboard/vrchat', [VrcxController::class, 'summary'])->name('dashboard.vrchat');
+    Route::post('/dashboard/vrchat/friends/claim', [VrcxController::class, 'claimFriends'])->name('dashboard.vrchat.friends.claim');
+    Route::post('/dashboard/vrchat/friends/complete', [VrcxController::class, 'completeFriends'])->name('dashboard.vrchat.friends.complete');
+    Route::get('/dashboard/connections/{connection}/vrchat/stays', [VrcxController::class, 'stays'])
+        ->name('dashboard.connections.vrchat.stays');
+
     Route::post('/settings/sleep-exceptions', [SleepExceptionController::class, 'store'])
         ->name('sleep-exceptions.store');
     Route::delete('/settings/sleep-exceptions/{sleepException}', [SleepExceptionController::class, 'destroy'])
@@ -255,6 +266,8 @@ Route::middleware('auth')->group(function () {
         ->name('dashboard.connection-attribute-definitions.store');
     Route::post('/dashboard/connection-attribute-definitions/{definition}/fill-identifiers', [ConnectionAttributeDefinitionController::class, 'fillIdentifiers'])
         ->name('dashboard.connection-attribute-definitions.fill-identifiers');
+    Route::post('/dashboard/connection-attribute-definitions/{definition}/convert-to-list', [ConnectionAttributeDefinitionController::class, 'convertToList'])
+        ->name('dashboard.connection-attribute-definitions.convert-to-list');
     Route::post('/dashboard/connection-attribute-definitions/{definition}/clear-values', [ConnectionAttributeDefinitionController::class, 'clearValues'])
         ->name('dashboard.connection-attribute-definitions.clear-values');
     Route::patch('/dashboard/connection-attribute-definitions/{definition}', [ConnectionAttributeDefinitionController::class, 'update'])

@@ -49,6 +49,9 @@ const emit = defineEmits<{
   add: [string, string, string[]];
   rename: [string, string];
   remove: [string];
+  convertToList: [string];
+  /** Create an identifier field with this name, then copy the text field (first id) into it. */
+  createIdentifierAndCopy: [string, string];
   copyToIdentifier: [string, string];
   sweepOrphans: [];
 }>();
@@ -61,6 +64,7 @@ const textDefinitions = computed(() => decryptedDefinitions.value.filter((d) => 
 const identifierDefinitions = computed(() => decryptedDefinitions.value.filter((d) => d.type === 'identifier'));
 const hasConnectionDefinitions = computed(() => props.definitions.some((d) => d.type === 'connection'));
 const copySourceId = ref('');
+const newIdentifierLabel = ref('');
 const copyTargetId = ref('');
 
 const filter = ref('');
@@ -126,6 +130,25 @@ async function confirmRemove(): Promise<void> {
 
   emit('remove', definition.id);
   selectedId.value = null;
+}
+
+/** One-way: there is deliberately no conversion back to a single identifier. */
+async function confirmConvertToList(): Promise<void> {
+  const definition = selected.value;
+  if (!definition || definition.label === undefined || definition.type !== 'identifier') return;
+
+  const used = props.usage[definition.id] ?? 0;
+
+  const confirmed = await requestConfirm({
+    title: `Turn “${definition.label}” into a list?`,
+    message: `${used > 0 ? `Each of the ${used} existing value${used === 1 ? '' : 's'} becomes a list with that one entry. ` : ''}`
+      + 'The field keeps its name and everything that uses it. This cannot be undone: a list can hold several entries, so it cannot be turned back into a single identifier.',
+    confirmText: 'Convert to list',
+    variant: 'primary',
+  });
+  if (!confirmed) return;
+
+  emit('convertToList', definition.id);
 }
 
 const showNewForm = ref(false);
@@ -222,7 +245,11 @@ function add(): void {
           </BFormGroup>
           <dl class="row small mb-3">
             <dt class="col-sm-3">Type</dt>
-            <dd class="col-sm-9">{{ TYPE_LABELS[selected.type] ?? selected.type }} <span class="text-muted">(fixed once created)</span></dd>
+            <dd class="col-sm-9">
+              {{ TYPE_LABELS[selected.type] ?? selected.type }}
+              <span v-if="selected.type === 'identifier'" class="text-muted">(can be converted to a list, one way only)</span>
+              <span v-else class="text-muted">(fixed once created)</span>
+            </dd>
             <template v-if="selected.type === 'radio'">
               <dt class="col-sm-3">Choices</dt>
               <dd class="col-sm-9">{{ selected.options.join(', ') }}</dd>
@@ -254,6 +281,17 @@ function add(): void {
           >
             Delete
           </BButton>
+          <BButton
+            v-if="selected.type === 'identifier'"
+            size="sm"
+            variant="outline-secondary"
+            class="ms-2"
+            :disabled="pending"
+            title="Turn this single identifier into a list of identifiers (cannot be undone)"
+            @click="confirmConvertToList"
+          >
+            Convert to list…
+          </BButton>
         </LockedOverlay>
         <p v-else class="text-muted">Select an attribute on the left to rename or delete it.</p>
       </div>
@@ -266,14 +304,15 @@ function add(): void {
       <span class="text-muted ms-1">Deleting a connection already does this; use it if a reference was left behind.</span>
     </div>
 
-    <template v-if="textDefinitions.length && identifierDefinitions.length">
+    <template v-if="textDefinitions.length">
       <hr>
       <h3 class="h6">Copy a text field into an identifier</h3>
       <p class="small text-muted mb-2">
         Decrypts the chosen text field in your browser and sends each value to the server in plaintext, for every
-        connection whose identifier is still empty. Existing identifiers are never overwritten, so it's safe to re-run.
+        connection whose identifier is still empty. The text field itself is left exactly as it is, and existing
+        identifiers are never overwritten, so it's safe to re-run.
       </p>
-      <div class="input-group input-group-sm mb-1">
+      <div v-if="identifierDefinitions.length" class="input-group input-group-sm mb-1">
         <BFormSelect v-model="copySourceId">
           <option value="" disabled>From (text)…</option>
           <option v-for="d in textDefinitions" :key="d.id" :value="d.id">{{ d.label }}</option>
@@ -290,6 +329,25 @@ function add(): void {
           Copy
         </BButton>
       </div>
+      <template v-else>
+        <p class="small mb-2">
+          You have no identifier field yet. Name one and it is created for you, then the text field is copied into it.
+        </p>
+        <div class="input-group input-group-sm mb-1">
+          <BFormSelect v-model="copySourceId">
+            <option value="" disabled>From (text)…</option>
+            <option v-for="d in textDefinitions" :key="d.id" :value="d.id">{{ d.label }}</option>
+          </BFormSelect>
+          <BFormInput v-model="newIdentifierLabel" type="text" placeholder="New identifier field name" />
+          <BButton
+            variant="outline-secondary"
+            :disabled="copyBusy || !copySourceId || !newIdentifierLabel.trim()"
+            @click="emit('createIdentifierAndCopy', copySourceId, newIdentifierLabel.trim())"
+          >
+            Create and copy
+          </BButton>
+        </div>
+      </template>
       <div v-if="copyStatus" class="small text-muted">{{ copyStatus }}</div>
     </template>
   </div>

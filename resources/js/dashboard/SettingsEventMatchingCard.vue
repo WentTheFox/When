@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** Settings.vue's "Event title matching rules" card — dnd/nap/work/school event-name patterns plus the highlight/activity/tentative/open-end/open-start regex fields, all part of the shared `form` Settings.vue owns and saves via its own submit(). */
-import { BAlert, BBadge, BButton, BCard, BFormGroup } from 'bootstrap-vue-next';
+import { BAlert, BBadge, BButton, BFormGroup } from 'bootstrap-vue-next';
 import { computed } from 'vue';
 import PatternPreviewPanel from './PatternPreviewPanel.vue';
 import type { PatternPreviewConfig } from './patternPreviewTypes';
@@ -12,7 +12,7 @@ import type { EventMatchingSettingsForm } from '../Pages/Dashboard/Settings.vue'
 const props = defineProps<{
   eventMatchingSettingsForm: EventMatchingSettingsForm;
   defaults: SettingsDefaults;
-  /** Whether the Highlight tokens / Bypass DND cards (below on this page) have a field selected — see their own header comments. */
+  /** Whether the Highlight tokens / Bypass DND fields (chosen in the Share links tab) have a field selected — see their own header comments. */
   highlightFieldSet: boolean;
   bypassFieldSet: boolean;
 }>();
@@ -125,7 +125,7 @@ function submit(): void {
 
 <template>
   <form @submit.prevent="submit">
-    <BCard class="mb-4">
+    <section>
         <h2 class="h5 mb-3">Event title matching rules</h2>
 
         <BAlert :model-value="true" variant="secondary" class="small">
@@ -267,7 +267,7 @@ function submit(): void {
           <div class="col-md-6">
             <BAlert v-if="!bypassFieldSet" :model-value="true" variant="warning" class="small py-1 px-2 mb-2">
               No bypass-DND field is selected, so no share link bypasses DND whatever this matches.
-              <a href="#bypass-dnd">Choose one below</a>.
+              <a href="#bypass-dnd">Choose one in Share links</a>.
             </BAlert>
             <BFormGroup label-for="dnd_event_pattern" class="mb-0">
               <template #label>DND event regular expression <BBadge variant="secondary" class="align-middle">Boolean</BBadge></template>
@@ -327,7 +327,7 @@ function submit(): void {
           <div class="col-md-6">
             <BAlert v-if="!highlightFieldSet" :model-value="true" variant="warning" class="small py-1 px-2 mb-2">
               No highlight-tokens field is selected, so nothing is highlighted for anyone and this has no effect.
-              <a href="#highlight-tokens">Choose one below</a>.
+              <a href="#highlight-tokens">Choose one in Share links</a>.
             </BAlert>
             <BFormGroup label-for="highlight_clause_pattern" class="mb-0">
               <template #label>Highlight regular expression <BBadge variant="info" text="dark" class="align-middle">Capture</BBadge></template>
@@ -368,7 +368,7 @@ function submit(): void {
           <div class="col-md-6">
             <BAlert v-if="!highlightFieldSet" :model-value="true" variant="warning" class="small py-1 px-2 mb-2">
               No highlight-tokens field is selected, so nothing is highlighted for anyone and this has no effect.
-              <a href="#highlight-tokens">Choose one below</a>.
+              <a href="#highlight-tokens">Choose one in Share links</a>.
             </BAlert>
             <BFormGroup label-for="highlight_split_pattern" class="mb-0">
               <template #label>Highlight name-split expression <BBadge variant="primary" class="align-middle">Split</BBadge></template>
@@ -598,10 +598,10 @@ function submit(): void {
           </div>
         </div>
 
-      <template #footer>
+      <div class="border-top pt-3 mt-3">
         <BButton type="submit" variant="primary" :disabled="eventMatchingSettingsForm.processing">Save settings</BButton>
         <BButton variant="outline-secondary" class="ms-2" @click="eventMatchingSettingsForm.reset(...EVENT_MATCHING_FIELDS)">Reset</BButton>
-      </template>
-    </BCard>
+      </div>
+    </section>
   </form>
 </template>

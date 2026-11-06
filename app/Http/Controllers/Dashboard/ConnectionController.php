@@ -8,7 +8,9 @@ use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionAttributeValue;
 use App\Models\ShareLink;
 use App\Services\Calendar\HighlightWordsResolver;
+use App\Services\Vrcx\VrcxSyncService;
 use App\Support\FieldFeatures;
+use App\Support\ListMerge;
 use App\Support\SortOrder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -35,9 +37,14 @@ use Inertia\Response;
  */
 class ConnectionController extends Controller
 {
+    public function __construct(private readonly VrcxSyncService $vrcx) {}
+
     public function index(Request $request): Response
     {
         $user = $request->user();
+
+        // Stale VRChat data is refreshed in the background; this load shows what is cached.
+        $this->vrcx->maybeQueue($user);
 
         return Inertia::render('Dashboard/Connections', [
             'connections' => $user->connections()->with(['attributeValues', 'sources', 'shareLink'])->ordered()->get([
@@ -49,6 +56,8 @@ class ConnectionController extends Controller
             // Fields that site features depend on (field id => feature labels): those can't be deleted.
             'fieldFeatures' => (object) FieldFeatures::forUser($user),
             'edges' => $user->connectionEdges()->get(['id', 'from_connection_id', 'to_connection_id']),
+            // §0.2 tier (server-readable): cached VRChat names/pictures and time together.
+            'vrchat' => $this->vrcx->summary($user),
         ]);
     }
 
@@ -74,9 +83,12 @@ class ConnectionController extends Controller
             return $connection;
         });
 
+        // A VRChat id entered on this save is looked up now, outside the transaction (it waits on VRCX).
+        $this->vrcx->syncConnection($request->user(), $connection);
+
         $connection->refresh();
 
-        return response()->json($this->serialize($connection), 201);
+        return response()->json($this->serialize($connection) + ['vrchat_profiles' => $this->vrcx->profilesFor($connection->id)], 201);
     }
 
     public function update(Request $request, string $connection): JsonResponse
@@ -102,10 +114,14 @@ class ConnectionController extends Controller
             }
         });
 
+        if (array_key_exists('attribute_values', $data)) {
+            $this->vrcx->syncConnection($request->user(), $connection);
+        }
+
         $connection->refresh();
         $this->invalidateIfHighlightsChanged($request, $connection, $highlightBefore);
 
-        return response()->json($this->serialize($connection));
+        return response()->json($this->serialize($connection) + ['vrchat_profiles' => $this->vrcx->profilesFor($connection->id)]);
     }
 
     /**
@@ -230,6 +246,9 @@ class ConnectionController extends Controller
             'attribute_values.*.boolean_value' => ['nullable', 'boolean'],
             'attribute_values.*.identifier_list_value' => ['nullable', 'array', 'max:500'],
             'attribute_values.*.identifier_list_value.*' => ['nullable', 'string', 'max:1000'],
+            // What the client's copy of that list looked like when it loaded; see ListMerge. Optional: without it the list is replaced.
+            'attribute_values.*.identifier_list_base' => ['nullable', 'array', 'max:500'],
+            'attribute_values.*.identifier_list_base.*' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $this->assertValueShapesMatchDefinitions($data['attribute_values'] ?? [], $userId);
@@ -283,16 +302,32 @@ class ConnectionController extends Controller
             return;
         }
 
+        $existing = $connection->attributeValues()->lockForUpdate()->get()->keyBy('attribute_definition_id');
+
         $connection->attributeValues()->delete();
 
         foreach ($attributeValues as $value) {
+            $list = isset($value['identifier_list_value']) ? HighlightWordsResolver::normalize($value['identifier_list_value']) : null;
+
+            // A list saved from a page that may be out of date is merged with what is stored now,
+            // so tokens added since that page loaded (the VRChat name, a linked friend) survive.
+            if ($list !== null && isset($value['identifier_list_base'])) {
+                $current = HighlightWordsResolver::normalize($existing->get($value['attribute_definition_id'])?->identifier_list_value);
+                $list = ListMerge::threeWay($current, HighlightWordsResolver::normalize($value['identifier_list_base']), $list);
+
+                // Nothing left on either side: no value to keep.
+                if ($list === []) {
+                    continue;
+                }
+            }
+
             ConnectionAttributeValue::create([
                 'connection_id' => $connection->id,
                 'attribute_definition_id' => $value['attribute_definition_id'],
                 'value_ciphertext' => $value['value_ciphertext'] ?? null,
                 'identifier_value' => $value['identifier_value'] ?? null,
                 'boolean_value' => $value['boolean_value'] ?? null,
-                'identifier_list_value' => isset($value['identifier_list_value']) ? HighlightWordsResolver::normalize($value['identifier_list_value']) : null,
+                'identifier_list_value' => $list,
             ]);
         }
     }

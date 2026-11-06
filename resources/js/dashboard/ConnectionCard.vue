@@ -16,6 +16,8 @@ import EncryptedInput from '../Components/EncryptedInput.vue';
 import RadioChoices from '../Components/RadioChoices.vue';
 import EncryptedText from '../Components/EncryptedText.vue';
 import ConnectionSharing, { type ShareLinkInfo } from './ConnectionSharing.vue';
+import ConnectionVrchat from './ConnectionVrchat.vue';
+import type { VrchatProfile, VrchatSummary } from './vrchat';
 import { requestConfirm } from './confirmModal';
 import { bindField } from './fieldBinding';
 import { onVaultUnlocked } from './onVaultUnlocked';
@@ -44,6 +46,8 @@ export interface ConnectionRow {
   share_link: ShareLinkInfo | null;
   archived: boolean;
   attribute_values: AttributeValue[];
+  /** Present on the response to a save: the VRChat accounts fetched as part of it. */
+  vrchat_profiles?: VrchatProfile[];
 }
 
 export interface EdgeRow {
@@ -58,6 +62,9 @@ const props = defineProps<{
   attributeDefinitions: { id: string; label: string; type: string; options: string[] }[];
   edges: EdgeRow[];
   connectionOptions: { id: string; label: string }[];
+  /** Linked VRChat accounts with cached profile and time together (§0.2 tier, not E2EE). */
+  vrchatProfiles?: VrchatProfile[];
+  vrchatSyncedAt?: string | null;
 }>();
 const emit = defineEmits<{
   updated: [ConnectionRow];
@@ -66,6 +73,7 @@ const emit = defineEmits<{
   deleted: [string];
   addEdge: [string, string];
   removeEdge: [string];
+  vrchatSynced: [VrchatSummary];
 }>();
 
 const { getRecordKey, vaultUnlocked } = useVault();
@@ -249,6 +257,11 @@ function rawCiphertext(definitionId: string): string | null {
   return props.connection.attribute_values.find((v) => v.attribute_definition_id === definitionId)?.value_ciphertext ?? null;
 }
 
+/** A list field is edited as one entry per line. */
+function splitLines(value: string | undefined): string[] {
+  return (value ?? '').split('\n').map((v) => v.trim()).filter(Boolean);
+}
+
 async function save(): Promise<void> {
   // Belt and braces: the encrypted fields are disabled until decrypted anyway.
   if (!decrypted.value) return;
@@ -261,20 +274,28 @@ async function save(): Promise<void> {
       value_ciphertext?: string;
       identifier_value?: string;
       identifier_list_value?: string[];
+      /** The list as this form loaded it: lets the server keep whatever it added since (see ListMerge). */
+      identifier_list_base?: string[];
       boolean_value?: boolean;
     }[] = [];
     for (const definition of props.attributeDefinitions) {
+      if (definition.type === 'identifier_list') {
+        // §0.2 tier on purpose, same as identifier: plaintext on the wire, app-key encrypted at rest.
+        // Always sent, even empty: the server merges against what it holds now, so tokens it added after
+        // this page loaded (a VRChat name) aren't wiped by a save from a stale page.
+        values.push({
+          attribute_definition_id: definition.id,
+          identifier_list_value: splitLines(editAttributeValues.value[definition.id]),
+          identifier_list_base: splitLines(attributeValues.value[definition.id]),
+        });
+        continue;
+      }
+
       const value = editAttributeValues.value[definition.id];
       if (!value) continue;
       if (definition.type === 'boolean') {
         // §0.2 tier on purpose, like identifier: plaintext on the wire, app-key encrypted at rest.
         values.push({ attribute_definition_id: definition.id, boolean_value: value === 'true' });
-        continue;
-      }
-      if (definition.type === 'identifier_list') {
-        // §0.2 tier on purpose, same as identifier: plaintext on the wire, app-key encrypted at rest.
-        const list = value.split('\n').map((v) => v.trim()).filter(Boolean);
-        if (list.length) values.push({ attribute_definition_id: definition.id, identifier_list_value: list });
         continue;
       }
       values.push(
@@ -387,6 +408,14 @@ async function remove(): Promise<void> {
         :connection-id="connection.id"
         :share-link="connection.share_link"
         @changed="onShareLinkChanged"
+      />
+    </BFormGroup>
+    <BFormGroup v-if="vrchatProfiles?.length" label="VRChat" class="mb-3">
+      <ConnectionVrchat
+        :connection-id="connection.id"
+        :profiles="vrchatProfiles"
+        :synced-at="vrchatSyncedAt ?? null"
+        @synced="emit('vrchatSynced', $event)"
       />
     </BFormGroup>
     <BFormGroup v-for="definition in attributeDefinitions" :key="definition.id" :label="definition.label" class="mb-3">

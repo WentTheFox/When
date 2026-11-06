@@ -3,6 +3,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import { BCard } from 'bootstrap-vue-next';
 import AvailabilityStats from '../../dashboard/AvailabilityStats.vue';
 import ConnectionsGraph from '../../dashboard/ConnectionsGraph.vue';
+import PageHeader from '../../Components/PageHeader.vue';
 import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 
 defineOptions({ layout: DashboardLayout });
@@ -33,7 +34,7 @@ function languageName(code: string): string {
 <template>
   <Head title="Dashboard" />
 
-  <h1 class="h3 mb-4">Welcome, {{ userName }}</h1>
+  <PageHeader :title="`Welcome, ${userName}`" subtitle="Your share links, connections and availability at a glance." />
 
   <div v-if="unsupportedVisitorLocales.length" class="alert alert-danger">
     <h2 class="h6 mb-2">Visitors are using languages this app doesn't support yet</h2>
