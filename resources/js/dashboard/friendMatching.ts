@@ -57,19 +57,96 @@ export function holdsOtherId(identifierValue: string | null | undefined, vrchatI
   return current !== '' && current !== vrchatId.trim().toLowerCase();
 }
 
-/** A friend the owner has to place by hand: several connections match, or the one that matches can't take another id as it is. */
-export interface ReviewItem {
-  /** The server's id for the pending friend (not the VRChat id). */
-  friendId: string;
-  vrchatId: string;
-  name: string;
-  candidates: { id: string; name: string; /** Holds a different id in a single-identifier field. */ conflict: boolean }[];
+/**
+ * What a pending friend starts on: the connection that matched exactly when there is
+ * just one, otherwise a new connection. Lower-confidence guesses (possibleMatches)
+ * are never the default, and neither is picking one of several matches.
+ */
+export function defaultFriendChoice(exactMatchIds: readonly string[]): 'new' | string {
+  return exactMatchIds.length === 1 ? exactMatchIds[0] : 'new';
 }
 
-/** 'new' creates a connection, 'skip' leaves the friend out for good, anything else is the id of the connection to add them to. */
-export type ReviewChoice = 'new' | 'skip' | string;
+export interface PossibleMatch {
+  /** The connection that might be the same person. */
+  id: string;
+  /** The name or highlight token that looked alike. */
+  via: string;
+  reason: 'word' | 'prefix' | 'similar';
+  /** What they have in common, for the owner to judge ("aerie"). */
+  detail: string;
+  score: number;
+}
 
-/** Whether applying these choices maps someone onto a connection that holds another id, i.e. needs identifier -> list. */
-export function needsListConversion(items: readonly ReviewItem[], choices: Readonly<Record<string, ReviewChoice>>): boolean {
-  return items.some((item) => item.candidates.some((c) => c.conflict && choices[item.friendId] === c.id));
+/** Words of a name, split on punctuation, spaces and camelCase humps: "AerieBerry" gives aerie, berry. Short words are noise. */
+function wordsOf(value: string): string[] {
+  return value
+    .normalize('NFKC')
+    .replace(/(\p{Ll})(\p{Lu})/gu, '$1 $2')
+    .split(/[^\p{L}\p{N}]+/u)
+    .map((w) => w.toLowerCase())
+    .filter((w) => w.length >= 4);
+}
+
+function levenshtein(a: string, b: string): number {
+  const row = Array.from({ length: b.length + 1 }, (_, j) => j);
+
+  for (let i = 1; i <= a.length; i++) {
+    let diagonal = row[0];
+    row[0] = i;
+
+    for (let j = 1; j <= b.length; j++) {
+      const above = row[j];
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, diagonal + (a[i - 1] === b[j - 1] ? 0 : 1));
+      diagonal = above;
+    }
+  }
+
+  return row[b.length];
+}
+
+function compareNames(wanted: string, other: string): Omit<PossibleMatch, 'id' | 'via'> | null {
+  const a = normalizeName(wanted).replace(/\s+/g, '');
+  const b = normalizeName(other).replace(/\s+/g, '');
+  if (a === '' || b === '' || a === b) return null;
+
+  const shared = wordsOf(wanted).find((w) => wordsOf(other).includes(w));
+  if (shared) return { reason: 'word', detail: shared, score: 0.8 + Math.min(shared.length, 10) / 100 };
+
+  let prefix = 0;
+  while (prefix < a.length && prefix < b.length && a[prefix] === b[prefix]) prefix++;
+  if (prefix >= 5 && prefix >= Math.min(a.length, b.length) * 0.6) return { reason: 'prefix', detail: a.slice(0, prefix), score: 0.7 + prefix / 100 };
+
+  const similarity = 1 - levenshtein(a, b) / Math.max(a.length, b.length);
+  if (Math.min(a.length, b.length) >= 5 && similarity >= 0.7) return { reason: 'similar', detail: `${Math.round(similarity * 100)}% alike`, score: similarity * 0.7 };
+
+  return null;
+}
+
+/**
+ * Lower-confidence guesses for a friend with no exact match, e.g. a renamed account
+ * (a connection whose token is the old name "AerieHusky" for a friend now called
+ * "AerieBerry" shares the word "aerie"). They are only ever offered as hints the owner
+ * can pick; never preselected. Best first, at most `limit`.
+ */
+export function possibleMatches(displayName: string | null, candidates: readonly MatchCandidate[], limit = 3): PossibleMatch[] {
+  const wanted = (displayName ?? '').trim();
+  if (wanted === '') return [];
+
+  const found: PossibleMatch[] = [];
+
+  for (const candidate of candidates) {
+    // An exact match (by name or token) belongs to matchFriend, not to the guesses.
+    if ([candidate.name, ...candidate.tokens].some((value) => normalizeName(value) === normalizeName(wanted))) continue;
+
+    let best: PossibleMatch | null = null;
+
+    for (const via of [candidate.name, ...candidate.tokens]) {
+      const result = via ? compareNames(wanted, via) : null;
+      if (result && (best === null || result.score > best.score)) best = { id: candidate.id, via, ...result };
+    }
+
+    if (best) found.push(best);
+  }
+
+  return found.sort((a, b) => b.score - a.score || a.via.localeCompare(b.via)).slice(0, limit);
 }

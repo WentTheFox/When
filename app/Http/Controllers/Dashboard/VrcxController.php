@@ -11,7 +11,6 @@ use App\Services\Vrcx\VrcxSyncService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -23,9 +22,6 @@ use Illuminate\Validation\ValidationException;
  */
 class VrcxController extends Controller
 {
-    /** How long a claim that is never reported on holds a friend back from other tabs. */
-    private const CLAIM_MINUTES = 3;
-
     public function __construct(private readonly VrcxSyncService $sync) {}
 
     public function update(Request $request): RedirectResponse
@@ -107,77 +103,52 @@ class VrcxController extends Controller
     }
 
     /**
-     * Hands the browser the friends it should create connections for. The
-     * browser must do it: a connection's name is encrypted with a key only the
-     * unlocked vault holds. A claim only covers the moments the browser is actually
-     * acting on a friend (so a second open tab doesn't make duplicates); the
-     * browser hands back whatever it did not finish (see completeFriends'
-     * `released`), and a claim it never reports on lapses after a few minutes. A
-     * friend nobody has dealt with is therefore offered again on every page load.
-     * `exclude` lists the friends this page load has already been offered, so it
-     * isn't handed the same ones twice.
+     * The friends waiting for the owner: VRChat friends that have no connection
+     * yet. They stay here, across page loads, until the owner acts on each (a new
+     * connection, added to an existing one, or dismissed): nothing is created
+     * behind their back, and a connection's name is encrypted by the browser, so
+     * the browser does the creating when told to.
      */
-    public function claimFriends(Request $request): JsonResponse
+    public function pendingFriends(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'exclude' => ['sometimes', 'array', 'max:1000'],
-            'exclude.*' => ['uuid'],
-        ]);
-
         /** @var User $user */
         $user = $request->user();
 
         if (! $user->vrcx_auto_create_friends || $user->vrchat_user_id_definition_id === null) {
-            return response()->json(['friends' => []]);
+            return response()->json(['friends' => [], 'source_id' => null]);
         }
 
-        $friends = DB::transaction(function () use ($user, $data) {
-            $rows = VrchatFriend::where('user_id', $user->id)
-                ->where('status', VrchatFriend::PENDING)
-                ->where(fn ($q) => $q->whereNull('claimed_at')->orWhere('claimed_at', '<', now()->subMinutes(self::CLAIM_MINUTES)))
-                ->whereNotIn('id', $data['exclude'] ?? [])
-                ->orderBy('created_at')
-                ->limit(50)
-                ->lockForUpdate()
-                ->get();
+        $friends = VrchatFriend::where('user_id', $user->id)->where('status', VrchatFriend::PENDING)->get()
+            // Names are encrypted at rest, so the order is made here rather than by the database.
+            ->sortBy(fn (VrchatFriend $f) => mb_strtolower((string) ($f->display_name ?? $f->vrchat_user_id)))
+            ->map(fn (VrchatFriend $f) => [
+                'id' => $f->id,
+                'vrchat_user_id' => $f->vrchat_user_id,
+                'display_name' => $f->display_name,
+                'picture_url' => $f->profile_picture_url,
+            ])->values();
 
-            foreach ($rows as $row) {
-                $row->update(['claimed_at' => now()]);
-            }
-
-            return $rows;
-        });
-
-        return response()->json(['friends' => $friends->map(fn ($f) => [
-            'id' => $f->id,
-            'vrchat_user_id' => $f->vrchat_user_id,
-            'display_name' => $f->display_name,
-        ])->values(), 'source_id' => $user->vrcx_friends_source_id]);
+        return response()->json(['friends' => $friends, 'source_id' => $user->vrcx_friends_source_id]);
     }
 
     /**
-     * The browser dealt with these friends: `ids` got a connection (created, or
-     * linked to an existing one); `skipped` are left out for good; `released` were
-     * not finished (they await a decision, or failed) and go back to being offered
-     * on the next page load.
+     * The owner dealt with these friends: `ids` got a connection (created, or added
+     * to an existing one); `skipped` are dismissed for good. Anyone not mentioned
+     * stays pending.
      */
     public function completeFriends(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'ids' => ['present', 'array', 'max:50'],
+            'ids' => ['present', 'array', 'max:500'],
             'ids.*' => ['uuid'],
-            'skipped' => ['sometimes', 'array', 'max:50'],
+            'skipped' => ['sometimes', 'array', 'max:500'],
             'skipped.*' => ['uuid'],
-            'released' => ['sometimes', 'array', 'max:50'],
-            'released.*' => ['uuid'],
         ]);
 
         $pending = fn () => VrchatFriend::where('user_id', $request->user()->id)->where('status', VrchatFriend::PENDING);
 
-        $done = $pending()->whereIn('id', $data['ids'])->update(['status' => VrchatFriend::CREATED, 'claimed_at' => null]);
-        $pending()->whereIn('id', $data['skipped'] ?? [])->update(['status' => VrchatFriend::DISMISSED, 'claimed_at' => null]);
-
-        $pending()->whereIn('id', $data['released'] ?? [])->update(['claimed_at' => null]);
+        $done = $pending()->whereIn('id', $data['ids'])->update(['status' => VrchatFriend::CREATED]);
+        $pending()->whereIn('id', $data['skipped'] ?? [])->update(['status' => VrchatFriend::DISMISSED]);
 
         return response()->json(['completed' => $done]);
     }

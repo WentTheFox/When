@@ -9,10 +9,9 @@ use Illuminate\Support\Carbon;
 
 /**
  * A VRChat friend the VRCX sync has seen (§0.2 tier, APP_KEY-encrypted at
- * rest; vrchat_user_id_hash is the lookup key). status: 'pending' = the
- * browser should link them to a matching connection or create one, 'created'
- * = they have a connection, 'dismissed' = they matched several connections and
- * are left for the owner to sort out.
+ * rest; vrchat_user_id_hash is the lookup key). status: 'pending' = waiting
+ * for the owner (shown on the Connections page until they act), 'created' = they
+ * have a connection, 'dismissed' = the owner chose not to add them.
  *
  * @property string $id
  * @property string $user_id
@@ -21,7 +20,6 @@ use Illuminate\Support\Carbon;
  * @property string|null $display_name
  * @property string|null $profile_picture_url
  * @property string $status
- * @property Carbon|null $claimed_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read User|null $user
@@ -59,7 +57,6 @@ class VrchatFriend extends Model
         'display_name',
         'profile_picture_url',
         'status',
-        'claimed_at',
     ];
 
     protected function casts(): array
@@ -68,7 +65,6 @@ class VrchatFriend extends Model
             'vrchat_user_id' => 'encrypted',
             'display_name' => 'encrypted',
             'profile_picture_url' => 'encrypted',
-            'claimed_at' => 'datetime',
         ];
     }
 

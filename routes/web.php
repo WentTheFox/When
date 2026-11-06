@@ -198,7 +198,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/settings/vrcx', [VrcxController::class, 'destroy'])->name('settings.vrcx.destroy');
     Route::post('/settings/vrcx/sync', [VrcxController::class, 'syncNow'])->name('settings.vrcx.sync');
     Route::get('/dashboard/vrchat', [VrcxController::class, 'summary'])->name('dashboard.vrchat');
-    Route::post('/dashboard/vrchat/friends/claim', [VrcxController::class, 'claimFriends'])->name('dashboard.vrchat.friends.claim');
+    Route::get('/dashboard/vrchat/friends', [VrcxController::class, 'pendingFriends'])->name('dashboard.vrchat.friends');
     Route::post('/dashboard/vrchat/friends/complete', [VrcxController::class, 'completeFriends'])->name('dashboard.vrchat.friends.complete');
     Route::get('/dashboard/connections/{connection}/vrchat/stays', [VrcxController::class, 'stays'])
         ->name('dashboard.connections.vrchat.stays');

@@ -178,16 +178,14 @@ const syncedAt = computed(() => (props.vrcx.synced_at ? new Date(props.vrcx.sync
 
         <div id="vrchat-friends" class="mb-3" style="max-width: 36rem;">
           <BFormCheckbox v-model="form.vrcx_auto_create_friends" :disabled="!form.vrchat_user_id_definition_id">
-            Create a connection for each new VRChat friend
+            List VRChat friends who have no connection yet
           </BFormCheckbox>
           <div class="form-text">
-            Every VRChat friend without a connection gets one, existing friends included: named after their VRChat name,
-            with their ID in the field above. Before creating one, your browser looks for a connection you already have
-            with the same name (or the same highlight token) and adds the ID to that one instead. When a friend matches
-            several connections, or one that already has a different VRChat ID, you are asked where they should go (a
-            single identifier field is turned into an identifier list if you add a second ID to someone). Needs the <code>friends:read</code> scope. Your browser does this (names
-            are end-to-end encrypted), so it happens the next time you open Connections with your vault unlocked, and new
-            connections are marked and listed first for that visit.
+            Every VRChat friend without a connection (existing friends included) is listed on the Connections page and stays
+            there until you deal with it: create a connection named after them with their ID in the field above, add the ID to a
+            connection you already have, or dismiss them. Each friend comes with a suggestion, found by matching their VRChat name
+            against your connections' names and highlight tokens. Needs the <code>friends:read</code> scope. Names are end-to-end
+            encrypted, so your browser does the matching and creating: unlock your vault on the Connections page to act on the list.
           </div>
           <div v-if="form.errors.vrcx_auto_create_friends" class="text-danger small">{{ form.errors.vrcx_auto_create_friends }}</div>
           <BFormGroup v-if="form.vrcx_auto_create_friends" label="Source for these connections" description="Tied to each connection when it is first created; you can change it on the connection afterwards." class="mt-2" style="max-width: 28rem;">

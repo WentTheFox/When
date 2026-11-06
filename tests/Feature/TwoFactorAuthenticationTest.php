@@ -54,7 +54,7 @@ class TwoFactorAuthenticationTest extends TestCase
         $code = (new Google2FA)->getCurrentOtp($user->two_factor_secret);
         $response = $this->post('/two-factor-challenge', ['code' => $code]);
 
-        $response->assertCookie($this->app["auth"]->guard()->getRecallerName());
+        $response->assertCookie($this->app['auth']->guard()->getRecallerName());
     }
 
     public function test_correct_totp_code_completes_login(): void
