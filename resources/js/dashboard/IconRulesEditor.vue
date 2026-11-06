@@ -274,7 +274,7 @@ function discard(): void {
       </BFormCheckbox>
 
       <div class="d-flex gap-2">
-        <BButton size="sm" variant="outline-primary" :disabled="readOnly || draft.rules.length >= MAX_RULES_PER_FIELD" @click="addRule">Add rule</BButton>
+        <BButton size="sm" variant="outline-secondary" :disabled="readOnly || draft.rules.length >= MAX_RULES_PER_FIELD" @click="addRule">Add rule</BButton>
         <BButton size="sm" variant="primary" :disabled="readOnly || !dirty || !complete" @click="save">Save rules</BButton>
         <BButton v-if="dirty" size="sm" variant="outline-secondary" @click="discard">Discard changes</BButton>
       </div>

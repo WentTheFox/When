@@ -151,7 +151,7 @@ const syncedAt = computed(() => (props.discord.synced_at ? new Date(props.discor
           <BButton size="sm" variant="outline-secondary" :disabled="syncing || !hasField || form.isDirty" :title="!hasField ? 'Choose and save the Discord user ID field first' : form.isDirty ? 'Save the field first' : undefined" @click="syncNow">
             {{ syncing ? 'Syncing…' : 'Sync now' }}
           </BButton>
-          <BButton size="sm" variant="outline-primary" href="/settings/discord/connect">Reconnect</BButton>
+          <BButton size="sm" variant="outline-secondary" href="/settings/discord/connect">Reconnect</BButton>
           <BButton size="sm" variant="outline-danger" @click="disconnect">Disconnect</BButton>
           <span v-if="syncedAt" class="small text-muted">Last synced {{ syncedAt }}</span>
         </template>
