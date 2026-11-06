@@ -608,6 +608,41 @@ class DiscordIntegrationTest extends TestCase
         Http::assertNotSent(fn (Request $r) => str_contains($r->header('Authorization')[0] ?? '', self::ACCESS));
     }
 
+    public function test_saving_a_connection_with_a_discord_id_looks_it_up_in_the_same_response(): void
+    {
+        config(['services.discord.bot_token' => self::BOT]);
+        $user = $this->owner(connected: false);
+        $connection = $this->connectionWith($user, self::NEW);
+        $this->fakeLookup(self::NEW);
+
+        $response = $this->actingAs($user)->patchJson("/dashboard/connections/{$connection->id}", [
+            'attribute_values' => [[
+                'attribute_definition_id' => $user->discord_user_id_definition_id,
+                'identifier_list_value' => [self::NEW],
+            ]],
+        ])->assertOk();
+
+        $this->assertTrue($response->json('discord_profiles.0.known'));
+        $this->assertSame('plumfinch', $response->json('discord_profiles.0.username'));
+    }
+
+    public function test_saving_a_discord_id_without_a_bot_token_returns_a_placeholder(): void
+    {
+        config(['services.discord.bot_token' => null]);
+        $user = $this->owner(connected: false);
+        $connection = $this->connectionWith($user, self::NEW);
+
+        $response = $this->actingAs($user)->patchJson("/dashboard/connections/{$connection->id}", [
+            'attribute_values' => [[
+                'attribute_definition_id' => $user->discord_user_id_definition_id,
+                'identifier_list_value' => [self::NEW],
+            ]],
+        ])->assertOk();
+
+        $this->assertFalse($response->json('discord_profiles.0.known'));
+        $this->assertSame(self::NEW, $response->json('discord_profiles.0.discord_user_id'));
+    }
+
     public function test_a_looked_up_person_never_appears_in_the_pending_list_even_when_connected(): void
     {
         config(['services.discord.bot_token' => self::BOT]);
