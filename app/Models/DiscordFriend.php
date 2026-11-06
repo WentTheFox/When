@@ -11,7 +11,7 @@ use Illuminate\Support\Carbon;
  * A Discord friend the sync has seen (§0.2 tier, APP_KEY-encrypted at rest;
  * discord_user_id_hash is the lookup key). status: 'pending' = waiting for the
  * owner, 'created' = they have a connection, 'dismissed' = the owner chose not
- * to add them.
+ * to add them, 'blocked' = blocked on Discord, 'lookup' = looked up by id only.
  *
  * @property string $id
  * @property string $user_id
@@ -52,6 +52,9 @@ class DiscordFriend extends Model
     public const CREATED = 'created';
 
     public const DISMISSED = 'dismissed';
+
+    /** Someone the owner has blocked on Discord (seen by the sync). Never listed as pending. */
+    public const BLOCKED = 'blocked';
 
     /** Not a friend: looked up by id for a connection's Discord card. Never listed as pending. */
     public const LOOKUP = 'lookup';

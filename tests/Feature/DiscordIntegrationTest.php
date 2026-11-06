@@ -80,15 +80,17 @@ class DiscordIntegrationTest extends TestCase
     }
 
     /** @param list<string> $ids */
-    private function fakeFriends(array $ids): void
+    private function fakeFriends(array $ids, bool $withBlocked = false): void
     {
         $rows = array_map(fn ($id) => [
             'id' => '1', 'type' => 1, 'nickname' => $id === self::NEW ? 'Nick' : null, 'user_ignored' => false,
             'user' => ['id' => $id, 'username' => 'user'.substr($id, -2), 'global_name' => 'Friend '.substr($id, -2), 'avatar' => 'abc'],
         ], $ids);
 
-        // Other relationship types (blocked 2, incoming request 3, outgoing request 4) are never imported.
-        $rows[] = ['id' => '9', 'type' => 2, 'user' => ['id' => '100000000000000099', 'username' => 'blocked', 'global_name' => null, 'avatar' => null]];
+        // Blocked users (2) are remembered as 'blocked'; incoming/outgoing requests (3, 4) are never imported.
+        if ($withBlocked) {
+            $rows[] = ['id' => '9', 'type' => 2, 'user' => ['id' => '100000000000000099', 'username' => 'blocked', 'global_name' => null, 'avatar' => null]];
+        }
         $rows[] = ['id' => '8', 'type' => 3, 'user' => ['id' => '100000000000000098', 'username' => 'incoming', 'global_name' => null, 'avatar' => null]];
 
         Http::swap($factory = new Factory);
@@ -115,14 +117,27 @@ class DiscordIntegrationTest extends TestCase
         Http::assertSent(fn (Request $r) => $r->hasHeader('Authorization', 'Bearer '.self::ACCESS));
     }
 
-    public function test_only_mutual_friends_are_imported(): void
+    public function test_only_friends_and_blocked_users_are_imported_and_blocked_are_never_pending(): void
     {
         $user = $this->owner();
-        $this->fakeFriends([self::OLD]);
+        $this->fakeFriends([self::OLD], withBlocked: true);
 
         app(DiscordSyncService::class)->sync($user);
 
-        $this->assertSame([self::OLD], array_map('strval', array_keys($this->statuses($user))));
+        $this->assertSame([self::OLD => 'pending', '100000000000000099' => 'blocked'], $this->statuses($user));
+    }
+
+    public function test_an_unblocked_user_drops_to_a_lookup_row_and_nothing_is_deleted(): void
+    {
+        $user = $this->owner();
+        $this->fakeFriends([self::OLD], withBlocked: true);
+        app(DiscordSyncService::class)->sync($user);
+
+        Http::swap($factory = new Factory);
+        $factory->fake(['discord.com/api/v10/users/@me/relationships' => Http::response([])]);
+        app(DiscordSyncService::class)->sync($user);
+
+        $this->assertSame('lookup', $this->statuses($user)['100000000000000099']);
     }
 
     public function test_a_discord_id_learned_through_vrcx_counts_as_linked(): void
