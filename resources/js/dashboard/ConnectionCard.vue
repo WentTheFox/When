@@ -13,6 +13,7 @@ import {
 import { computed, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../crypto';
 import CountrySelect from '../Components/CountrySelect.vue';
+import SearchableSelect from '../Components/SearchableSelect.vue';
 import EncryptedInput from '../Components/EncryptedInput.vue';
 import RadioChoices from '../Components/RadioChoices.vue';
 import EncryptedText from '../Components/EncryptedText.vue';
@@ -425,9 +426,12 @@ async function remove(): Promise<void> {
       </div>
       <div class="col-md-6">
         <BFormGroup label="Sources" class="mb-3">
-          <BFormSelect v-model="editSourceIds" multiple size="sm">
-            <option v-for="source in sortedSources" :key="source.id" :value="source.id">{{ source.label }}</option>
-          </BFormSelect>
+          <SearchableSelect
+            v-model="editSourceIds"
+            multiple
+            placeholder="(none)"
+            :options="sortedSources.map((source) => ({ value: source.id, text: source.label }))"
+          />
         </BFormGroup>
       </div>
     </div>
@@ -479,15 +483,12 @@ async function remove(): Promise<void> {
         :locale="pageLocale"
         :disabled="!decrypted"
       />
-      <BFormSelect
+      <SearchableSelect
         v-else-if="definition.type === 'connection'"
         v-bind="fieldBinding(definition.id)"
-        size="sm"
+        :options="[{ value: '', text: '(none)' }, ...relatableConnections.map((c) => ({ value: c.id, text: c.label }))]"
         :disabled="!decrypted"
-      >
-        <option value="">(none)</option>
-        <option v-for="c in relatableConnections" :key="c.id" :value="c.id">{{ c.label }}</option>
-      </BFormSelect>
+      />
       <RadioChoices
         v-else-if="definition.type === 'boolean'"
         v-model="editAttributeValues[definition.id]"
@@ -553,10 +554,12 @@ async function remove(): Promise<void> {
         </tbody>
       </table>
       <div class="input-group input-group-sm">
-        <BFormSelect v-model="newRelationTargetId" size="sm">
-          <option value="" disabled>Knows…</option>
-          <option v-for="c in knowableConnections" :key="c.id" :value="c.id">{{ c.label }}</option>
-        </BFormSelect>
+        <SearchableSelect
+          v-model="newRelationTargetId"
+          class="flex-grow-1"
+          placeholder="Knows…"
+          :options="knowableConnections.map((c) => ({ value: c.id, text: c.label }))"
+        />
         <BButton variant="outline-secondary" size="sm" @click="addRelationship">Add</BButton>
       </div>
     </BFormGroup>

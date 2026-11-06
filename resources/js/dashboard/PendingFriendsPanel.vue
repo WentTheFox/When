@@ -14,6 +14,7 @@
  */
 import { BBadge, BButton, BCard } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
+import SearchableSelect, { type SelectOption } from '../Components/SearchableSelect.vue';
 import { defaultFriendChoice, type MatchBy, type MatchCandidate, matchFriend, type PossibleMatch, possibleMatches } from './friendMatching';
 import type { FriendChoice, FriendDecision, PendingFriend } from './vrchat';
 
@@ -70,6 +71,17 @@ syncChoices();
 watch([rows, () => props.ready], syncChoices);
 
 const visible = computed(() => (showAll.value ? rows.value : rows.value.slice(0, PAGE)));
+
+/** The per-friend action list: new / suggested / every other connection / dismiss. */
+function choiceOptions(row: { suggested: { id: string }[] }): SelectOption[] {
+  const suggested = new Set(row.suggested.map((s) => s.id));
+  return [
+    { value: 'new', text: 'Create a new connection' },
+    ...allOptions.value.filter((o) => suggested.has(o.id)).map((o) => ({ value: o.id, text: `Add to ${o.label}`, group: 'Suggested' })),
+    ...allOptions.value.filter((o) => !suggested.has(o.id)).map((o) => ({ value: o.id, text: o.label, group: 'Add to another connection' })),
+    { value: 'skip', text: "Dismiss (don't ask again)" },
+  ];
+}
 
 const allOptions = computed(() => props.candidates.map((c) => ({ id: c.id, label: c.name || '(unnamed)' })).sort((a, b) => a.label.localeCompare(b.label)));
 
@@ -150,21 +162,12 @@ const counts = computed(() => {
               </div>
             </div>
 
-            <select
+            <SearchableSelect
               v-model="choices[row.friend.id]"
-              class="form-select form-select-sm"
-              style="max-width: 18rem;"
+              style="width: 18rem; max-width: 100%;"
+              :options="choiceOptions(row)"
               :aria-label="`What to do with ${row.friend.display_name ?? row.friend.vrchat_user_id}`"
-            >
-              <option value="new">Create a new connection</option>
-              <optgroup v-if="row.suggested.length" label="Suggested">
-                <option v-for="s in row.suggested" :key="s.id" :value="s.id">Add to {{ names[s.id] || '(unnamed)' }}</option>
-              </optgroup>
-              <optgroup label="Add to another connection">
-                <option v-for="o in allOptions.filter((x) => !row.suggested.some((s) => s.id === x.id))" :key="o.id" :value="o.id">{{ o.label }}</option>
-              </optgroup>
-              <option value="skip">Dismiss (don't ask again)</option>
-            </select>
+            />
 
             <BButton variant="outline-secondary" size="sm" :disabled="busy" @click="emit('apply', [decision(row)])">Apply</BButton>
           </div>
