@@ -44,7 +44,7 @@ class VrcxController extends Controller
 
         /** @var User $user */
         $user = $request->user();
-        $before = [$user->vrcx_base_url, $user->vrcx_api_key, $user->vrchat_user_id_definition_id];
+        $before = [$user->vrcx_base_url, $user->vrcx_api_key, $user->vrchat_user_id_definition_id, $user->discord_user_id_definition_id];
 
         // Nothing on $user changes until every check has passed.
         $newUrl = $user->vrcx_base_url;
@@ -98,13 +98,18 @@ class VrcxController extends Controller
         }
 
         // A different server, key or field means whatever was synced no longer reflects the settings.
-        if ($before !== [$user->vrcx_base_url, $user->vrcx_api_key, $user->vrchat_user_id_definition_id]) {
+        if ($before !== [$user->vrcx_base_url, $user->vrcx_api_key, $user->vrchat_user_id_definition_id, $user->discord_user_id_definition_id]) {
             $user->vrcx_synced_at = null;
         }
 
         $user->save();
 
-        return back()->with('status', 'VRChat settings saved.');
+        // A newly chosen Discord field is filled from the Discord ids already learned, at once (no VRCX round trip).
+        $discordFilled = $user->discord_user_id_definition_id !== null && $user->discord_user_id_definition_id !== $before[3]
+            ? $this->sync->backfillDiscordField($user)
+            : 0;
+
+        return back()->with('status', 'VRChat settings saved.'.($discordFilled > 0 ? " Added Discord IDs to {$discordFilled} connection".($discordFilled === 1 ? '' : 's').'.' : ''));
     }
 
     /** Forgets the server and key (the field choice stays). Cached profiles and stays are kept. */

@@ -4,6 +4,7 @@ namespace App\Services\Vrcx;
 
 use App\Jobs\SyncVrcxData;
 use App\Models\Connection;
+use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionAttributeValue;
 use App\Models\ConnectionVrchatProfile;
 use App\Models\ConnectionVrchatStay;
@@ -244,6 +245,76 @@ class VrcxSyncService
     }
 
     /**
+     * Puts a Discord user id into the connection's Discord field (the custom field chosen in
+     * Settings). Idempotent, and it only ever adds:
+     *   - an identifier list gets the id appended unless it is already there;
+     *   - a single identifier is filled when empty, and left alone when it holds anything
+     *     (an id someone typed in is never replaced).
+     * Nothing happens without a Discord field chosen. Returns whether anything was written.
+     */
+    private function fillDiscordField(User $user, string $connectionId, ?string $discordId): bool
+    {
+        $definitionId = $user->discord_user_id_definition_id;
+
+        if ($definitionId === null || $discordId === null || trim($discordId) === '') {
+            return false;
+        }
+
+        $discordId = trim($discordId);
+        $definition = ConnectionAttributeDefinition::where('user_id', $user->id)->whereNull('deleted_at')->find($definitionId);
+
+        if ($definition === null) {
+            return false;
+        }
+
+        $row = ConnectionAttributeValue::firstOrNew(['connection_id' => $connectionId, 'attribute_definition_id' => $definitionId]);
+
+        if ($definition->type === 'identifier_list') {
+            $ids = HighlightWordsResolver::normalize($row->identifier_list_value);
+
+            if (in_array($discordId, $ids, true)) {
+                return false;
+            }
+
+            $row->identifier_list_value = [...$ids, $discordId];
+        } elseif ($definition->type === 'identifier') {
+            if (trim((string) $row->identifier_value) !== '') {
+                return false;
+            }
+
+            $row->identifier_value = $discordId;
+        } else {
+            return false;
+        }
+
+        $row->save();
+
+        return true;
+    }
+
+    /**
+     * Fills the Discord field from the Discord ids already stored on this owner's profiles,
+     * without asking VRCX (used right after the field is chosen, so it doesn't wait for a sync).
+     *
+     * @return int How many connections were written to.
+     */
+    public function backfillDiscordField(User $user): int
+    {
+        if ($user->discord_user_id_definition_id === null) {
+            return 0;
+        }
+
+        $filled = 0;
+
+        ConnectionVrchatProfile::whereIn('connection_id', $user->connections()->select('id'))->whereNotNull('discord_id')->get()
+            ->each(function (ConnectionVrchatProfile $profile) use ($user, &$filled) {
+                $filled += $this->fillDiscordField($user, $profile->connection_id, $profile->discord_id) ? 1 : 0;
+            });
+
+        return $filled;
+    }
+
+    /**
      * Keeps the VRChat display name on the connection as a highlight token. The
      * name is copied in, not referenced: when the person renames themselves the
      * new name is added next to the old one, so events titled with an earlier name
@@ -330,6 +401,9 @@ class VrcxSyncService
         if ($record->display_name !== null) {
             $this->addNameToken($user, $connectionId, $record->display_name);
         }
+
+        // From the stored id, not just this response: VRCX may report nothing this time, and the field may have been chosen after the id was learned.
+        $this->fillDiscordField($user, $connectionId, $record->discord_id);
     }
 
     /**
