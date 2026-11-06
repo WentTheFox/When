@@ -113,7 +113,7 @@ function disconnect(): void {
 }
 
 const syncing = ref(false);
-const syncResult = ref<{ ok: boolean; text: string } | null>(null);
+const syncResult = ref<{ ok: boolean; text: string; warnings?: string[] } | null>(null);
 
 async function syncNow(): Promise<void> {
   syncing.value = true;
@@ -125,6 +125,7 @@ async function syncNow(): Promise<void> {
     syncResult.value = {
       ok: true,
       text: data.ran ? `Synced ${linked} linked account${linked === 1 ? '' : 's'}.` : 'A sync is already running.',
+      warnings: data.warnings ?? [],
     };
   } catch (error) {
     syncResult.value = {
@@ -227,6 +228,7 @@ const syncedAt = computed(() => (props.vrcx.synced_at ? new Date(props.vrcx.sync
           <span v-if="syncedAt" class="small text-muted">Last synced {{ syncedAt }}</span>
         </div>
         <div v-if="syncResult" class="small mt-2" :class="syncResult.ok ? 'text-success' : 'text-danger'" role="status">{{ syncResult.text }}</div>
+        <div v-for="warning in syncResult?.warnings ?? []" :key="warning" class="small mt-1 text-warning" role="status">{{ warning }}</div>
       </form>
     </VaultGate>
   </section>

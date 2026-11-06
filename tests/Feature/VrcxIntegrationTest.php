@@ -854,4 +854,97 @@ class VrcxIntegrationTest extends TestCase
         $this->assertSame([self::DISCORD], $this->discordValue($connection, $field));
         $this->assertContains(self::DISCORD, collect($response->json('attribute_values'))->firstWhere('attribute_definition_id', $field->id)['identifier_list_value']);
     }
+
+    public function test_a_server_error_names_the_request_and_what_vrcx_said_without_ever_leaking_the_key(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $this->link($user, $definition, [self::ALICE]);
+
+        $this->freshHttp()->fake([
+            '*/api/v1/time-together*' => Http::response(['ok' => false, 'error' => 'Cannot read property note of undefined (key vrcx_key_secret)'], 500),
+            '*' => Http::response(['ok' => true, 'users' => [], 'missing' => []], 200),
+        ]);
+
+        try {
+            app(VrcxSyncService::class)->sync($user);
+            $this->fail('expected a VrcxException');
+        } catch (VrcxException $e) {
+            $this->assertStringContainsString('POST /api/v1/time-together', $e->getMessage());
+            $this->assertStringContainsString('HTTP 500', $e->getMessage());
+            $this->assertStringContainsString('Cannot read property note of undefined', $e->getMessage());
+            $this->assertStringNotContainsString('vrcx_key_secret', $e->getMessage());
+        }
+
+        // Without any text from VRCX the message still names the request.
+        $this->freshHttp()->fake(['*' => Http::response('Internal Server Error', 500)]);
+        try {
+            app(VrcxSyncService::class)->sync($user);
+            $this->fail('expected a VrcxException');
+        } catch (VrcxException $e) {
+            $this->assertMatchesRegularExpression('/answered POST \/api\/v1\/time-together with HTTP 500\.$/', $e->getMessage());
+        }
+    }
+
+    /** Every /users request 500s the way VRCX 22.0 does for a key with notes:read; time together still works. */
+    private function fakeUsersFailing(): void
+    {
+        $this->freshHttp()->fake([
+            '*/api/v1/users*' => Http::response(['ok' => false, 'error' => 'Internal error.'], 500),
+            '*/api/v1/time-together*' => $this->together([$this->interval('2026-10-01T10:00:00.000Z', 5)]),
+        ]);
+    }
+
+    /** @return list<string> */
+    private function linkMany(User $user, ConnectionAttributeDefinition $definition, int $count): array
+    {
+        $ids = array_map(fn ($i) => sprintf('usr_00000000-0000-0000-0000-%012x', $i), range(1, $count));
+        foreach ($ids as $id) {
+            $this->link($user, $definition, [$id]);
+        }
+
+        return $ids;
+    }
+
+    public function test_a_users_endpoint_that_fails_with_a_server_error_is_a_warning_not_a_dead_sync(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $this->linkMany($user, $definition, 50);
+        $this->fakeUsersFailing();
+
+        $service = app(VrcxSyncService::class);
+        $this->assertTrue($service->sync($user));
+
+        $warnings = $service->warnings();
+        $this->assertCount(1, $warnings);
+        $this->assertStringContainsString('Internal error.', $warnings[0]);
+        $this->assertStringContainsString('Time together and friends were still synced', $warnings[0]);
+        $this->assertSame(50, ConnectionVrchatStay::count());
+        $this->assertNotNull($user->refresh()->vrcx_synced_at);
+
+        $this->assertSame(1, Http::recorded(fn ($request) => str_contains($request->url(), '/api/v1/users'))->count(), 'one failure is enough to know: no probing of every user');
+    }
+
+    public function test_only_vrcx_server_errors_are_tolerated_a_bad_key_still_stops_the_sync(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $this->link($user, $definition, [self::ALICE]);
+        $this->freshHttp()->fake(['*/api/v1/users*' => Http::response(['ok' => false, 'error' => 'no'], 401), '*' => Http::response([], 200)]);
+
+        $this->expectException(VrcxException::class);
+        $this->expectExceptionMessage('rejected the API key');
+
+        app(VrcxSyncService::class)->sync($user);
+    }
+
+    public function test_the_sync_endpoint_hands_the_warnings_to_the_page(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $this->linkMany($user, $definition, 3);
+        $this->fakeUsersFailing();
+
+        $this->actingAs($user)->postJson('/settings/vrcx/sync')
+            ->assertOk()
+            ->assertJsonPath('ran', true)
+            ->assertJsonPath('warnings.0', fn ($w) => str_contains($w, 'Internal error.'));
+    }
 }

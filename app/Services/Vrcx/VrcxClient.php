@@ -8,6 +8,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Read-only client for a VRCX headless server's external API
@@ -274,12 +275,12 @@ final class VrcxClient
         }
 
         return match (true) {
-            self::blockedByFirewall($response) => throw new VrcxException(self::FIREWALL_MESSAGE),
-            $response->status() === 401 => throw new VrcxException('The VRCX server rejected the API key (it may be wrong or expired).'),
+            self::blockedByFirewall($response) => throw new VrcxException(self::FIREWALL_MESSAGE, $response->status()),
+            $response->status() === 401 => throw new VrcxException('The VRCX server rejected the API key (it may be wrong or expired).', 401),
             $response->status() === 403 => throw new VrcxException($scope !== null
                 ? "The API key lacks the {$scope} scope."
-                : 'The API key lacks a required scope (needs users:read and playtime:read).'),
-            $response->failed() => throw new VrcxException("The VRCX server answered with an error (HTTP {$response->status()})."),
+                : 'The API key lacks a required scope (needs users:read and playtime:read).', 403),
+            $response->failed() => throw $this->failure($method, $path, $response),
             default => $response,
         };
     }
@@ -302,6 +303,24 @@ final class VrcxClient
         return $response->header('cf-mitigated') !== ''
             || stripos($response->header('server'), 'cloudflare') !== false
             || stripos($response->body(), 'cloudflare') !== false;
+    }
+
+    /**
+     * "The VRCX server answered POST /api/v1/users with HTTP 500: <its own error text>": which request failed and
+     * what VRCX said, so a server-side error can be traced. VRCX's text is shown shortened, with the API key blanked
+     * out should it ever be echoed. The same line (no key, no ids) goes to the log.
+     */
+    private function failure(string $method, string $path, Response $response): VrcxException
+    {
+        $error = $response->json('error');
+        $detail = is_string($error) && trim($error) !== ''
+            ? ': '.mb_substr(str_replace($this->apiKey, '***', trim($error)), 0, 200)
+            : '';
+
+        $message = sprintf('The VRCX server answered %s %s with HTTP %d%s.', strtoupper($method), $path, $response->status(), $detail);
+        Log::warning($message);
+
+        return new VrcxException($message, $response->status());
     }
 
     private function request(): PendingRequest

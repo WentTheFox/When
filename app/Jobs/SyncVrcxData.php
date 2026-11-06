@@ -38,6 +38,10 @@ class SyncVrcxData implements ShouldQueue
 
         try {
             $service->sync($user);
+
+            foreach ($service->warnings() as $warning) {
+                Log::warning('VRCX sync: '.$warning);
+            }
         } catch (VrcxException $e) {
             Log::warning('VRCX sync failed: '.$e->getMessage());
         }
