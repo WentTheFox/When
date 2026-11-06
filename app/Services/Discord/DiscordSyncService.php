@@ -7,6 +7,7 @@ use App\Models\ConnectionAttributeValue;
 use App\Models\ConnectionVrchatProfile;
 use App\Models\DiscordFriend;
 use App\Models\User;
+use App\Services\Calendar\HighlightWordsResolver;
 use App\Support\DiscordUserId;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -101,6 +102,7 @@ class DiscordSyncService
         try {
             $friends = $this->fetch($user);
             $this->store($user, $friends);
+            $this->addNameTokens($user);
             $user->forceFill(['discord_synced_at' => now()])->save();
         } finally {
             $lock->release();
@@ -223,6 +225,40 @@ class DiscordSyncService
             ->each(fn (ConnectionVrchatProfile $profile) => $add($profile->connection_id, $profile->discord_id));
 
         return $byConnection;
+    }
+
+    /**
+     * Keeps each linked friend's display name and username on their connection as highlight
+     * tokens (see HighlightWordsResolver::addToken), as VRChat names are: a rename adds the new
+     * name next to the old one and nothing is ever removed. Covers every friend on a connection,
+     * whatever their pending/created/dismissed status. Your private nickname for them is not
+     * copied: it is your own label, not a name they go by. No-op without a highlight field.
+     */
+    public function addNameTokens(User $user): void
+    {
+        if ($user->highlight_identifier_definition_id === null) {
+            return;
+        }
+
+        $byConnection = $this->idsByConnection($user);
+
+        if ($byConnection === []) {
+            return;
+        }
+
+        $friends = DiscordFriend::where('user_id', $user->id)->get()->keyBy('discord_user_id_hash');
+
+        foreach ($byConnection as $connectionId => $ids) {
+            foreach ($ids as $id) {
+                $friend = $friends->get(DiscordUserId::hash($id));
+
+                foreach ([$friend?->global_name, $friend?->username] as $name) {
+                    if ($name !== null) {
+                        HighlightWordsResolver::addToken($user, $connectionId, $name);
+                    }
+                }
+            }
+        }
     }
 
     /**

@@ -8,7 +8,6 @@ use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionAttributeValue;
 use App\Models\ConnectionVrchatProfile;
 use App\Models\ConnectionVrchatStay;
-use App\Models\ShareLink;
 use App\Models\User;
 use App\Models\VrchatFriend;
 use App\Services\Calendar\HighlightWordsResolver;
@@ -359,36 +358,10 @@ class VrcxSyncService
         return $filled;
     }
 
-    /**
-     * Keeps the VRChat display name on the connection as a highlight token. The
-     * name is copied in, not referenced: when the person renames themselves the
-     * new name is added next to the old one, so events titled with an earlier name
-     * still highlight. Nothing here ever removes a token. No-op without a highlight
-     * field selected in Settings.
-     */
+    /** Keeps the VRChat display name on the connection as a highlight token (see HighlightWordsResolver::addToken). */
     private function addNameToken(User $user, string $connectionId, string $name): void
     {
-        $definitionId = $user->highlight_identifier_definition_id;
-        $name = trim($name);
-
-        if ($definitionId === null || $name === '') {
-            return;
-        }
-
-        $row = ConnectionAttributeValue::firstOrNew(['connection_id' => $connectionId, 'attribute_definition_id' => $definitionId]);
-        $tokens = HighlightWordsResolver::normalize($row->identifier_list_value);
-
-        foreach ($tokens as $token) {
-            if (mb_strtolower($token) === mb_strtolower($name)) {
-                return;
-            }
-        }
-
-        $row->identifier_list_value = [...$tokens, $name];
-        $row->save();
-
-        // The computed share-link result embeds the highlight words.
-        HighlightWordsResolver::invalidateCaches([ShareLink::where('connection_id', $connectionId)->value('id')]);
+        HighlightWordsResolver::addToken($user, $connectionId, $name);
     }
 
     /**

@@ -12,6 +12,7 @@ use App\Services\Account\AccountExportService;
 use App\Services\Discord\DiscordSyncService;
 use App\Support\DiscordUserId;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
@@ -431,5 +432,118 @@ class DiscordIntegrationTest extends TestCase
 
         $this->assertSame([$mine->id], array_keys(app(DiscordSyncService::class)->summary($user->refresh())['profiles']));
         $this->assertSame([], app(DiscordSyncService::class)->summary($other->refresh())['profiles']);
+    }
+
+    private function withHighlightField(User $user): ConnectionAttributeDefinition
+    {
+        $field = ConnectionAttributeDefinition::create([
+            'id' => (string) Str::uuid(), 'user_id' => $user->id, 'label_ciphertext' => 'opaque', 'type' => 'identifier_list',
+        ]);
+        $user->forceFill(['highlight_identifier_definition_id' => $field->id])->save();
+
+        return $field;
+    }
+
+    /** @return list<string> */
+    private function highlightTokens(User $user, Connection $connection): array
+    {
+        return ConnectionAttributeValue::where('connection_id', $connection->id)
+            ->where('attribute_definition_id', $user->refresh()->highlight_identifier_definition_id)
+            ->first()?->identifier_list_value ?? [];
+    }
+
+    private function fakeFriend(string $id, ?string $globalName, ?string $username, ?string $nickname = null): void
+    {
+        // A fresh factory each time: stubs stack, and the first match would win over a later "renamed" one.
+        Http::swap($factory = new Factory);
+        $factory->fake(['discord.com/api/v10/users/@me/relationships' => Http::response([[
+            'id' => '1', 'type' => 1, 'nickname' => $nickname,
+            'user' => ['id' => $id, 'username' => $username, 'global_name' => $globalName, 'avatar' => null],
+        ]])]);
+    }
+
+    public function test_a_linked_friends_display_name_and_username_become_highlight_tokens(): void
+    {
+        $user = $this->owner();
+        $this->withHighlightField($user);
+        $connection = $this->connectionWith($user, self::LINKED);
+        $other = $this->connectionWith($user, self::OLD);
+        $this->fakeFriend(self::LINKED, 'Maple Sparrow', 'maplesparrow', 'Mabel');
+
+        app(DiscordSyncService::class)->sync($user);
+
+        // Their display name and username, but not your private nickname for them; nothing on connections that aren't theirs.
+        $this->assertSame(['Maple Sparrow', 'maplesparrow'], $this->highlightTokens($user, $connection));
+        $this->assertSame([], $this->highlightTokens($user, $other));
+    }
+
+    public function test_a_rename_adds_the_new_names_and_keeps_the_old_ones(): void
+    {
+        $user = $this->owner();
+        $this->withHighlightField($user);
+        $connection = $this->connectionWith($user, self::LINKED);
+        ConnectionAttributeValue::create(['connection_id' => $connection->id, 'attribute_definition_id' => $user->highlight_identifier_definition_id, 'identifier_list_value' => ['Mom']]);
+
+        $this->fakeFriend(self::LINKED, 'Maple Sparrow', 'maplesparrow');
+        app(DiscordSyncService::class)->sync($user);
+        $this->fakeFriend(self::LINKED, 'Maple Finch', 'maplesparrow');
+        app(DiscordSyncService::class)->sync($user);
+        app(DiscordSyncService::class)->sync($user);
+
+        $this->assertSame(['Mom', 'Maple Sparrow', 'maplesparrow', 'Maple Finch'], $this->highlightTokens($user, $connection), 'copies are kept, nothing is removed or duplicated');
+    }
+
+    public function test_a_token_that_differs_only_in_case_is_not_added_again(): void
+    {
+        $user = $this->owner();
+        $this->withHighlightField($user);
+        $connection = $this->connectionWith($user, self::LINKED);
+        ConnectionAttributeValue::create(['connection_id' => $connection->id, 'attribute_definition_id' => $user->highlight_identifier_definition_id, 'identifier_list_value' => ['MAPLE SPARROW']]);
+        $this->fakeFriend(self::LINKED, 'maple sparrow', null);
+
+        app(DiscordSyncService::class)->sync($user);
+
+        $this->assertSame(['MAPLE SPARROW'], $this->highlightTokens($user, $connection));
+    }
+
+    public function test_no_tokens_are_added_without_a_highlight_field(): void
+    {
+        $user = $this->owner();
+        $connection = $this->connectionWith($user, self::LINKED);
+        $this->fakeFriend(self::LINKED, 'Maple Sparrow', 'maplesparrow');
+
+        app(DiscordSyncService::class)->sync($user);
+
+        $this->assertSame(1, ConnectionAttributeValue::where('connection_id', $connection->id)->count(), 'only the Discord id row exists');
+    }
+
+    public function test_linking_a_pending_friend_adds_the_tokens_at_once(): void
+    {
+        $user = $this->owner();
+        $this->withHighlightField($user);
+        $this->fakeFriend(self::NEW, 'Plum Finch', 'plumfinch');
+        app(DiscordSyncService::class)->sync($user);
+        $friend = DiscordFriend::where('user_id', $user->id)->firstOrFail();
+
+        // The browser links the friend by putting their id on a connection, then reports it as done.
+        $connection = $this->connectionWith($user, self::NEW);
+        $this->actingAs($user)->postJson('/dashboard/discord/friends/complete', ['ids' => [$friend->id]])->assertOk();
+
+        $this->assertSame(['Plum Finch', 'plumfinch'], $this->highlightTokens($user, $connection));
+    }
+
+    public function test_a_dismissed_friend_who_is_linked_still_gets_tokens(): void
+    {
+        $user = $this->owner();
+        $this->withHighlightField($user);
+        $connection = $this->connectionWith($user, self::LINKED);
+        $this->fakeFriend(self::LINKED, 'Maple Sparrow', 'maplesparrow');
+        app(DiscordSyncService::class)->sync($user);
+        DiscordFriend::where('user_id', $user->id)->update(['status' => DiscordFriend::DISMISSED]);
+        ConnectionAttributeValue::where('connection_id', $connection->id)->where('attribute_definition_id', $user->highlight_identifier_definition_id)->delete();
+
+        app(DiscordSyncService::class)->sync($user);
+
+        $this->assertSame(['Maple Sparrow', 'maplesparrow'], $this->highlightTokens($user, $connection));
     }
 }

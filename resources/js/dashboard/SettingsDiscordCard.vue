@@ -112,6 +112,11 @@ const syncedAt = computed(() => (props.discord.synced_at ? new Date(props.discor
       (by user ID) are skipped.
     </p>
     <p class="small text-muted">
+      Once a friend is on a connection, their <strong>display name and username</strong> are also added to that connection's highlight tokens
+      (when you've chosen a highlight tokens field under Share links), so events that use either name still highlight. After a rename the new
+      name is added next to the old one, and nothing is ever removed. Your private nickname for them is not copied.
+    </p>
+    <p class="small text-muted">
       This data is <strong>not</strong> end-to-end encrypted: the server asks Discord for your friend list (the <code>identify</code> and
       <code>relationships.read</code> permissions) and stores the access tokens and the friends it saw encrypted at rest with the app key.
       Your connections' names stay end-to-end encrypted, so your browser does the matching and creating. You can disconnect at any time,
