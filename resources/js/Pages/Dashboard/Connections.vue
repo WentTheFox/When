@@ -500,7 +500,6 @@ async function createConnection(): Promise<void> {
 }
 
 const friendNotice = ref('');
-let creatingFriends = false;
 
 /** The friends waiting for the owner (persisted on the server, so they are listed again after every refresh until acted on). */
 const pendingFriends = ref<PendingFriend[]>([]);

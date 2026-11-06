@@ -4,6 +4,8 @@ import AppIcon from '../Components/AppIcon.vue';
 import { Link } from '@inertiajs/vue3';
 import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput, BFormSelect } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
+import SearchableSelect from '../Components/SearchableSelect.vue';
+import { ATTRIBUTE_TYPE_ICONS } from './attributeTypeIcons';
 import EncryptedInput from '../Components/EncryptedInput.vue';
 import EncryptedText from '../Components/EncryptedText.vue';
 import { requestConfirm } from './confirmModal';
@@ -223,6 +225,7 @@ async function confirmConvertToEncryptedList(): Promise<void> {
 const showNewForm = ref(false);
 const newLabel = ref('');
 const newType = ref('text');
+const typeOptions = Object.entries(TYPE_LABELS).map(([value, text]) => ({ value, text, icon: ATTRIBUTE_TYPE_ICONS[value] }));
 const newChoices = ref('');
 
 function toggleNewForm(): void {
@@ -258,9 +261,7 @@ function add(): void {
               <BFormInput v-model="newLabel" type="text" size="sm" @keyup.enter="add" />
             </BFormGroup>
             <BFormGroup label="Type" label-class="small" class="mb-2">
-              <BFormSelect v-model="newType" size="sm">
-                <option v-for="(label, type) in TYPE_LABELS" :key="type" :value="type">{{ label }}</option>
-              </BFormSelect>
+              <SearchableSelect v-model="newType" :options="typeOptions" aria-label="Type" />
             </BFormGroup>
             <BFormGroup v-if="newType === 'radio'" label="Choices" label-class="small" description="Comma-separated." class="mb-2">
               <BFormInput v-model="newChoices" type="text" size="sm" @keyup.enter="add" />
@@ -284,6 +285,7 @@ function add(): void {
               :class="{ active: selectedId === definition.id }"
               @click="select(definition)"
             >
+              <AppIcon v-if="ATTRIBUTE_TYPE_ICONS[definition.type]" :icon="ATTRIBUTE_TYPE_ICONS[definition.type]!" class="me-2" />
               <EncryptedText :value="definition.label" :ciphertext="definition.label_ciphertext" />
               <!-- Delete-protected: a site feature depends on it. The same blue as the "Used by" pill and the notice (info), except on the selected row, which is blue itself, where white stays visible. -->
               <span
@@ -343,8 +345,23 @@ function add(): void {
           <dl class="row small mb-3">
             <dt class="col-sm-3">Type</dt>
             <dd class="col-sm-9">
+              <AppIcon v-if="ATTRIBUTE_TYPE_ICONS[selected.type]" :icon="ATTRIBUTE_TYPE_ICONS[selected.type]!" class="me-1" />
               {{ TYPE_LABELS[selected.type] ?? selected.type }}
-              <span v-if="selected.type === 'identifier' || selected.type === 'textarea'" class="text-muted">(can be converted to a list, one way only)</span>
+              <template v-if="selected.type === 'identifier' || selected.type === 'textarea'">
+                <span class="text-muted">(can be converted to a list, one way only)</span>
+                <BButton
+                  size="sm"
+                  variant="outline-secondary"
+                  class="ms-2 py-0"
+                  :disabled="pending || (selected.type === 'textarea' && copyBusy)"
+                  :title="selected.type === 'textarea'
+                    ? 'Turn this multi-line field into an encrypted list, one entry per line (cannot be undone)'
+                    : 'Turn this single identifier into a list of identifiers (cannot be undone)'"
+                  @click="selected.type === 'textarea' ? confirmConvertToEncryptedList() : confirmConvertToList()"
+                >
+                  Convert to list…
+                </BButton>
+              </template>
               <span v-else class="text-muted">(fixed once created)</span>
             </dd>
             <dt class="col-sm-3">Used on</dt>
@@ -373,28 +390,6 @@ function add(): void {
             @click="confirmRemove"
           >
             Delete
-          </BButton>
-          <BButton
-            v-if="selected.type === 'identifier'"
-            size="sm"
-            variant="outline-secondary"
-            class="ms-2"
-            :disabled="pending"
-            title="Turn this single identifier into a list of identifiers (cannot be undone)"
-            @click="confirmConvertToList"
-          >
-            Convert to list…
-          </BButton>
-          <BButton
-            v-if="selected.type === 'textarea'"
-            size="sm"
-            variant="outline-secondary"
-            class="ms-2"
-            :disabled="pending || copyBusy"
-            title="Turn this multi-line field into an encrypted list, one entry per line (cannot be undone)"
-            @click="confirmConvertToEncryptedList"
-          >
-            Convert to list…
           </BButton>
           <IconRulesEditor
             :type="selected.type"

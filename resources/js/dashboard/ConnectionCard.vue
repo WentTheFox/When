@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArchiveIcon, ArchiveRestoreIcon, GitMergeIcon, Trash2Icon, UserMinusIcon } from '@lucide/vue';
+import { ArchiveIcon, ArchiveRestoreIcon, ExternalLinkIcon, GitMergeIcon, Trash2Icon, UserMinusIcon } from '@lucide/vue';
 import AppIcon from '../Components/AppIcon.vue';
 import axios from 'axios';
 import {
@@ -7,7 +7,8 @@ import {
   BButton,
   BCard,
   BFormGroup,
-  BFormSelect,
+  BFormInvalidFeedback,
+  BInputGroup,
   type InputType,
 } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
@@ -20,6 +21,7 @@ import EncryptedText from '../Components/EncryptedText.vue';
 import ConnectionSharing, { type IdentityOption, type ShareLinkInfo } from './ConnectionSharing.vue';
 import ConnectionDiscord from './ConnectionDiscord.vue';
 import { listText, paddedListText } from './encryptedList';
+import { isValidWebUrl, parseWebUrl } from './urlField';
 import ConnectionVrchat from './ConnectionVrchat.vue';
 import type { DiscordProfile } from './discord';
 import type { VrchatProfile, VrchatSummary } from './vrchat';
@@ -286,6 +288,11 @@ function rawCiphertext(definitionId: string): string | null {
   return props.connection.attribute_values.find((v) => v.attribute_definition_id === definitionId)?.value_ciphertext ?? null;
 }
 
+/** True when every url-type field is empty or an http(s) link; Save is held back until then. */
+const urlFieldsValid = computed(() =>
+  props.attributeDefinitions.every((d) => d.type !== 'url' || isValidWebUrl(editAttributeValues.value[d.id])),
+);
+
 /** A list field is edited as one entry per line. */
 function splitLines(value: string | undefined): string[] {
   return (value ?? '').split('\n').map((v) => v.trim()).filter(Boolean);
@@ -293,7 +300,7 @@ function splitLines(value: string | undefined): string[] {
 
 async function save(): Promise<void> {
   // Belt and braces: the encrypted fields are disabled until decrypted anyway.
-  if (!decrypted.value) return;
+  if (!decrypted.value || !urlFieldsValid.value) return;
 
   try {
     const key = await getRecordKey(props.connection.id);
@@ -320,7 +327,7 @@ async function save(): Promise<void> {
         continue;
       }
 
-      const value = editAttributeValues.value[definition.id];
+      const value = definition.type === 'url' ? editAttributeValues.value[definition.id]?.trim() : editAttributeValues.value[definition.id];
       if (!value) continue;
       if (definition.type === 'boolean') {
         // §0.2 tier on purpose, like identifier: plaintext on the wire, app-key encrypted at rest.
@@ -533,6 +540,31 @@ async function remove(): Promise<void> {
         />
         <div class="form-text">Not end-to-end encrypted — one entry per line.</div>
       </div>
+      <BInputGroup v-else-if="definition.type === 'url'" size="sm">
+        <EncryptedInput
+          v-model="editAttributeValues[definition.id]"
+          :ciphertext="rawCiphertext(definition.id)"
+          :pending="!decrypted"
+          type="url"
+          size="sm"
+          placeholder="https://"
+          autocomplete="off"
+          :state="isValidWebUrl(editAttributeValues[definition.id]) ? null : false"
+        />
+        <BButton
+          variant="outline-secondary"
+          size="sm"
+          :href="parseWebUrl(editAttributeValues[definition.id]) ?? undefined"
+          :disabled="!decrypted || parseWebUrl(editAttributeValues[definition.id]) === null"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Open in a new tab"
+          title="Open in a new tab"
+        >
+          <AppIcon :icon="ExternalLinkIcon" />
+        </BButton>
+        <BFormInvalidFeedback v-if="!isValidWebUrl(editAttributeValues[definition.id])" force-show>Enter a full http:// or https:// link.</BFormInvalidFeedback>
+      </BInputGroup>
       <EncryptedInput
         v-else-if="definition.type === 'identifier'"
         v-model="editAttributeValues[definition.id]"
@@ -588,7 +620,7 @@ async function remove(): Promise<void> {
       </div>
     </BFormGroup>
 
-    <BButton size="sm" variant="primary" :disabled="!decrypted || !isDirty" @click="save">Save</BButton>
+    <BButton size="sm" variant="primary" :disabled="!decrypted || !isDirty || !urlFieldsValid" @click="save">Save</BButton>
     <BButton v-if="isDirty" size="sm" variant="outline-secondary" class="ms-2" @click="populateEditForm">Discard changes</BButton>
   </BCard>
 </template>

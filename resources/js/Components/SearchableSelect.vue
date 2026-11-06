@@ -10,7 +10,7 @@
  */
 import 'flag-icons/css/flag-icons.min.css';
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue';
-import { CheckIcon } from '@lucide/vue';
+import { CheckIcon, type LucideIcon } from '@lucide/vue';
 import AppIcon from './AppIcon.vue';
 import SwatchDot from './SwatchDot.vue';
 
@@ -21,6 +21,8 @@ export interface SelectOption {
   flag?: string;
   /** A palette key: draws that color's dot before the text (a source's category color). */
   swatch?: string | null;
+  /** A Lucide icon drawn before the text. */
+  icon?: LucideIcon;
   group?: string;
   disabled?: boolean;
 }
@@ -47,6 +49,7 @@ const selected = computed(() => (props.multiple ? undefined : props.options.find
 /** The button's label in multiple mode: the chosen names in list order, or the placeholder when none. */
 const chosenOptions = computed(() => props.options.filter((o) => chosen.value.includes(o.value)));
 const hasSwatches = computed(() => props.options.some((o) => o.swatch));
+const hasIcons = computed(() => props.options.some((o) => o.icon));
 const hasFlags = computed(() => props.options.some((o) => o.flag));
 const visible = computed(() => {
   const q = query.value.trim().toLowerCase();
@@ -104,7 +107,7 @@ function pick(option: SelectOption | undefined): void {
         </template>
         <template v-else>{{ placeholder }}</template>
       </template>
-      <template v-else-if="selected"><SwatchDot :color-key="selected.swatch" class="me-1" />{{ selected.text }}</template>
+      <template v-else-if="selected"><AppIcon v-if="selected.icon" :icon="selected.icon" class="me-2" /><SwatchDot :color-key="selected.swatch" class="me-1" />{{ selected.text }}</template>
       <template v-else>{{ placeholder }}</template>
     </button>
     <div v-if="open" class="searchable-select-panel card shadow-sm position-absolute w-100 mt-1">
@@ -133,6 +136,8 @@ function pick(option: SelectOption | undefined): void {
             >
               <span v-if="option.flag" :class="`fi fi-${option.flag.toLowerCase()} me-2`" aria-hidden="true" />
               <span v-else-if="hasFlags" class="me-2 searchable-select-nobox" aria-hidden="true" />
+              <AppIcon v-if="option.icon" :icon="option.icon" class="me-2" />
+              <span v-else-if="hasIcons" class="me-2 searchable-select-nobox" aria-hidden="true" />
               <SwatchDot v-if="option.swatch" :color-key="option.swatch" class="me-2" />
               <span v-else-if="hasSwatches" class="me-2 searchable-select-noswatch" aria-hidden="true" />
               <span class="flex-grow-1">{{ option.text }}</span>

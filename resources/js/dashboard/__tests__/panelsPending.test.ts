@@ -168,11 +168,12 @@ describe('the custom attributes list', () => {
     return html.slice(html.indexOf('wtf-master-list'), html.indexOf('col-md-8'));
   }
 
-  it('shows only each field\'s name, not its type', async () => {
+  it('shows each field\'s name with a type icon, not the name of its type', async () => {
     const list = listOf(await render(AttributesPanel, { ...base, fieldFeatures: {} }));
     expect(list).toContain('Highlight words');
     expect(list).toContain('Nickname');
     expect(list).not.toMatch(/Identifier list|\(Text\)|Multi-line|Yes\/No/);
+    expect(list).toContain('wtf-icon');
   });
 
   it('puts a blue lock next to a field that a site feature uses, and only that one', async () => {
