@@ -243,6 +243,16 @@ enum IconKey: string
     case TrafficLight = 'traffic-light';
     case FlagCheckered = 'flag-checkered';
 
+    // Warning signs.
+    case NoEntry = 'no-entry';
+    case Info = 'info';
+    case CircleExclamation = 'circle-exclamation';
+    case OctagonExclamation = 'octagon-exclamation';
+    case Stop = 'stop';
+
+    // Notes.
+    case StickyNote = 'sticky-note';
+
     public function label(): string
     {
         return match ($this) {
@@ -285,6 +295,14 @@ enum IconKey: string
             self::ChessKnight => 'Chess',
             self::TrafficLight => 'Traffic light',
             self::FlagCheckered => 'Checkered flag',
+            self::NoEntry => 'No entry',
+            self::Info => 'Info',
+            self::CircleExclamation => 'Exclamation circle',
+            self::OctagonExclamation => 'Warning octagon',
+            self::Stop => 'Stop sign',
+            self::StickyNote => 'Sticky note',
+            self::Alert => 'Exclamation triangle',
+            self::Bolt => 'Lightning bolt',
             self::Signal0 => 'Signal none',
             self::Signal1 => 'Signal 1 bar',
             self::Signal2 => 'Signal 2 bars',
@@ -341,7 +359,8 @@ enum IconKey: string
             self::Briefcase, self::Laptop, self::Building, self::ChartLine, self::City, self::Industry, self::Warehouse, self::BuildingColumns, self::UserTie, self::ScaleBalanced => 'Work & business',
             self::Books, self::Apple, self::School, self::Brain, self::Math, self::Chemistry, self::Science, self::History, self::Geography, self::Computer, self::Graduate, self::GraduationCap => 'School & learning',
             self::Check, self::CalendarCheck, self::CalendarX, self::Clock,
-            self::DoorOpen, self::DoorClosed, self::ToggleOn, self::ToggleOff, self::CircleCheck, self::CircleXmark, self::Ban, self::Lock, self::X, self::Alert => 'Time & status',
+            self::DoorOpen, self::DoorClosed, self::ToggleOn, self::ToggleOff, self::CircleCheck, self::CircleXmark, self::Lock, self::X => 'Time & status',
+            self::Alert, self::Ban, self::NoEntry, self::Info, self::CircleExclamation, self::OctagonExclamation, self::Stop => 'Warnings & signs',
             self::Users, self::Handshake, self::PeopleGroup, self::Baby, self::Child, self::Crown, self::Ring => 'People & social',
             self::Tree, self::Sun, self::Mountain, self::Leaf, self::Seedling, self::Compass, self::UmbrellaBeach, self::PersonHiking, self::Fire => 'Nature & outdoors',
             self::Cloud, self::CloudRain, self::Snowflake, self::Bolt, self::Umbrella, self::Droplet => 'Weather',
@@ -355,7 +374,7 @@ enum IconKey: string
             self::Signal, self::BatteryFull, self::BatteryThreeQuarters, self::BatteryHalf, self::BatteryQuarter, self::BatteryEmpty,
             self::Signal0, self::Signal1, self::Signal2, self::Signal3, self::VolumeOff, self::VolumeLow, self::VolumeHigh, self::FaceFrown, self::FaceMeh, self::FaceSmile, self::FaceGrinBeam, self::StarHalf, self::CircleDot, self::CircleHalfStroke, self::Thermometer, self::ThermometerSnowflake, self::ThermometerSun, self::Gauge, self::Hourglass, self::TrafficLight, self::Flag, self::FlagCheckered, self::Medal, self::Trophy, self::RankingStar, self::ThumbsDown => 'Levels & ranking',
             self::Equals, self::Minus, self::ArrowUp, self::ArrowDown, self::ArrowLeft, self::ArrowRight, self::AngleUp, self::AngleDown, self::AnglesUp, self::AnglesDown, self::ArrowTrendUp, self::ArrowTrendDown => 'Arrows & direction',
-            self::Star, self::Heart, self::Gift, self::Bell, self::ThumbsUp, self::Poop, self::Lightbulb => 'Misc',
+            self::Star, self::Heart, self::Gift, self::Bell, self::ThumbsUp, self::Poop, self::Lightbulb, self::StickyNote => 'Misc',
         };
     }
 
@@ -404,7 +423,14 @@ enum IconKey: string
             self::Ban, self::Lock => ['blocked', 'unavailable', 'busy'],
             self::CircleXmark, self::X => ['cancel', 'no', 'remove'],
             self::CircleCheck, self::Check => ['yes', 'done', 'confirmed'],
-            self::Alert => ['warning', 'important'],
+            self::Alert => ['warning', 'important', 'exclamation', 'triangle', 'caution', 'hazard'],
+            self::NoEntry => ['entry', 'forbidden', 'prohibited', 'blocked', 'do not enter', 'dnd'],
+            self::Info => ['information', 'about', 'note', 'help'],
+            self::CircleExclamation => ['warning', 'important', 'exclamation', 'alert', 'attention'],
+            self::OctagonExclamation => ['warning', 'important', 'exclamation', 'alert', 'stop'],
+            self::StickyNote => ['note', 'notes', 'memo', 'reminder', 'post-it'],
+            self::Stop => ['stop', 'halt', 'octagon', 'cancel', 'forbidden'],
+            self::Bolt => ['lightning', 'electric', 'power', 'energy', 'zap', 'storm', 'fast', 'priority', 'urgent', 'bypass'],
             self::Bell => ['notification', 'reminder', 'alarm'],
             self::Baby, self::Child => ['kid', 'family'],
             self::Ring => ['wedding', 'engagement', 'marriage'],
