@@ -45,6 +45,12 @@ final class FieldFeatures
             'user_column' => 'id',
             'label' => 'VRChat user ID',
         ],
+        'discord_user_id' => [
+            'table' => 'users',
+            'column' => 'discord_user_id_definition_id',
+            'user_column' => 'id',
+            'label' => 'Discord user ID',
+        ],
     ];
 
     /**

@@ -19,6 +19,9 @@ use Illuminate\Support\Carbon;
  * @property string|null $display_name
  * @property string|null $profile_picture_url
  * @property string|null $avatar_thumbnail_url
+ * @property string|null $discord_id
+ * @property string|null $vrchat_note
+ * @property string|null $note_imported_hash
  * @property array<array-key, mixed>|null $stats
  * @property Carbon|null $profile_fetched_at
  * @property Carbon|null $created_at
@@ -39,6 +42,9 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionVrchatProfile whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionVrchatProfile whereVrchatUserId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionVrchatProfile whereVrchatUserIdHash($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionVrchatProfile whereDiscordId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionVrchatProfile whereNoteImportedHash($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionVrchatProfile whereVrchatNote($value)
  *
  * @mixin \Eloquent
  */
@@ -53,6 +59,9 @@ class ConnectionVrchatProfile extends Model
         'display_name',
         'profile_picture_url',
         'avatar_thumbnail_url',
+        'discord_id',
+        'vrchat_note',
+        'note_imported_hash',
         'stats',
         'profile_fetched_at',
     ];
@@ -64,6 +73,8 @@ class ConnectionVrchatProfile extends Model
             'display_name' => 'encrypted',
             'profile_picture_url' => 'encrypted',
             'avatar_thumbnail_url' => 'encrypted',
+            'discord_id' => 'encrypted',
+            'vrchat_note' => 'encrypted',
             'stats' => 'encrypted:array',
             'profile_fetched_at' => 'datetime',
         ];

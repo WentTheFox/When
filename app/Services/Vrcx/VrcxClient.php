@@ -63,7 +63,7 @@ final class VrcxClient
      * Cached name and picture for the given ids (VRCX never queries VRChat for these).
      *
      * @param  list<string>  $ids
-     * @return array<string, array{displayName: string, profilePictureUrl: string, avatarThumbnailUrl: string}>
+     * @return array<string, array{displayName: string, profilePictureUrl: string, avatarThumbnailUrl: string, discordId: ?string, note: ?string}>
      */
     public function users(array $ids): array
     {
@@ -78,12 +78,32 @@ final class VrcxClient
                         'displayName' => (string) ($user['displayName'] ?? ''),
                         'profilePictureUrl' => (string) ($user['profilePictureUrl'] ?? ''),
                         'avatarThumbnailUrl' => (string) ($user['avatarThumbnailUrl'] ?? ''),
+                        // Only when VRChat has ever shown one for this user.
+                        'discordId' => self::cleanDiscordId($user['discordId'] ?? null),
+                        // The owner's private VRChat note; only present for a key with the notes:read scope.
+                        'note' => self::cleanNote($user['note'] ?? null),
                     ];
                 }
             }
         }
 
         return $found;
+    }
+
+    /** A VRChat note as text, trimmed; empty or absent counts as "no note". */
+    private static function cleanNote(mixed $value): ?string
+    {
+        $note = is_string($value) ? trim($value) : '';
+
+        return $note === '' ? null : $note;
+    }
+
+    /** A Discord user id is a numeric snowflake; anything else (empty, null, junk) counts as "none". */
+    private static function cleanDiscordId(mixed $value): ?string
+    {
+        $id = is_string($value) || is_int($value) ? trim((string) $value) : '';
+
+        return preg_match('/^\d{15,25}$/', $id) === 1 ? $id : null;
     }
 
     /**

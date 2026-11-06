@@ -38,6 +38,7 @@ const ANCHOR_TABS: Record<string, SettingsTabName> = {
   vrchat: 'vrchat',
   'vrchat-user-id': 'vrchat',
   'vrchat-friends': 'vrchat',
+  'discord-user-id': 'vrchat',
   public_page_title: 'public',
 };
 

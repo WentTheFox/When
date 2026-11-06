@@ -199,6 +199,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/vrcx/sync', [VrcxController::class, 'syncNow'])->name('settings.vrcx.sync');
     Route::get('/dashboard/vrchat', [VrcxController::class, 'summary'])->name('dashboard.vrchat');
     Route::get('/dashboard/vrchat/friends', [VrcxController::class, 'pendingFriends'])->name('dashboard.vrchat.friends');
+    Route::post('/dashboard/vrchat/notes/imported', [VrcxController::class, 'notesImported'])->name('dashboard.vrchat.notes.imported');
     Route::post('/dashboard/vrchat/friends/complete', [VrcxController::class, 'completeFriends'])->name('dashboard.vrchat.friends.complete');
     Route::get('/dashboard/connections/{connection}/vrchat/stays', [VrcxController::class, 'stays'])
         ->name('dashboard.connections.vrchat.stays');

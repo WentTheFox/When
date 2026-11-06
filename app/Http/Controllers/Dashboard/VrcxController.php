@@ -37,6 +37,9 @@ class VrcxController extends Controller
             // One of this owner's own identifier / identifier-list fields; null unselects.
             'vrchat_user_id_definition_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('connection_attribute_definitions', 'id')
                 ->where('user_id', $request->user()->id)->whereIn('type', ['identifier', 'identifier_list'])->whereNull('deleted_at')],
+            // Same kind of field for Discord user ids (optional); it can't be the VRChat one, as a field holds one kind of id.
+            'discord_user_id_definition_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('connection_attribute_definitions', 'id')
+                ->where('user_id', $request->user()->id)->whereIn('type', ['identifier', 'identifier_list'])->whereNull('deleted_at')],
         ]);
 
         /** @var User $user */
@@ -61,6 +64,16 @@ class VrcxController extends Controller
         $autoCreate = array_key_exists('vrcx_auto_create_friends', $data) ? (bool) $data['vrcx_auto_create_friends'] : $wasAutoCreating;
         $fieldId = array_key_exists('vrchat_user_id_definition_id', $data) ? $data['vrchat_user_id_definition_id'] : $user->vrchat_user_id_definition_id;
 
+        $discordFieldId = array_key_exists('discord_user_id_definition_id', $data) ? $data['discord_user_id_definition_id'] : $user->discord_user_id_definition_id;
+
+        if ($discordFieldId !== null && $discordFieldId === $fieldId) {
+            throw ValidationException::withMessages([
+                array_key_exists('vrchat_user_id_definition_id', $data) && ! array_key_exists('discord_user_id_definition_id', $data)
+                    ? 'vrchat_user_id_definition_id'
+                    : 'discord_user_id_definition_id' => 'The VRChat and Discord user ID fields must be different fields: one field holds one kind of ID.',
+            ]);
+        }
+
         if ($autoCreate && $fieldId === null) {
             throw ValidationException::withMessages(['vrcx_auto_create_friends' => 'Choose the VRChat user ID field first: it is where each new connection stores its friend\'s ID.']);
         }
@@ -79,6 +92,7 @@ class VrcxController extends Controller
         $user->vrcx_api_key = $newKey;
         $user->vrcx_auto_create_friends = $autoCreate;
         $user->vrchat_user_id_definition_id = $fieldId;
+        $user->discord_user_id_definition_id = $discordFieldId;
         if (array_key_exists('vrcx_friends_source_id', $data)) {
             $user->vrcx_friends_source_id = $data['vrcx_friends_source_id'];
         }
@@ -151,6 +165,23 @@ class VrcxController extends Controller
         $pending()->whereIn('id', $data['skipped'] ?? [])->update(['status' => VrchatFriend::DISMISSED]);
 
         return response()->json(['completed' => $done]);
+    }
+
+    /**
+     * The browser appended these VRChat notes to the connections' (end-to-end
+     * encrypted) notes. Settles each one whose note is still the text that was merged;
+     * the server then forgets the note itself and keeps only a hash of it.
+     */
+    public function notesImported(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'imported' => ['required', 'array', 'max:500'],
+            'imported.*.connection_id' => ['required', 'uuid'],
+            'imported.*.vrchat_user_id' => ['required', 'string', 'max:100'],
+            'imported.*.note' => ['required', 'string', 'max:20000'],
+        ]);
+
+        return response()->json(['settled' => $this->sync->markNotesImported($request->user(), $data['imported'])]);
     }
 
     /** Runs the sync now, in the request, so the owner sees the outcome. */
