@@ -24,6 +24,7 @@
     "free.error": "Data o dostupnosti se nepodařilo načíst.",
     "free.noData": "Tento měsíc už nezbývá žádný volný čas.",
     "free.noDataWeek": "Tento týden už nezbývá žádný volný čas.",
+    "free.notSharedYet": "Zatím nesdíleno",
     "free.today": "Dnes",
     "free.monthView": "Měsíc",
     "free.weekView": "Týden",

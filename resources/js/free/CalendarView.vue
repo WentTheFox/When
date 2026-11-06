@@ -18,6 +18,7 @@
  */
 import { format } from 'date-fns';
 import { resolveDateFnsLocale } from './dateFnsLocale';
+import { isBeyondRange } from './rangeEnd';
 import { TZDate } from '@date-fns/tz';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faRepeat, faSpinner } from '@fortawesome/free-solid-svg-icons';
@@ -67,6 +68,8 @@ const props = defineProps<{
   showBlocks: boolean;
   showCurrentTime: boolean;
   currentTimePct: number;
+  /** First day the server did not compute — days from here on are hidden (not shared yet), not empty. */
+  hiddenFrom?: Date | null;
 }>();
 
 // DayBlock's own type names ('unavailable') don't quite match the
@@ -227,15 +230,18 @@ function formatDay(day: Date, fmt: string): string {
             v-for="{ day, blocks } in dayBlocks"
             :key="formatDay(day, 'yyyy-MM-dd')"
             class="wtf-fcal-day-column"
-            :class="{ 'is-today': isDayToday(day) }"
+            :class="{ 'is-today': isDayToday(day), 'is-beyond-range': isBeyondRange(day, hiddenFrom ?? null, timezone) }"
           >
+            <div v-if="isBeyondRange(day, hiddenFrom ?? null, timezone)" class="wtf-beyond-range-label">
+              {{ $t('free.notSharedYet') }}
+            </div>
             <div
               v-if="showCurrentTime && isDayToday(day)"
               class="wtf-fcal-current-time"
               :style="{ top: `${currentTimePct}%` }"
             />
 
-            <template v-if="showBlocks">
+            <template v-if="showBlocks && !isBeyondRange(day, hiddenFrom ?? null, timezone)">
               <div
                 v-for="(block, i) in blocks"
                 :key="i"

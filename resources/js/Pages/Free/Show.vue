@@ -162,26 +162,23 @@ const statusText = ref(trans('free.loading'));
 const showCalendar = ref(false);
 
 const availability = ref<AvailabilityResponse>({ events: [] });
+// End of the computed range (server-side lookahead) — nothing past it exists, so Next stops here.
+const rangeEnd = ref<Date | null>(null);
 
 function parseViewParam(): 'week' | 'month' {
   return new URLSearchParams(location.search).get('view') === 'month' ? 'month' : 'week';
 }
 
 /**
- * anchorDate is always kept snapped to the start of its own mode's period
- * (the configured first-day-of-week for week mode, the 1st for month mode)
- * — never an arbitrary day within it. Two things that needs: the `at` URL
- * param staying meaningful (it's always "the period's first day," matching
- * what's actually shown, instead of whatever day happened to be clicked or
- * "today" landed on), and addMonths() never clamping across the month-mode
- * boundary — addMonths(Jan 31, 1) silently becomes Feb 28 (Feb 31 doesn't
- * exist), and from there addMonths(Feb 28, 1) is Mar 28, not Mar 31,
- * permanently losing the original day and — combined with switching back
- * to week mode mid-drift — was the "switching view has a chance to land
- * in the past" bug: an unsnapped anchor could end up on a day whose own
- * startOfWeek/startOfMonth no longer agreed with what isAtStart last
- * guarded against. Snapping before every mode's own date math keeps
- * anchorDate always canonical, so there's nothing left to drift.
+ * anchorDate is a real date (never earlier than today) that both view modes
+ * derive their period from via snapToPeriodStart — it is NOT itself snapped
+ * to a period start when switching views. Snapping on a view switch used to
+ * move it to the 1st of the month (month mode) and then back to a week
+ * start that could precede the current week ("week → month → week lands in
+ * the past"). Keeping the date unchanged on a switch, and in the `at` URL
+ * param, makes that impossible. Only prev/next navigation snaps (so
+ * addMonths() can't drift, e.g. Jan 31 → Feb 28 → Mar 28), and it clamps
+ * the result back up to today so the anchor never falls into the past.
  */
 function snapToPeriodStart(date: Date, mode: 'week' | 'month', weekStart: number): Date {
   return mode === 'month'
@@ -193,18 +190,20 @@ function snapToPeriodStart(date: Date, mode: 'week' | 'month', weekStart: number
 // back to today rather than honored — same reasoning as goPrev's isAtStart
 // guard below: this viewer should never land on a week/month that's
 // entirely in the past.
-function parseAtParam(viewMode: 'week' | 'month', weekStart: number): Date | null {
+function parseAtParam(): Date | null {
   const at = new URLSearchParams(location.search).get('at');
   if (!at || !/^\d{4}-\d{2}-\d{2}$/.test(at)) return null;
   const [y, m, d] = at.split('-').map(Number);
-  const parsed = snapToPeriodStart(new Date(y, m - 1, d), viewMode, weekStart);
-  const today = snapToPeriodStart(new Date(), viewMode, weekStart);
+  const parsed = new Date(y, m - 1, d);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
+  // Any day before today (even within the current week/month) falls back to today.
   return parsed < today ? null : parsed;
 }
 
 const viewMode = ref<'week' | 'month'>(parseViewParam());
-const anchorDate = ref(parseAtParam(viewMode.value, props.weekStart) ?? snapToPeriodStart(new Date(), viewMode.value, props.weekStart));
+const anchorDate = ref(parseAtParam() ?? new Date());
 
 function formatDateParam(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -265,42 +264,57 @@ const isAtStart = computed(() => (viewMode.value === 'month'
   : startOfWeekFns(anchorDate.value, { weekStartsOn: props.weekStart as 0 | 1 | 2 | 3 | 4 | 5 | 6 }).getTime()
     <= startOfWeekFns(now.value, { weekStartsOn: props.weekStart as 0 | 1 | 2 | 3 | 4 | 5 | 6 }).getTime()));
 
+// Mirror of isAtStart: Next is disabled once the following week/month would
+// begin at or after the end of the computed range, so a viewer can't page
+// into periods the server never computed.
+const isAtEnd = computed(() => {
+  if (rangeEnd.value === null) return false;
+  const nextStart = viewMode.value === 'month'
+    ? addMonths(startOfMonth(anchorDate.value), 1)
+    : addDaysFns(startOfWeekFns(anchorDate.value, { weekStartsOn: props.weekStart as 0 | 1 | 2 | 3 | 4 | 5 | 6 }), 7);
+  return nextStart.getTime() >= rangeEnd.value.getTime();
+});
+
+/** Snap to the current period's start, move one period, and never land before today. */
+function shiftPeriod(direction: 1 | -1): Date {
+  const start = snapToPeriodStart(anchorDate.value, viewMode.value, props.weekStart);
+  const shifted = viewMode.value === 'week' ? addDaysFns(start, 7 * direction) : addMonths(start, direction);
+  const today = new Date();
+
+  return shifted < today ? today : shifted;
+}
+
 function goPrev(): void {
   if (isAtStart.value) return;
-  anchorDate.value = viewMode.value === 'week' ? addDaysFns(anchorDate.value, -7) : addMonths(anchorDate.value, -1);
+  anchorDate.value = shiftPeriod(-1);
   updateUrl();
 }
 
 function goNext(): void {
-  anchorDate.value = viewMode.value === 'week' ? addDaysFns(anchorDate.value, 7) : addMonths(anchorDate.value, 1);
+  if (isAtEnd.value) return;
+  anchorDate.value = shiftPeriod(1);
   updateUrl();
 }
 
 function goToday(): void {
-  anchorDate.value = snapToPeriodStart(new Date(), viewMode.value, props.weekStart);
+  anchorDate.value = new Date();
   updateUrl();
 }
 
-// Re-snapping to the *new* mode's own period start (not just toggling
-// viewMode) is what keeps this from ever landing on the past: anchorDate
-// was already canonical for the mode being left, but "canonical for week
-// mode" and "canonical for month mode" aren't the same day, and leaving it
-// as-is here is exactly the drift snapToPeriodStart's own doc comment
-// above describes.
+// Switching views deliberately leaves anchorDate (and the `at` param)
+// untouched — see the anchorDate doc comment above.
 function setViewWeek(): void {
-  anchorDate.value = snapToPeriodStart(anchorDate.value, 'week', props.weekStart);
   viewMode.value = 'week';
   updateUrl();
 }
 
 function setViewMonth(): void {
-  anchorDate.value = snapToPeriodStart(anchorDate.value, 'month', props.weekStart);
   viewMode.value = 'month';
   updateUrl();
 }
 
 function onWeekClick(day: Date): void {
-  anchorDate.value = snapToPeriodStart(day, 'week', props.weekStart);
+  anchorDate.value = day;
   viewMode.value = 'week';
   updateUrl();
 }
@@ -512,6 +526,18 @@ async function applyReadyResponse(response: ApiResponse): Promise<void> {
   const key = await resolveContentKey();
   const plaintext = await decryptString(key, response.ciphertext!);
   availability.value = JSON.parse(plaintext) as AvailabilityResponse;
+  rangeEnd.value = response.computed_range_end ? new Date(response.computed_range_end) : null;
+
+  // A bookmarked/hand-edited `at` past the computed range is pulled back to
+  // the last period that has data (the one containing the range's final
+  // instant) — same idea as parseAtParam's clamp at the start side.
+  if (rangeEnd.value !== null) {
+    const lastPeriod = snapToPeriodStart(new Date(rangeEnd.value.getTime() - 1), viewMode.value, props.weekStart);
+    if (snapToPeriodStart(anchorDate.value, viewMode.value, props.weekStart) > lastPeriod) {
+      anchorDate.value = lastPeriod;
+      updateUrl();
+    }
+  }
 }
 
 async function boot(): Promise<void> {
@@ -794,6 +820,7 @@ onMounted(() => {
                   variant="outline-secondary"
                   size="sm"
                   :aria-label="viewMode === 'month' ? $t('free.nextMonth') : $t('free.nextWeek')"
+                  :disabled="isAtEnd"
                   @click="goNext"
                 ><FontAwesomeIcon :icon="faChevronRight" /></BButton>
                 <BButton variant="secondary" size="sm" class="ms-2" :disabled="isAtStart" @click="goToday">{{ $t('free.today') }}</BButton>
@@ -843,6 +870,7 @@ onMounted(() => {
                   :show-blocks="true"
                   :show-current-time="true"
                   :current-time-pct="currentTimePct"
+                  :hidden-from="rangeEnd"
                 />
                 <MonthView
                   v-else
@@ -855,6 +883,7 @@ onMounted(() => {
                   :show-blocks="true"
                   :show-current-time="true"
                   :current-time-pct="currentTimePct"
+                  :hidden-from="rangeEnd"
                   :week-start="props.weekStart"
                   @week-click="onWeekClick"
                 />
@@ -871,6 +900,7 @@ onMounted(() => {
                 :show-blocks="true"
                 :show-current-time="true"
                 :current-time-pct="currentTimePct"
+                :hidden-from="rangeEnd"
               />
               </ViewErrorBoundary>
             </template>

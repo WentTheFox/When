@@ -24,6 +24,7 @@
     "free.error": "Datele de disponibilitate nu au putut fi încărcate.",
     "free.noData": "Nu mai există timp liber luna aceasta.",
     "free.noDataWeek": "Nu mai există timp liber săptămâna aceasta.",
+    "free.notSharedYet": "Încă nepartajat",
     "free.today": "Azi",
     "free.monthView": "Lună",
     "free.weekView": "Săptămână",

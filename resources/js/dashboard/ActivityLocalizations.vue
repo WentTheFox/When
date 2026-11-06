@@ -45,7 +45,11 @@ interface ActivityLocalizationData {
 
 const props = defineProps<{ initial: ActivityLocalizationData[] }>();
 
-const roles = ref<ActivityLocalizationData[]>([...props.initial].sort((a, b) => a.sort_order - b.sort_order));
+// A label-less (icon-only) role arrives with `label: null` from the server —
+// normalize to an empty object so every consumer below can treat it as a map.
+const roles = ref<ActivityLocalizationData[]>(
+  props.initial.map(r => ({ ...r, label: r.label ?? {} })).sort((a, b) => a.sort_order - b.sort_order),
+);
 const savingId = ref<string | null>(null);
 const savedId = ref<string | null>(null);
 const errors = ref<Record<string, string>>({});
@@ -59,8 +63,8 @@ const adding = ref(false);
 const addError = ref('');
 
 /** Every language this role's label has been given text for (including "default" itself) — shown in the accordion header as a quick summary of what's actually configured. */
-function labelCodes(label: Record<string, string>): string[] {
-  return Object.keys(label);
+function labelCodes(label: Record<string, string> | null | undefined): string[] {
+  return Object.keys(label ?? {});
 }
 
 async function save(role: ActivityLocalizationData): Promise<void> {
@@ -101,7 +105,7 @@ const addPanel = ref<HTMLElement | null>(null);
 function cloneToNew(role: ActivityLocalizationData): void {
   newPattern.value = role.pattern;
   newPatternPreview.value = role.pattern_preview;
-  newLabel.value = { ...role.label };
+  newLabel.value = { ...(role.label ?? {}) };
   newIconKey.value = role.icon_key;
   newColorKey.value = role.color_key;
   addError.value = '';

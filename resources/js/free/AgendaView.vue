@@ -10,6 +10,7 @@
  */
 import { format } from 'date-fns';
 import { resolveDateFnsLocale } from './dateFnsLocale';
+import { isBeyondRange } from './rangeEnd';
 import { TZDate } from '@date-fns/tz';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faRepeat, faSpinner } from '@fortawesome/free-solid-svg-icons';
@@ -57,6 +58,8 @@ const props = defineProps<{
   showBlocks: boolean;
   showCurrentTime: boolean;
   currentTimePct: number;
+  /** First day the server did not compute — days from here on are hidden (not shared yet), not empty. */
+  hiddenFrom?: Date | null;
 }>();
 
 // Same DayBlock-type-vs-icon-slot-name mismatch as CalendarView.vue.
@@ -164,7 +167,7 @@ const agendaEntries = computed(() =>
       }
     }
 
-    return { day, slots, isToday, currentTimeSlotIndex, currentTimeOffsetPct };
+    return { day, slots, isToday, currentTimeSlotIndex, currentTimeOffsetPct, beyond: isBeyondRange(day, props.hiddenFrom ?? null, props.timezone) };
   }),
 );
 </script>
@@ -179,7 +182,7 @@ const agendaEntries = computed(() =>
     </div>
     <div v-else class="wtf-fagenda-list">
       <div
-        v-for="{ day, slots, isToday, currentTimeSlotIndex, currentTimeOffsetPct } in agendaEntries"
+        v-for="{ day, slots, isToday, currentTimeSlotIndex, currentTimeOffsetPct, beyond } in agendaEntries"
         :key="formatDay(day, 'yyyy-MM-dd')"
         class="wtf-fagenda-day"
       >
@@ -187,8 +190,11 @@ const agendaEntries = computed(() =>
           <span class="wtf-fagenda-day-name">{{ formatDay(day, 'EEE') }}</span>
           <span class="wtf-fagenda-day-date">{{ formatDay(day, 'MMM d') }}</span>
         </div>
+        <div v-if="beyond" class="wtf-beyond-range-label wtf-beyond-range-agenda is-beyond-range">
+          {{ $t('free.notSharedYet') }}
+        </div>
         <div
-          v-for="(slot, i) in slots"
+          v-for="(slot, i) in (beyond ? [] : slots)"
           :key="i"
           class="wtf-fagenda-slot"
           :class="[AGENDA_SLOT_CLASS[slot.type], { 'wtf-fagenda-slot-tentative': isTentativeStartDisplay(slot) || isTentativeEndDisplay(slot) }]"

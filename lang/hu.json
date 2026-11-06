@@ -24,6 +24,7 @@
     "free.error": "Nem sikerült betölteni az elérhetőségi adatokat.",
     "free.noData": "Ebben a hónapban nem maradt szabad időm.",
     "free.noDataWeek": "Ezen a héten nem maradt szabad időm.",
+    "free.notSharedYet": "Még nincs megosztva",
     "free.today": "Ma",
     "free.monthView": "Hónap",
     "free.weekView": "Hét",

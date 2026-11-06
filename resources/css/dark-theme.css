@@ -2265,3 +2265,32 @@ hr {
     white-space: nowrap;
 }
 
+
+/* Days past the computed range: hidden (not shared yet), deliberately unlike
+   an empty day — diagonal hatching + a label instead of blank space. */
+.is-beyond-range {
+    background-image: repeating-linear-gradient(135deg, transparent 0, transparent 6px, var(--app-border) 6px, var(--app-border) 7px) !important;
+    background-color: transparent !important;
+}
+
+.wtf-beyond-range-label {
+    position: absolute;
+    top: 0.5rem;
+    left: 0;
+    right: 0;
+    text-align: center;
+    padding: 0 0.25rem;
+    font-size: 0.75rem;
+    font-style: italic;
+    color: var(--bs-secondary-color, #6c757d);
+}
+
+.wtf-beyond-range-label.wtf-beyond-range-agenda {
+    position: static;
+    padding: 0.75rem;
+    text-align: left;
+}
+
+.wtf-fmonth-day-cell.is-beyond-range {
+    opacity: 0.6;
+}

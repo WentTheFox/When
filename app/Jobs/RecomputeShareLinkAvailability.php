@@ -46,6 +46,9 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
     /** How far forward to compute — there's no reason to hold years of calendar history in memory. */
     private const LOOKAHEAD_DAYS = 60;
 
+    /** How far before the owner's week start the computed range begins. */
+    private const WEEK_START_LEAD_HOURS = 6;
+
     /**
      * Safety cap on the uniqueness lock, in case a worker dies mid-job
      * without releasing it (the lock otherwise releases as soon as this
@@ -91,8 +94,16 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $rangeStart = CarbonImmutable::now($user->timezone ?? 'UTC')->startOfDay();
-        $rangeEnd = $rangeStart->addDays(self::LOOKAHEAD_DAYS);
+        // Start at the beginning of the owner's current week (not today) so
+        // the week view a viewer opens on isn't half empty; the lookahead
+        // is still counted from today.
+        $today = CarbonImmutable::now($user->timezone ?? 'UTC')->startOfDay();
+        // A few hours of the previous day are included too, so an event or
+        // sleep block that begins the evening before the week's first day
+        // and runs past midnight isn't cut off at the week boundary.
+        $rangeStart = $today->startOfWeek($user->week_start ?? CarbonImmutable::MONDAY)->startOfDay()
+            ->subHours(self::WEEK_START_LEAD_HOURS);
+        $rangeEnd = $today->addDays(self::LOOKAHEAD_DAYS);
 
         // Diagnostic timing only — see StageTimer's own doc comment for why
         // trace_id is a fresh UUID (never an owner/share-link id) and why

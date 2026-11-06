@@ -24,6 +24,7 @@
     "free.error": "空き状況データを読み込めませんでした。",
     "free.noData": "今月の空き時間はもうありません。",
     "free.noDataWeek": "今週の空き時間はもうありません。",
+    "free.notSharedYet": "まだ共有されていません",
     "free.today": "今日",
     "free.monthView": "月",
     "free.weekView": "週",

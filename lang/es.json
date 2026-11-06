@@ -24,6 +24,7 @@
     "free.error": "No se pudieron cargar los datos de disponibilidad.",
     "free.noData": "No queda tiempo libre este mes.",
     "free.noDataWeek": "No queda tiempo libre esta semana.",
+    "free.notSharedYet": "Aún no compartido",
     "free.today": "Hoy",
     "free.monthView": "Mes",
     "free.weekView": "Semana",

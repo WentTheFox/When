@@ -24,6 +24,7 @@
     "free.error": "无法加载空闲状态数据。",
     "free.noData": "本月已无空闲时间。",
     "free.noDataWeek": "本周已无空闲时间。",
+    "free.notSharedYet": "尚未共享",
     "free.today": "今天",
     "free.monthView": "月",
     "free.weekView": "周",

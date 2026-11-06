@@ -24,6 +24,7 @@
     "free.error": "Müsaitlik verileri yüklenemedi.",
     "free.noData": "Bu ay için müsait zaman kalmadı.",
     "free.noDataWeek": "Bu hafta için müsait zaman kalmadı.",
+    "free.notSharedYet": "Henüz paylaşılmadı",
     "free.today": "Bugün",
     "free.monthView": "Ay",
     "free.weekView": "Hafta",
