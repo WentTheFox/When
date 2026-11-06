@@ -22,7 +22,7 @@ class ConnectionAttributeDefinitionController extends Controller
         $data = $request->validate([
             'id' => ['required', 'uuid', 'unique:connection_attribute_definitions,id'],
             'label_ciphertext' => ['required', 'string'],
-            'type' => ['required', 'in:text,textarea,date,number,url,email,phone,radio,country,identifier,identifier_list,boolean,connection'],
+            'type' => ['required', 'in:text,textarea,date,number,url,email,phone,radio,country,list,identifier,identifier_list,boolean,connection'],
             // Only meaningful for 'radio' (JSON-encoded {"choices": [...]},
             // client-encrypted with this definition's own record key — same
             // key as label_ciphertext, not any connection's key.
@@ -155,6 +155,81 @@ class ConnectionAttributeDefinitionController extends Controller
                 });
 
             $definition->update(['type' => 'identifier_list']);
+
+            return $converted;
+        });
+
+        return response()->json(['converted' => $converted]);
+    }
+
+    /**
+     * One-way migration: a 'textarea' field becomes an E2EE 'list' field in place.
+     *
+     * The values are E2EE, so only the browser can do the work: it decrypts each one, normalizes it to
+     * one entry per line, pads it (see encryptedList.ts) and re-encrypts it. This endpoint takes those
+     * new ciphertexts together with the ciphertext each was made from (`base_ciphertext`), swaps them in
+     * and flips the type in one all-or-nothing step. If any value changed since the browser read it, or
+     * the set of values differs, nothing is changed (409) and the page reloads its data.
+     * `value_ciphertext` null means the list came out empty: that value is removed.
+     * The Notes field cannot be converted, since the notes feature relies on it being multi-line.
+     * Returns how many values were converted.
+     */
+    public function convertToEncryptedList(Request $request, string $definition): JsonResponse
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'values' => ['present', 'array', 'max:5000'],
+            'values.*.connection_id' => ['required', 'uuid', 'distinct', Rule::exists('connections', 'id')->where('user_id', $user->id)],
+            'values.*.base_ciphertext' => ['required', 'string'],
+            'values.*.value_ciphertext' => ['nullable', 'string'],
+        ]);
+
+        $converted = DB::transaction(function () use ($user, $definition, $data) {
+            // Same row lock as destroy() and the Settings save: no binding or delete can interleave.
+            $owner = User::whereKey($user->getKey())->lockForUpdate()->firstOrFail();
+            $definition = ConnectionAttributeDefinition::where('user_id', $owner->id)->where('id', $definition)->lockForUpdate()->firstOrFail();
+
+            if ($definition->type !== 'textarea') {
+                throw ValidationException::withMessages(['definition' => 'Only a multi-line field can be converted to a list.']);
+            }
+
+            if ($owner->notes_field_definition_id === $definition->id) {
+                throw ValidationException::withMessages(['definition' => 'The Notes field has to stay multi-line.']);
+            }
+
+            $rows = ConnectionAttributeValue::where('attribute_definition_id', $definition->id)->lockForUpdate()->get()->keyBy('connection_id');
+            /** @var array<string, array{connection_id: string, base_ciphertext: string, value_ciphertext?: string|null}> $sent */
+            $sent = array_column($data['values'], null, 'connection_id');
+
+            $held = $rows->keys()->all();
+            $given = array_keys($sent);
+            sort($held);
+            sort($given);
+
+            $stale = $held !== $given
+                || $rows->contains(fn (ConnectionAttributeValue $row) => $row->value_ciphertext !== $sent[$row->connection_id]['base_ciphertext']);
+
+            if ($stale) {
+                abort(409, 'The values changed while converting. Nothing was converted; reload and try again.');
+            }
+
+            $converted = 0;
+
+            foreach ($rows as $connectionId => $row) {
+                $next = $sent[$connectionId]['value_ciphertext'] ?? null;
+
+                if ($next === null || $next === '') {
+                    $row->delete();
+
+                    continue;
+                }
+
+                $row->update(['value_ciphertext' => $next]);
+                $converted++;
+            }
+
+            $definition->update(['type' => 'list']);
 
             return $converted;
         });

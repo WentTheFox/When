@@ -14,6 +14,7 @@ import LockedOverlay from './LockedOverlay.vue';
 const TYPE_LABELS: Record<string, string> = {
   text: 'Text',
   textarea: 'Multi-line',
+  list: 'List',
   radio: 'Choice',
   country: 'Country',
   date: 'Date',
@@ -59,6 +60,8 @@ const emit = defineEmits<{
   /** Icon rules: the field id and its full new rule set, to be encrypted and saved. */
   saveIconRules: [string, IconRuleSet];
   convertToList: [string];
+  /** Multi-line field to E2EE list: the page re-encrypts every value, then asks the server to swap them in. */
+  convertToEncryptedList: [string];
   /** Create an identifier field with this name, then copy the text field (first id) into it. */
   createIdentifierAndCopy: [string, string];
   copyToIdentifier: [string, string];
@@ -198,6 +201,25 @@ async function confirmConvertToList(): Promise<void> {
   emit('convertToList', definition.id);
 }
 
+/** One-way: a multi-line field becomes a list (entries one per line, still end-to-end encrypted). */
+async function confirmConvertToEncryptedList(): Promise<void> {
+  const definition = selected.value;
+  if (!definition || definition.label === undefined || definition.type !== 'textarea') return;
+
+  const used = props.usage[definition.id] ?? 0;
+
+  const confirmed = await requestConfirm({
+    title: `Turn “${definition.label}” into a list?`,
+    message: `${used > 0 ? `Each of the ${used} existing value${used === 1 ? '' : 's'} is read as one entry per line (blank lines and repeats are dropped) and encrypted again. ` : ''}`
+      + 'It stays end-to-end encrypted, and the field keeps its name and everything that uses it. This cannot be undone.',
+    confirmText: 'Convert to list',
+    variant: 'primary',
+  });
+  if (!confirmed) return;
+
+  emit('convertToEncryptedList', definition.id);
+}
+
 const showNewForm = ref(false);
 const newLabel = ref('');
 const newType = ref('text');
@@ -322,7 +344,7 @@ function add(): void {
             <dt class="col-sm-3">Type</dt>
             <dd class="col-sm-9">
               {{ TYPE_LABELS[selected.type] ?? selected.type }}
-              <span v-if="selected.type === 'identifier'" class="text-muted">(can be converted to a list, one way only)</span>
+              <span v-if="selected.type === 'identifier' || selected.type === 'textarea'" class="text-muted">(can be converted to a list, one way only)</span>
               <span v-else class="text-muted">(fixed once created)</span>
             </dd>
             <dt class="col-sm-3">Used on</dt>
@@ -360,6 +382,17 @@ function add(): void {
             :disabled="pending"
             title="Turn this single identifier into a list of identifiers (cannot be undone)"
             @click="confirmConvertToList"
+          >
+            Convert to list…
+          </BButton>
+          <BButton
+            v-if="selected.type === 'textarea'"
+            size="sm"
+            variant="outline-secondary"
+            class="ms-2"
+            :disabled="pending || copyBusy"
+            title="Turn this multi-line field into an encrypted list, one entry per line (cannot be undone)"
+            @click="confirmConvertToEncryptedList"
           >
             Convert to list…
           </BButton>

@@ -19,6 +19,7 @@ import RadioChoices from '../Components/RadioChoices.vue';
 import EncryptedText from '../Components/EncryptedText.vue';
 import ConnectionSharing, { type IdentityOption, type ShareLinkInfo } from './ConnectionSharing.vue';
 import ConnectionDiscord from './ConnectionDiscord.vue';
+import { listText, paddedListText } from './encryptedList';
 import ConnectionVrchat from './ConnectionVrchat.vue';
 import type { DiscordProfile } from './discord';
 import type { VrchatProfile, VrchatSummary } from './vrchat';
@@ -182,11 +183,15 @@ async function decryptAll(): Promise<void> {
     name.value = await decryptString(key, props.connection.name_ciphertext);
 
     const values: Record<string, string> = {};
+    const listIds = new Set(props.attributeDefinitions.filter((d) => d.type === 'list').map((d) => d.id));
     for (const attributeValue of props.connection.attribute_values) {
       // Lists are edited as one entry per line, so they ride in the same string map as every other value.
       // Booleans ride in the same string map as 'true'/'false' ('' = unset).
+      // A list's text carries blank padding (see encryptedList.ts); the form shows just the entries.
       values[attributeValue.attribute_definition_id] = attributeValue.value_ciphertext
-        ? await decryptString(key, attributeValue.value_ciphertext)
+        ? (listIds.has(attributeValue.attribute_definition_id)
+          ? listText(await decryptString(key, attributeValue.value_ciphertext))
+          : await decryptString(key, attributeValue.value_ciphertext))
         : attributeValue.boolean_value != null
           ? String(attributeValue.boolean_value)
           : attributeValue.identifier_list_value
@@ -320,6 +325,12 @@ async function save(): Promise<void> {
       if (definition.type === 'boolean') {
         // §0.2 tier on purpose, like identifier: plaintext on the wire, app-key encrypted at rest.
         values.push({ attribute_definition_id: definition.id, boolean_value: value === 'true' });
+        continue;
+      }
+      if (definition.type === 'list') {
+        // One ciphertext for the whole list, padded: the server learns neither the entries nor how many.
+        const padded = paddedListText(value);
+        if (padded !== '') values.push({ attribute_definition_id: definition.id, value_ciphertext: await encryptString(key, padded) });
         continue;
       }
       values.push(
@@ -496,6 +507,19 @@ async function remove(): Promise<void> {
         :name="`field-${definition.id}`"
         :disabled="!decrypted"
       />
+      <div v-else-if="definition.type === 'list'">
+        <EncryptedInput
+          v-model="editAttributeValues[definition.id]"
+          :ciphertext="rawCiphertext(definition.id)"
+          :pending="!decrypted"
+          multiline
+          size="sm"
+          rows="3"
+          placeholder="One entry per line"
+          autocomplete="off"
+        />
+        <div class="form-text">End-to-end encrypted — one entry per line.</div>
+      </div>
       <div v-else-if="definition.type === 'identifier_list'">
         <EncryptedInput
           v-model="editAttributeValues[definition.id]"

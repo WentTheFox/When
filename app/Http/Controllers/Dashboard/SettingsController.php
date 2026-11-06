@@ -154,9 +154,9 @@ class SettingsController extends Controller
                 'synced_at' => $user->discord_synced_at?->toIso8601String(),
                 'user_id_definition_id' => $user->discord_user_id_definition_id,
             ],
-            // Other-names candidates: identifier lists and multi-line fields. Labels are E2EE like the rest.
+            // Other-names candidates: identifier lists, lists and multi-line fields. Labels are E2EE like the rest.
             'alternativeNamesDefinitions' => $user->connectionAttributeDefinitions()
-                ->whereIn('type', ['identifier_list', 'textarea'])
+                ->whereIn('type', ['identifier_list', 'list', 'textarea'])
                 ->get(['id', 'label_ciphertext', 'type']),
             'booleanDefinitions' => $user->connectionAttributeDefinitions()->where('type', 'boolean')->get(['id', 'label_ciphertext']),
             'timezones' => \DateTimeZone::listIdentifiers(),
