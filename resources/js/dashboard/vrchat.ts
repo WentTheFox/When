@@ -52,9 +52,19 @@ export function formatDuration(ms: number): string {
   return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
 }
 
-/** A friend the server handed over to be turned into a connection. */
+/** A VRChat friend still waiting for the owner to act on them. */
 export interface PendingFriend {
+  /** The server's id for the pending friend (not the VRChat id). */
   id: string;
   vrchat_user_id: string;
   display_name: string | null;
+  picture_url?: string | null;
+}
+
+/** 'new' creates a connection, 'skip' dismisses the friend for good, anything else is the id of the connection to add them to. */
+export type FriendChoice = 'new' | 'skip' | string;
+
+export interface FriendDecision {
+  friendId: string;
+  choice: FriendChoice;
 }

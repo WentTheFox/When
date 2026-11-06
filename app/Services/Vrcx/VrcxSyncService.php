@@ -152,7 +152,7 @@ class VrcxSyncService
             } elseif ($row->status === VrchatFriend::PENDING) {
                 // A connection made by hand in the meantime settles it; otherwise keep the name fresh.
                 $row->update(isset($linked[$id])
-                    ? ['status' => VrchatFriend::CREATED, 'claimed_at' => null]
+                    ? ['status' => VrchatFriend::CREATED]
                     : ['display_name' => $name ?? $row->display_name, 'profile_picture_url' => $picture ?? $row->profile_picture_url]);
             }
         }

@@ -501,4 +501,44 @@ class VrcxIntegrationTest extends TestCase
         $this->assertStringNotContainsString('vrcx_key_secret', implode("\n", $files));
         $this->assertSame('https://vrcx.example.test', json_decode($files['account/profile.json'], true)['records'][0]['vrcx_base_url']);
     }
+
+    public function test_a_cloudflare_block_is_reported_as_a_firewall_not_a_missing_api_or_a_bad_key(): void
+    {
+        $user = User::factory()->create();
+        $blocked = fn () => Http::response('<html><title>Attention Required! | Cloudflare</title></html>', 403, ['Server' => 'cloudflare', 'cf-mitigated' => 'challenge']);
+
+        $this->freshHttp()->fake(['*/api/v1/openapi.json' => $blocked]);
+        $this->actingAs($user)->patch('/settings/vrcx', ['vrcx_base_url' => 'https://vrcx.example.test'])->assertSessionHasErrors('vrcx_base_url');
+        $this->assertStringContainsString('firewall', session('errors')->first('vrcx_base_url'));
+        $this->assertStringNotContainsString('no VRCX API', session('errors')->first('vrcx_base_url'));
+
+        [$owner, $definition] = $this->configuredOwner();
+        $this->link($owner, $definition, [self::ALICE]);
+        $this->freshHttp()->fake(['*' => $blocked]);
+        try {
+            app(VrcxSyncService::class)->sync($owner);
+            $this->fail('expected a VrcxException');
+        } catch (VrcxException $e) {
+            $this->assertStringContainsString('firewall', $e->getMessage());
+            $this->assertStringNotContainsString('scope', $e->getMessage());
+        }
+    }
+
+    public function test_vrcx_own_403_and_a_plain_403_are_not_mistaken_for_a_firewall(): void
+    {
+        [$owner, $definition] = $this->configuredOwner();
+        $this->link($owner, $definition, [self::ALICE]);
+
+        $this->freshHttp()->fake(['*' => Http::response(['ok' => false, 'error' => 'Key lacks the required scope'], 403, ['Server' => 'cloudflare'])]);
+        try {
+            app(VrcxSyncService::class)->sync($owner);
+            $this->fail('expected a VrcxException');
+        } catch (VrcxException $e) {
+            $this->assertStringContainsString('scope', $e->getMessage());
+        }
+
+        $this->freshHttp()->fake(['*/api/v1/openapi.json' => Http::response('nope', 403)]);
+        $this->actingAs(User::factory()->create())->patch('/settings/vrcx', ['vrcx_base_url' => 'https://vrcx.example.test'])->assertSessionHasErrors('vrcx_base_url');
+        $this->assertStringContainsString('HTTP 403', session('errors')->first('vrcx_base_url'));
+    }
 }

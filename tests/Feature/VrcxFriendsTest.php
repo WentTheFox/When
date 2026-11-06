@@ -143,88 +143,6 @@ class VrcxFriendsTest extends TestCase
         }
     }
 
-    public function test_claims_hand_each_pending_friend_to_one_browser_until_the_claim_expires(): void
-    {
-        $user = $this->owner();
-        $service = app(VrcxSyncService::class);
-        $this->fakeFriends([]);
-        $service->sync($user);
-        $this->fakeFriends([self::NEW]);
-        $service->sync($user->refresh());
-
-        $first = $this->actingAs($user)->postJson('/dashboard/vrchat/friends/claim')->assertOk()->json('friends');
-        $this->assertCount(1, $first);
-        $this->assertSame(self::NEW, $first[0]['vrchat_user_id']);
-        $this->assertSame('Friend a3', $first[0]['display_name']);
-
-        $this->actingAs($user)->postJson('/dashboard/vrchat/friends/claim')->assertOk()->assertJsonCount(0, 'friends');
-
-        $this->travel(11)->minutes();
-        $this->actingAs($user)->postJson('/dashboard/vrchat/friends/claim')->assertJsonCount(1, 'friends');
-
-        $this->actingAs($user)->postJson('/dashboard/vrchat/friends/complete', ['ids' => [$first[0]['id']]])->assertOk()->assertJson(['completed' => 1]);
-        $this->assertSame([self::NEW => 'created'], $this->statuses($user));
-        $this->travel(11)->minutes();
-        $this->actingAs($user)->postJson('/dashboard/vrchat/friends/claim')->assertJsonCount(0, 'friends');
-    }
-
-    public function test_friends_the_browser_skipped_are_dismissed_and_never_offered_again(): void
-    {
-        $user = $this->owner();
-        $this->fakeFriends([self::OLD, self::NEW]);
-        app(VrcxSyncService::class)->sync($user);
-
-        $claimed = collect($this->actingAs($user)->postJson('/dashboard/vrchat/friends/claim')->json('friends'))->keyBy('vrchat_user_id');
-        $this->assertCount(2, $claimed);
-
-        $this->actingAs($user)->postJson('/dashboard/vrchat/friends/complete', [
-            'ids' => [$claimed[self::NEW]['id']],
-            'skipped' => [$claimed[self::OLD]['id']],
-        ])->assertOk();
-
-        $this->assertSame([self::OLD => 'dismissed', self::NEW => 'created'], $this->statuses($user));
-
-        app(VrcxSyncService::class)->sync($user->refresh());
-        $this->assertSame([self::OLD => 'dismissed', self::NEW => 'created'], $this->statuses($user), 'a later sync leaves them as they are');
-
-        $this->travel(11)->minutes();
-        $this->actingAs($user)->postJson('/dashboard/vrchat/friends/claim')->assertJsonCount(0, 'friends');
-    }
-
-    public function test_friends_not_dealt_with_are_offered_again_on_the_next_page_load(): void
-    {
-        $user = $this->owner();
-        $this->fakeFriends([self::OLD, self::NEW]);
-        app(VrcxSyncService::class)->sync($user);
-
-        $first = collect($this->actingAs($user)->postJson('/dashboard/vrchat/friends/claim')->json('friends'))->keyBy('vrchat_user_id');
-        $this->assertCount(2, $first);
-
-        // This page load already saw both, so it is not handed them again.
-        $this->actingAs($user)->postJson('/dashboard/vrchat/friends/claim', ['exclude' => $first->pluck('id')->all()])->assertJsonCount(0, 'friends');
-
-        // Excluding is by id and works on friends that are free to claim, not only while a claim holds them.
-        $this->actingAs($user)->postJson('/dashboard/vrchat/friends/complete', ['ids' => [], 'released' => $first->pluck('id')->all()])->assertOk();
-        $onlyOne = $this->actingAs($user)->postJson('/dashboard/vrchat/friends/claim', ['exclude' => [$first[self::OLD]['id']]])->json('friends');
-        $this->assertSame([self::NEW], array_column($onlyOne, 'vrchat_user_id'));
-        $this->actingAs($user)->postJson('/dashboard/vrchat/friends/complete', ['ids' => [], 'released' => [$first[self::NEW]['id']]])->assertOk();
-
-        // One got handled; the other is awaiting a decision and is handed back.
-        $this->actingAs($user)->postJson('/dashboard/vrchat/friends/complete', [
-            'ids' => [$first[self::NEW]['id']],
-            'released' => [$first[self::OLD]['id']],
-        ])->assertOk();
-
-        // A refresh (no exclusions) offers the unhandled one at once, with no waiting for a claim to lapse.
-        $again = $this->actingAs($user)->postJson('/dashboard/vrchat/friends/claim')->json('friends');
-        $this->assertCount(1, $again);
-        $this->assertSame(self::OLD, $again[0]['vrchat_user_id']);
-
-        // ...and so on, until it is handled.
-        $this->actingAs($user)->postJson('/dashboard/vrchat/friends/complete', ['ids' => [], 'released' => [$again[0]['id']]])->assertOk();
-        $this->actingAs($user)->postJson('/dashboard/vrchat/friends/claim')->assertJsonCount(1, 'friends');
-    }
-
     public function test_the_summary_names_the_highlight_field_the_browser_matches_against(): void
     {
         $user = $this->owner();
@@ -234,7 +152,35 @@ class VrcxFriendsTest extends TestCase
         $this->assertSame($list->id, app(VrcxSyncService::class)->summary($user)['highlight_field_id']);
     }
 
-    public function test_the_chosen_source_is_handed_out_with_the_claim_and_must_be_my_own(): void
+    public function test_pending_friends_stay_listed_across_page_loads_until_the_owner_acts(): void
+    {
+        $user = $this->owner();
+        $this->fakeFriends([self::OLD, self::NEW]);
+        app(VrcxSyncService::class)->sync($user);
+
+        // Asking again and again (every refresh) never hands them out or hides them.
+        for ($load = 0; $load < 3; $load++) {
+            $response = $this->actingAs($user)->getJson('/dashboard/vrchat/friends')->assertOk();
+            $this->assertSame([self::OLD, self::NEW], collect($response->json('friends'))->pluck('vrchat_user_id')->sort()->values()->all());
+        }
+
+        $friends = collect($this->actingAs($user)->getJson('/dashboard/vrchat/friends')->json('friends'))->keyBy('vrchat_user_id');
+        $this->assertSame('Friend a3', $friends[self::NEW]['display_name']);
+        $this->assertSame('https://img.test/a3.png', $friends[self::NEW]['picture_url']);
+
+        // Acting on one removes only that one.
+        $this->actingAs($user)->postJson('/dashboard/vrchat/friends/complete', ['ids' => [$friends[self::NEW]['id']]])->assertOk()->assertJson(['completed' => 1]);
+        $this->assertSame([self::OLD], array_column($this->actingAs($user)->getJson('/dashboard/vrchat/friends')->json('friends'), 'vrchat_user_id'));
+        $this->assertSame(1, app(VrcxSyncService::class)->summary($user)['pending_friends']);
+
+        // Dismissing is for good, even across a later sync.
+        $this->actingAs($user)->postJson('/dashboard/vrchat/friends/complete', ['ids' => [], 'skipped' => [$friends[self::OLD]['id']]])->assertOk();
+        app(VrcxSyncService::class)->sync($user->refresh());
+        $this->assertSame([self::OLD => 'dismissed', self::NEW => 'created'], $this->statuses($user));
+        $this->actingAs($user)->getJson('/dashboard/vrchat/friends')->assertJsonCount(0, 'friends');
+    }
+
+    public function test_the_list_is_sorted_by_name_and_carries_the_chosen_source(): void
     {
         $user = $this->owner();
         $source = ConnectionSource::create(['id' => (string) Str::uuid(), 'user_id' => $user->id, 'name_ciphertext' => 'opaque']);
@@ -244,30 +190,30 @@ class VrcxFriendsTest extends TestCase
         $this->actingAs($user)->patch('/settings/vrcx', ['vrcx_friends_source_id' => $source->id])->assertSessionHasNoErrors();
         $this->assertSame($source->id, $user->refresh()->vrcx_friends_source_id);
 
-        $this->actingAs($user)->postJson('/dashboard/vrchat/friends/claim')->assertJsonPath('source_id', $source->id);
+        $this->fakeFriends([self::NEW, self::OLD]);
+        app(VrcxSyncService::class)->sync($user);
+
+        $response = $this->actingAs($user)->getJson('/dashboard/vrchat/friends')->assertJsonPath('source_id', $source->id);
+        $this->assertSame(['Friend a1', 'Friend a3'], array_column($response->json('friends'), 'display_name'));
         $this->actingAs($user)->get('/dashboard/connections')->assertInertia(fn ($page) => $page->where('vrchat.friends_source_id', $source->id));
 
         $source->forceDelete();
         $this->assertNull($user->refresh()->vrcx_friends_source_id, 'deleting the source just stops the tagging');
-
         $this->actingAs($user)->patch('/settings/vrcx', ['vrcx_friends_source_id' => null])->assertSessionHasNoErrors();
     }
 
-    public function test_claims_are_per_owner_and_need_the_feature_on(): void
+    public function test_the_list_is_per_owner_and_needs_the_feature_on(): void
     {
         $mine = $this->owner();
         $theirs = $this->owner();
-        VrchatFriend::create(['user_id' => $theirs->id, 'vrchat_user_id_hash' => 'h', 'vrchat_user_id' => self::NEW, 'status' => 'pending']);
+        $row = VrchatFriend::create(['user_id' => $theirs->id, 'vrchat_user_id_hash' => 'h', 'vrchat_user_id' => self::NEW, 'status' => 'pending']);
 
-        $this->actingAs($mine)->postJson('/dashboard/vrchat/friends/claim')->assertJsonCount(0, 'friends');
+        $this->actingAs($mine)->getJson('/dashboard/vrchat/friends')->assertJsonCount(0, 'friends');
+        $this->actingAs($mine)->postJson('/dashboard/vrchat/friends/complete', ['ids' => [$row->id]])->assertOk()->assertJson(['completed' => 0]);
+        $this->assertSame('pending', $row->refresh()->status, "another owner cannot settle someone else's friend");
 
         $theirs->forceFill(['vrcx_auto_create_friends' => false])->save();
-        $this->actingAs($theirs)->postJson('/dashboard/vrchat/friends/claim')->assertJsonCount(0, 'friends');
-
-        $theirs->forceFill(['vrcx_auto_create_friends' => true])->save();
-        $row = VrchatFriend::first();
-        $this->actingAs($mine)->postJson('/dashboard/vrchat/friends/complete', ['ids' => [$row->id]])->assertOk()->assertJson(['completed' => 0]);
-        $this->assertSame('pending', $row->refresh()->status);
+        $this->actingAs($theirs)->getJson('/dashboard/vrchat/friends')->assertJsonCount(0, 'friends');
     }
 
     public function test_enabling_needs_the_field_and_a_server_that_offers_friends(): void

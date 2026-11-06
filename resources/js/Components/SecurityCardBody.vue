@@ -89,10 +89,9 @@ const page = usePage();
     at rest with the same server-held key, and your VRCX Headless address and API
     key are stored that way too. The key is shown back to you in Settings
     (masked until you reveal it, like your calendar URL) but is never
-    included in your data export. If you switch on “create a connection for each new
-    friend”, the server also keeps your VRChat friend list (names and
-    pictures, encrypted at rest) to spot new friends; the connections
-    themselves are still created by your browser, so their names stay
+    included in your data export. If you switch on the VRChat friends list, the server also keeps your VRChat friend list (names
+    and pictures, encrypted at rest) to show who has no connection yet; the connections themselves
+    are only ever created by your browser when you choose to add a friend, so their names stay
     end-to-end encrypted.
   </p>
 

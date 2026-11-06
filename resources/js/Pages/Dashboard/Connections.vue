@@ -6,16 +6,17 @@ import axios from 'axios';
 import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput, BFormSelect, BFormTextarea, BTab, BTabs } from 'bootstrap-vue-next';
 import { computed, nextTick, onBeforeUnmount, onMounted, type Ref, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../../crypto';
+import { requestConfirm } from '../../dashboard/confirmModal';
 import PageHeader from '../../Components/PageHeader.vue';
 import AttributesPanel from '../../dashboard/AttributesPanel.vue';
 import CategoriesPanel from '../../dashboard/CategoriesPanel.vue';
 import EncryptedText from '../../Components/EncryptedText.vue';
 import ConnectionCard, { type ConnectionRow } from '../../dashboard/ConnectionCard.vue';
 import SourcesPanel from '../../dashboard/SourcesPanel.vue';
-import FriendReviewModal from '../../dashboard/FriendReviewModal.vue';
+import PendingFriendsPanel from '../../dashboard/PendingFriendsPanel.vue';
 import MergeConnectionModal from '../../dashboard/MergeConnectionModal.vue';
-import { holdsOtherId, type MatchCandidate, matchFriend, needsListConversion, type ReviewChoice, type ReviewItem } from '../../dashboard/friendMatching';
-import type { PendingFriend, VrchatSummary } from '../../dashboard/vrchat';
+import { holdsOtherId, type MatchCandidate } from '../../dashboard/friendMatching';
+import type { FriendDecision, PendingFriend, VrchatSummary } from '../../dashboard/vrchat';
 import {
   buildConnectionsHash,
   hasRecord,
@@ -367,13 +368,12 @@ async function createConnection(): Promise<void> {
 const friendNotice = ref('');
 let creatingFriends = false;
 
-/** Friends that need the owner's decision (see FriendReviewModal), and what the claim that delivered them said about the source. */
-const reviewItems = ref<ReviewItem[]>([]);
-const reviewOpen = ref(false);
-const reviewBusy = ref(false);
-let reviewSourceId: string | null = null;
-/** Pending friends this page load has already been handed, so a re-run doesn't fetch them again (a refresh starts empty and gets every unhandled one). */
-const seenFriendIds: string[] = [];
+/** The friends waiting for the owner (persisted on the server, so they are listed again after every refresh until acted on). */
+const pendingFriends = ref<PendingFriend[]>([]);
+const friendsSourceId = ref<string | null>(null);
+const friendsBusy = ref(false);
+const friendCandidates = ref<MatchCandidate[]>([]);
+const friendsReady = ref(false);
 
 /** The connection's attribute values as the update endpoint wants them back: only the column each one actually uses. */
 function valuePayload(v: ConnectionRow['attribute_values'][number]): Record<string, unknown> {
@@ -474,127 +474,54 @@ async function matchCandidates(): Promise<MatchCandidate[]> {
   return candidates;
 }
 
-function showFriendNotice(created: number, linked: number, skipped: string[], review: number): void {
+function showFriendNotice(created: number, linked: number, dismissed: number, failed: number): void {
   const parts: string[] = [];
   if (created > 0) parts.push(`added ${created} connection${created === 1 ? '' : 's'}`);
   if (linked > 0) parts.push(`added ${linked} friend${linked === 1 ? '' : 's'} to existing connections`);
+  if (dismissed > 0) parts.push(`dismissed ${dismissed}`);
 
   const sentences: string[] = [];
   if (parts.length > 0) sentences.push(`VRChat friends: ${parts.join(', ')}.`);
-  if (skipped.length > 0) sentences.push(`Skipped: ${skipped.slice(0, 10).join(', ')}${skipped.length > 10 ? `, and ${skipped.length - 10} more` : ''}.`);
-  if (review > 0) sentences.push(`${review} friend${review === 1 ? ' is' : 's are'} waiting for your decision.`);
+  if (failed > 0) sentences.push(`${failed} could not be done and ${failed === 1 ? 'is' : 'are'} still waiting.`);
 
-  if (sentences.length > 0) friendNotice.value = sentences.join(' ');
+  friendNotice.value = sentences.join(' ');
 }
 
-/**
- * VRChat friends without a connection (found by the server's sync) are dealt
- * with here, because a connection's name is encrypted with a key only this
- * unlocked vault has. Each friend is matched against the connections you
- * already have, by name or by highlight token (friendMatching.ts):
- *   - no match: a new connection, named after them, tied to the source chosen in Settings;
- *   - one match that can take the id: the id is added to that connection's VRChat field;
- *   - several matches, or one that already holds a different id in a single-identifier
- *     field: nothing happens yet, the owner decides in FriendReviewModal.
- * The server hands each friend to one browser at a time (a claim); a friend whose
- * request fails is simply offered again later.
- */
-async function createFriendConnections(): Promise<void> {
+/** The friends list is only worth fetching when the feature is on and there is a field to put the IDs in. */
+const friendsEnabled = computed(() => vrchat.value.auto_create_friends && vrchat.value.field !== null);
+
+async function loadPendingFriends(): Promise<void> {
+  if (!friendsEnabled.value) {
+    pendingFriends.value = [];
+    return;
+  }
+
+  try {
+    const { data } = await axios.get<{ friends: PendingFriend[]; source_id: string | null }>('/dashboard/vrchat/friends');
+    pendingFriends.value = data.friends;
+    friendsSourceId.value = data.source_id;
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+/** Matching needs every connection's name, so it only runs once the vault is open. */
+async function prepareFriendMatching(): Promise<void> {
+  friendsReady.value = false;
+  if (!vaultUnlocked.value || pendingFriends.value.length === 0) return;
+
+  friendCandidates.value = await matchCandidates();
+  friendsReady.value = true;
+}
+
+/** Would adding this VRChat id to that connection need the single identifier turned into a list? */
+function friendNeedsConversion(connectionId: string, vrchatId: string): boolean {
   const field = vrchat.value.field;
-  if (creatingFriends || !vaultUnlocked.value || !vrchat.value.auto_create_friends || !field || vrchat.value.pending_friends === 0) return;
+  if (!field || field.type !== 'identifier') return false;
 
-  creatingFriends = true;
-  let created = 0;
-  let linked = 0;
-  const undecided: ReviewItem[] = [];
+  const value = connections.value.find((c) => c.id === connectionId)?.attribute_values.find((v) => v.attribute_definition_id === field.id);
 
-  try {
-    const candidates = await matchCandidates();
-
-    for (;;) {
-      const { data } = await axios.post<{ friends: PendingFriend[]; source_id: string | null }>('/dashboard/vrchat/friends/claim', {
-        exclude: seenFriendIds.slice(-1000),
-      });
-      if (!data.friends.length) break;
-      reviewSourceId = data.source_id;
-      seenFriendIds.push(...data.friends.map((f) => f.id));
-
-      const done: string[] = [];
-      let handled = 0;
-
-      for (const friend of data.friends) {
-        const name = friend.display_name || friend.vrchat_user_id;
-
-        try {
-          const match = matchFriend(friend.display_name, candidates);
-          const review = (ids: string[]) => {
-            undecided.push({
-              friendId: friend.id,
-              vrchatId: friend.vrchat_user_id,
-              name,
-              candidates: ids.map((id) => {
-                const connection = connections.value.find((c) => c.id === id);
-                const existing = connection?.attribute_values.find((v) => v.attribute_definition_id === field.id);
-                return {
-                  id,
-                  name: candidates.find((c) => c.id === id)?.name ?? '',
-                  conflict: field.type === 'identifier' && holdsOtherId(existing?.identifier_value, friend.vrchat_user_id),
-                };
-              }),
-            });
-            handled++;
-          };
-
-          if (match.kind === 'several') {
-            review(match.connectionIds);
-          } else if (match.kind === 'one') {
-            const connection = connections.value.find((c) => c.id === match.connectionId);
-
-            if (connection && (await linkFriend(connection, friend.vrchat_user_id, field)) === 'linked') {
-              done.push(friend.id);
-              linked++;
-              handled++;
-            } else {
-              review([match.connectionId]);
-            }
-          } else {
-            const id = await createFriendConnection(friend, field, data.source_id);
-            // A later friend with the same name must find this one, not make another.
-            candidates.push({ id, name, tokens: [] });
-            done.push(friend.id);
-            created++;
-            handled++;
-          }
-        } catch (error) {
-          console.error(error);
-        }
-      }
-
-      // Whatever wasn't finished (awaiting a decision, or failed) goes back to being offered: on the next page load, until it is handled.
-      const released = data.friends.map((f) => f.id).filter((id) => !done.includes(id));
-      await axios.post('/dashboard/vrchat/friends/complete', { ids: done, skipped: [], released });
-
-      // Anything that failed is offered again by a later claim; don't spin on it now.
-      if (handled < data.friends.length) break;
-    }
-  } catch (error) {
-    console.error(error);
-  } finally {
-    creatingFriends = false;
-  }
-
-  if (undecided.length > 0) {
-    reviewItems.value = [...reviewItems.value, ...undecided];
-    reviewOpen.value = true;
-  }
-
-  showFriendNotice(created, linked, [], reviewItems.value.length);
-
-  try {
-    vrchat.value = (await axios.get<VrchatSummary>('/dashboard/vrchat')).data;
-  } catch (error) {
-    console.error(error);
-  }
+  return holdsOtherId(value?.identifier_value, vrchatId);
 }
 
 /** The VRChat ids a connection holds in the VRChat user ID field. */
@@ -680,77 +607,90 @@ async function mergeConnectionInto(targetId: string): Promise<void> {
   }
 }
 
-/** Carries out the owner's choices from FriendReviewModal, converting the VRChat field to a list first if one of them needs it. */
-async function applyReview(choices: Record<string, ReviewChoice>): Promise<void> {
-  const items = reviewItems.value;
-  const field = vrchat.value.field;
-  if (reviewBusy.value || !field || items.length === 0) return;
+/**
+ * Carries out the owner's choices for pending friends: a new connection, the friend's
+ * ID added to an existing one, or a dismissal. If an existing connection already holds a
+ * different ID in a single-identifier field, the owner confirms first and the field becomes
+ * an identifier list. A friend whose request fails stays pending.
+ */
+async function applyFriendDecisions(decisions: FriendDecision[]): Promise<void> {
+  let field = vrchat.value.field;
+  if (friendsBusy.value || !field || decisions.length === 0) return;
 
-  reviewBusy.value = true;
+  const friends = new Map(pendingFriends.value.map((f) => [f.id, f]));
+  const chosen = decisions.filter((d) => friends.has(d.friendId));
+
+  friendsBusy.value = true;
   let created = 0;
   let linked = 0;
-  const skipped: string[] = [];
+  let dismissed = 0;
+  let failed = 0;
   const done: string[] = [];
-  const skippedIds: string[] = [];
-  const handledIds = new Set<string>();
+  const skipped: string[] = [];
 
   try {
-    let currentField = field;
+    const conflicts = chosen.some((d) => d.choice !== 'new' && d.choice !== 'skip' && friendNeedsConversion(d.choice, friends.get(d.friendId)!.vrchat_user_id));
 
-    if (currentField.type === 'identifier' && needsListConversion(items, choices)) {
-      await convertDefinitionToList(currentField.id);
+    if (conflicts) {
+      const confirmed = await requestConfirm({
+        title: 'Turn the VRChat ID field into a list?',
+        message: 'At least one connection you chose already has a different VRChat ID, and the field holds only one. It becomes an identifier list first (every connection keeps its ID as a one-entry list). This cannot be undone.',
+        confirmText: 'Convert and continue',
+        variant: 'primary',
+      });
+      if (!confirmed) return;
 
-      if (definitionItems.value.find((d) => d.id === currentField.id)?.type !== 'identifier_list') {
-        // The conversion failed (the reason is in definitionError): change nothing.
+      await convertDefinitionToList(field.id);
+
+      if (definitionItems.value.find((d) => d.id === field!.id)?.type !== 'identifier_list') {
+        friendNotice.value = definitionError.value ?? 'The VRChat ID field could not be turned into a list, so nothing was changed.';
         return;
       }
 
-      currentField = { ...currentField, type: 'identifier_list' };
-      vrchat.value = { ...vrchat.value, field: currentField };
+      field = { ...field, type: 'identifier_list' };
+      vrchat.value = { ...vrchat.value, field };
     }
 
-    for (const item of items) {
-      const choice = choices[item.friendId] ?? 'new';
-      const friend: PendingFriend = { id: item.friendId, vrchat_user_id: item.vrchatId, display_name: item.name };
+    for (const decision of chosen) {
+      const friend = friends.get(decision.friendId)!;
 
       try {
-        if (choice === 'skip') {
-          skippedIds.push(item.friendId);
-          skipped.push(item.name);
-        } else if (choice === 'new') {
-          await createFriendConnection(friend, currentField, reviewSourceId);
-          done.push(item.friendId);
+        if (decision.choice === 'skip') {
+          skipped.push(friend.id);
+          dismissed++;
+        } else if (decision.choice === 'new') {
+          await createFriendConnection(friend, field, friendsSourceId.value);
+          done.push(friend.id);
           created++;
         } else {
-          const connection = connections.value.find((c) => c.id === choice);
+          const connection = connections.value.find((c) => c.id === decision.choice);
 
-          if (connection && (await linkFriend(connection, item.vrchatId, currentField)) === 'linked') {
-            done.push(item.friendId);
+          if (connection && (await linkFriend(connection, friend.vrchat_user_id, field)) === 'linked') {
+            done.push(friend.id);
             linked++;
           } else {
-            continue;
+            failed++;
           }
         }
-
-        handledIds.add(item.friendId);
       } catch (error) {
         console.error(error);
+        failed++;
       }
     }
 
-    if (done.length || skippedIds.length) {
-      await axios.post('/dashboard/vrchat/friends/complete', { ids: done, skipped: skippedIds });
+    if (done.length || skipped.length) {
+      await axios.post('/dashboard/vrchat/friends/complete', { ids: done, skipped });
     }
   } catch (error) {
     console.error(error);
   } finally {
-    reviewBusy.value = false;
+    friendsBusy.value = false;
   }
 
-  reviewItems.value = items.filter((item) => !handledIds.has(item.friendId));
-  if (reviewItems.value.length === 0) reviewOpen.value = false;
+  showFriendNotice(created, linked, dismissed, failed);
 
-  showFriendNotice(created, linked, skipped, reviewItems.value.length);
+  const handled = new Set([...done, ...skipped]);
+  pendingFriends.value = pendingFriends.value.filter((f) => !handled.has(f.id));
 
   try {
     vrchat.value = (await axios.get<VrchatSummary>('/dashboard/vrchat')).data;
@@ -759,7 +699,11 @@ async function applyReview(choices: Record<string, ReviewChoice>): Promise<void>
   }
 }
 
-watch([vaultUnlocked, () => vrchat.value.pending_friends], createFriendConnections, { immediate: true });
+watch(vaultUnlocked, prepareFriendMatching);
+onMounted(async () => {
+  await loadPendingFriends();
+  await prepareFriendMatching();
+});
 
 /** A saved connection comes back with the VRChat accounts that were looked up as part of the save: show them at once. */
 function applyVrchatProfiles(row: ConnectionRow): void {
@@ -1163,7 +1107,6 @@ async function removeEdge(id: string): Promise<void> {
 
   <BAlert :model-value="friendNotice !== ''" variant="success" dismissible @close="friendNotice = ''">
     {{ friendNotice }}
-    <BButton v-if="reviewItems.length && !reviewOpen" size="sm" variant="outline-success" class="ms-2" @click="reviewOpen = true">Review</BButton>
   </BAlert>
   <MergeConnectionModal
     v-model:open="mergeOpen"
@@ -1175,14 +1118,16 @@ async function removeEdge(id: string): Promise<void> {
     :error="mergeError"
     @merge="mergeConnectionInto"
   />
-  <FriendReviewModal
-    v-model:open="reviewOpen"
-    :items="reviewItems"
-    :field-type="vrchat.field?.type ?? ''"
-    :busy="reviewBusy"
-    @apply="applyReview"
+  <PendingFriendsPanel
+    v-if="friendsEnabled && pendingFriends.length"
+    :friends="pendingFriends"
+    :candidates="friendCandidates"
+    :ready="friendsReady"
+    :single-field="vrchat.field?.type === 'identifier'"
+    :needs-conversion="friendNeedsConversion"
+    :busy="friendsBusy"
+    @apply="applyFriendDecisions"
   />
-
   <BCard id="connections-workspace" class="mb-4">
     <BTabs v-model="pageTab" pills no-fade content-class="pt-3">
       <BTab :id="PAGE_TABS.connections">

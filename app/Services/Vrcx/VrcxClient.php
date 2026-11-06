@@ -192,6 +192,10 @@ final class VrcxClient
             throw new VrcxException('Could not reach that address. Check the URL and that the VRCX server is running.');
         }
 
+        if (self::blockedByFirewall($response)) {
+            throw new VrcxException(self::FIREWALL_MESSAGE);
+        }
+
         if ($response->failed()) {
             throw new VrcxException("There is no VRCX API at that address (/api/v1/openapi.json answered HTTP {$response->status()}). Is the external API enabled?");
         }
@@ -250,6 +254,7 @@ final class VrcxClient
         }
 
         return match (true) {
+            self::blockedByFirewall($response) => throw new VrcxException(self::FIREWALL_MESSAGE),
             $response->status() === 401 => throw new VrcxException('The VRCX server rejected the API key (it may be wrong or expired).'),
             $response->status() === 403 => throw new VrcxException($scope !== null
                 ? "The API key lacks the {$scope} scope."
@@ -257,6 +262,26 @@ final class VrcxClient
             $response->failed() => throw new VrcxException("The VRCX server answered with an error (HTTP {$response->status()})."),
             default => $response,
         };
+    }
+
+    private const FIREWALL_MESSAGE = 'A firewall or proxy in front of that address (it looks like Cloudflare) refused this server\'s request; it did not come from VRCX itself. '
+        .'Allow this server\'s IP for that hostname in the proxy\'s firewall or bot protection rules.';
+
+    /**
+     * A 403 / 503 that VRCX did not send: VRCX answers with {"ok": false, ...}, a
+     * proxy in front of it (Cloudflare's bot protection or a WAF rule, typically
+     * aimed at server IP ranges) answers with its own page or headers. Worth telling
+     * apart, since neither the API key nor the URL is what is wrong then.
+     */
+    private static function blockedByFirewall(Response $response): bool
+    {
+        if (! in_array($response->status(), [403, 503], true) || $response->json('ok') === false) {
+            return false;
+        }
+
+        return $response->header('cf-mitigated') !== ''
+            || stripos($response->header('server'), 'cloudflare') !== false
+            || stripos($response->body(), 'cloudflare') !== false;
     }
 
     private function request(): PendingRequest

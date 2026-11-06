@@ -17,7 +17,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        DB::table('vrchat_friends')->where('status', 'dismissed')->update(['status' => 'pending', 'claimed_at' => null]);
+        DB::table('vrchat_friends')->where('status', 'dismissed')->update(['status' => 'pending']);
 
         Schema::table('users', function (Blueprint $table) {
             $table->dropColumn('vrcx_friends_baseline_at');
