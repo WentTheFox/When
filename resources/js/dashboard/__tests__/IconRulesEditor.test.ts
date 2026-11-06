@@ -30,6 +30,22 @@ describe('IconRulesEditor', () => {
     expect(html).toContain('nobody');
   });
 
+  it('offers a count condition for an identifier list, and only there', async () => {
+    const countRules: ParsedRuleSet = {
+      kind: 'ok',
+      set: { version: 1, stopAfterFirst: false, rules: [{ id: 'r1', icon: 'users', color: null, condition: { op: 'count', min: 3, max: 5 } }] },
+    };
+
+    const list = await render({ type: 'identifier_list', choices: [], parsed: countRules, pending: false });
+    expect(list).toContain('has this many entries');
+    expect(list).toContain('value="3"');
+    expect(list).toContain('value="5"');
+    expect(list).toContain('entries (leave one empty for no limit)');
+
+    expect(await render({ type: 'text', choices: [], pending: false })).not.toContain('has this many entries');
+    expect(await render({ type: 'identifier', choices: [], pending: false })).not.toContain('has this many entries');
+  });
+
   it('says so, and offers no editing, for rules saved by a newer version', async () => {
     const html = await render({ type: 'text', choices: [], parsed: { kind: 'newer', version: 99 }, pending: false });
 

@@ -47,6 +47,25 @@ describe('conditionMatches', () => {
     expect(conditionMatches({ op: 'range', min: 0 }, 'number', 'abc')).toBe(false);
   });
 
+  it('counts the entries of an identifier list, inclusive of both bounds, ignoring blank lines', () => {
+    const list = 'alice\nbob\n\n  \ncarol';
+
+    expect(conditionMatches({ op: 'count', min: 3 }, 'identifier_list', list)).toBe(true);
+    expect(conditionMatches({ op: 'count', min: 4 }, 'identifier_list', list)).toBe(false);
+    expect(conditionMatches({ op: 'count', max: 3 }, 'identifier_list', list)).toBe(true);
+    expect(conditionMatches({ op: 'count', max: 2 }, 'identifier_list', list)).toBe(false);
+    expect(conditionMatches({ op: 'count', min: 3, max: 3 }, 'identifier_list', list)).toBe(true); // exactly three
+    expect(conditionMatches({ op: 'count', min: 2, max: 4 }, 'identifier_list', list)).toBe(true);
+    expect(conditionMatches({ op: 'count', max: 0 }, 'identifier_list', '')).toBe(true); // an empty list has none
+    expect(conditionMatches({ op: 'count', min: 1 }, 'identifier_list', '')).toBe(false);
+  });
+
+  it('never matches a count with no bounds at all, or on a field that is not a list', () => {
+    expect(conditionMatches({ op: 'count' }, 'identifier_list', 'a\nb')).toBe(false);
+    expect(conditionMatches({ op: 'count', min: 1 }, 'text', 'a\nb')).toBe(false);
+    expect(conditionMatches({ op: 'count', min: 1 }, 'identifier', 'a')).toBe(false);
+  });
+
   it('matches regexes case-insensitively, and each entry of a list', () => {
     expect(conditionMatches({ op: 'regex', pattern: '^ab' }, 'text', 'abc')).toBe(true);
     expect(conditionMatches({ op: 'regex', pattern: '^AB' }, 'text', 'abc')).toBe(true);
@@ -90,6 +109,9 @@ describe('allowedOps', () => {
     expect(allowedOps('text')).toContain('regex');
     expect(allowedOps('date')).toEqual(['nonEmpty', 'empty']);
     expect(allowedOps('text')).not.toContain('range');
+    expect(allowedOps('identifier_list')).toContain('count');
+    expect(allowedOps('identifier')).not.toContain('count');
+    expect(allowedOps('text')).not.toContain('count');
   });
 });
 

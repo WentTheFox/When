@@ -48,6 +48,20 @@ describe('useRuleIcons', () => {
     expect(Object.keys(ruleIcons.value)).toEqual(['c1']);
   });
 
+  it('counts the entries of an identifier list, which the server holds readable', async () => {
+    const { ruleIcons } = setup(
+      [{ id: 'd1', type: 'identifier_list', icon_rules_ciphertext: blob([rule('r1', { op: 'count', min: 3 }, 'users')]) }],
+      [
+        { id: 'c1', attribute_values: [{ attribute_definition_id: 'd1', identifier_list_value: ['a', 'b', 'c'] }] },
+        { id: 'c2', attribute_values: [{ attribute_definition_id: 'd1', identifier_list_value: ['a', 'b'] }] },
+        { id: 'c3', attribute_values: [] },
+      ],
+    );
+    await settle();
+
+    expect(Object.keys(ruleIcons.value)).toEqual(['c1']);
+  });
+
   it('reads booleans without decrypting anything', async () => {
     const { ruleIcons } = setup(
       [{ id: 'd1', type: 'boolean', icon_rules_ciphertext: blob([rule('r1', { op: 'isTrue' })]) }],
