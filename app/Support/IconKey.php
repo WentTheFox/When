@@ -168,6 +168,21 @@ enum IconKey: string
     case Globe = 'globe';
     case Anchor = 'anchor';
 
+    // Maps, markers and navigation.
+    case MapPin = 'map-pin';
+    case MapPinned = 'map-pinned';
+    case MapPinPlus = 'map-pin-plus';
+    case MapPinCheck = 'map-pin-check';
+    case MapPinHouse = 'map-pin-house';
+    case Navigation = 'navigation';
+    case NavigationArrow = 'navigation-arrow';
+    case Locate = 'locate';
+    case LocateFixed = 'locate-fixed';
+    case Route = 'route';
+    case Signpost = 'signpost';
+    case Milestone = 'milestone';
+    case Waypoints = 'waypoints';
+
     // Health.
     case HeartPulse = 'heart-pulse';
     case Pills = 'pills';
@@ -257,6 +272,14 @@ enum IconKey: string
     {
         return match ($this) {
             self::CloudMoon => 'Cloud moon',
+            self::MapPin => 'Map pin',
+            self::MapPinned => 'Pinned on map',
+            self::MapPinPlus => 'Map pin add',
+            self::MapPinCheck => 'Map pin check',
+            self::MapPinHouse => 'Home location',
+            self::NavigationArrow => 'Navigation arrow (up)',
+            self::Locate => 'Locate',
+            self::LocateFixed => 'Locate (fixed)',
             self::ChartLine => 'Chart',
             self::CalendarCheck => 'Calendar check',
             self::CalendarX => 'Calendar X',
@@ -367,7 +390,9 @@ enum IconKey: string
             self::Paw, self::Cat, self::Dog, self::Fish => 'Animals',
             self::Coffee, self::Utensils, self::PizzaSlice, self::MugSaucer, self::IceCream, self::CakeCandles => 'Food & drink',
             self::Dumbbell, self::Futbol, self::Basketball, self::Bicycle, self::PersonRunning, self::PersonSwimming, self::Volleyball => 'Sports & fitness',
-            self::Plane, self::Car, self::Train, self::Ship, self::Rocket, self::PaperPlane, self::Map, self::Globe, self::Anchor => 'Travel & transport',
+            self::Plane, self::Car, self::Train, self::Ship, self::Rocket, self::PaperPlane, self::Map, self::Globe, self::Anchor,
+            self::MapPin, self::MapPinned, self::MapPinPlus, self::MapPinCheck, self::MapPinHouse, self::Navigation, self::NavigationArrow,
+            self::Locate, self::LocateFixed, self::Route, self::Signpost, self::Milestone, self::Waypoints => 'Travel & transport',
             self::HeartPulse, self::Pills, self::Stethoscope, self::BriefcaseMedical => 'Health',
             self::Wrench, self::Hammer, self::Key, self::House => 'Home & tools',
             self::Music, self::Gamepad, self::Book, self::Palette, self::Paintbrush, self::Camera, self::Film, self::Guitar, self::Drum, self::PuzzlePiece, self::Ticket, self::MasksTheater, self::ChessKnight, self::VR => 'Arts & hobbies',
@@ -392,6 +417,17 @@ enum IconKey: string
     {
         return match ($this) {
             self::House => ['home'],
+            self::Map => ['atlas', 'directions', 'location', 'navigation'],
+            self::MapPin, self::MapPinned => ['location', 'place', 'marker', 'pin', 'address', 'where'],
+            self::MapPinPlus => ['location', 'place', 'marker', 'add', 'new place'],
+            self::MapPinCheck => ['location', 'place', 'marker', 'arrived', 'checked in', 'visited'],
+            self::MapPinHouse => ['home', 'location', 'address', 'marker'],
+            self::Navigation, self::NavigationArrow => ['gps', 'direction', 'heading', 'compass', 'navigate', 'location'],
+            self::Locate, self::LocateFixed => ['gps', 'location', 'target', 'crosshair', 'position', 'current location'],
+            self::Route => ['path', 'directions', 'trip', 'journey', 'navigation'],
+            self::Signpost => ['direction', 'sign', 'crossroads', 'way', 'navigation'],
+            self::Milestone => ['waypoint', 'distance', 'marker', 'progress', 'stage'],
+            self::Waypoints => ['route', 'stops', 'path', 'network', 'journey'],
             self::Briefcase => ['job', 'office', 'work'],
             self::Bed => ['sleep'],
             self::Moon => ['night', 'sleep'],
