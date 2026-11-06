@@ -16,7 +16,9 @@ import EncryptedInput from '../Components/EncryptedInput.vue';
 import RadioChoices from '../Components/RadioChoices.vue';
 import EncryptedText from '../Components/EncryptedText.vue';
 import ConnectionSharing, { type ShareLinkInfo } from './ConnectionSharing.vue';
+import ConnectionDiscord from './ConnectionDiscord.vue';
 import ConnectionVrchat from './ConnectionVrchat.vue';
+import type { DiscordProfile } from './discord';
 import type { VrchatProfile, VrchatSummary } from './vrchat';
 import { requestConfirm } from './confirmModal';
 import { bindField } from './fieldBinding';
@@ -65,6 +67,9 @@ const props = defineProps<{
   /** Linked VRChat accounts with cached profile and time together (§0.2 tier, not E2EE). */
   vrchatProfiles?: VrchatProfile[];
   vrchatSyncedAt?: string | null;
+  /** Linked Discord friends with their avatar and names (§0.2 tier, not E2EE). */
+  discordProfiles?: DiscordProfile[];
+  discordSyncedAt?: string | null;
   /** The VRChat user ID field is set up, so connections can be merged by moving their VRChat IDs. */
   canMerge?: boolean;
 }>();
@@ -432,6 +437,9 @@ async function remove(): Promise<void> {
         :synced-at="vrchatSyncedAt ?? null"
         @synced="emit('vrchatSynced', $event)"
       />
+    </BFormGroup>
+    <BFormGroup v-if="discordProfiles?.length" label="Discord" class="mb-3">
+      <ConnectionDiscord :profiles="discordProfiles" :synced-at="discordSyncedAt ?? null" />
     </BFormGroup>
     <BFormGroup v-for="definition in attributeDefinitions" :key="definition.id" :label="definition.label" class="mb-3">
       <EncryptedInput

@@ -378,4 +378,58 @@ class DiscordIntegrationTest extends TestCase
             $this->assertStringNotContainsString(self::REFRESH, $contents);
         }
     }
+
+    public function test_the_summary_gives_each_connection_the_synced_friends_linked_to_it(): void
+    {
+        $user = $this->owner();
+        $linked = $this->connectionWith($user, self::LINKED);
+        $this->connectionWith($user, '100000000000000077'); // an id that is not one of the friends: nothing to show
+        $this->fakeFriends([self::OLD, self::LINKED]);
+        app(DiscordSyncService::class)->sync($user);
+
+        $profiles = app(DiscordSyncService::class)->summary($user->refresh())['profiles'];
+
+        $this->assertSame([$linked->id], array_keys($profiles));
+        $this->assertSame([[
+            'discord_user_id' => self::LINKED,
+            'username' => 'user02',
+            'global_name' => 'Friend 02',
+            'nickname' => null,
+            'picture_url' => 'https://cdn.discordapp.com/avatars/'.self::LINKED.'/abc.png?size=64',
+        ]], $profiles[$linked->id]);
+    }
+
+    public function test_a_discord_id_learned_through_vrcx_also_gets_its_profile(): void
+    {
+        $user = $this->owner();
+        $connection = Connection::create(['id' => (string) Str::uuid(), 'user_id' => $user->id, 'name_ciphertext' => 'opaque']);
+        DB::table('connection_vrchat_profiles')->insert([
+            'id' => (string) Str::uuid(), 'connection_id' => $connection->id,
+            'vrchat_user_id_hash' => str_repeat('b', 64), 'vrchat_user_id' => Crypt::encryptString('usr_y'), 'display_name' => Crypt::encryptString('y'),
+            'discord_id' => Crypt::encryptString(self::NEW), 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->fakeFriends([self::NEW]);
+        app(DiscordSyncService::class)->sync($user);
+
+        $profile = app(DiscordSyncService::class)->summary($user->refresh())['profiles'][$connection->id][0];
+
+        $this->assertSame(self::NEW, $profile['discord_user_id']);
+        $this->assertSame('Nick', $profile['nickname']);
+    }
+
+    public function test_profiles_are_per_owner_and_a_dismissed_friend_still_shows_on_their_connection(): void
+    {
+        $user = $this->owner();
+        $mine = $this->connectionWith($user, self::OLD);
+        $this->fakeFriends([self::OLD]);
+        app(DiscordSyncService::class)->sync($user);
+        DiscordFriend::where('user_id', $user->id)->update(['status' => DiscordFriend::DISMISSED]);
+
+        // Someone else's connection with the same id has no friend row of their own, so shows nothing.
+        $other = $this->owner();
+        $this->connectionWith($other, self::OLD);
+
+        $this->assertSame([$mine->id], array_keys(app(DiscordSyncService::class)->summary($user->refresh())['profiles']));
+        $this->assertSame([], app(DiscordSyncService::class)->summary($other->refresh())['profiles']);
+    }
 }

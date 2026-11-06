@@ -187,22 +187,32 @@ class DiscordSyncService
      */
     public function linkedIds(User $user): array
     {
-        $ids = [];
+        return array_values(array_unique(array_merge([], ...array_values($this->idsByConnection($user)))));
+    }
+
+    /**
+     * connection id => the Discord user ids on it (chosen field, plus what VRCX reported).
+     *
+     * @return array<string, list<string>>
+     */
+    private function idsByConnection(User $user): array
+    {
+        $byConnection = [];
+        $add = function (string $connectionId, ?string $value) use (&$byConnection): void {
+            $id = DiscordUserId::normalize($value);
+
+            if ($id !== null && ! in_array($id, $byConnection[$connectionId] ?? [], true)) {
+                $byConnection[$connectionId][] = $id;
+            }
+        };
 
         if ($user->discord_user_id_definition_id !== null) {
             ConnectionAttributeValue::where('attribute_definition_id', $user->discord_user_id_definition_id)
                 ->whereHas('connection', fn ($q) => $q->where('user_id', $user->id))
                 ->get()
-                ->each(function (ConnectionAttributeValue $row) use (&$ids) {
-                    $candidates = $row->identifier_list_value ?? [];
-                    $candidates[] = $row->identifier_value;
-
-                    foreach ($candidates as $value) {
-                        $id = is_string($value) ? DiscordUserId::normalize($value) : null;
-
-                        if ($id !== null) {
-                            $ids[] = $id;
-                        }
+                ->each(function (ConnectionAttributeValue $row) use ($add) {
+                    foreach ([...($row->identifier_list_value ?? []), $row->identifier_value] as $value) {
+                        $add($row->connection_id, is_string($value) ? $value : null);
                     }
                 });
         }
@@ -210,15 +220,46 @@ class DiscordSyncService
         ConnectionVrchatProfile::whereIn('connection_id', $user->connections()->select('id'))
             ->whereNotNull('discord_id')
             ->get()
-            ->each(function (ConnectionVrchatProfile $profile) use (&$ids) {
-                $id = DiscordUserId::normalize($profile->discord_id);
+            ->each(fn (ConnectionVrchatProfile $profile) => $add($profile->connection_id, $profile->discord_id));
 
-                if ($id !== null) {
-                    $ids[] = $id;
+        return $byConnection;
+    }
+
+    /**
+     * What the connection form shows per connection: every Discord account on it that is
+     * one of the owner's synced friends (names and avatar come from the friend list, so an id
+     * that isn't a friend has nothing to show).
+     *
+     * @return array<string, list<array{discord_user_id: string, username: ?string, global_name: ?string, nickname: ?string, picture_url: ?string}>>
+     */
+    private function profiles(User $user): array
+    {
+        $byConnection = $this->idsByConnection($user);
+
+        if ($byConnection === []) {
+            return [];
+        }
+
+        $friends = DiscordFriend::where('user_id', $user->id)->get()->keyBy('discord_user_id_hash');
+        $profiles = [];
+
+        foreach ($byConnection as $connectionId => $ids) {
+            foreach ($ids as $id) {
+                $friend = $friends->get(DiscordUserId::hash($id));
+
+                if ($friend !== null) {
+                    $profiles[$connectionId][] = [
+                        'discord_user_id' => $id,
+                        'username' => $friend->username,
+                        'global_name' => $friend->global_name,
+                        'nickname' => $friend->nickname,
+                        'picture_url' => $friend->avatar_url,
+                    ];
                 }
-            });
+            }
+        }
 
-        return array_values(array_unique($ids));
+        return $profiles;
     }
 
     /** @param array{access_token: string, refresh_token: string, expires_at: Carbon, scope: string} $tokens */
@@ -245,7 +286,7 @@ class DiscordSyncService
     /**
      * What the Connections and Settings pages show.
      *
-     * @return array{available: bool, connected: bool, configured: bool, account_name: ?string, synced_at: ?string, pending_friends: int, field: array{id: string, type: string}|null}
+     * @return array{available: bool, connected: bool, configured: bool, account_name: ?string, synced_at: ?string, pending_friends: int, field: array{id: string, type: string}|null, profiles: array<string, list<array{discord_user_id: string, username: ?string, global_name: ?string, nickname: ?string, picture_url: ?string}>>}
      */
     public function summary(User $user): array
     {
@@ -264,6 +305,8 @@ class DiscordSyncService
                 : 0,
             // The custom field holding Discord user ids, with the value shape its type takes.
             'field' => $field === null ? null : ['id' => $field->id, 'type' => $field->type],
+            // Connection id to the synced friends it is linked to (the connection form shows their avatar and names).
+            'profiles' => $this->profiles($user),
         ];
     }
 }

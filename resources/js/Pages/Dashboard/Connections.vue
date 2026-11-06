@@ -176,6 +176,9 @@ function vrchatState(connection: ConnectionRow): MarkState {
 
 /** The mark for a connection's Discord ID: from the chosen custom field, or reported by VRCX. */
 function discordState(connection: ConnectionRow): MarkState {
+  // A synced Discord friend is linked to it: the account is confirmed, whichever way the id got there.
+  if (discord.value.profiles[connection.id]?.length) return 'active';
+
   const fieldId = vrchat.value.discord_field_id;
   const value = fieldId ? connection.attribute_values.find((v) => v.attribute_definition_id === fieldId) : undefined;
   const filled = !!value && ((value.identifier_value ?? '').trim() !== '' || (value.identifier_list_value ?? []).some((v) => v.trim() !== ''));
@@ -549,6 +552,26 @@ async function prepareFriendMatching(): Promise<void> {
   friendCandidates.value = await matchCandidates();
   friendsReady.value = true;
 }
+
+/**
+ * The candidates are what the pending-friend lists match against and offer in their dropdowns, so they
+ * have to follow the connections: one created by applying a friend (or by the New form) must be offered to
+ * the friends still waiting, and match a later friend of the same name. Rebuilt whenever a connection is
+ * added, removed or renamed; only once matching is ready (prepareFriendMatching does the first build).
+ */
+let candidateRun = 0;
+watch(
+  () => connections.value.map((c) => `${c.id}:${decryptedNames.value[c.id] ?? ''}`).join('|'),
+  async () => {
+    if (!friendsReady.value) return;
+
+    const run = ++candidateRun;
+    const next = await matchCandidates();
+
+    // A newer change may have started a rebuild while this one waited: only the latest one is kept.
+    if (run === candidateRun) friendCandidates.value = next;
+  },
+);
 
 /** Would adding this VRChat id to that connection need the single identifier turned into a list? */
 function friendNeedsConversion(connectionId: string, vrchatId: string): boolean {
@@ -1466,7 +1489,7 @@ async function removeEdge(id: string): Promise<void> {
                     class="ms-1 connection-discord"
                     :class="selectedConnectionId === connection.id ? '' : (discordState(connection) === 'active' ? '' : 'text-muted')"
                     :style="selectedConnectionId !== connection.id && discordState(connection) === 'active' ? 'color: #5865f2' : undefined"
-                    :title="discordState(connection) === 'active' ? 'Discord ID known (reported by VRCX)' : 'Discord ID set in the custom field only'"
+                    :title="discordState(connection) === 'active' ? 'Discord ID known' : 'Discord ID set in the custom field only'"
                   >
                     <FontAwesomeIcon :icon="faDiscord" />
                     <span class="visually-hidden">{{ discordState(connection) === 'active' ? 'Discord ID known' : 'Discord ID set, not confirmed by VRCX' }}</span>
@@ -1517,6 +1540,8 @@ async function removeEdge(id: string): Promise<void> {
                 :connection-options="connectionOptions"
                 :vrchat-profiles="vrchat.profiles[selectedConnection.id]"
                 :vrchat-synced-at="vrchat.synced_at"
+                :discord-profiles="discord.profiles[selectedConnection.id]"
+                :discord-synced-at="discord.synced_at"
                 @vrchat-synced="vrchat = $event"
                 @updated="onConnectionUpdated"
                 @renamed="onConnectionRenamed"
