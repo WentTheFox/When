@@ -48,6 +48,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   add: [string, string, string[]];
   rename: [string, string];
+  /** Choice field: the full new list (existing choices reordered, new ones appended). */
+  updateOptions: [string, string[]];
   remove: [string];
   convertToList: [string];
   /** Create an identifier field with this name, then copy the text field (first id) into it. */
@@ -94,6 +96,44 @@ watch(selected, (current) => {
 /** The site features that currently use a field (empty when it's free to delete). */
 function featuresOf(id: string): string[] {
   return props.fieldFeatures[id] ?? [];
+}
+
+/** Choice editing is additive only: existing choices can be reordered but not edited or removed (values hold them verbatim). */
+const editOptions = ref<string[]>([]);
+const newOption = ref('');
+watch(selected, (current) => {
+  editOptions.value = [...(current?.options ?? [])];
+  newOption.value = '';
+}, { immediate: true, deep: true });
+
+const optionsUnchanged = computed(() => {
+  const original = selected.value?.options ?? [];
+  return editOptions.value.length === original.length && editOptions.value.every((o, i) => o === original[i]);
+});
+
+function addOption(): void {
+  const option = newOption.value.trim();
+  if (!option || editOptions.value.includes(option)) return;
+  editOptions.value.push(option);
+  newOption.value = '';
+}
+
+/** Only options not yet saved can be dropped again; saved ones stay. */
+function removeUnsavedOption(index: number): void {
+  if ((selected.value?.options ?? []).includes(editOptions.value[index])) return;
+  editOptions.value.splice(index, 1);
+}
+
+function moveOption(index: number, delta: number): void {
+  const target = index + delta;
+  if (target < 0 || target >= editOptions.value.length) return;
+  const [item] = editOptions.value.splice(index, 1);
+  editOptions.value.splice(target, 0, item);
+}
+
+function saveOptions(): void {
+  if (!selected.value || pending.value || optionsUnchanged.value) return;
+  emit('updateOptions', selected.value.id, [...editOptions.value]);
 }
 
 const renameUnchanged = computed(() => editLabel.value.trim() === (selected.value?.label ?? ''));
@@ -243,6 +283,34 @@ function add(): void {
               @keyup.enter="saveRename"
             />
           </BFormGroup>
+          <BFormGroup
+            v-if="selected.type === 'radio'"
+            label="Choices"
+            description="You can add choices and reorder them. Saved choices can't be renamed or removed, since connections may already use them."
+            class="mb-3"
+          >
+            <ul class="list-unstyled mb-2">
+              <li v-for="(option, index) in editOptions" :key="option" class="d-flex align-items-center gap-1 mb-1">
+                <span class="flex-grow-1">{{ option }}</span>
+                <BButton size="sm" variant="outline-secondary" :disabled="index === 0" :aria-label="`Move ${option} up`" @click="moveOption(index, -1)">↑</BButton>
+                <BButton size="sm" variant="outline-secondary" :disabled="index === editOptions.length - 1" :aria-label="`Move ${option} down`" @click="moveOption(index, 1)">↓</BButton>
+                <BButton
+                  v-if="!selected.options.includes(option)"
+                  size="sm"
+                  variant="outline-danger"
+                  :aria-label="`Discard new choice ${option}`"
+                  @click="removeUnsavedOption(index)"
+                >
+                  ×
+                </BButton>
+              </li>
+            </ul>
+            <div class="d-flex gap-1">
+              <BFormInput v-model="newOption" type="text" size="sm" placeholder="New choice" @keyup.enter="addOption" />
+              <BButton size="sm" variant="outline-primary" :disabled="!newOption.trim() || editOptions.includes(newOption.trim())" @click="addOption">Add</BButton>
+              <BButton size="sm" variant="primary" :disabled="pending || optionsUnchanged" @click="saveOptions">Save choices</BButton>
+            </div>
+          </BFormGroup>
           <dl class="row small mb-3">
             <dt class="col-sm-3">Type</dt>
             <dd class="col-sm-9">
@@ -250,10 +318,6 @@ function add(): void {
               <span v-if="selected.type === 'identifier'" class="text-muted">(can be converted to a list, one way only)</span>
               <span v-else class="text-muted">(fixed once created)</span>
             </dd>
-            <template v-if="selected.type === 'radio'">
-              <dt class="col-sm-3">Choices</dt>
-              <dd class="col-sm-9">{{ selected.options.join(', ') }}</dd>
-            </template>
             <dt class="col-sm-3">Used on</dt>
             <dd class="col-sm-9">{{ usage[selected.id] ?? 0 }} connection{{ (usage[selected.id] ?? 0) === 1 ? '' : 's' }}</dd>
             <template v-if="featuresOf(selected.id).length">
