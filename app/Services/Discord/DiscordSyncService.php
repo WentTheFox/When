@@ -282,6 +282,16 @@ class DiscordSyncService
         return $profiles;
     }
 
+    /**
+     * One connection's Discord accounts, as profiles() shapes them.
+     *
+     * @return list<array{discord_user_id: string, known: bool, username: ?string, global_name: ?string, nickname: ?string, picture_url: ?string}>
+     */
+    public function profilesFor(User $user, string $connectionId): array
+    {
+        return $this->profiles($user)[$connectionId] ?? [];
+    }
+
     /** @param array{access_token: string, refresh_token: string, expires_at: Carbon, scope: string} $tokens */
     private function storeTokens(User $user, array $tokens): void
     {

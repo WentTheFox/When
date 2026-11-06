@@ -7,6 +7,7 @@ use App\Models\Connection;
 use App\Models\ShareLink;
 use App\Models\ShareLinkCache;
 use App\Models\ShareLinkVisit;
+use App\Services\ShareLinkIdentity;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -29,6 +30,8 @@ use Illuminate\Http\Request;
  */
 class ConnectionShareLinkController extends Controller
 {
+    public function __construct(private readonly ShareLinkIdentity $identities) {}
+
     /** Enables sharing for the connection. Idempotent: returns the existing link if there already is one. */
     public function store(Request $request, string $connection): JsonResponse
     {
@@ -59,6 +62,21 @@ class ConnectionShareLinkController extends Controller
         $shareLink->update(['highlight_token' => ShareLink::generateHighlightToken()]);
 
         ShareLinkCache::where('share_link_id', $shareLink->id)->delete();
+
+        return response()->json($this->serialize($shareLink));
+    }
+
+    /** Picks which linked Discord/VRChat account the free page shows ('none' hides it, null is automatic). */
+    public function updateIdentity(Request $request, string $connection): JsonResponse
+    {
+        $shareLink = $this->findShareLink($request, $connection);
+        $choice = $request->validate(['identity' => ['nullable', 'string', 'max:200']])['identity'] ?? null;
+
+        if ($choice !== null && ! $this->identities->isValidChoice($shareLink, $choice)) {
+            return response()->json(['message' => 'That account is not linked to this connection.'], 422);
+        }
+
+        $shareLink->update(['display_identity' => $choice]);
 
         return response()->json($this->serialize($shareLink));
     }
@@ -109,12 +127,13 @@ class ConnectionShareLinkController extends Controller
         return response()->json(null, 204);
     }
 
-    /** @return array{id: string, highlight_token: ?string} */
+    /** @return array{id: string, highlight_token: ?string, display_identity: ?string} */
     private function serialize(ShareLink $shareLink): array
     {
         return [
             'id' => $shareLink->id,
             'highlight_token' => $shareLink->highlight_token,
+            'display_identity' => $shareLink->display_identity,
         ];
     }
 

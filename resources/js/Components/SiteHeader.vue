@@ -23,6 +23,16 @@ import HeaderBar from './HeaderBar.vue';
 import LanguageSwitcher from './LanguageSwitcher.vue';
 import ThemeToggle from './ThemeToggle.vue';
 
+/** Who a /free link was made for (their avatar and name), shown like the logged-in user but without any account links. */
+export interface HeaderIdentity {
+  provider: string;
+  name: string;
+  username: string | null;
+  picture_url: string | null;
+}
+
+defineProps<{ identity?: HeaderIdentity | null }>();
+
 const page = usePage<SharedPageProps>();
 
 // Owned here (not local to HeaderBar) so it can be reset on navigation —
@@ -117,7 +127,20 @@ function logout(): void {
         <Link class="nav-item nav-link" :class="{ active: page.url.startsWith('/invites') }" href="/invites">Invites</Link>
       </div>
 
-      <div v-if="page.props.auth?.user" class="d-flex align-items-center flex-wrap ms-lg-auto">
+      <div v-if="identity" class="d-flex align-items-center my-2 my-lg-0 ms-lg-auto me-3" style="color: var(--app-header-text);">
+        <img
+          v-if="identity.picture_url"
+          :src="identity.picture_url"
+          alt=""
+          class="rounded-circle me-2"
+          width="28"
+          height="28"
+          referrerpolicy="no-referrer"
+        >
+        <span :title="identity.username ? `@${identity.username}` : undefined">{{ identity.name }}</span>
+      </div>
+
+      <div v-if="page.props.auth?.user" class="d-flex align-items-center flex-wrap" :class="{ 'ms-lg-auto': !identity }">
         <Link href="/dashboard/account" class="d-flex align-items-center text-decoration-none my-2 my-lg-0 ms-lg-3 me-3" style="color: var(--app-header-text);">
           <img
             v-if="page.props.auth.user.avatarUrl"
