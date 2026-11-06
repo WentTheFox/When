@@ -10,6 +10,7 @@ use App\Services\Calendar\HighlightMatcher;
 use App\Services\Calendar\HighlightWordsResolver;
 use App\Services\Calendar\IcsParser;
 use App\Services\Discord\DiscordClient;
+use App\Support\FieldFeatures;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
@@ -129,10 +130,10 @@ class SettingsController extends Controller
             ],
             // Labels are §0.1 E2EE — the card decrypts them client-side once the vault is unlocked.
             'identifierListDefinitions' => $user->connectionAttributeDefinitions()
-                ->where('type', 'identifier_list')
+                ->whereIn('type', FieldFeatures::BINDINGS['highlight_tokens']['types'])
                 ->get(['id', 'label_ciphertext']),
             'vrchatIdDefinitions' => $user->connectionAttributeDefinitions()
-                ->whereIn('type', ['identifier', 'identifier_list'])
+                ->whereIn('type', FieldFeatures::BINDINGS['vrchat_user_id']['types'])
                 ->get(['id', 'label_ciphertext', 'type']),
             // Names are §0.1 E2EE: the card decrypts them client-side.
             // color_key is the source's category color (a plain palette key, not E2EE): the card draws it as a dot.
@@ -163,9 +164,9 @@ class SettingsController extends Controller
             ],
             // Other-names candidates: identifier lists, lists and multi-line fields. Labels are E2EE like the rest.
             'alternativeNamesDefinitions' => $user->connectionAttributeDefinitions()
-                ->whereIn('type', ['identifier_list', 'list', 'textarea'])
+                ->whereIn('type', FieldFeatures::BINDINGS['alternative_names']['types'])
                 ->get(['id', 'label_ciphertext', 'type']),
-            'booleanDefinitions' => $user->connectionAttributeDefinitions()->where('type', 'boolean')->get(['id', 'label_ciphertext']),
+            'booleanDefinitions' => $user->connectionAttributeDefinitions()->whereIn('type', FieldFeatures::BINDINGS['bypass_dnd']['types'])->get(['id', 'label_ciphertext']),
             'timezones' => \DateTimeZone::listIdentifiers(),
             // Shown back to the owner verbatim, not masked — this is §0.2
             // server-runtime tier (Crypt/APP_KEY), not §0.1 client-vault

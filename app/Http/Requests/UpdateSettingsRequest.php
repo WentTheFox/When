@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Support\CalendarParsingMode;
 use App\Support\ColorSwatchKey;
+use App\Support\FieldFeatures;
 use App\Support\IconKey;
 use App\Support\NowColorPresetKey;
 use App\Support\Regex;
@@ -69,13 +70,13 @@ class UpdateSettingsRequest extends FormRequest
             'public_page_title.*' => ['nullable', 'string', 'max:255'],
             // Must be one of this owner's own identifier_list fields; null reverts to the legacy per-link words.
             'highlight_identifier_definition_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('connection_attribute_definitions', 'id')
-                ->where('user_id', Auth::id())->where('type', 'identifier_list')->whereNull('deleted_at')],
+                ->where('user_id', Auth::id())->whereIn('type', FieldFeatures::BINDINGS['highlight_tokens']['types'])->whereNull('deleted_at')],
             // Must be one of this owner's own boolean fields; null means no link bypasses DND.
             'bypass_dnd_definition_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('connection_attribute_definitions', 'id')
-                ->where('user_id', Auth::id())->where('type', 'boolean')->whereNull('deleted_at')],
+                ->where('user_id', Auth::id())->whereIn('type', FieldFeatures::BINDINGS['bypass_dnd']['types'])->whereNull('deleted_at')],
             // Must be one of this owner's own identifier_list or multi-line fields; null turns searching by other names off.
             'alternative_names_definition_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('connection_attribute_definitions', 'id')
-                ->where('user_id', Auth::id())->whereIn('type', ['identifier_list', 'list', 'textarea'])->whereNull('deleted_at')],
+                ->where('user_id', Auth::id())->whereIn('type', FieldFeatures::BINDINGS['alternative_names']['types'])->whereNull('deleted_at')],
             'accent_color_key' => ['sometimes', 'nullable', Rule::enum(ColorSwatchKey::class)],
             'secondary_color_key' => ['sometimes', 'nullable', Rule::enum(ColorSwatchKey::class)],
             'sleep_color_key' => ['sometimes', 'nullable', Rule::enum(ColorSwatchKey::class)],

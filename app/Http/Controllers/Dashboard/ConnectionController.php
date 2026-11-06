@@ -11,6 +11,7 @@ use App\Services\Calendar\HighlightWordsResolver;
 use App\Services\Discord\DiscordSyncService;
 use App\Services\Vrcx\VrcxSyncService;
 use App\Support\FieldFeatures;
+use App\Support\FieldMigrations;
 use App\Support\ListMerge;
 use App\Support\SortOrder;
 use Illuminate\Http\JsonResponse;
@@ -56,6 +57,9 @@ class ConnectionController extends Controller
             'attributeDefinitions' => $user->connectionAttributeDefinitions()->ordered()->get(['id', 'label_ciphertext', 'type', 'options_ciphertext', 'icon_rules_ciphertext']),
             // Fields that site features depend on (field id => feature labels): those can't be deleted.
             'fieldFeatures' => (object) FieldFeatures::forUser($user),
+            // Which field types each feature (by label) can use, and every type change a field may go through (the Migrate field section).
+            'fieldFeatureTypes' => collect(FieldFeatures::BINDINGS)->mapWithKeys(fn ($b) => [$b['label'] => $b['types']]),
+            'fieldMigrations' => FieldMigrations::all(),
             'edges' => $user->connectionEdges()->get(['id', 'from_connection_id', 'to_connection_id']),
             // §0.2 tier (server-readable): cached VRChat names/pictures and time together.
             'vrchat' => $this->vrcx->summary($user),
@@ -196,10 +200,14 @@ class ConnectionController extends Controller
 
         // A VRChat id entered on this save is looked up now, outside the transaction (it waits on VRCX).
         $this->vrcx->syncConnection($request->user(), $connection);
+        $discordProfiles = $this->discord->syncConnection($request->user(), $connection);
 
         $connection->refresh();
 
-        return response()->json($this->serialize($connection) + ['vrchat_profiles' => $this->vrcx->profilesFor($connection->id)], 201);
+        return response()->json($this->serialize($connection) + [
+            'vrchat_profiles' => $this->vrcx->profilesFor($connection->id),
+            'discord_profiles' => $discordProfiles,
+        ], 201);
     }
 
     public function update(Request $request, string $connection): JsonResponse
@@ -229,10 +237,16 @@ class ConnectionController extends Controller
             $this->vrcx->syncConnection($request->user(), $connection);
         }
 
+        // VRCX may have just filled the Discord field, so this runs after it.
+        $discordProfiles = $this->discord->syncConnection($request->user(), $connection);
+
         $connection->refresh();
         $this->invalidateIfHighlightsChanged($request, $connection, $highlightBefore);
 
-        return response()->json($this->serialize($connection) + ['vrchat_profiles' => $this->vrcx->profilesFor($connection->id)]);
+        return response()->json($this->serialize($connection) + [
+            'vrchat_profiles' => $this->vrcx->profilesFor($connection->id),
+            'discord_profiles' => $discordProfiles,
+        ]);
     }
 
     /**

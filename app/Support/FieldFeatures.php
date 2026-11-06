@@ -21,39 +21,45 @@ final class FieldFeatures
 {
     /**
      * `table`.`column` holds the bound field's id. `user_column` is the column
-     * on that table that identifies the owning user. `label` is shown to the
+     * on that table that identifies the owning user. `types` are the field types the feature can use: validation of
+     * the binding and the field-migration check (see bindingsBrokenBy) both read it, so it lives only here. `label` is shown to the
      * owner (it must not be derived from the field itself: field names are E2EE).
      *
-     * @var array<string, array{table: string, column: string, user_column: string, label: string}>
+     * @var array<string, array{table: string, column: string, types: list<string>, user_column: string, label: string}>
      */
     public const BINDINGS = [
         'highlight_tokens' => [
             'table' => 'users',
             'column' => 'highlight_identifier_definition_id',
+            'types' => ['identifier_list'],
             'user_column' => 'id',
             'label' => 'Highlight tokens',
         ],
         'bypass_dnd' => [
             'table' => 'users',
             'column' => 'bypass_dnd_definition_id',
+            'types' => ['boolean'],
             'user_column' => 'id',
             'label' => 'Bypass DND',
         ],
         'alternative_names' => [
             'table' => 'users',
             'column' => 'alternative_names_definition_id',
+            'types' => ['identifier_list', 'list', 'textarea'],
             'user_column' => 'id',
             'label' => 'Alternative names',
         ],
         'vrchat_user_id' => [
             'table' => 'users',
             'column' => 'vrchat_user_id_definition_id',
+            'types' => ['identifier', 'identifier_list'],
             'user_column' => 'id',
             'label' => 'VRChat user ID',
         ],
         'discord_user_id' => [
             'table' => 'users',
             'column' => 'discord_user_id_definition_id',
+            'types' => ['identifier', 'identifier_list'],
             'user_column' => 'id',
             'label' => 'Discord user ID',
         ],
@@ -86,5 +92,44 @@ final class FieldFeatures
     public static function labelsFor(User $user, string $definitionId): array
     {
         return self::forUser($user)[$definitionId] ?? [];
+    }
+
+    /**
+     * The bindings of this field that its becoming `$newType` would invalidate.
+     *
+     * @return array<string, string> binding key => label
+     */
+    public static function bindingsBrokenBy(User $user, string $definitionId, string $newType): array
+    {
+        $broken = [];
+
+        foreach (self::BINDINGS as $key => $binding) {
+            $bound = DB::table($binding['table'])
+                ->where($binding['user_column'], $user->getKey())
+                ->where($binding['column'], $definitionId)
+                ->exists();
+
+            if ($bound && ! in_array($newType, $binding['types'], true)) {
+                $broken[$key] = $binding['label'];
+            }
+        }
+
+        return $broken;
+    }
+
+    /**
+     * Unbinds the field from the given bindings.
+     *
+     * @param  list<string>  $keys  keys from bindingsBrokenBy
+     */
+    public static function release(User $user, string $definitionId, array $keys): void
+    {
+        foreach ($keys as $key) {
+            $binding = self::BINDINGS[$key];
+            DB::table($binding['table'])
+                ->where($binding['user_column'], $user->getKey())
+                ->where($binding['column'], $definitionId)
+                ->update([$binding['column'] => null]);
+        }
     }
 }

@@ -8,6 +8,7 @@ use App\Models\VrchatFriend;
 use App\Services\Vrcx\VrcxClient;
 use App\Services\Vrcx\VrcxException;
 use App\Services\Vrcx\VrcxSyncService;
+use App\Support\FieldFeatures;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -37,10 +38,10 @@ class VrcxController extends Controller
                 ->where('user_id', $request->user()->id)->whereNull('deleted_at')],
             // One of this owner's own identifier / identifier-list fields; null unselects.
             'vrchat_user_id_definition_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('connection_attribute_definitions', 'id')
-                ->where('user_id', $request->user()->id)->whereIn('type', ['identifier', 'identifier_list'])->whereNull('deleted_at')],
+                ->where('user_id', $request->user()->id)->whereIn('type', FieldFeatures::BINDINGS['vrchat_user_id']['types'])->whereNull('deleted_at')],
             // Same kind of field for Discord user ids (optional); it can't be the VRChat one, as a field holds one kind of id.
             'discord_user_id_definition_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('connection_attribute_definitions', 'id')
-                ->where('user_id', $request->user()->id)->whereIn('type', ['identifier', 'identifier_list'])->whereNull('deleted_at')],
+                ->where('user_id', $request->user()->id)->whereIn('type', FieldFeatures::BINDINGS['discord_user_id']['types'])->whereNull('deleted_at')],
         ]);
 
         /** @var User $user */

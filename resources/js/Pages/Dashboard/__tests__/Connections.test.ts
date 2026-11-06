@@ -27,6 +27,8 @@ const props = {
   attributeDefinitions: [{ id: DEFINITION, label_ciphertext: 'ZmllbGQtY2lwaGVy', type: 'text', options_ciphertext: null }],
   edges: [],
   fieldFeatures: {},
+  fieldFeatureTypes: {},
+  fieldMigrations: [],
   vrchat: { configured: false, synced_at: null, auto_create_friends: false, pending_friends: 0, friends_source_id: null, highlight_field_id: null, discord_field_id: null, field: null, profiles: {} },
 };
 

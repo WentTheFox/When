@@ -1,13 +1,22 @@
 <script setup lang="ts">
 import { ArchiveIcon, LinkIcon, RectangleGogglesIcon, UserPlusIcon } from '@lucide/vue';
 import { DiscordMark } from '../../Components/BrandIcons';
-import { Head } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import axios from 'axios';
 import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput, BTab, BTabs } from 'bootstrap-vue-next';
 import { computed, nextTick, onBeforeUnmount, onMounted, type Ref, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../../crypto';
 import { matchConnection, parseAlternativeNames } from '../../dashboard/alternativeNames';
-import { paddedListText } from '../../dashboard/encryptedList';
+import {
+  BOOLEAN_CHOICES,
+  choiceOfBoolean,
+  convertedText,
+  identifierEntriesOf,
+  identifierOf,
+  listTextOf,
+  type MigrationPath,
+  rulesFor,
+} from '../../dashboard/fieldMigrations';
 import { useResolvedTheme } from '../../composables/useTheme';
 import { requestConfirm } from '../../dashboard/confirmModal';
 import PageHeader from '../../Components/PageHeader.vue';
@@ -61,6 +70,10 @@ const props = defineProps<{
   edges: EdgeRow[];
   /** Fields that site features depend on (field id to feature labels); those can't be deleted. */
   fieldFeatures: Record<string, string[]>;
+  /** Which field types each feature (by label) can use: a migration that leaves them unbinds the feature. */
+  fieldFeatureTypes: Record<string, string[]>;
+  /** Every type change a field may go through (the server's FieldMigrations). */
+  fieldMigrations: MigrationPath[];
   /** Cached VRChat names, pictures and time together (§0.2 tier, not E2EE). */
   vrchat: VrchatSummary;
   /** The Discord connection and its friend count (§0.2 tier, not E2EE). Absent on a server without Discord. */
@@ -723,7 +736,7 @@ async function mergeConnectionInto(targetId: string): Promise<void> {
     const targetValue = connections.value.find((c) => c.id === targetId)?.attribute_values.find((v) => v.attribute_definition_id === field!.id)?.identifier_value;
 
     if (field.type === 'identifier' && ids.some((id) => holdsOtherId(targetValue, id))) {
-      await convertDefinitionToList(field.id);
+      await migrateDefinition(field.id, 'identifier_list');
 
       if (definitionItems.value.find((d) => d.id === field!.id)?.type !== 'identifier_list') {
         mergeError.value = definitionError.value ?? 'The VRChat ID field could not be turned into a list, so nothing was changed.';
@@ -792,7 +805,7 @@ async function applyFriendDecisions(decisions: FriendDecision[]): Promise<void> 
       });
       if (!confirmed) return;
 
-      await convertDefinitionToList(field.id);
+      await migrateDefinition(field.id, 'identifier_list');
 
       if (definitionItems.value.find((d) => d.id === field!.id)?.type !== 'identifier_list') {
         friendNotice.value = definitionError.value ?? 'The VRChat ID field could not be turned into a list, so nothing was changed.';
@@ -915,7 +928,7 @@ async function applyDiscordDecisions(decisions: FriendDecision[]): Promise<void>
       });
       if (!confirmed) return;
 
-      await convertDefinitionToList(field.id);
+      await migrateDefinition(field.id, 'identifier_list');
 
       if (definitionItems.value.find((d) => d.id === field!.id)?.type !== 'identifier_list') {
         friendNotice.value = definitionError.value ?? 'The Discord ID field could not be turned into a list, so nothing was changed.';
@@ -1132,6 +1145,8 @@ onMounted(async () => {
 
 /** A saved connection comes back with the VRChat accounts that were looked up as part of the save: show them at once. */
 function applyVrchatProfiles(row: ConnectionRow): void {
+  // The same save also reports the Discord accounts on it (placeholders, or looked up when the server can).
+  if (row.discord_profiles) onDiscordSynced(row.id, row.discord_profiles);
   if (!row.vrchat_profiles) return;
 
   vrchat.value = { ...vrchat.value, profiles: { ...vrchat.value.profiles, [row.id]: row.vrchat_profiles } };
@@ -1447,128 +1462,136 @@ async function removeDefinition(id: string): Promise<void> {
   }
 }
 
+interface MigrateOptions {
+  /** identifier list to identifier: keep the first entry, or join them all. */
+  strategy?: string;
+  /** The owner agreed to unbind the features the new type can't serve. */
+  releaseBindings?: boolean;
+}
+
+/** What a value of this field looks like once migrated; every other column is null, as the server writes it. */
+type MigratedPatch = Partial<ConnectionRow['attribute_values'][number]>;
+
+/** The plaintext-to-plaintext changes the server does alone; mirrored here so nothing needs a reload. */
+function plainPatch(row: ConnectionRow['attribute_values'][number], to: string, strategy?: string): MigratedPatch | null {
+  if (to === 'identifier_list') {
+    const value = (row.identifier_value ?? '').trim();
+    return value ? { identifier_list_value: [value] } : null;
+  }
+
+  const entries = (row.identifier_list_value ?? []).map((e) => e.trim()).filter((e) => e !== '');
+  if (entries.length === 0) return null;
+
+  return { identifier_value: (strategy === 'join' ? entries.join(', ') : entries[0]!).slice(0, 1000) };
+}
+
 /**
- * One-way, out of E2EE: decrypts every connection's value for the text field
- * here, then hands the plaintext to the server, which swaps it in for the
- * ciphertext in one all-or-nothing step. If any value can't be decrypted
- * nothing is sent; if the server finds its data moved on, it changes nothing.
+ * Changes a field's type in place (the Migrate field section; paths are the server's FieldMigrations). Values that
+ * are E2EE can only be converted here: each is decrypted, converted (fieldMigrations.ts) and encrypted again, then the
+ * server swaps them all in, flips the type and replaces the choices / icon rules in one all-or-nothing step. It
+ * refuses (409) if any value changed since this page read it; a value that can't be decrypted aborts before anything is
+ * sent. Returns whether the field was migrated.
  */
-async function convertDefinitionToIdentifier(id: string): Promise<void> {
+async function migrateDefinition(id: string, to: string, options: MigrateOptions = {}): Promise<boolean> {
   definitionError.value = null;
+  const definition = definitionItems.value.find((d) => d.id === id);
+  const path = props.fieldMigrations.find((p) => p.from === definition?.type && p.to === to);
+  if (!definition || !path) {
+    definitionError.value = 'This field can\'t be migrated to that type.';
+    return false;
+  }
+
   copyBusy.value = true;
 
   try {
-    const values: { connection_id: string; identifier_value: string }[] = [];
+    const from = definition.type;
+    const definitionKey = await getRecordKey(id);
+    const values: Record<string, unknown>[] = [];
+    const patches = new Map<string, MigratedPatch | null>();
 
     for (const connection of connections.value) {
       const row = connection.attribute_values.find((v) => v.attribute_definition_id === id);
       if (!row) continue;
 
-      // A value that can't be decrypted aborts everything: sending it as blank would delete it.
-      const value = row.value_ciphertext ? await decryptString(await getRecordKey(connection.id), row.value_ciphertext) : '';
-      values.push({ connection_id: connection.id, identifier_value: value.trim() });
-    }
+      if (path.tier === 'plain') {
+        patches.set(connection.id, plainPatch(row, to, options.strategy));
+        continue;
+      }
 
-    await axios.post(`/dashboard/connection-attribute-definitions/${id}/convert-to-identifier`, { values });
-
-    const definition = definitionItems.value.find((d) => d.id === id);
-    if (definition) definition.type = 'identifier';
-
-    const converted = new Map(values.map((v) => [v.connection_id, v.identifier_value]));
-    connections.value = connections.value.map((c) => ({
-      ...c,
-      attribute_values: c.attribute_values.flatMap((v) => {
-        if (v.attribute_definition_id !== id) return [v];
-        const value = converted.get(c.id) ?? '';
-        return value ? [{ attribute_definition_id: id, value_ciphertext: null, identifier_value: value }] : [];
-      }),
-    }));
-  } catch (error) {
-    console.error(error);
-    definitionError.value = axios.isAxiosError(error)
-      ? (error.response?.data?.errors?.definition?.[0] ?? 'This field could not be converted.')
-      : 'A value could not be decrypted, so nothing was converted.';
-  } finally {
-    copyBusy.value = false;
-  }
-}
-
-/**
- * One-way: the server turns every value of the field into a one-entry list
- * (dropping empty ones) and flips its type. Mirror that locally so nothing
- * needs a reload.
- */
-async function convertDefinitionToList(id: string): Promise<void> {
-  definitionError.value = null;
-
-  try {
-    await axios.post(`/dashboard/connection-attribute-definitions/${id}/convert-to-list`);
-
-    const definition = definitionItems.value.find((d) => d.id === id);
-    if (definition) definition.type = 'identifier_list';
-
-    connections.value = connections.value.map((c) => ({
-      ...c,
-      attribute_values: c.attribute_values.flatMap((v) => {
-        if (v.attribute_definition_id !== id) return [v];
-        const value = (v.identifier_value ?? '').trim();
-        return value ? [{ ...v, identifier_value: null, identifier_list_value: [value] }] : [];
-      }),
-    }));
-  } catch (error) {
-    console.error(error);
-    definitionError.value = axios.isAxiosError(error)
-      ? (error.response?.data?.errors?.definition?.[0] ?? 'This field could not be converted.')
-      : 'This field could not be converted.';
-  }
-}
-
-/**
- * One-way: a multi-line field becomes an E2EE list. Only this browser can read the values, so it decrypts
- * each one, normalizes it to one entry per line, pads it (see encryptedList.ts) and encrypts it again,
- * then the server swaps all of them in and flips the type in one step. It refuses (409) if any value
- * changed since this page read it; if a value can't be decrypted nothing is sent at all.
- */
-async function convertDefinitionToEncryptedList(id: string): Promise<void> {
-  definitionError.value = null;
-  copyBusy.value = true;
-
-  try {
-    const values: { connection_id: string; base_ciphertext: string; value_ciphertext: string | null }[] = [];
-
-    for (const connection of connections.value) {
-      const row = connection.attribute_values.find((v) => v.attribute_definition_id === id);
-      if (!row?.value_ciphertext) continue;
-
-      // A value that can't be decrypted aborts everything: sending it as blank would delete it.
       const key = await getRecordKey(connection.id);
-      const padded = paddedListText(await decryptString(key, row.value_ciphertext));
-      values.push({
-        connection_id: connection.id,
-        base_ciphertext: row.value_ciphertext,
-        value_ciphertext: padded === '' ? null : await encryptString(key, padded),
-      });
+      // A value that can't be decrypted aborts everything: sending it as blank would delete it.
+      const plain = row.value_ciphertext ? await decryptString(key, row.value_ciphertext) : '';
+
+      if (path.tier === 'to_e2ee') {
+        const text = from === 'boolean' ? choiceOfBoolean(row.boolean_value) : listTextOf(row.identifier_list_value ?? []);
+        const entry: Record<string, unknown> = { connection_id: connection.id, value_ciphertext: text === '' ? null : await encryptString(key, text) };
+        if (from === 'boolean') entry.base_boolean = row.boolean_value === true;
+        else entry.base_identifier_list = row.identifier_list_value ?? [];
+        values.push(entry);
+        patches.set(connection.id, entry.value_ciphertext ? { value_ciphertext: entry.value_ciphertext as string } : null);
+      } else if (path.tier === 'to_plain') {
+        const entries = to === 'identifier_list' ? identifierEntriesOf(plain) : null;
+        const identifier = entries === null ? identifierOf(plain) : null;
+        values.push({
+          connection_id: connection.id,
+          base_ciphertext: row.value_ciphertext,
+          ...(entries === null ? { identifier_value: identifier } : { identifier_list_value: entries }),
+        });
+        const filled = entries === null ? identifier !== '' : entries.length > 0;
+        patches.set(connection.id, !filled ? null : entries === null ? { identifier_value: identifier } : { identifier_list_value: entries });
+      } else {
+        const text = convertedText(from, to, plain);
+        const ciphertext = text === '' ? null : await encryptString(key, text);
+        values.push({ connection_id: connection.id, base_ciphertext: row.value_ciphertext, value_ciphertext: ciphertext });
+        patches.set(connection.id, ciphertext ? { value_ciphertext: ciphertext } : null);
+      }
     }
 
-    await axios.post(`/dashboard/connection-attribute-definitions/${id}/convert-to-encrypted-list`, { values });
+    const choices = to === 'radio' ? [...BOOLEAN_CHOICES] : [];
+    const optionsCiphertext = to === 'radio' ? await encryptString(definitionKey, JSON.stringify({ choices })) : null;
 
-    const definition = definitionItems.value.find((d) => d.id === id);
-    if (definition) definition.type = 'list';
+    // Rules that make no sense for the new type would be ignored silently; drop them in the same step.
+    let iconRulesCiphertext: string | null = null;
+    const parsedRules = ruleSets.value[id];
+    if (parsedRules?.kind === 'ok') {
+      const kept = rulesFor(parsedRules.set, to);
+      if (kept.rules.length !== parsedRules.set.rules.length) iconRulesCiphertext = await encryptString(definitionKey, serializeIconRules(kept));
+    }
 
-    const converted = new Map(values.map((v) => [v.connection_id, v.value_ciphertext]));
+    const { data } = await axios.post(`/dashboard/connection-attribute-definitions/${id}/migrate`, {
+      to,
+      strategy: options.strategy,
+      ...(path.tier === 'plain' ? {} : { values }),
+      options_ciphertext: optionsCiphertext,
+      icon_rules_ciphertext: iconRulesCiphertext,
+      release_bindings: options.releaseBindings === true,
+    });
+
+    definition.type = to;
+    definition.options_ciphertext = optionsCiphertext;
+    definition.options = choices;
+    if (iconRulesCiphertext) definition.icon_rules_ciphertext = iconRulesCiphertext;
+
     connections.value = connections.value.map((c) => ({
       ...c,
       attribute_values: c.attribute_values.flatMap((v) => {
         if (v.attribute_definition_id !== id) return [v];
-        const next = converted.get(c.id);
-        return next ? [{ ...v, value_ciphertext: next }] : [];
+        const patch = patches.get(c.id);
+        if (!patch) return [];
+        return [{ attribute_definition_id: id, value_ciphertext: null, identifier_value: null, identifier_list_value: null, boolean_value: null, ...patch }];
       }),
     }));
+
+    if ((data.released as string[]).length > 0) router.reload({ only: ['fieldFeatures'] });
+
+    return true;
   } catch (error) {
     console.error(error);
     definitionError.value = axios.isAxiosError(error)
-      ? (error.response?.data?.errors?.definition?.[0] ?? error.response?.data?.message ?? 'This field could not be converted.')
-      : 'A value could not be decrypted, so nothing was converted.';
+      ? (error.response?.data?.errors?.definition?.[0] ?? error.response?.data?.message ?? 'This field could not be migrated.')
+      : 'A value could not be decrypted, so nothing was migrated.';
+
+    return false;
   } finally {
     copyBusy.value = false;
   }
@@ -1808,6 +1831,8 @@ async function removeEdge(id: string): Promise<void> {
           :definitions="definitionItems"
           :usage="definitionUsage"
           :field-features="fieldFeatures"
+          :field-feature-types="fieldFeatureTypes"
+          :migrations="fieldMigrations"
           :remove-error="definitionError"
           :icon-rule-sets="ruleSets"
           :copy-status="copyStatus"
@@ -1817,9 +1842,7 @@ async function removeEdge(id: string): Promise<void> {
           @update-options="updateDefinitionOptions"
           @save-icon-rules="saveIconRules"
           @remove="removeDefinition"
-          @convert-to-identifier="convertDefinitionToIdentifier"
-          @convert-to-list="convertDefinitionToList"
-          @convert-to-encrypted-list="convertDefinitionToEncryptedList"
+          @migrate="migrateDefinition"
           @copy-to-identifier="copyToIdentifier"
           @create-identifier-and-copy="createIdentifierAndCopy"
           @sweep-orphans="sweepOrphans"
