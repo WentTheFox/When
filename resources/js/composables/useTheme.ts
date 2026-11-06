@@ -20,6 +20,9 @@ const ICONS: Record<Preference, LucideIcon> = {
 const media = typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
 function getPreference(): Preference {
+  // No document (server-side rendering, tests without a DOM): the default.
+  if (typeof document === 'undefined') return 'dark';
+
   const match = document.cookie.match(/(?:^|; )wtf-theme=([^;]*)/);
   const value = match ? decodeURIComponent(match[1]) : '';
   return (ORDER as string[]).includes(value) ? (value as Preference) : 'dark';
@@ -49,6 +52,7 @@ const resolvedTheme = ref<'light' | 'dark'>(resolve(getPreference()));
 function apply(pref: Preference): void {
   const resolved = resolve(pref);
   resolvedTheme.value = resolved;
+  if (typeof document === 'undefined') return;
   // Bootstrap 5's own native theming attribute — its built-in component
   // styles (card, btn, form-control, alert, ...) re-theme themselves under
   // this automatically; dark-theme.css only needs to supply this app's own

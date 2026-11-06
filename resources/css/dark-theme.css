@@ -407,7 +407,9 @@ body {
 
 /* Master list pane for the master-detail layouts (Connections, sources,
    share links) — a fixed portion of the viewport height, scrolling
-   internally once its items overflow it. */
+   internally once its items overflow it. The "nothing found" message
+   carries the class too, so a search with few or no results keeps the
+   pane (and the page around it) the same height instead of collapsing. */
 .wtf-master-list {
     height: 60vh;
     overflow-y: auto;

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * A searchable dropdown that can show a flag/icon per row and group headings, used wherever a long list
+ * A searchable dropdown that can show a flag/icon/color dot per row and group headings, used wherever a long list
  * has to be picked from (countries, connections). A native <select> can't show images or filter as you type.
  *
  * `v-model` is the option's `value` (a string), or with `multiple` an array of values: picking then toggles
@@ -10,12 +10,17 @@
  */
 import 'flag-icons/css/flag-icons.min.css';
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue';
+import { CheckIcon } from '@lucide/vue';
+import AppIcon from './AppIcon.vue';
+import SwatchDot from './SwatchDot.vue';
 
 export interface SelectOption {
   value: string;
   text: string;
   /** ISO alpha-2 code: draws that country's flag before the text. */
   flag?: string;
+  /** A palette key: draws that color's dot before the text (a source's category color). */
+  swatch?: string | null;
   group?: string;
   disabled?: boolean;
 }
@@ -40,9 +45,8 @@ const query = ref('');
 
 const selected = computed(() => (props.multiple ? undefined : props.options.find((o) => o.value === model.value)));
 /** The button's label in multiple mode: the chosen names in list order, or the placeholder when none. */
-const multipleLabel = computed(() =>
-  props.options.filter((o) => chosen.value.includes(o.value)).map((o) => o.text).join(', '),
-);
+const chosenOptions = computed(() => props.options.filter((o) => chosen.value.includes(o.value)));
+const hasSwatches = computed(() => props.options.some((o) => o.swatch));
 const hasFlags = computed(() => props.options.some((o) => o.flag));
 const visible = computed(() => {
   const q = query.value.trim().toLowerCase();
@@ -92,7 +96,16 @@ function pick(option: SelectOption | undefined): void {
       @click="open = !open"
     >
       <span v-if="selected?.flag" :class="`fi fi-${selected.flag.toLowerCase()} me-2`" aria-hidden="true" />
-      {{ multiple ? multipleLabel || placeholder : selected ? selected.text : placeholder }}
+      <template v-if="multiple">
+        <template v-if="chosenOptions.length">
+          <span v-for="(option, index) in chosenOptions" :key="option.value">
+            <template v-if="index">, </template><SwatchDot :color-key="option.swatch" class="me-1" />{{ option.text }}
+          </span>
+        </template>
+        <template v-else>{{ placeholder }}</template>
+      </template>
+      <template v-else-if="selected"><SwatchDot :color-key="selected.swatch" class="me-1" />{{ selected.text }}</template>
+      <template v-else>{{ placeholder }}</template>
     </button>
     <div v-if="open" class="searchable-select-panel card shadow-sm position-absolute w-100 mt-1">
       <input
@@ -120,8 +133,10 @@ function pick(option: SelectOption | undefined): void {
             >
               <span v-if="option.flag" :class="`fi fi-${option.flag.toLowerCase()} me-2`" aria-hidden="true" />
               <span v-else-if="hasFlags" class="me-2 searchable-select-nobox" aria-hidden="true" />
+              <SwatchDot v-if="option.swatch" :color-key="option.swatch" class="me-2" />
+              <span v-else-if="hasSwatches" class="me-2 searchable-select-noswatch" aria-hidden="true" />
               <span class="flex-grow-1">{{ option.text }}</span>
-              <span v-if="multiple && isChosen(option.value)" class="ms-2" aria-hidden="true">✓</span>
+              <AppIcon v-if="multiple && isChosen(option.value)" :icon="CheckIcon" class="ms-2" />
             </button>
           </li>
         </template>
@@ -146,5 +161,11 @@ function pick(option: SelectOption | undefined): void {
 .searchable-select-nobox {
   display: inline-block;
   width: 1.33em;
+}
+/* The same for rows without a color dot, so names line up. */
+.searchable-select-noswatch {
+  display: inline-block;
+  width: 0.75rem;
+  flex-shrink: 0;
 }
 </style>

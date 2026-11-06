@@ -57,7 +57,7 @@ const props = defineProps<{
   identifierListDefinitions: { id: string; label_ciphertext: string }[];
   booleanDefinitions: { id: string; label_ciphertext: string }[];
   alternativeNamesDefinitions: { id: string; label_ciphertext: string; type: string }[];
-  connectionSources: { id: string; name_ciphertext: string }[];
+  connectionSources: { id: string; name_ciphertext: string; color_key: string | null }[];
   vrchatIdDefinitions: { id: string; label_ciphertext: string; type: string }[];
   vrcx: {
     base_url: string | null;

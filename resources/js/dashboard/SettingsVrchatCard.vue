@@ -14,6 +14,7 @@ import axios from 'axios';
 import { BButton, BFormCheckbox, BFormGroup, BFormInput, BFormSelect } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
 import { decryptString } from '../crypto';
+import SearchableSelect from '../Components/SearchableSelect.vue';
 import SecretField from '../Components/SecretField.vue';
 import { rawPreview } from './rawCiphertext';
 import VaultGate from './VaultGate.vue';
@@ -25,7 +26,7 @@ type Definition = { id: string; label_ciphertext: string; type: string };
 const props = defineProps<{
   definitions: Definition[];
   /** The owner's connection sources (names are E2EE, decrypted below). */
-  sources: { id: string; name_ciphertext: string }[];
+  sources: { id: string; name_ciphertext: string; color_key: string | null }[];
   vrcx: {
     base_url: string | null;
     api_key: string | null;
@@ -61,7 +62,7 @@ watch(vaultUnlocked, async (unlocked) => {
 
 const sourceOptions = computed(() => [
   { value: '', text: '(none)' },
-  ...props.sources.map((s) => ({ value: s.id, text: labels.value[s.id] ?? rawPreview(s.name_ciphertext) })),
+  ...props.sources.map((s) => ({ value: s.id, text: labels.value[s.id] ?? rawPreview(s.name_ciphertext), swatch: s.color_key })),
 ]);
 
 const fieldOptions = computed(() => [
@@ -190,7 +191,7 @@ const syncedAt = computed(() => (props.vrcx.synced_at ? new Date(props.vrcx.sync
           </div>
           <div v-if="form.errors.vrcx_auto_create_friends" class="text-danger small">{{ form.errors.vrcx_auto_create_friends }}</div>
           <BFormGroup v-if="form.vrcx_auto_create_friends" label="Source for these connections" description="Tied to each connection when it is first created; you can change it on the connection afterwards." class="mt-2" style="max-width: 28rem;">
-            <BFormSelect v-model="form.vrcx_friends_source_id" :options="sourceOptions" size="sm" />
+            <SearchableSelect v-model="form.vrcx_friends_source_id" :options="sourceOptions" aria-label="Source for these connections" />
             <div v-if="form.errors.vrcx_friends_source_id" class="text-danger small">{{ form.errors.vrcx_friends_source_id }}</div>
           </BFormGroup>
         </div>
