@@ -1656,7 +1656,7 @@ async function removeEdge(id: string): Promise<void> {
       <BTab :id="PAGE_TABS.connections">
         <template #title>Connections <BBadge variant="secondary" pill class="ms-1">{{ connections.length }}</BBadge></template>
         <div class="row">
-          <div class="col-md-4">
+          <div class="col-md-4 wtf-master-column">
             <LockedOverlay>
               <div class="input-group input-group-sm mb-2">
                 <BFormInput v-model="connectionFilter" type="text" placeholder="Search or new connection name" />

@@ -415,6 +415,21 @@ body {
     overflow-y: auto;
 }
 
+/* The list's column stays in view while the page scrolls past a long detail
+   pane on the right (it used to scroll away with the page). Sticky rather
+   than capping the detail pane's height, so dropdowns opening inside the
+   form aren't clipped by an overflow container. Only side by side (md+):
+   below that the columns stack. align-self is needed since .row is a flex
+   container that would otherwise stretch the column to the pane's height,
+   leaving nothing for sticky to move within. */
+@media (min-width: 768px) {
+    .wtf-master-column {
+        position: sticky;
+        top: 4.5rem;
+        align-self: flex-start;
+    }
+}
+
 /*
  * Bootstrap 4 utility classes like .d-flex use !important, which otherwise
  * beats the native [hidden] attribute's display:none (lower specificity, no

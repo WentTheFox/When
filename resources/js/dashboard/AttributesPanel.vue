@@ -250,7 +250,7 @@ function add(): void {
 <template>
   <div>
     <div class="row">
-      <div class="col-md-4">
+      <div class="col-md-4 wtf-master-column">
         <LockedOverlay>
           <div class="input-group input-group-sm mb-2">
             <BFormInput v-model="filter" type="text" placeholder="Search or new attribute" />
