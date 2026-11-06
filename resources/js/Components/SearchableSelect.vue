@@ -1,0 +1,150 @@
+<script setup lang="ts">
+/**
+ * A searchable dropdown that can show a flag/icon per row and group headings, used wherever a long list
+ * has to be picked from (countries, connections). A native <select> can't show images or filter as you type.
+ *
+ * `v-model` is the option's `value` (a string), or with `multiple` an array of values: picking then toggles
+ * the row and keeps the list open. The list opens on click, filters as you type, and closes on Escape,
+ * on picking, or on a click outside. Options sharing a `group` must be adjacent; a heading is drawn
+ * wherever the group changes.
+ */
+import 'flag-icons/css/flag-icons.min.css';
+import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue';
+
+export interface SelectOption {
+  value: string;
+  text: string;
+  /** ISO alpha-2 code: draws that country's flag before the text. */
+  flag?: string;
+  group?: string;
+  disabled?: boolean;
+}
+
+const props = withDefaults(
+  defineProps<{ options: SelectOption[]; placeholder?: string; disabled?: boolean; ariaLabel?: string; multiple?: boolean }>(),
+  { placeholder: 'Select…' },
+);
+
+const model = defineModel<string | string[]>({ default: '' });
+
+const chosen = computed(() => (Array.isArray(model.value) ? model.value : model.value === '' ? [] : [model.value]));
+function isChosen(value: string): boolean {
+  return Array.isArray(model.value) ? model.value.includes(value) : model.value === value;
+}
+
+const id = useId();
+const root = ref<HTMLElement | null>(null);
+const search = ref<HTMLInputElement | null>(null);
+const open = ref(false);
+const query = ref('');
+
+const selected = computed(() => (props.multiple ? undefined : props.options.find((o) => o.value === model.value)));
+/** The button's label in multiple mode: the chosen names in list order, or the placeholder when none. */
+const multipleLabel = computed(() =>
+  props.options.filter((o) => chosen.value.includes(o.value)).map((o) => o.text).join(', '),
+);
+const hasFlags = computed(() => props.options.some((o) => o.flag));
+const visible = computed(() => {
+  const q = query.value.trim().toLowerCase();
+  const matches = q ? props.options.filter((o) => o.text.toLowerCase().includes(q) || o.value.toLowerCase() === q) : props.options;
+  return matches.map((o, i) => ({ ...o, heading: o.group && o.group !== matches[i - 1]?.group ? o.group : '' }));
+});
+
+function onDocumentPointerDown(event: PointerEvent): void {
+  if (root.value && !root.value.contains(event.target as Node)) open.value = false;
+}
+
+// Listen for outside clicks only while the list is open.
+watch(open, async (isOpen) => {
+  if (isOpen) {
+    document.addEventListener('pointerdown', onDocumentPointerDown);
+    query.value = '';
+    await nextTick();
+    search.value?.focus();
+  } else {
+    document.removeEventListener('pointerdown', onDocumentPointerDown);
+  }
+});
+onBeforeUnmount(() => document.removeEventListener('pointerdown', onDocumentPointerDown));
+
+function pick(option: SelectOption | undefined): void {
+  if (!option || option.disabled) return;
+  if (props.multiple) {
+    model.value = isChosen(option.value) ? chosen.value.filter((v) => v !== option.value) : [...chosen.value, option.value];
+    return;
+  }
+  model.value = option.value;
+  open.value = false;
+}
+</script>
+
+<template>
+  <div ref="root" class="position-relative searchable-select" @keydown.esc="open = false">
+    <button
+      type="button"
+      class="form-select form-select-sm text-start text-truncate"
+      :class="{ 'text-body-secondary': multiple ? !chosen.length : !selected }"
+      :disabled="disabled"
+      :aria-label="ariaLabel"
+      aria-haspopup="listbox"
+      :aria-expanded="open"
+      :aria-controls="`${id}-list`"
+      @click="open = !open"
+    >
+      <span v-if="selected?.flag" :class="`fi fi-${selected.flag.toLowerCase()} me-2`" aria-hidden="true" />
+      {{ multiple ? multipleLabel || placeholder : selected ? selected.text : placeholder }}
+    </button>
+    <div v-if="open" class="searchable-select-panel card shadow-sm position-absolute w-100 mt-1">
+      <input
+        ref="search"
+        v-model="query"
+        type="search"
+        class="form-control form-control-sm border-0 border-bottom rounded-0 px-3 py-2"
+        placeholder="Search…"
+        autocomplete="off"
+        :aria-controls="`${id}-list`"
+        @keydown.enter.prevent="pick(visible.find((o) => !o.disabled))"
+      >
+      <ul :id="`${id}-list`" class="list-unstyled mb-0 py-1 overflow-auto" role="listbox" :aria-multiselectable="multiple">
+        <template v-for="option in visible" :key="option.value">
+          <li v-if="option.heading" class="searchable-select-heading px-3 pt-2 pb-1 small fw-semibold text-body-secondary" role="presentation">
+            {{ option.heading }}
+          </li>
+          <li role="option" :aria-selected="isChosen(option.value)">
+            <button
+              type="button"
+              class="dropdown-item d-flex align-items-center py-2 px-3"
+              :class="{ active: isChosen(option.value) }"
+              :disabled="option.disabled"
+              @click="pick(option)"
+            >
+              <span v-if="option.flag" :class="`fi fi-${option.flag.toLowerCase()} me-2`" aria-hidden="true" />
+              <span v-else-if="hasFlags" class="me-2 searchable-select-nobox" aria-hidden="true" />
+              <span class="flex-grow-1">{{ option.text }}</span>
+              <span v-if="multiple && isChosen(option.value)" class="ms-2" aria-hidden="true">✓</span>
+            </button>
+          </li>
+        </template>
+        <li v-if="!visible.length" class="px-3 py-2 text-muted small">No match</li>
+      </ul>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.searchable-select-panel {
+  z-index: 1050;
+  min-width: 12rem;
+}
+.searchable-select-panel ul {
+  max-height: 16rem;
+}
+.searchable-select .dropdown-item {
+  white-space: normal;
+}
+/* Keeps flag-less rows (e.g. "(unset)") aligned with the flagged ones. */
+.searchable-select-nobox {
+  display: inline-block;
+  width: 1.33em;
+}
+</style>

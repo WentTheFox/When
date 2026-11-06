@@ -4,7 +4,7 @@ import { faBoxArchive, faLink, faUserPlus, faVrCardboard } from '@fortawesome/fr
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
-import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput, BFormSelect, BTab, BTabs } from 'bootstrap-vue-next';
+import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput, BTab, BTabs } from 'bootstrap-vue-next';
 import { computed, nextTick, onBeforeUnmount, onMounted, type Ref, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../../crypto';
 import { matchConnection, parseAlternativeNames } from '../../dashboard/alternativeNames';
@@ -12,6 +12,7 @@ import { useResolvedTheme } from '../../composables/useTheme';
 import { requestConfirm } from '../../dashboard/confirmModal';
 import PageHeader from '../../Components/PageHeader.vue';
 import PaletteIcon from '../../Components/PaletteIcon.vue';
+import SearchableSelect from '../../Components/SearchableSelect.vue';
 import AttributesPanel from '../../dashboard/AttributesPanel.vue';
 import CategoriesPanel from '../../dashboard/CategoriesPanel.vue';
 import EncryptedText from '../../Components/EncryptedText.vue';
@@ -1610,10 +1611,13 @@ async function removeEdge(id: string): Promise<void> {
                 <BFormGroup label="Name" label-class="small" class="mb-2">
                   <BFormInput v-model="newName" type="text" size="sm" />
                 </BFormGroup>
-                <BFormGroup label="Sources" label-class="small" description="Ctrl/Cmd-click to select more than one." class="mb-2">
-                  <BFormSelect v-model="newSourceIds" size="sm" multiple>
-                    <option v-for="source in sources" :key="source.id" :value="source.id">{{ source.label }}</option>
-                  </BFormSelect>
+                <BFormGroup label="Sources" label-class="small" class="mb-2">
+                  <SearchableSelect
+                    v-model="newSourceIds"
+                    multiple
+                    placeholder="(none)"
+                    :options="sources.map((source) => ({ value: source.id, text: source.label }))"
+                  />
                 </BFormGroup>
                 <BButton size="sm" variant="primary" @click="createConnection">Create</BButton>
                 <div class="text-danger small mt-2">{{ newConnectionError }}</div>
