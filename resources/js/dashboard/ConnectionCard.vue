@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArchiveIcon, ArchiveRestoreIcon, ExternalLinkIcon, GitMergeIcon, Trash2Icon, UserMinusIcon } from '@lucide/vue';
+import { ArchiveIcon, ArchiveRestoreIcon, ExternalLinkIcon, Trash2Icon, UserMinusIcon } from '@lucide/vue';
 import AppIcon from '../Components/AppIcon.vue';
 import axios from 'axios';
 import {
@@ -80,8 +80,6 @@ const props = defineProps<{
   discordSyncedAt?: string | null;
   /** The server can look a Discord ID up by itself, so the Discord card offers a Sync button. */
   discordCanLookUp?: boolean;
-  /** The VRChat user ID field is set up, so connections can be merged by moving their VRChat IDs. */
-  canMerge?: boolean;
 }>();
 const emit = defineEmits<{
   updated: [ConnectionRow];
@@ -93,8 +91,6 @@ const emit = defineEmits<{
   vrchatSynced: [VrchatSummary];
   /** The Discord card looked this connection's IDs up: its connection id and the new profiles. */
   discordSynced: [string, DiscordProfile[]];
-  /** The owner wants to merge this connection into another (the page asks which). */
-  merge: [string];
 }>();
 
 const { getRecordKey, vaultUnlocked } = useVault();
@@ -426,16 +422,6 @@ async function remove(): Promise<void> {
         >
           <AppIcon :icon="connection.archived ? ArchiveRestoreIcon : ArchiveIcon" />
           {{ connection.archived ? 'Unarchive' : 'Archive' }}
-        </BButton>
-        <BButton
-          v-if="canMerge"
-          variant="outline-secondary"
-          size="sm"
-          title="This is the same person as another connection: move its VRChat ID there and delete this one"
-          @click="emit('merge', connection.id)"
-        >
-          <AppIcon :icon="GitMergeIcon" />
-          Merge into…
         </BButton>
         <BButton variant="outline-danger" size="sm" aria-label="Delete this connection" title="Delete" @click="remove">
           <AppIcon :icon="Trash2Icon" />

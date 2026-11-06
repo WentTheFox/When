@@ -34,7 +34,6 @@ import VrchatNotesPanel, { type NoteImportItem } from '../../dashboard/VrchatNot
 import { appendNote } from '../../dashboard/vrchatNotes';
 import { moveLegacyNotes, NOTES_FIELD_LABEL, notesTextOf, saveNotes } from '../../dashboard/notesField';
 import type { NotesFieldDeps, NotesFieldResponse } from '../../dashboard/notesField';
-import MergeConnectionModal from '../../dashboard/MergeConnectionModal.vue';
 import { holdsOtherId, type MatchCandidate } from '../../dashboard/friendMatching';
 import { type DiscordProfile, type DiscordSummary, emptyDiscordSummary, discordFriendName, type PendingDiscordFriend } from '../../dashboard/discord';
 import type { FriendDecision, PendingFriend, VrchatSummary } from '../../dashboard/vrchat';
@@ -698,78 +697,6 @@ function vrchatIdsOf(connection: ConnectionRow): string[] {
   const raw = [...(value?.identifier_list_value ?? []), value?.identifier_value ?? ''];
 
   return [...new Set(raw.map((id) => id.trim().toLowerCase()).filter((id) => /^usr_[0-9a-f-]+$/.test(id)))];
-}
-
-const mergeSourceId = ref<string | null>(null);
-const mergeOpen = ref(false);
-const mergeBusy = ref(false);
-const mergeError = ref('');
-const mergeSource = computed(() => connections.value.find((c) => c.id === mergeSourceId.value) ?? null);
-
-function openMerge(sourceId: string): void {
-  mergeSourceId.value = sourceId;
-  mergeError.value = '';
-  mergeOpen.value = true;
-}
-
-/**
- * "This connection is the same person as that one": adds this connection's VRChat
- * ids to the chosen connection (turning a single-identifier field into a list first
- * if that connection already holds a different id), then deletes this one. Nothing
- * is deleted unless every id was added.
- */
-async function mergeConnectionInto(targetId: string): Promise<void> {
-  const sourceId = mergeSourceId.value;
-  let field = vrchat.value.field;
-  if (mergeBusy.value || !sourceId || !field || !mergeSource.value) return;
-
-  const ids = vrchatIdsOf(mergeSource.value);
-  if (ids.length === 0) {
-    mergeError.value = 'This connection has no VRChat ID to move.';
-    return;
-  }
-
-  mergeBusy.value = true;
-  mergeError.value = '';
-
-  try {
-    const targetValue = connections.value.find((c) => c.id === targetId)?.attribute_values.find((v) => v.attribute_definition_id === field!.id)?.identifier_value;
-
-    if (field.type === 'identifier' && ids.some((id) => holdsOtherId(targetValue, id))) {
-      await migrateDefinition(field.id, 'identifier_list');
-
-      if (definitionItems.value.find((d) => d.id === field!.id)?.type !== 'identifier_list') {
-        mergeError.value = definitionError.value ?? 'The VRChat ID field could not be turned into a list, so nothing was changed.';
-        return;
-      }
-
-      field = { ...field, type: 'identifier_list' };
-      vrchat.value = { ...vrchat.value, field };
-    }
-
-    for (const id of ids) {
-      // Looked up again each time: every link replaces the row.
-      const target = connections.value.find((c) => c.id === targetId);
-
-      if (!target || (await linkFriend(target, id, field)) !== 'linked') {
-        mergeError.value = 'That connection already has a different VRChat ID, so nothing was deleted.';
-        return;
-      }
-    }
-
-    const names = `${decryptedNames.value[sourceId] || 'The connection'} into ${decryptedNames.value[targetId] || 'the other connection'}`;
-    await axios.delete(`/dashboard/connections/${sourceId}`);
-    newConnectionIds.value = newConnectionIds.value.filter((id) => id !== sourceId);
-    onConnectionDeleted(sourceId);
-    selectedConnectionId.value = targetId;
-    mergeOpen.value = false;
-    friendNotice.value = `Merged ${names}: moved ${ids.length} VRChat ID${ids.length === 1 ? '' : 's'} and deleted the original.`;
-  } catch (error) {
-    console.error(error);
-    mergeError.value = 'The merge could not be completed. Check the other connection, then try again (the original is only deleted after its IDs were added).';
-  } finally {
-    mergeBusy.value = false;
-  }
 }
 
 /**
@@ -1636,16 +1563,6 @@ async function removeEdge(id: string): Promise<void> {
   <BAlert :model-value="friendNotice !== ''" variant="success" dismissible @close="friendNotice = ''">
     {{ friendNotice }}
   </BAlert>
-  <MergeConnectionModal
-    v-model:open="mergeOpen"
-    :source-name="mergeSource ? (decryptedNames[mergeSource.id] ?? '') : ''"
-    :ids="mergeSource ? vrchatIdsOf(mergeSource) : []"
-    :options="connectionOptions.filter((c) => c.id !== mergeSourceId)"
-    :single-field="vrchat.field?.type === 'identifier'"
-    :busy="mergeBusy"
-    :error="mergeError"
-    @merge="mergeConnectionInto"
-  />
   <VrchatNotesPanel
     v-if="noteImports.length"
     :items="noteImports"
@@ -1802,8 +1719,6 @@ async function removeEdge(id: string): Promise<void> {
                 @vrchat-synced="vrchat = $event"
                 @updated="onConnectionUpdated"
                 @renamed="onConnectionRenamed"
-                :can-merge="vrchat.field !== null"
-                @merge="openMerge"
                 @deleted="onConnectionDeleted"
                 @add-edge="addEdge"
                 @remove-edge="removeEdge"
