@@ -741,4 +741,117 @@ class VrcxIntegrationTest extends TestCase
         $user->forceFill(['discord_user_id_definition_id' => $discord->id])->save();
         $this->assertSame($discord->id, app(VrcxSyncService::class)->summary($user->refresh())['discord_field_id']);
     }
+
+    private const DISCORD = '123456789012345678';
+
+    /** @param string|null $discord what VRCX reports for ALICE (null: nothing) */
+    private function fakeDiscord(?string $discord): void
+    {
+        $this->freshHttp()->fake([
+            '*/api/v1/users*' => Http::response(['ok' => true, 'missing' => [], 'users' => [self::ALICE => array_filter([
+                'id' => self::ALICE, 'displayName' => 'Alice', 'profilePictureUrl' => '', 'avatarThumbnailUrl' => '', 'discordId' => $discord,
+            ], fn ($v, $k) => $k !== 'discordId' || $v !== null, ARRAY_FILTER_USE_BOTH)]]),
+            '*/api/v1/time-together*' => $this->together([]),
+        ]);
+    }
+
+    private function discordValue(Connection $connection, ConnectionAttributeDefinition $field): mixed
+    {
+        $row = ConnectionAttributeValue::where('connection_id', $connection->id)->where('attribute_definition_id', $field->id)->first();
+
+        return $row?->identifier_list_value ?? $row?->identifier_value;
+    }
+
+    public function test_a_sync_fills_the_discord_list_field_and_is_idempotent(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $field = $this->definition($user, 'identifier_list');
+        $user->forceFill(['discord_user_id_definition_id' => $field->id])->save();
+        $connection = $this->link($user, $definition, [self::ALICE]);
+        ConnectionAttributeValue::create(['connection_id' => $connection->id, 'attribute_definition_id' => $field->id, 'identifier_list_value' => ['alt#0001']]);
+        $this->fakeDiscord(self::DISCORD);
+        $service = app(VrcxSyncService::class);
+
+        $service->sync($user->refresh());
+        $service->sync($user->refresh());
+        $service->sync($user->refresh());
+
+        $this->assertSame(['alt#0001', self::DISCORD], $this->discordValue($connection, $field), 'appended once, nothing removed');
+    }
+
+    public function test_a_single_identifier_discord_field_is_filled_when_empty_and_never_overwritten(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $field = $this->definition($user, 'identifier');
+        $user->forceFill(['discord_user_id_definition_id' => $field->id])->save();
+        $empty = $this->link($user, $definition, [self::ALICE]);
+        $this->fakeDiscord(self::DISCORD);
+        $service = app(VrcxSyncService::class);
+
+        $service->sync($user->refresh());
+        $this->assertSame(self::DISCORD, $this->discordValue($empty, $field));
+        $service->sync($user->refresh());
+        $this->assertSame(self::DISCORD, $this->discordValue($empty, $field));
+
+        $typed = $this->link($user, $definition, [self::ALICE]);
+        ConnectionAttributeValue::create(['connection_id' => $typed->id, 'attribute_definition_id' => $field->id, 'identifier_value' => 'typed by hand']);
+        $service->sync($user->refresh());
+        $this->assertSame('typed by hand', $this->discordValue($typed, $field), 'a value someone entered is never replaced');
+    }
+
+    public function test_choosing_the_field_after_the_id_was_learned_fills_it_at_once_and_on_the_next_sync_even_if_vrcx_reports_nothing(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $connection = $this->link($user, $definition, [self::ALICE]);
+        $this->fakeDiscord(self::DISCORD);
+        app(VrcxSyncService::class)->sync($user);   // learns the id; no Discord field chosen yet
+        $field = $this->definition($user, 'identifier');
+        $this->assertNull($this->discordValue($connection, $field));
+
+        // Choosing the field backfills from what is stored, with no request to VRCX.
+        $this->freshHttp()->fake();
+        $this->actingAs($user->refresh())->patch('/settings/vrcx', ['discord_user_id_definition_id' => $field->id])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('status', fn ($status) => str_contains($status, 'Added Discord IDs to 1 connection'));
+        Http::assertNothingSent();
+        $this->assertSame(self::DISCORD, $this->discordValue($connection, $field));
+
+        // Emptied again, and VRCX reports no Discord ID this time: the next sync still fills it from the stored one.
+        ConnectionAttributeValue::where('connection_id', $connection->id)->where('attribute_definition_id', $field->id)->delete();
+        $this->fakeDiscord(null);
+        app(VrcxSyncService::class)->sync($user->refresh());
+        $this->assertSame(self::DISCORD, $this->discordValue($connection, $field));
+    }
+
+    public function test_nothing_is_written_without_a_discord_field_or_onto_another_owners_connections(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $connection = $this->link($user, $definition, [self::ALICE]);
+        $this->fakeDiscord(self::DISCORD);
+        app(VrcxSyncService::class)->sync($user);
+        $this->assertSame(0, ConnectionAttributeValue::where('connection_id', $connection->id)->count() - 1, 'only the VRChat id value exists');
+
+        // Another owner choosing a Discord field never touches this owner's connections.
+        $other = User::factory()->create();
+        $otherField = $this->definition($other, 'identifier_list');
+        $other->forceFill(['discord_user_id_definition_id' => $otherField->id])->save();
+        $this->assertSame(0, app(VrcxSyncService::class)->backfillDiscordField($other->refresh()));
+        $this->assertSame(0, ConnectionAttributeValue::where('attribute_definition_id', $otherField->id)->count());
+    }
+
+    public function test_saving_a_connection_fills_the_discord_field_too(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $field = $this->definition($user, 'identifier_list');
+        $user->forceFill(['discord_user_id_definition_id' => $field->id])->save();
+        $connection = Connection::create(['id' => (string) Str::uuid(), 'user_id' => $user->id, 'name_ciphertext' => 'opaque']);
+        $this->fakeDiscord(self::DISCORD);
+
+        $response = $this->actingAs($user->refresh())->patchJson("/dashboard/connections/{$connection->id}", ['attribute_values' => [
+            ['attribute_definition_id' => $definition->id, 'identifier_list_value' => [self::ALICE]],
+        ]])->assertOk();
+
+        $this->assertSame([self::DISCORD], $this->discordValue($connection, $field));
+        $this->assertContains(self::DISCORD, collect($response->json('attribute_values'))->firstWhere('attribute_definition_id', $field->id)['identifier_list_value']);
+    }
 }
