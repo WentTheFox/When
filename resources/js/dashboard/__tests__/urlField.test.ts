@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isValidWebUrl, parseWebUrl } from '../urlField';
+import { invalidLinkLines, isValidWebUrl, parseWebUrl, validLinks } from '../urlField';
 
 describe('urlField', () => {
   it('accepts http and https links, trimmed', () => {
@@ -24,5 +24,17 @@ describe('urlField', () => {
     expect(isValidWebUrl('  ')).toBe(true);
     expect(isValidWebUrl(undefined)).toBe(true);
     expect(parseWebUrl('')).toBeNull();
+  });
+});
+
+describe('link lists', () => {
+  it('reports the lines that are not http(s) links, ignoring blanks', () => {
+    expect(invalidLinkLines('https://a.example\n\n javascript:alert(1) \nexample.com\n')).toEqual(['javascript:alert(1)', 'example.com']);
+    expect(invalidLinkLines('')).toEqual([]);
+    expect(invalidLinkLines(null)).toEqual([]);
+  });
+
+  it('lists the valid links once each, normalized', () => {
+    expect(validLinks('https://a.example\nnope\nhttps://a.example\nhttp://b.example')).toEqual(['https://a.example/', 'http://b.example/']);
   });
 });
