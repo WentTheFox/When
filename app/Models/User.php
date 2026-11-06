@@ -72,6 +72,7 @@ use Illuminate\Support\Facades\Crypt;
  * @property string|null $public_icon_key
  * @property string|null $highlight_identifier_definition_id
  * @property string|null $bypass_dnd_definition_id
+ * @property string|null $notes_field_definition_id
  * @property string|null $vrcx_base_url
  * @property string|null $vrcx_api_key
  * @property Carbon|null $vrcx_synced_at
@@ -214,6 +215,7 @@ class User extends Authenticatable
         'week_start',
         'highlight_identifier_definition_id',
         'bypass_dnd_definition_id',
+        'notes_field_definition_id',
         'vrchat_user_id_definition_id',
         'discord_user_id_definition_id',
         'vrcx_base_url',

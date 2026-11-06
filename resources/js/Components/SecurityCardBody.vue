@@ -93,7 +93,7 @@ const page = usePage();
     included in your data export. The Discord user ID that VRCX reports for a friend (when VRChat has ever shown one) is stored the same way and shown on
     their VRChat card; you can also pick a custom field for Discord user IDs. If your VRCX key can read
     your private VRChat notes, the server holds each note (encrypted at rest with the server's key, not end-to-end) only until you press
-    Import: your browser then appends it to the connection's end-to-end encrypted notes and the server keeps just a fingerprint. If you switch on the VRChat friends list, the server also keeps your VRChat friend list (names
+    Import: your browser then appends it to the connection's end-to-end encrypted Notes field and the server keeps just a fingerprint. If you switch on the VRChat friends list, the server also keeps your VRChat friend list (names
     and pictures, encrypted at rest) to show who has no connection yet; the connections themselves
     are only ever created by your browser when you choose to add a friend, so their names stay
     end-to-end encrypted.

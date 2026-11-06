@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { faDiscord } from '@fortawesome/free-brands-svg-icons';
-import { faBoxArchive, faLink, faNoteSticky, faUserPlus, faVrCardboard } from '@fortawesome/free-solid-svg-icons';
+import { faBoxArchive, faLink, faUserPlus, faVrCardboard } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
-import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput, BFormSelect, BFormTextarea, BTab, BTabs } from 'bootstrap-vue-next';
+import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput, BFormSelect, BTab, BTabs } from 'bootstrap-vue-next';
 import { computed, nextTick, onBeforeUnmount, onMounted, type Ref, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../../crypto';
 import { useResolvedTheme } from '../../composables/useTheme';
@@ -21,6 +21,8 @@ import PendingDiscordFriendsPanel from '../../dashboard/PendingDiscordFriendsPan
 import PendingFriendsPanel from '../../dashboard/PendingFriendsPanel.vue';
 import VrchatNotesPanel, { type NoteImportItem } from '../../dashboard/VrchatNotesPanel.vue';
 import { appendNote } from '../../dashboard/vrchatNotes';
+import { moveLegacyNotes, NOTES_FIELD_LABEL, notesTextOf, saveNotes } from '../../dashboard/notesField';
+import type { NotesFieldDeps, NotesFieldResponse } from '../../dashboard/notesField';
 import MergeConnectionModal from '../../dashboard/MergeConnectionModal.vue';
 import { holdsOtherId, type MatchCandidate } from '../../dashboard/friendMatching';
 import { type DiscordSummary, emptyDiscordSummary, discordFriendName, type PendingDiscordFriend } from '../../dashboard/discord';
@@ -61,6 +63,8 @@ const props = defineProps<{
   vrchat: VrchatSummary;
   /** The Discord connection and its friend count (§0.2 tier, not E2EE). Absent on a server without Discord. */
   discord?: DiscordSummary;
+  /** The multi-line custom field that holds the notes (they used to be built in); null until there is one. */
+  notesFieldId?: string | null;
 }>();
 
 const { createRecordKey, getRecordKey, vaultUnlocked } = useVault();
@@ -128,7 +132,6 @@ const definitionUsage = computed(() => {
 const showNewForm = ref(false);
 const newName = ref('');
 const newSourceIds = ref<string[]>([]);
-const newNotes = ref('');
 const newConnectionError = ref('');
 
 const decryptedNames = ref<Record<string, string>>({});
@@ -403,7 +406,6 @@ async function createConnection(): Promise<void> {
       id,
       source_ids: newSourceIds.value,
       name_ciphertext: await encryptString(key, newName.value),
-      notes_ciphertext: newNotes.value ? await encryptString(key, newNotes.value) : null,
     });
 
     connections.value.push(data);
@@ -414,7 +416,6 @@ async function createConnection(): Promise<void> {
 
     newName.value = '';
     newSourceIds.value = [];
-    newNotes.value = '';
     showNewForm.value = false;
     connectionFilter.value = '';
   } catch (error) {
@@ -913,7 +914,63 @@ const notesBusy = ref(false);
 const notesProgress = ref('');
 
 /**
- * Appends each waiting VRChat note to its connection's notes, on a new line, in this
+ * The notes field (notes used to be a built-in property of a connection; see notesField.ts). Its first
+ * call creates it, so a user with no notes gets it the first time something needs it.
+ */
+const notesFieldId = ref<string | null>(props.notesFieldId ?? null);
+
+const notesDeps: NotesFieldDeps<ConnectionRow> = {
+  fieldId: () => notesFieldId.value,
+  connections: () => connections.value,
+  getRecordKey,
+  createRecordKey,
+  encrypt: encryptString,
+  decrypt: decryptString,
+  post: async (body) => (await axios.post<NotesFieldResponse<ConnectionRow>>('/dashboard/connections/notes-field', body)).data,
+  apply: async (response) => {
+    const { definition } = response;
+    notesFieldId.value = definition.id;
+
+    if (!definitionItems.value.some((d) => d.id === definition.id)) {
+      let label: string | undefined = response.created ? NOTES_FIELD_LABEL : undefined;
+      if (label === undefined) {
+        try {
+          label = await decryptString(await getRecordKey(definition.id), definition.label_ciphertext);
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      definitionItems.value.push({ ...definition, options: [], label });
+      if (label !== undefined) await placeAndSave(definitionItems, 'attributes', definition.id, labelOfItem);
+    }
+
+    for (const updated of response.connections) onConnectionUpdated(updated);
+  },
+};
+
+const movingNotes = ref(false);
+
+/** One time per owner, as soon as the vault is unlocked: old built-in notes become values of the Notes field. */
+async function moveOldNotes(): Promise<void> {
+  if (movingNotes.value || !vaultUnlocked.value) return;
+
+  movingNotes.value = true;
+  try {
+    await moveLegacyNotes(notesDeps);
+  } catch (error) {
+    console.error(error);
+  } finally {
+    movingNotes.value = false;
+  }
+}
+
+watch(vaultUnlocked, (unlocked) => {
+  if (unlocked) void moveOldNotes();
+}, { immediate: true });
+
+/**
+ * Appends each waiting VRChat note to the connection's Notes field, on a new line, in this
  * browser (the notes are end-to-end encrypted), then tells the server which ones are done
  * so it can forget the plaintext. A connection whose notes can't be read or saved is left
  * as it was and stays waiting.
@@ -928,6 +985,11 @@ async function importVrchatNotes(): Promise<void> {
   const imported: { connection_id: string; vrchat_user_id: string; note: string }[] = [];
 
   try {
+    // Any note still in the old built-in place goes into the field first, so nothing is overwritten below.
+    await moveLegacyNotes(notesDeps);
+
+    const updates: { connectionId: string; text: string; imports: typeof imported }[] = [];
+
     for (const [index, item] of work.entries()) {
       notesProgress.value = `${index + 1} of ${work.length}`;
       const connection = connections.value.find((c) => c.id === item.connectionId);
@@ -935,8 +997,7 @@ async function importVrchatNotes(): Promise<void> {
       try {
         if (!connection) continue;
 
-        const key = await getRecordKey(connection.id);
-        let text = connection.notes_ciphertext ? await decryptString(key, connection.notes_ciphertext) : '';
+        let text = await notesTextOf(notesDeps, connection);
         let changed = false;
 
         for (const n of item.notes) {
@@ -945,16 +1006,26 @@ async function importVrchatNotes(): Promise<void> {
           changed ||= next.changed;
         }
 
-        if (changed) {
-          const { data } = await axios.patch<ConnectionRow>(`/dashboard/connections/${connection.id}`, { notes_ciphertext: await encryptString(key, text) });
-          onConnectionUpdated(data);
-          appended++;
-        }
+        const entries = item.notes.map((n) => ({ connection_id: connection.id, vrchat_user_id: n.vrchatId, note: n.note }));
 
-        for (const n of item.notes) imported.push({ connection_id: connection.id, vrchat_user_id: n.vrchatId, note: n.note });
+        if (changed) updates.push({ connectionId: connection.id, text, imports: entries });
+        else imported.push(...entries);
       } catch (error) {
         console.error(error);
         failed++;
+      }
+    }
+
+    // One save for all of them (creating the field first if this is the first note ever). If it fails
+    // none of them are marked done, so they all stay waiting.
+    if (updates.length > 0) {
+      try {
+        await saveNotes(notesDeps, updates.map(({ connectionId, text }) => ({ connectionId, text })));
+        appended = updates.length;
+        for (const update of updates) imported.push(...update.imports);
+      } catch (error) {
+        console.error(error);
+        failed += updates.length;
       }
     }
 
@@ -1476,9 +1547,6 @@ async function removeEdge(id: string): Promise<void> {
                     <option v-for="source in sources" :key="source.id" :value="source.id">{{ source.label }}</option>
                   </BFormSelect>
                 </BFormGroup>
-                <BFormGroup label="Notes" label-class="small" class="mb-2">
-                  <BFormTextarea v-model="newNotes" size="sm" rows="2" />
-                </BFormGroup>
                 <BButton size="sm" variant="primary" @click="createConnection">Create</BButton>
                 <div class="text-danger small mt-2">{{ newConnectionError }}</div>
               </BCard>
@@ -1534,16 +1602,6 @@ async function removeEdge(id: string): Promise<void> {
                   >
                     <FontAwesomeIcon :icon="faUserPlus" />
                     <span class="visually-hidden">Added from your VRChat friends on this visit</span>
-                  </span>
-                  <!-- Has notes. The notes are end-to-end encrypted and an empty note is never stored, so a stored note is what marks it. -->
-                  <span
-                    v-if="connection.notes_ciphertext"
-                    class="ms-1 connection-notes"
-                    :class="selectedConnectionId === connection.id ? '' : 'text-secondary'"
-                    title="Has notes"
-                  >
-                    <FontAwesomeIcon :icon="faNoteSticky" />
-                    <span class="visually-hidden">Has notes</span>
                   </span>
                   <!-- Archived. Muted, except on the selected row, where the inherited white stays readable. -->
                   <span

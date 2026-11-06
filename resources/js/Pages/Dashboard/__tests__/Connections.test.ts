@@ -110,15 +110,12 @@ describe('Connections page', () => {
     expect(await render('')).not.toContain('text-danger');
   });
 
-  it('marks the connections that have notes, and only those', async () => {
+  it('no longer draws a hardcoded notes mark (icons now come from the owner\'s icon rules)', async () => {
     const noted = { ...props.connections[0], notes_ciphertext: 'bm90ZXMtY2lwaGVy' };
-    const plain = { ...props.connections[0], id: '88888888-8888-4888-8888-888888888888', notes_ciphertext: null };
 
-    const html = await renderWith({ ...props, connections: [noted, plain] }, '');
-    expect(html.match(/connection-notes/g)).toHaveLength(1);
-    expect(html).toMatch(/connection-notes[\s\S]*?visually-hidden[^>]*>Has notes</);
-
-    expect(await render('')).not.toContain('connection-notes');
+    const html = await renderWith({ ...props, connections: [noted] }, '');
+    expect(html).not.toContain('connection-notes');
+    expect(html).not.toContain('Has notes');
   });
 
   it('shows both marks when a connection is archived and shared', async () => {
