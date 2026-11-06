@@ -16,7 +16,7 @@ import CountrySelect from '../Components/CountrySelect.vue';
 import EncryptedInput from '../Components/EncryptedInput.vue';
 import RadioChoices from '../Components/RadioChoices.vue';
 import EncryptedText from '../Components/EncryptedText.vue';
-import ConnectionSharing, { type ShareLinkInfo } from './ConnectionSharing.vue';
+import ConnectionSharing, { type IdentityOption, type ShareLinkInfo } from './ConnectionSharing.vue';
 import ConnectionDiscord from './ConnectionDiscord.vue';
 import ConnectionVrchat from './ConnectionVrchat.vue';
 import type { DiscordProfile } from './discord';
@@ -140,6 +140,16 @@ const knowableConnections = computed(() => {
 });
 
 const newRelationTargetId = ref('');
+
+/** Linked accounts with a name, as the free page can show them (keys match ShareLinkIdentity). */
+const identityOptions = computed<IdentityOption[]>(() => [
+  ...(props.discordProfiles ?? [])
+    .filter((p) => p.known && (p.global_name || p.username))
+    .map((p) => ({ key: `discord:${p.discord_user_id}`, label: `Discord: ${p.global_name || p.username}` })),
+  ...(props.vrchatProfiles ?? [])
+    .filter((p) => p.display_name)
+    .map((p) => ({ key: `vrchat:${p.vrchat_user_id}`, label: `VRChat: ${p.display_name}` })),
+]);
 
 function onShareLinkChanged(shareLink: ShareLinkInfo | null): void {
   emit('updated', { ...props.connection, share_link: shareLink });
@@ -425,6 +435,7 @@ async function remove(): Promise<void> {
       <ConnectionSharing
         :connection-id="connection.id"
         :share-link="connection.share_link"
+        :identities="identityOptions"
         @changed="onShareLinkChanged"
       />
     </BFormGroup>

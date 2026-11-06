@@ -51,6 +51,8 @@ const props = defineProps<{
   linkFound: boolean;
   inviteCode: string | null;
   ownerName: string | null;
+  /** The linked Discord/VRChat account the owner chose to show for this link; null shows nobody. */
+  identity: { provider: string; name: string; username: string | null; picture_url: string | null } | null;
   pageTitle: string | null;
   locale: string;
   textDirection: 'ltr' | 'rtl';
@@ -723,7 +725,7 @@ onMounted(() => {
   <Head :title="pageTitle ?? $t('free.linkExpiredTitle')" />
 
   <div class="wtf-backdrop" :style="rootStyle" :dir="textDirection">
-    <SiteHeader />
+    <SiteHeader :identity="identity" />
 
     <div class="wtf-page-content container py-4">
       <div class="card mx-auto" style="max-width: 60rem;">

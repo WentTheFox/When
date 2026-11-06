@@ -62,12 +62,14 @@ class ShareLink extends Model
         'user_id',
         'connection_id',
         'highlight_token',
+        'display_identity',
     ];
 
     protected function casts(): array
     {
         return [
             'last_visited_at' => 'datetime',
+            'display_identity' => 'encrypted',
         ];
     }
 
