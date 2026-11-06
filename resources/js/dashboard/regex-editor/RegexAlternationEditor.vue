@@ -7,8 +7,8 @@
  * shape (regexAstModel.ts's own note on why: it mirrors regexpp's
  * Pattern.alternatives / Group.alternatives 1:1).
  */
-import { faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { PlusIcon, Trash2Icon } from '@lucide/vue';
+import AppIcon from '../../Components/AppIcon.vue';
 import { BButton } from 'bootstrap-vue-next';
 import { emptySequence, type AlternationNode } from './regexAstModel';
 import RegexSequenceEditor from './RegexSequenceEditor.vue';
@@ -54,12 +54,12 @@ function removeBranch(index: number): void {
           title="Remove this alternative"
           @click="removeBranch(index)"
         >
-          <FontAwesomeIcon :icon="faTrash" />
+          <AppIcon :icon="Trash2Icon" />
         </BButton>
       </div>
     </template>
     <BButton variant="outline-secondary" size="sm" class="wtf-regex-alternation-add" @click="addBranch">
-      <FontAwesomeIcon :icon="faPlus" /> Add alternative (OR)
+      <AppIcon :icon="PlusIcon" /> Add alternative (OR)
     </BButton>
   </div>
 </template>

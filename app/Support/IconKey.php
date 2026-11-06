@@ -5,17 +5,18 @@ namespace App\Support;
 /**
  * The app's fixed, curated icon catalog — not a free-form icon picker,
  * same "curated list, not arbitrary input" spirit as ColorSwatchKey. Every
- * key here is this app's own name, deliberately never a raw Font Awesome
- * icon identifier: FA has renamed icons across major versions before (the
- * "coffee mug" icon alone has gone by faCoffee and faMugHot across
- * FA5/FA6), and a value stored in `users.*_icon_key` outlives any one FA
- * version this app happens to be built against. The actual key -> FA-icon
- * mapping lives entirely client-side, in resources/js/free/icon-
- * palette.ts's ICON_KEY_TO_FA — this enum only hands the frontend the KEY
+ * key here is this app's own name, deliberately never a raw icon-library
+ * identifier: libraries rename icons across versions (the "coffee mug"
+ * icon alone went by faCoffee and faMugHot across Font Awesome 5/6), and a
+ * value stored in `users.*_icon_key` outlives any one library or version
+ * this app happens to be built against — the app has since moved from
+ * Font Awesome to Lucide without a single stored key changing. The actual
+ * key -> glyph mapping lives entirely client-side, in resources/js/free/icon-
+ * palette.ts's ICON_KEY_TO_LUCIDE — this enum only hands the frontend the KEY
  * + a display label() + a browsable group() + optional search keywords()
  * for the picker UI (resources/js/dashboard/IconPicker.vue), never an icon
- * reference of its own, so a future FA icon rename is a one-line edit to
- * that single TS map, never a migration or a stored-value change.
+ * reference of its own, so a future icon rename (or library swap) is an
+ * edit to that single TS map, never a migration or a stored-value change.
  *
  * Unlike ColorSwatchKey, there's no light/dark pair per case — a glyph's
  * shape doesn't need a theme-specific variant the way a hex color does;

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { faBoxArchive, faBoxOpen, faCodeMerge, faTrashCan, faUserMinus } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { ArchiveIcon, ArchiveRestoreIcon, GitMergeIcon, Trash2Icon, UserMinusIcon } from '@lucide/vue';
+import AppIcon from '../Components/AppIcon.vue';
 import axios from 'axios';
 import {
   BBadge,
@@ -410,7 +410,7 @@ async function remove(): Promise<void> {
           :title="connection.archived ? 'Show this connection in the stats again' : 'Hide this connection from the stats'"
           @click="toggleArchived"
         >
-          <FontAwesomeIcon :icon="connection.archived ? faBoxOpen : faBoxArchive" />
+          <AppIcon :icon="connection.archived ? ArchiveRestoreIcon : ArchiveIcon" />
           {{ connection.archived ? 'Unarchive' : 'Archive' }}
         </BButton>
         <BButton
@@ -420,11 +420,11 @@ async function remove(): Promise<void> {
           title="This is the same person as another connection: move its VRChat ID there and delete this one"
           @click="emit('merge', connection.id)"
         >
-          <FontAwesomeIcon :icon="faCodeMerge" />
+          <AppIcon :icon="GitMergeIcon" />
           Merge into…
         </BButton>
         <BButton variant="outline-danger" size="sm" aria-label="Delete this connection" title="Delete" @click="remove">
-          <FontAwesomeIcon :icon="faTrashCan" />
+          <AppIcon :icon="Trash2Icon" />
         </BButton>
       </div>
     </div>
@@ -571,7 +571,7 @@ async function remove(): Promise<void> {
                 :title="`Remove the link to ${edge.otherName}`"
                 @click="removeRelationship(edge)"
               >
-                <FontAwesomeIcon :icon="faUserMinus" /> Remove
+                <AppIcon :icon="UserMinusIcon" /> Remove
               </BButton>
             </td>
           </tr>

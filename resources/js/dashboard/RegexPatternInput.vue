@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { faPuzzlePiece } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { PuzzleIcon } from '@lucide/vue';
+import AppIcon from '../Components/AppIcon.vue';
 import { BButton } from 'bootstrap-vue-next';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { requestRegexEdit } from './regexEditorModal';
@@ -251,7 +251,7 @@ async function openVisualEditor(): Promise<void> {
       aria-label="Open visual editor"
       @click="openVisualEditor"
     >
-      <FontAwesomeIcon :icon="faPuzzlePiece" />
+      <AppIcon :icon="PuzzleIcon" />
     </BButton>
   </div>
   <div v-if="validationMessage" class="invalid-feedback d-block">{{ validationMessage }}</div>

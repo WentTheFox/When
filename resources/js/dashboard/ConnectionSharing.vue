@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import axios from 'axios';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faCheck, faCopy, faRotateRight, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { CheckIcon, CopyIcon, RotateCwIcon, Trash2Icon } from '@lucide/vue';
+import AppIcon from '../Components/AppIcon.vue';
 import { BButton, BFormSelect, BSpinner } from 'bootstrap-vue-next';
 import { computed, ref } from 'vue';
 import { requestConfirm } from './confirmModal';
@@ -185,7 +185,7 @@ async function deleteAllVisits(): Promise<void> {
         <a v-if="url" :href="url" target="_blank" rel="noopener" class="small font-monospace text-break">{{ url }}</a>
         <div class="d-flex gap-2">
           <BButton variant="outline-secondary" size="sm" title="Copy link" @click="copyUrl">
-            <FontAwesomeIcon :icon="justCopied ? faCheck : faCopy" />
+            <AppIcon :icon="justCopied ? CheckIcon : CopyIcon" />
           </BButton>
           <BButton variant="outline-warning" size="sm" @click="regenerate">Regenerate link</BButton>
           <BButton variant="outline-danger" size="sm" @click="disable">Stop sharing</BButton>
@@ -215,7 +215,7 @@ async function deleteAllVisits(): Promise<void> {
       <div v-if="showVisits" class="mt-2">
         <div class="d-flex align-items-center justify-content-between mb-2">
           <BButton variant="outline-secondary" size="sm" title="Reload" :disabled="loadingVisits" @click="fetchVisits(visitsPage)">
-            <FontAwesomeIcon :icon="faRotateRight" :spin="loadingVisits" />
+            <AppIcon :icon="RotateCwIcon" :spin="loadingVisits" />
           </BButton>
           <BButton v-if="visits.length" variant="outline-danger" size="sm" @click="deleteAllVisits">Delete all</BButton>
         </div>
@@ -233,7 +233,7 @@ async function deleteAllVisits(): Promise<void> {
                 <td>{{ visit.locale ?? '—' }}</td>
                 <td class="text-end">
                   <BButton variant="outline-danger" size="sm" title="Delete this visit" @click="deleteVisit(visit)">
-                    <FontAwesomeIcon :icon="faTrash" />
+                    <AppIcon :icon="Trash2Icon" />
                   </BButton>
                 </td>
               </tr>

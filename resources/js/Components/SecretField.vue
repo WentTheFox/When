@@ -7,8 +7,8 @@
  * server can decrypt them either way, so hiding them from their own owner would
  * only add confusion), but not left readable on screen by default.
  */
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
+import { EyeIcon, EyeOffIcon } from '@lucide/vue';
+import AppIcon from './AppIcon.vue';
 import { BBadge, BButton, BFormGroup, BFormInput, BInputGroup } from 'bootstrap-vue-next';
 import { ref } from 'vue';
 
@@ -52,7 +52,7 @@ const revealed = ref(false);
         :aria-label="revealed ? `Hide ${noun}` : `Show ${noun}`"
         @click="revealed = !revealed"
       >
-        <FontAwesomeIcon :icon="revealed ? faEyeSlash : faEye" />
+        <AppIcon :icon="revealed ? EyeOffIcon : EyeIcon" />
       </BButton>
     </BInputGroup>
     <template v-if="description" #description>{{ description }}</template>

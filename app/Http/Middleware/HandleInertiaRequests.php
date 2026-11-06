@@ -69,7 +69,7 @@ class HandleInertiaRequests extends Middleware
             // Same "server hands down the curated list + default keys,
             // frontend resolves keys to render values" split as
             // colorPalette above — see IconPalette's own doc comment for
-            // why the actual key -> FontAwesome-icon mapping deliberately
+            // why the actual key -> Lucide-icon mapping deliberately
             // lives only in resources/js/free/icon-palette.ts, never here.
             'iconPalette' => [
                 'icons' => IconPalette::forFrontend(),

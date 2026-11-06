@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onErrorCaptured, ref } from 'vue';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
+import { TriangleAlertIcon } from '@lucide/vue';
+import AppIcon from '../Components/AppIcon.vue';
 
 /**
  * Wraps the availability views (week/month/agenda). A render/setup/watcher
@@ -76,7 +76,7 @@ async function copy() {
 <template>
   <div v-if="error" class="alert alert-danger" role="alert">
     <h2 class="h5 mb-2">
-      <FontAwesomeIcon :icon="faTriangleExclamation" class="me-2" />{{ $t('free.viewError.title') }}
+      <AppIcon :icon="TriangleAlertIcon" class="me-2" />{{ $t('free.viewError.title') }}
     </h2>
     <p class="mb-2">{{ $t('free.viewError.intro') }}</p>
     <pre class="small mb-2 p-2 rounded border" style="white-space: pre-wrap; word-break: break-word; user-select: all; max-height: 24rem; overflow: auto; color: inherit; background: transparent;" dir="ltr">{{ report }}</pre>

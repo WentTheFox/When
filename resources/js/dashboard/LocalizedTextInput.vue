@@ -12,8 +12,8 @@
  * each ActivityLocalization's own label.
  */
 import { BButton, BFormGroup, BFormInput, BFormSelect } from 'bootstrap-vue-next';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faPlus, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { PlusIcon, Trash2Icon } from '@lucide/vue';
+import AppIcon from '../Components/AppIcon.vue';
 import { usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import type { SharedPageProps } from '../sharedPageProps';
@@ -113,10 +113,10 @@ function removeRow(index: number): void {
         </BFormSelect>
         <BFormInput v-model="row.value" type="text" :placeholder="label" class="flex-grow-1" />
         <BButton variant="outline-danger" size="sm" class="flex-shrink-0" aria-label="Remove language" @click="removeRow(i)">
-          <FontAwesomeIcon :icon="faTrash" />
+          <AppIcon :icon="Trash2Icon" />
         </BButton>
       </div>
     </BFormGroup>
-    <BButton v-if="nextAvailableCode !== null" variant="outline-secondary" size="sm" @click="addRow"><FontAwesomeIcon :icon="faPlus" class="me-1"/>Add language</BButton>
+    <BButton v-if="nextAvailableCode !== null" variant="outline-secondary" size="sm" @click="addRow"><AppIcon :icon="PlusIcon" class="me-1"/>Add language</BButton>
   </div>
 </template>

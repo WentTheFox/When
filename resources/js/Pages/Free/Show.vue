@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { faChevronLeft, faChevronRight, faLock, faRotateRight } from '@fortawesome/free-solid-svg-icons';
+import { ChevronLeftIcon, ChevronRightIcon, LockIcon, RotateCwIcon } from '@lucide/vue';
+import AppIcon from '../../Components/AppIcon.vue';
 
 /**
  * Vue/Inertia port of the public /free viewer. The crypto and fetch-polling
@@ -43,7 +44,6 @@ import { useResolvedTheme } from '../../composables/useTheme';
 import { rememberInviteCode } from '../../composables/useInviteCode';
 import { resolveNowColorHex } from '../../free/now-color-presets';
 import type { AvailabilityResponse } from '../../free/nuxt-blocks';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 
 const props = defineProps<{
   token: string | null;
@@ -788,14 +788,14 @@ onMounted(() => {
             <!-- Owner-only: same signal as the picker above. -->
             <div v-if="showOwnerCustomizations" class="d-flex flex-column align-items-center mb-3" style="gap: 0.25rem;">
               <BButton variant="outline-secondary" size="sm" :disabled="refreshing" @click="forceRefresh">
-                <FontAwesomeIcon :icon="faRotateRight" :spin="refreshing" class="me-2" />
+                <AppIcon :icon="RotateCwIcon" :spin="refreshing" class="me-2" />
                 {{ refreshing ? $t('free.refreshing') : $t('free.refreshNow') }}
               </BButton>
               <span v-if="refreshMessage" class="small text-muted">{{ refreshMessage }}</span>
             </div>
 
             <p v-if="!showOwnerCustomizations" class="small text-center text-warning mb-3">
-          <FontAwesomeIcon :icon="faLock" class="me-2" />{{ $t('free.personalizedWarning') }}
+          <AppIcon :icon="LockIcon" class="me-2" />{{ $t('free.personalizedWarning') }}
             </p>
           </template>
 
@@ -816,7 +816,7 @@ onMounted(() => {
                   :aria-label="viewMode === 'month' ? $t('free.prevMonth') : $t('free.prevWeek')"
                   :disabled="isAtStart"
                   @click="goPrev"
-                ><FontAwesomeIcon :icon="faChevronLeft" /></BButton>
+                ><AppIcon :icon="ChevronLeftIcon" /></BButton>
                 <span class="fw-bold text-center" style="min-width: 12rem;">{{ navLabel }}</span>
                 <BButton
                   variant="outline-secondary"
@@ -824,7 +824,7 @@ onMounted(() => {
                   :aria-label="viewMode === 'month' ? $t('free.nextMonth') : $t('free.nextWeek')"
                   :disabled="isAtEnd"
                   @click="goNext"
-                ><FontAwesomeIcon :icon="faChevronRight" /></BButton>
+                ><AppIcon :icon="ChevronRightIcon" /></BButton>
                 <BButton variant="secondary" size="sm" class="ms-2" :disabled="isAtStart" @click="goToday">{{ $t('free.today') }}</BButton>
               </div>
               <div class="btn-group ms-2" role="group">

@@ -3,18 +3,18 @@
  * system → light → dark cycle, same "dark unless the visitor has ever
  * toggled" default, used by every Inertia page via ThemeToggle.vue.
  */
-import { faCircleHalfStroke, faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
-import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
-import { onMounted, onUnmounted, ref } from 'vue';
+import { ContrastIcon, MoonIcon, SunIcon } from '@lucide/vue';
+import type { LucideIcon } from '@lucide/vue';
+import { onMounted, onUnmounted, ref, shallowRef } from 'vue';
 
 type Preference = 'system' | 'light' | 'dark';
 
 const COOKIE_NAME = 'wtf-theme';
 const ORDER: Preference[] = ['dark', 'light', 'system'];
-const ICONS: Record<Preference, IconDefinition> = {
-  dark: faMoon,
-  light: faSun,
-  system: faCircleHalfStroke,
+const ICONS: Record<Preference, LucideIcon> = {
+  dark: MoonIcon,
+  light: SunIcon,
+  system: ContrastIcon,
 };
 
 const media = typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)') : null;
@@ -62,7 +62,8 @@ export function useResolvedTheme() {
 
 export function useTheme() {
   const preference = ref<Preference>(getPreference());
-  const icon = ref(ICONS[preference.value]);
+  // shallowRef: an icon is a component object, which must not be made deeply reactive.
+  const icon = shallowRef<LucideIcon>(ICONS[preference.value]);
 
   apply(preference.value);
 

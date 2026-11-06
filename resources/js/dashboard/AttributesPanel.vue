@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { faLock } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { LockIcon } from '@lucide/vue';
+import AppIcon from '../Components/AppIcon.vue';
 import { Link } from '@inertiajs/vue3';
 import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput, BFormSelect } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
@@ -292,7 +292,7 @@ function add(): void {
                 :class="selectedId === definition.id ? '' : 'text-info'"
                 :title="`Used by ${featuresOf(definition.id).join(', ')} — can't be deleted`"
               >
-                <FontAwesomeIcon :icon="faLock" />
+                <AppIcon :icon="LockIcon" />
                 <span class="visually-hidden">Used by {{ featuresOf(definition.id).join(', ') }}; can't be deleted</span>
               </span>
             </button>

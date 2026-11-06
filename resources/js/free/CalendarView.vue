@@ -10,9 +10,9 @@
  *     classes in resources/css/dark-theme.css using this app's own
  *     --app-color-* custom properties (this app is Bootstrap 4 + a manual
  *     dark-theme overlay, not Sass).
- *   - <FontAwesome> (Nuxt global component) -> local FontAwesomeIcon import.
+ *   - <FontAwesome> (Nuxt global component) -> the AppIcon wrapper (Lucide).
  *   - <CutieMarkPlayer> (a WentTheNuxt-specific mascot asset) -> a plain
- *     spinning FontAwesome icon.
+ *     spinning Lucide icon.
  * The template structure, class names (wtf-fcal-* here vs the source's CSS
  * module names), and all rendering logic are otherwise unchanged.
  */
@@ -20,15 +20,14 @@ import { format } from 'date-fns';
 import { resolveDateFnsLocale } from './dateFnsLocale';
 import { isBeyondRange } from './rangeEnd';
 import { TZDate } from '@date-fns/tz';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faRepeat, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { LoaderCircleIcon, RepeatIcon } from '@lucide/vue';
 import { computed } from 'vue';
 import { currentLocale, trans } from 'laravel-vue-i18n';
 import { recurrenceText } from './recurrence';
 import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, isTentativeSuffixShown, tildeTime } from './nuxt-blocks';
 import type { DayBlock, EventSlot } from './nuxt-blocks';
 import { resolveLocalizedText } from './localizedText';
-import PaletteIcon from '../Components/PaletteIcon.vue';
+import AppIcon from '../Components/AppIcon.vue';
 import { resolveIcon } from './icon-palette';
 import type { PaletteIcon as PaletteIconType } from './icon-palette';
 import { activityColorStyle as activityColorStyleFor, tentativeFadeStyle } from './blockColors';
@@ -251,7 +250,7 @@ function formatDay(day: Date, fmt: string): string {
                 :style="{ top: `${block.topPct}%`, height: `${block.heightPct}%`, ...fadeStyle(day, blocks, i), ...activityColorStyle(block) }"
               >
                 <span v-fit-text class="wtf-fcal-block-label">
-                  <strong><PaletteIcon :icon="iconFor(block)" class="wtf-fcal-block-label-icon me-1" />{{ blockLabel(block) }}{{ isTentativeSuffixShown(block) ? $t('free.tentativeSuffix') : '' }}</strong><span class="wtf-fcal-block-label-time">{{ blockTimeText(block) }}</span><span v-if="block.recurrence" class="wtf-fcal-block-label-time wtf-recurrence" :title="$t('free.recurring')"><FontAwesomeIcon :icon="faRepeat" class="me-1" />{{ recurrenceText(block.recurrence) }}</span>
+                  <strong><AppIcon :icon="iconFor(block)" class="wtf-fcal-block-label-icon me-1" />{{ blockLabel(block) }}{{ isTentativeSuffixShown(block) ? $t('free.tentativeSuffix') : '' }}</strong><span class="wtf-fcal-block-label-time">{{ blockTimeText(block) }}</span><span v-if="block.recurrence" class="wtf-fcal-block-label-time wtf-recurrence" :title="$t('free.recurring')"><AppIcon :icon="RepeatIcon" class="me-1" />{{ recurrenceText(block.recurrence) }}</span>
                 </span>
               </div>
             </template>

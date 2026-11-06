@@ -3,7 +3,6 @@ import { BApp, createBootstrap } from 'bootstrap-vue-next';
 import { i18nVue } from 'laravel-vue-i18n';
 import { createApp, h, type DefineComponent } from 'vue';
 import './bootstrap';
-import './icons';
 import { setColorPalette } from './free/color-palette';
 import { setIconPalette } from './free/icon-palette';
 import { setNowColorPresets } from './free/now-color-presets';

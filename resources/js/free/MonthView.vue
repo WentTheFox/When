@@ -10,8 +10,8 @@ import { addDays, format, getDay, subDays } from 'date-fns';
 import { resolveDateFnsLocale } from './dateFnsLocale';
 import { isBeyondRange } from './rangeEnd';
 import { TZDate } from '@date-fns/tz';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { LoaderCircleIcon } from '@lucide/vue';
+import AppIcon from '../Components/AppIcon.vue';
 import { computed } from 'vue';
 import { currentLocale } from 'laravel-vue-i18n';
 import { recurrenceText } from './recurrence';
@@ -206,7 +206,7 @@ const weekRows = computed(() => {
 <template>
   <div class="wtf-fmonth-wrap">
     <div v-if="pending" class="wtf-fmonth-loading-overlay">
-      <FontAwesomeIcon :icon="faSpinner" spin size="2x" />
+      <AppIcon :icon="LoaderCircleIcon" spin size="2x" />
     </div>
     <div v-else-if="hasError" class="wtf-fmonth-error-state">
       {{ $t('free.error') }}

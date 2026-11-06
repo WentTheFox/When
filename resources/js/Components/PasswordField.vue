@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
+import { EyeIcon, EyeOffIcon } from '@lucide/vue';
+import AppIcon from './AppIcon.vue';
 import { BButton } from 'bootstrap-vue-next';
 import { ref } from 'vue';
 
@@ -32,7 +32,7 @@ const show = ref(false);
       :aria-label="show ? 'Hide password' : 'Show password'"
       @click="show = !show"
     >
-      <FontAwesomeIcon :icon="show ? faEyeSlash : faEye" />
+      <AppIcon :icon="show ? EyeOffIcon : EyeIcon" />
     </BButton>
   </div>
 </template>

@@ -13,8 +13,8 @@
  * trip would be, without the boilerplate of one v-model per field per
  * block type.
  */
-import { faGripVertical, faTrash } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { GripVerticalIcon, Trash2Icon } from '@lucide/vue';
+import AppIcon from '../../Components/AppIcon.vue';
 import { BButton } from 'bootstrap-vue-next';
 import { computed } from 'vue';
 import RegexHighlightedCode from '../RegexHighlightedCode.vue';
@@ -68,7 +68,7 @@ function asRaw(n: RegexNode): RawNode {
   <div class="wtf-regex-block" :class="`wtf-regex-block-${node.type}`">
     <div class="wtf-regex-block-row">
     <span class="wtf-regex-block-handle" title="Drag to move">
-      <FontAwesomeIcon :icon="faGripVertical" />
+      <AppIcon :icon="GripVerticalIcon" />
     </span>
 
     <template v-if="node.type === 'literal'">
@@ -139,7 +139,7 @@ function asRaw(n: RegexNode): RawNode {
     />
 
     <BButton variant="link" size="sm" class="wtf-regex-block-remove" title="Remove this block" @click="$emit('remove')">
-      <FontAwesomeIcon :icon="faTrash" />
+      <AppIcon :icon="Trash2Icon" />
     </BButton>
     </div>
 

@@ -18,8 +18,7 @@ import SecretField from '../Components/SecretField.vue';
 import { rawPreview } from './rawCiphertext';
 import VaultGate from './VaultGate.vue';
 import { useVault } from './useVault';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { faGithub } from '@fortawesome/free-brands-svg-icons';
+import { GithubMark } from '../Components/BrandIcons';
 
 type Definition = { id: string; label_ciphertext: string; type: string };
 
@@ -136,7 +135,7 @@ const syncedAt = computed(() => (props.vrcx.synced_at ? new Date(props.vrcx.sync
   <section id="vrchat">
     <h2 class="h5 mb-3">VRChat</h2>
     <p class="small text-muted">
-      Connect your own <strong>VRCX Headless server</strong> <a href="https://github.com/WentTheFox/VRCX-Headless" target="_blank" rel="noopener"><FontAwesomeIcon :icon="faGithub" /><span class="visually-hidden">GitHub</span></a>
+      Connect your own <strong>VRCX Headless server</strong> <a href="https://github.com/WentTheFox/VRCX-Headless" target="_blank" rel="noopener"><GithubMark /><span class="visually-hidden">GitHub</span></a>
       to show a connection's VRChat name and profile picture, and to total the time you've spent together in VRChat. Mark one identifier (or identifier list) custom field as holding
       VRChat user IDs (<code>usr_…</code>) and every connection with a value there is looked up. VRCX Headless only reports the last 90 days;
       what's already been pulled is kept, so totals keep growing. Needs an API key with the <code>profile:read</code>,

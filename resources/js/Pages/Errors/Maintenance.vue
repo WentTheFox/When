@@ -20,8 +20,8 @@
  * maintenance mode too — suppressed via `show-invite-cta`/
  * `show-about-link`.
  */
-import { faRotate } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import { RefreshCwIcon } from '@lucide/vue';
+import AppIcon from '../../Components/AppIcon.vue';
 import { Head } from '@inertiajs/vue3';
 import { BButton, BCard } from 'bootstrap-vue-next';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
@@ -146,7 +146,7 @@ onUnmounted(() => {
       </p>
 
       <BButton variant="primary" :disabled="checking" @click="manualRetry">
-        <FontAwesomeIcon :icon="faRotate" :spin="checking" class="me-2" />
+        <AppIcon :icon="RefreshCwIcon" :spin="checking" class="me-2" />
         {{ $t('maintenance.retryButton') }}
       </BButton>
     </BCard>
