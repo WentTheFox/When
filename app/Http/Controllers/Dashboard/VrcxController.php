@@ -204,6 +204,22 @@ class VrcxController extends Controller
         return response()->json(['ran' => $ran, 'warnings' => $this->sync->warnings()] + $this->sync->summary($user->refresh()));
     }
 
+    /** Syncs just this connection's VRChat accounts, in the request. */
+    public function syncConnection(Request $request, string $connection): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+        $connection = $user->connections()->where('id', $connection)->firstOrFail();
+
+        try {
+            $this->sync->refreshConnection($user, $connection);
+        } catch (VrcxException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['ran' => true, 'warnings' => $this->sync->warnings()] + $this->sync->summary($user->refresh()));
+    }
+
     /** Current profiles and stats, for refreshing the Connections page without a reload. */
     public function summary(Request $request): JsonResponse
     {

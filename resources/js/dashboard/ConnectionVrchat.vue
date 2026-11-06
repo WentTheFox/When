@@ -36,7 +36,7 @@ async function syncNow(): Promise<void> {
   syncError.value = '';
 
   try {
-    const { data } = await axios.post<VrchatSummary & { ran: boolean; warnings?: string[] }>('/settings/vrcx/sync');
+    const { data } = await axios.post<VrchatSummary & { ran: boolean; warnings?: string[] }>(`/dashboard/connections/${props.connectionId}/vrchat/sync`);
     syncWarnings.value = data.warnings ?? [];
     emit('synced', data);
     if (staysOpen.value) await loadStays();

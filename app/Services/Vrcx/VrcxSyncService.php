@@ -244,6 +244,37 @@ class VrcxSyncService
     }
 
     /**
+     * The owner's "Sync now" on one connection: refreshes only the VRChat ids that connection
+     * holds, in the request. Each id is asked for on its own (not as one batch), which is what
+     * makes VRCX Headless fall back to VRChat's API for a user it has not cached yet. Unlike
+     * syncConnection() it always fetches, and the owner-wide synced-at stamp is left alone.
+     *
+     * @throws VrcxException
+     */
+    public function refreshConnection(User $user, Connection $connection): void
+    {
+        $client = VrcxClient::forUser($user);
+        $definitionId = $user->vrchat_user_id_definition_id;
+
+        if ($client === null || $definitionId === null) {
+            throw new VrcxException('Set the VRCX server, an API key and the VRChat user ID field in Settings first.');
+        }
+
+        $this->warnings = [];
+        $row = ConnectionAttributeValue::where('connection_id', $connection->id)->where('attribute_definition_id', $definitionId)->first();
+        $ids = $row === null ? [] : $this->idsOf($row);
+
+        foreach ($ids as $vrchatId) {
+            $profiles = $this->fetchProfiles($client, [$vrchatId]);
+            $stays = $client->timeTogether([$vrchatId]);
+
+            $this->store($user, $connection->id, $vrchatId, $profiles[$vrchatId] ?? null, $stays[$vrchatId] ?? []);
+        }
+
+        $this->prune($user, $ids === [] ? [] : [$connection->id => $ids], onlyConnection: $connection->id);
+    }
+
+    /**
      * Called when a connection is saved: fetches name, picture and time together for
      * the VRChat ids it now holds, as part of the save, so a freshly entered id shows
      * its profile straight away. Only does anything when the ids differ from what is
