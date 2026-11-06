@@ -137,6 +137,9 @@ class DiscordController extends Controller
         $done = $pending()->whereIn('id', $data['ids'])->update(['status' => DiscordFriend::CREATED]);
         $pending()->whereIn('id', $data['skipped'] ?? [])->update(['status' => DiscordFriend::DISMISSED]);
 
+        // The friends just linked get their names as highlight tokens at once, not at the next sync.
+        $this->sync->addNameTokens($request->user());
+
         return response()->json(['completed' => $done]);
     }
 }
