@@ -113,6 +113,7 @@ class SettingsController extends Controller
                 'now_color_key' => $user->now_color_key,
                 'highlight_identifier_definition_id' => $user->highlight_identifier_definition_id,
                 'bypass_dnd_definition_id' => $user->bypass_dnd_definition_id,
+                'alternative_names_definition_id' => $user->alternative_names_definition_id,
                 'availability' => $user->weeklyAvailability(),
             ],
             'defaults' => [
@@ -153,6 +154,10 @@ class SettingsController extends Controller
                 'synced_at' => $user->discord_synced_at?->toIso8601String(),
                 'user_id_definition_id' => $user->discord_user_id_definition_id,
             ],
+            // Other-names candidates: identifier lists and multi-line fields. Labels are E2EE like the rest.
+            'alternativeNamesDefinitions' => $user->connectionAttributeDefinitions()
+                ->whereIn('type', ['identifier_list', 'textarea'])
+                ->get(['id', 'label_ciphertext', 'type']),
             'booleanDefinitions' => $user->connectionAttributeDefinitions()->where('type', 'boolean')->get(['id', 'label_ciphertext']),
             'timezones' => \DateTimeZone::listIdentifiers(),
             // Shown back to the owner verbatim, not masked — this is §0.2
@@ -213,6 +218,7 @@ class SettingsController extends Controller
         'free_icon_key', 'busy_icon_key', 'public_icon_key',
         'sleep_icon_key', 'highlight_icon_key', 'now_color_key',
         'highlight_identifier_definition_id', 'bypass_dnd_definition_id',
+        'alternative_names_definition_id',
     ];
 
     public function update(UpdateSettingsRequest $request): RedirectResponse

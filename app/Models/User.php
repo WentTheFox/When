@@ -73,6 +73,7 @@ use Illuminate\Support\Facades\Crypt;
  * @property string|null $highlight_identifier_definition_id
  * @property string|null $bypass_dnd_definition_id
  * @property string|null $notes_field_definition_id
+ * @property string|null $alternative_names_definition_id
  * @property string|null $vrcx_base_url
  * @property string|null $vrcx_api_key
  * @property Carbon|null $vrcx_synced_at
@@ -216,6 +217,7 @@ class User extends Authenticatable
         'highlight_identifier_definition_id',
         'bypass_dnd_definition_id',
         'notes_field_definition_id',
+        'alternative_names_definition_id',
         'vrchat_user_id_definition_id',
         'discord_user_id_definition_id',
         'vrcx_base_url',
