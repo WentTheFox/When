@@ -1314,11 +1314,11 @@ async function removeEdge(id: string): Promise<void> {
                     <FontAwesomeIcon :icon="faLink" />
                     <span class="visually-hidden">{{ SHARE_LINK_TEXT[shareLinkState(connection)] }}</span>
                   </span>
-                  <!-- VRChat / Discord IDs: muted when only set, colored when confirmed by VRCX. The selected row is blue itself, so there they stay white, dimmed when muted. -->
+                  <!-- VRChat / Discord IDs: muted when only set, colored when confirmed by VRCX. The selected row is blue itself, so there they are all just white. -->
                   <span
                     v-if="vrchatState(connection) !== 'none'"
                     class="ms-1 connection-vrchat"
-                    :class="selectedConnectionId === connection.id ? (vrchatState(connection) === 'active' ? '' : 'opacity-50') : (vrchatState(connection) === 'active' ? 'text-info' : 'text-muted')"
+                    :class="selectedConnectionId === connection.id ? '' : (vrchatState(connection) === 'active' ? 'text-info' : 'text-muted')"
                     :title="vrchatState(connection) === 'active' ? 'VRChat account linked (VRCX knows it)' : 'VRChat ID set, but VRCX has no profile for it yet'"
                   >
                     <FontAwesomeIcon :icon="faVrCardboard" />
@@ -1327,7 +1327,7 @@ async function removeEdge(id: string): Promise<void> {
                   <span
                     v-if="discordState(connection) !== 'none'"
                     class="ms-1 connection-discord"
-                    :class="selectedConnectionId === connection.id ? (discordState(connection) === 'active' ? '' : 'opacity-50') : (discordState(connection) === 'active' ? '' : 'text-muted')"
+                    :class="selectedConnectionId === connection.id ? '' : (discordState(connection) === 'active' ? '' : 'text-muted')"
                     :style="selectedConnectionId !== connection.id && discordState(connection) === 'active' ? 'color: #5865f2' : undefined"
                     :title="discordState(connection) === 'active' ? 'Discord ID known (reported by VRCX)' : 'Discord ID set in the custom field only'"
                   >
