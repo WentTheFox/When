@@ -109,12 +109,14 @@ const page = usePage();
   </p>
   <p class="mb-4">
     If you connect your Discord account in Settings, the server holds the access Discord gives it
-    (permission to read your identity and your friends list, nothing else) and uses it to fetch your
-    friends. That is not end-to-end encrypted either: the access tokens and the friends the server has seen
+    (permission to read your identity and your friends list, nothing else) and uses it, when you press
+    "Sync now", to fetch your friends and the users you have blocked (Discord returns both in one list;
+    pending friend requests are ignored). That is not end-to-end encrypted either: the access tokens and the friends and blocked users the server has seen
     (their Discord user IDs, names, your own nicknames for them and avatars) are stored encrypted at rest
     with the same server-held key, and the tokens are never included in your data export. As with VRChat friends, only
     your browser creates a connection or adds a Discord user ID to one, when you choose, so connection names stay
-    end-to-end encrypted. Disconnecting revokes the access at Discord and forgets the tokens.
+    end-to-end encrypted. Blocked users are only remembered so they are never suggested as new connections; they are
+    never turned into connections. Disconnecting revokes the access at Discord and forgets the tokens.
     A connection's Discord card can also ask Discord about one user ID you put on it, using the server's own Discord bot
     credential (not your account): Discord answers with that person's public profile (username, display name, avatar),
     which is stored the same way, encrypted at rest, and never sent anywhere else.

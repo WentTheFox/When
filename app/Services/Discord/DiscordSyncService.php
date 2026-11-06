@@ -81,8 +81,9 @@ class DiscordSyncService
         }
 
         try {
-            $friends = $this->fetch($user);
-            $this->store($user, $friends);
+            $relationships = $this->fetch($user);
+            $this->store($user, $relationships['friends']);
+            $this->storeBlocked($user, $relationships['blocked']);
             $this->addNameTokens($user);
             $user->forceFill(['discord_synced_at' => now()])->save();
         } finally {
@@ -93,7 +94,7 @@ class DiscordSyncService
     }
 
     /**
-     * @return array<string, array{username: ?string, globalName: ?string, nickname: ?string, avatarUrl: ?string}>
+     * @return array{friends: array<string, array{username: ?string, globalName: ?string, nickname: ?string, avatarUrl: ?string}>, blocked: array<string, array{username: ?string, globalName: ?string, nickname: ?string, avatarUrl: ?string}>}
      *
      * @throws DiscordException
      */
@@ -106,7 +107,7 @@ class DiscordSyncService
                 $this->storeTokens($user, $this->client->refresh((string) $user->discord_refresh_token));
             }
 
-            return $this->client->friends((string) $user->discord_access_token);
+            return $this->client->relationships((string) $user->discord_access_token);
         } catch (DiscordException $e) {
             // The grant is gone for good: forget it so the owner is asked to reconnect, rather than retrying forever.
             if ($e->authRevoked) {
@@ -158,12 +159,64 @@ class DiscordSyncService
                 $row->status = DiscordFriend::CREATED;
             }
 
+            // Blocked earlier and now a friend again: back into the friend flow.
+            if ($row->status === DiscordFriend::BLOCKED) {
+                $row->status = $isLinked ? DiscordFriend::CREATED : DiscordFriend::PENDING;
+            }
+
             // Looked up by id earlier and now a friend: they take part in the friend flow like any other.
             if ($row->status === DiscordFriend::LOOKUP) {
                 $row->status = $isLinked ? DiscordFriend::CREATED : DiscordFriend::PENDING;
             }
 
             $row->save();
+        }
+    }
+
+    /**
+     * Remembers who the owner has blocked, so they are never offered as new friends. Someone who was
+     * blocked but no longer is (and isn't a friend either) drops to a plain lookup row: nothing is deleted.
+     *
+     * @param  array<string, array{username: ?string, globalName: ?string, nickname: ?string, avatarUrl: ?string}>  $blocked
+     */
+    private function storeBlocked(User $user, array $blocked): void
+    {
+        $known = DiscordFriend::where('user_id', $user->id)->get()->keyBy('discord_user_id_hash');
+        $seen = [];
+
+        foreach ($blocked as $id => $person) {
+            $hash = DiscordUserId::hash((string) $id);
+            $seen[$hash] = true;
+            $row = $known->get($hash);
+
+            if ($row === null) {
+                DiscordFriend::create([
+                    'user_id' => $user->id,
+                    'discord_user_id_hash' => $hash,
+                    'discord_user_id' => (string) $id,
+                    'username' => $person['username'],
+                    'global_name' => $person['globalName'],
+                    'nickname' => $person['nickname'],
+                    'avatar_url' => $person['avatarUrl'],
+                    'status' => DiscordFriend::BLOCKED,
+                ]);
+
+                continue;
+            }
+
+            $row->fill([
+                'username' => $person['username'] ?? $row->username,
+                'global_name' => $person['globalName'] ?? $row->global_name,
+                'nickname' => $person['nickname'],
+                'avatar_url' => $person['avatarUrl'] ?? $row->avatar_url,
+                'status' => DiscordFriend::BLOCKED,
+            ])->save();
+        }
+
+        foreach ($known as $hash => $row) {
+            if ($row->status === DiscordFriend::BLOCKED && ! isset($seen[$hash])) {
+                $row->update(['status' => DiscordFriend::LOOKUP]);
+            }
         }
     }
 

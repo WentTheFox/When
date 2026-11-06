@@ -22,6 +22,9 @@ class DiscordClient
     /** Discord relationship type for a mutual friend (others: blocked, pending requests, implicit). */
     private const FRIEND = 1;
 
+    /** Discord relationship type for a user the owner has blocked. */
+    private const BLOCKED = 2;
+
     public static function isConfigured(): bool
     {
         return filled(config('services.discord.client_id')) && filled(config('services.discord.client_secret'));
@@ -96,19 +99,26 @@ class DiscordClient
     }
 
     /**
-     * The owner's mutual friends, by Discord user id.
+     * The owner's relationships from one call: mutual friends and blocked users, each by Discord user id.
      *
-     * @return array<string, array{username: ?string, globalName: ?string, nickname: ?string, avatarUrl: ?string}>
+     * @return array{friends: array<string, array{username: ?string, globalName: ?string, nickname: ?string, avatarUrl: ?string}>, blocked: array<string, array{username: ?string, globalName: ?string, nickname: ?string, avatarUrl: ?string}>}
      *
      * @throws DiscordException
      */
-    public function friends(string $accessToken): array
+    public function relationships(string $accessToken): array
     {
         $rows = $this->get($accessToken, '/users/@me/relationships');
-        $friends = [];
+        $result = ['friends' => [], 'blocked' => []];
+        $text = fn (mixed $v) => is_string($v) && $v !== '' ? $v : null;
 
         foreach ($rows as $row) {
-            if (! is_array($row) || ($row['type'] ?? null) !== self::FRIEND || ! is_array($row['user'] ?? null)) {
+            $key = match (is_array($row) ? ($row['type'] ?? null) : null) {
+                self::FRIEND => 'friends',
+                self::BLOCKED => 'blocked',
+                default => null,
+            };
+
+            if ($key === null || ! is_array($row['user'] ?? null)) {
                 continue;
             }
 
@@ -119,9 +129,7 @@ class DiscordClient
                 continue;
             }
 
-            $text = fn (mixed $v) => is_string($v) && $v !== '' ? $v : null;
-
-            $friends[$id] = [
+            $result[$key][$id] = [
                 'username' => $text($user['username'] ?? null),
                 'globalName' => $text($user['global_name'] ?? null),
                 'nickname' => $text($row['nickname'] ?? null),
@@ -129,7 +137,7 @@ class DiscordClient
             ];
         }
 
-        return $friends;
+        return $result;
     }
 
     /**
