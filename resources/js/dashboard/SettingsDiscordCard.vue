@@ -123,6 +123,10 @@ const syncedAt = computed(() => (props.discord.synced_at ? new Date(props.discor
       people who are not your friends, and needs no connected account. Those people are never added to the friends waiting to be linked.
     </p>
     <p class="small text-muted">
+      Nothing runs in the background: Discord is only asked when you press <strong>Sync now</strong> here, or <strong>Sync</strong> on a
+      connection's Discord card.
+    </p>
+    <p class="small text-muted">
       This data is <strong>not</strong> end-to-end encrypted: the server asks Discord for your friend list (the <code>identify</code> and
       <code>relationships.read</code> permissions) and stores the access tokens and the friends it saw encrypted at rest with the app key.
       Your connections' names stay end-to-end encrypted, so your browser does the matching and creating. You can disconnect at any time,

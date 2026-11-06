@@ -2,7 +2,6 @@
 
 namespace App\Services\Discord;
 
-use App\Jobs\SyncDiscordFriends;
 use App\Models\ConnectionAttributeValue;
 use App\Models\ConnectionVrchatProfile;
 use App\Models\DiscordFriend;
@@ -17,18 +16,12 @@ use Illuminate\Support\Facades\Cache;
  * without a connection can be linked or turned into one. The browser does that
  * part: it alone can read and encrypt connection names.
  *
- * Triggered by request traffic (see maybeQueue) or the owner's "Sync now", not a
- * cron sweep. Every friend is remembered, so deleting a connection never turns its
+ * Runs only when the owner presses "Sync now": there is no automatic or scheduled sync,
+ * so Discord is only ever called because someone asked. Every friend is remembered, so deleting a connection never turns its
  * friend "new" again, and a sync never deletes anything.
  */
 class DiscordSyncService
 {
-    /** An automatic sync is queued when the last one is older than this. */
-    public const STALE_AFTER_MINUTES = 30;
-
-    /** After an attempt (success or not), no automatic retry for this long. */
-    private const AUTO_COOLDOWN_MINUTES = 10;
-
     /** Refresh the access token when it expires within this many seconds. */
     private const REFRESH_MARGIN_SECONDS = 120;
 
@@ -42,20 +35,6 @@ class DiscordSyncService
     public function isConfigured(User $user): bool
     {
         return DiscordClient::isConfigured() && $this->isConnected($user) && $user->discord_user_id_definition_id !== null;
-    }
-
-    /** Queues a background sync if this owner's friend list is stale and nobody tried recently. */
-    public function maybeQueue(User $user): void
-    {
-        if (! $this->isConfigured($user)) {
-            return;
-        }
-
-        $stale = $user->discord_synced_at === null || $user->discord_synced_at->lt(now()->subMinutes(self::STALE_AFTER_MINUTES));
-
-        if ($stale && Cache::add("discord-auto-sync:{$user->id}", 1, now()->addMinutes(self::AUTO_COOLDOWN_MINUTES))) {
-            SyncDiscordFriends::dispatch($user->id);
-        }
     }
 
     /** Stores a fresh grant (after the OAuth callback) and who it belongs to. */
