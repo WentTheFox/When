@@ -195,7 +195,8 @@ function connectionRefLabel(id: string): string | null {
   return props.connectionOptions.find((c) => c.id === id)?.label ?? null;
 }
 
-const INPUT_TYPE: Record<string, InputType> = { phone: 'tel' };
+// Dates use a plain text field (ISO YYYY-MM-DD) — the native date picker is awkward to type into.
+const INPUT_TYPE: Record<string, InputType> = { phone: 'tel', date: 'text' };
 function inputType(type: string): InputType {
   return INPUT_TYPE[type] ?? (type as InputType);
 }
@@ -493,6 +494,11 @@ async function remove(): Promise<void> {
         :ciphertext="rawCiphertext(definition.id)"
         :pending="!decrypted"
         :type="inputType(definition.type)"
+        :placeholder="definition.type === 'date' ? 'YYYY-MM-DD' : undefined"
+        :pattern="definition.type === 'date' ? '\\d{4}-\\d{2}-\\d{2}' : undefined"
+        :title="definition.type === 'date' ? 'ISO date, e.g. 2026-11-06' : undefined"
+        :inputmode="definition.type === 'date' ? 'numeric' : undefined"
+        :autocomplete="definition.type === 'date' ? 'off' : undefined"
         size="sm"
       />
     </BFormGroup>
