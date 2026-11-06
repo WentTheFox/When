@@ -22,6 +22,7 @@ const TYPE_LABELS: Record<string, string> = {
   date: 'Date',
   number: 'Number',
   url: 'URL',
+  link_list: 'Link list',
   email: 'Email',
   phone: 'Phone',
   connection: 'Connection',

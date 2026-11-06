@@ -69,7 +69,7 @@ export function allowedOps(type: string): RuleOp[] {
   if (type === 'boolean') return ['isTrue', 'isFalse', 'nonEmpty', 'empty'];
   if (type === 'radio') return ['choiceIn', 'nonEmpty', 'empty'];
   if (type === 'number') return ['range', 'nonEmpty', 'empty'];
-  if (type === 'identifier_list' || type === 'list') return ['nonEmpty', 'empty', 'count', 'regex'];
+  if (type === 'identifier_list' || type === 'list' || type === 'link_list') return ['nonEmpty', 'empty', 'count', 'regex'];
   if (TEXT_TYPES.includes(type) || type === 'identifier') return ['nonEmpty', 'empty', 'regex'];
 
   return ['nonEmpty', 'empty'];
@@ -192,7 +192,7 @@ export function conditionMatches(condition: RuleCondition, type: string, value: 
       if (!regex) return false;
 
       // A list is matched entry by entry, anything else as one string.
-      const candidates = type === 'identifier_list' || type === 'list' ? value.split('\n').filter((entry) => entry.trim() !== '') : [value];
+      const candidates = type === 'identifier_list' || type === 'list' || type === 'link_list' ? value.split('\n').filter((entry) => entry.trim() !== '') : [value];
 
       return candidates.some((candidate) => regex.test(candidate.slice(0, MAX_VALUE_LENGTH)));
     }

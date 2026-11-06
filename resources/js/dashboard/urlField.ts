@@ -21,3 +21,20 @@ export function parseWebUrl(value: string | null | undefined): string | null {
 export function isValidWebUrl(value: string | null | undefined): boolean {
   return (value ?? '').trim() === '' || parseWebUrl(value) !== null;
 }
+
+/** The "link_list" type: one http(s) link per line, stored like a "list" (see encryptedList.ts). */
+
+/** The non-blank lines of a link list's text, trimmed. */
+function linkLines(text: string | null | undefined): string[] {
+  return (text ?? '').split(/\r?\n/).map((line) => line.trim()).filter((line) => line !== '');
+}
+
+/** The lines that are not http(s) links; empty when the list is fine to save. */
+export function invalidLinkLines(text: string | null | undefined): string[] {
+  return linkLines(text).filter((line) => parseWebUrl(line) === null);
+}
+
+/** The valid links in a link list's text, normalized, repeats dropped. */
+export function validLinks(text: string | null | undefined): string[] {
+  return [...new Set(linkLines(text).map((line) => parseWebUrl(line)).filter((href): href is string => href !== null))];
+}

@@ -222,5 +222,12 @@ describe('ConnectionCard', () => {
     expect(html).toContain('aria-label="Open in a new tab"');
     expect(html).toMatch(/<button[^>]*\bdisabled\b[^>]*aria-label="Open in a new tab"/);
   });
+
+  it('edits a link list as one link per line, with no read-only summary', async () => {
+    const html = await render({ attributeDefinitions: [{ id: 'l1', type: 'link_list', label: 'Contacts', label_ciphertext: 'x', options: [] }] });
+
+    expect(html).toContain('<textarea');
+    expect(html).toContain('One https:// link per line');
+  });
 });
 

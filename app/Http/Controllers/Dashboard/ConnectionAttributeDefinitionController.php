@@ -22,7 +22,7 @@ class ConnectionAttributeDefinitionController extends Controller
         $data = $request->validate([
             'id' => ['required', 'uuid', 'unique:connection_attribute_definitions,id'],
             'label_ciphertext' => ['required', 'string'],
-            'type' => ['required', 'in:text,textarea,date,number,url,email,phone,radio,country,list,identifier,identifier_list,boolean,connection'],
+            'type' => ['required', 'in:text,textarea,date,number,url,email,phone,radio,country,list,link_list,identifier,identifier_list,boolean,connection'],
             // Only meaningful for 'radio' (JSON-encoded {"choices": [...]},
             // client-encrypted with this definition's own record key — same
             // key as label_ciphertext, not any connection's key.

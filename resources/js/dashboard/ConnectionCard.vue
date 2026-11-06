@@ -21,7 +21,7 @@ import EncryptedText from '../Components/EncryptedText.vue';
 import ConnectionSharing, { type IdentityOption, type ShareLinkInfo } from './ConnectionSharing.vue';
 import ConnectionDiscord from './ConnectionDiscord.vue';
 import { listText, paddedListText } from './encryptedList';
-import { isValidWebUrl, parseWebUrl } from './urlField';
+import { invalidLinkLines, isValidWebUrl, parseWebUrl, validLinks } from './urlField';
 import ConnectionVrchat from './ConnectionVrchat.vue';
 import type { DiscordProfile } from './discord';
 import type { VrchatProfile, VrchatSummary } from './vrchat';
@@ -185,7 +185,7 @@ async function decryptAll(): Promise<void> {
     name.value = await decryptString(key, props.connection.name_ciphertext);
 
     const values: Record<string, string> = {};
-    const listIds = new Set(props.attributeDefinitions.filter((d) => d.type === 'list').map((d) => d.id));
+    const listIds = new Set(props.attributeDefinitions.filter((d) => d.type === 'list' || d.type === 'link_list').map((d) => d.id));
     for (const attributeValue of props.connection.attribute_values) {
       // Lists are edited as one entry per line, so they ride in the same string map as every other value.
       // Booleans ride in the same string map as 'true'/'false' ('' = unset).
@@ -288,9 +288,14 @@ function rawCiphertext(definitionId: string): string | null {
   return props.connection.attribute_values.find((v) => v.attribute_definition_id === definitionId)?.value_ciphertext ?? null;
 }
 
-/** True when every url-type field is empty or an http(s) link; Save is held back until then. */
+/** True when every url-type field is empty or an http(s) link, and every line of a link list is one; Save is held back until then. */
 const urlFieldsValid = computed(() =>
-  props.attributeDefinitions.every((d) => d.type !== 'url' || isValidWebUrl(editAttributeValues.value[d.id])),
+  props.attributeDefinitions.every((d) => {
+    if (d.type === 'url') return isValidWebUrl(editAttributeValues.value[d.id]);
+    if (d.type === 'link_list') return invalidLinkLines(editAttributeValues.value[d.id]).length === 0;
+
+    return true;
+  }),
 );
 
 /** A list field is edited as one entry per line. */
@@ -334,7 +339,7 @@ async function save(): Promise<void> {
         values.push({ attribute_definition_id: definition.id, boolean_value: value === 'true' });
         continue;
       }
-      if (definition.type === 'list') {
+      if (definition.type === 'list' || definition.type === 'link_list') {
         // One ciphertext for the whole list, padded: the server learns neither the entries nor how many.
         const padded = paddedListText(value);
         if (padded !== '') values.push({ attribute_definition_id: definition.id, value_ciphertext: await encryptString(key, padded) });
@@ -526,6 +531,30 @@ async function remove(): Promise<void> {
           autocomplete="off"
         />
         <div class="form-text">End-to-end encrypted — one entry per line.</div>
+      </div>
+      <div v-else-if="definition.type === 'link_list'">
+        <EncryptedInput
+          v-model="editAttributeValues[definition.id]"
+          :ciphertext="rawCiphertext(definition.id)"
+          :pending="!decrypted"
+          multiline
+          size="sm"
+          rows="3"
+          placeholder="One https:// link per line"
+          autocomplete="off"
+          :state="invalidLinkLines(editAttributeValues[definition.id]).length === 0 ? null : false"
+        />
+        <div v-if="invalidLinkLines(editAttributeValues[definition.id]).length" class="text-danger small mt-1">
+          Every line must be a full http:// or https:// link. Not a link: {{ invalidLinkLines(editAttributeValues[definition.id]).join(', ') }}
+        </div>
+        <ul v-if="validLinks(editAttributeValues[definition.id]).length" class="list-unstyled small mt-1 mb-0">
+          <li v-for="href in validLinks(editAttributeValues[definition.id])" :key="href" class="text-truncate">
+            <a :href="href" target="_blank" rel="noopener noreferrer" title="Open in a new tab">
+              <AppIcon :icon="ExternalLinkIcon" /> {{ href }}
+            </a>
+          </li>
+        </ul>
+        <div class="form-text">End-to-end encrypted — one link per line.</div>
       </div>
       <div v-else-if="definition.type === 'identifier_list'">
         <EncryptedInput
