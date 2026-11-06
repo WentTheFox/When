@@ -32,6 +32,7 @@ import { useLiveThemePreview } from '../../dashboard/liveThemePreview';
 import SettingsActivityLocalizationsCard from '../../dashboard/SettingsActivityLocalizationsCard.vue';
 import SettingsCalendarCard from '../../dashboard/SettingsCalendarCard.vue';
 import SettingsShareLinksCard from '../../dashboard/SettingsShareLinksCard.vue';
+import SettingsDiscordCard from '../../dashboard/SettingsDiscordCard.vue';
 import SettingsVrchatCard from '../../dashboard/SettingsVrchatCard.vue';
 import SettingsEventMatchingCard from '../../dashboard/SettingsEventMatchingCard.vue';
 import SettingsAvailabilityCard from '../../dashboard/SettingsAvailabilityCard.vue';
@@ -64,6 +65,13 @@ const props = defineProps<{
     auto_create_friends: boolean;
     friends_source_id: string | null;
     synced_at: string | null;
+  };
+  discord: {
+    available: boolean;
+    connected: boolean;
+    account_name: string | null;
+    synced_at: string | null;
+    user_id_definition_id: string | null;
   };
   sleepExceptions: {
     id: string;
@@ -302,6 +310,10 @@ const previewAvailability = ref<AvailabilityResponse | null>(null);
 
       <BTab :id="SETTINGS_TABS.vrchat" title="VRChat">
         <SettingsVrchatCard :definitions="vrchatIdDefinitions" :sources="connectionSources" :vrcx="vrcx" />
+      </BTab>
+
+      <BTab :id="SETTINGS_TABS.discord" title="Discord">
+        <SettingsDiscordCard :definitions="vrchatIdDefinitions" :discord="discord" />
       </BTab>
 
       <BTab :id="SETTINGS_TABS.public" title="Public page">

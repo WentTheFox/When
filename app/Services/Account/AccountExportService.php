@@ -6,6 +6,7 @@ use App\Models\CalendarDetection;
 use App\Models\ConnectionAttributeValue;
 use App\Models\ConnectionVrchatProfile;
 use App\Models\ConnectionVrchatStay;
+use App\Models\DiscordFriend;
 use App\Models\InviteRedemption;
 use App\Models\User;
 use App\Models\VrchatFriend;
@@ -70,6 +71,7 @@ class AccountExportService
         $zip->addFile('connections/vrchat-profiles.json', $this->json($this->vrchatProfiles($user)));
         $zip->addFile('connections/vrchat-stays.json', $this->json($this->vrchatStays($user)));
         $zip->addFile('connections/vrchat-friends.json', $this->json($this->vrchatFriends($user)));
+        $zip->addFile('connections/discord-friends.json', $this->json($this->discordFriends($user)));
         $zip->addFile('connections/source-links.json', $this->json($this->connectionSourceLinks($user)));
     }
 
@@ -116,6 +118,9 @@ class AccountExportService
                 'vrcx_base_url' => $user->vrcx_base_url,
                 'vrcx_auto_create_friends' => $user->vrcx_auto_create_friends,
                 'vrcx_friends_source_id' => $user->vrcx_friends_source_id,
+                // Whether a Discord account is connected, and whose. The OAuth tokens are never exported.
+                'discord_connected' => $user->discord_refresh_token !== null,
+                'discord_account_name' => $user->discord_account_name,
                 'highlight_clause_pattern' => $user->highlight_clause_pattern,
                 'highlight_clause_pattern_preview' => $user->highlight_clause_pattern_preview,
                 'highlight_split_pattern' => $user->highlight_split_pattern,
@@ -450,6 +455,24 @@ class AccountExportService
                     'stats' => $p->stats,
                     'profile_fetched_at' => $p->profile_fetched_at,
                 ])->all(),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function discordFriends(User $user): array
+    {
+        return [
+            'tier' => 'server-decrypted',
+            'note' => 'Discord friends seen by the sync, used to link or create connections. status: pending, created, or dismissed. Your Discord access tokens are never exported.',
+            'records' => DiscordFriend::where('user_id', $user->id)->get()->map(fn ($f) => [
+                'id' => $f->id,
+                'discord_user_id' => $f->discord_user_id,
+                'username' => $f->username,
+                'global_name' => $f->global_name,
+                'nickname' => $f->nickname,
+                'avatar_url' => $f->avatar_url,
+                'status' => $f->status,
+            ])->all(),
         ];
     }
 

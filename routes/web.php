@@ -16,6 +16,7 @@ use App\Http\Controllers\Dashboard\ConnectionsGraphController;
 use App\Http\Controllers\Dashboard\ConnectionShareLinkController;
 use App\Http\Controllers\Dashboard\ConnectionSourceCategoryController;
 use App\Http\Controllers\Dashboard\ConnectionSourceController;
+use App\Http\Controllers\Dashboard\DiscordController;
 use App\Http\Controllers\Dashboard\ListOrderController;
 use App\Http\Controllers\Dashboard\PasskeyController;
 use App\Http\Controllers\Dashboard\SettingsController;
@@ -203,6 +204,15 @@ Route::middleware('auth')->group(function () {
     Route::post('/dashboard/vrchat/friends/complete', [VrcxController::class, 'completeFriends'])->name('dashboard.vrchat.friends.complete');
     Route::get('/dashboard/connections/{connection}/vrchat/stays', [VrcxController::class, 'stays'])
         ->name('dashboard.connections.vrchat.stays');
+
+    // Discord: OAuth2 grant, manual sync, and the friends waiting to be linked to connections.
+    Route::get('/settings/discord/connect', [DiscordController::class, 'connect'])->name('settings.discord.connect');
+    Route::get('/settings/discord/callback', [DiscordController::class, 'callback'])->name('settings.discord.callback');
+    Route::delete('/settings/discord', [DiscordController::class, 'destroy'])->name('settings.discord.destroy');
+    Route::post('/settings/discord/sync', [DiscordController::class, 'syncNow'])->name('settings.discord.sync');
+    Route::get('/dashboard/discord', [DiscordController::class, 'summary'])->name('dashboard.discord');
+    Route::get('/dashboard/discord/friends', [DiscordController::class, 'pendingFriends'])->name('dashboard.discord.friends');
+    Route::post('/dashboard/discord/friends/complete', [DiscordController::class, 'completeFriends'])->name('dashboard.discord.friends.complete');
 
     Route::post('/settings/sleep-exceptions', [SleepExceptionController::class, 'store'])
         ->name('sleep-exceptions.store');

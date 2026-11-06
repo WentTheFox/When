@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultFriendChoice, holdsOtherId, matchFriend, normalizeName, possibleMatches, type MatchCandidate } from '../friendMatching';
+import { coreName, defaultFriendChoice, holdsOtherId, matchFriend, matchFriendByNames, normalizeName, possibleMatches, possibleMatchesByNames, type MatchCandidate } from '../friendMatching';
 
 const alice: MatchCandidate = { id: 'a', name: 'Alice Example', tokens: ['Ali', 'alice_vr'] };
 const bob: MatchCandidate = { id: 'b', name: 'Bob', tokens: [] };
@@ -38,6 +38,86 @@ describe('matchFriend', () => {
     expect(matchFriend('', [{ id: 'x', name: '', tokens: [''] }])).toEqual({ kind: 'none' });
     expect(matchFriend(null, [alice])).toEqual({ kind: 'none' });
     expect(matchFriend('Alice Example', [{ id: 'x', name: '', tokens: [] }])).toEqual({ kind: 'none' });
+  });
+});
+
+describe('coreName', () => {
+  it('keeps only Latin letters and digits, ignoring case', () => {
+    expect(coreName('Maple Sparrow星星')).toBe('maplesparrow');
+    expect(coreName('maple_sparrow ✨')).toBe('maplesparrow');
+    expect(coreName('Wolfgang99')).toBe('wolfgang99');
+  });
+
+  it('is empty for a name wholly in another script', () => {
+    expect(coreName('信行')).toBe('');
+  });
+});
+
+describe('matchFriend, same name under different decoration', () => {
+  const maple: MatchCandidate = { id: 'c', name: 'Maple Sparrow', tokens: [] };
+
+  it.each(['Maple Sparrow星星', 'Maple Sparrow 星星', 'MapleSparrow星星', 'Maple Sparrow✨', 'maple_sparrow (星星)', '星星Maple Sparrow'])(
+    'matches %s',
+    (name) => {
+      expect(matchFriend(name, [maple, bob])).toEqual({ kind: 'one', connectionId: 'c', by: 'core' });
+    },
+  );
+
+  it('also matches through a highlight token', () => {
+    expect(matchFriend('Sparrow星星', [{ id: 't', name: 'Someone', tokens: ['Sparrow'] }])).toEqual({ kind: 'one', connectionId: 't', by: 'core' });
+    expect(matchFriend('Maple_Sparrow星星', [{ id: 't', name: 'Someone', tokens: ['Maple Sparrow'] }])).toEqual({ kind: 'one', connectionId: 't', by: 'core' });
+  });
+
+  it('prefers an exact match over a decorated one', () => {
+    const twin: MatchCandidate = { id: 'twin', name: 'Maple Sparrow星星', tokens: [] };
+    expect(matchFriend('Maple Sparrow星星', [maple, twin])).toEqual({ kind: 'one', connectionId: 'twin', by: 'name' });
+  });
+
+  it('is ambiguous when several connections share the stripped name', () => {
+    expect(matchFriend('Maple Sparrow星星', [maple, { id: 'c2', name: 'maple-sparrow', tokens: [] }]).kind).toBe('several');
+  });
+
+  it('keeps digits and extra words significant, and ignores cores that are too short', () => {
+    expect(matchFriend('Wolfgang99', [{ id: 'w', name: 'Wolfgang', tokens: [] }])).toEqual({ kind: 'none' });
+    expect(matchFriend('Alice', [alice])).toEqual({ kind: 'none' });
+    expect(matchFriend('Al糖', [{ id: 'a', name: 'Al', tokens: [] }])).toEqual({ kind: 'none' });
+  });
+
+  it('does not treat a wholly non-Latin name as matching anything by core', () => {
+    expect(matchFriend('信行', [{ id: 'n', name: '行信', tokens: [] }])).toEqual({ kind: 'none' });
+  });
+});
+
+describe('possibleMatches, names with characters from another script', () => {
+  const maple: MatchCandidate = { id: 'c', name: 'Maple Sparrow', tokens: [] };
+
+  it('finds a connection when the other script is glued onto a word', () => {
+    expect(possibleMatches('Sparrow星星', [maple])[0]).toMatchObject({ id: 'c', reason: 'word', detail: 'sparrow' });
+  });
+
+  it('reports the longest shared word, not the first', () => {
+    // "sugar" and "sparrow" are both shared; the longer one is reported.
+    expect(possibleMatches('Sugar Sparrow', [{ id: 'x', name: 'Sugar Sparrow Lane', tokens: [] }])[0]).toMatchObject({ reason: 'word', detail: 'sparrow' });
+    expect(possibleMatches('Sugar Sparrow', [maple])[0]).toMatchObject({ reason: 'word', detail: 'sparrow' });
+  });
+
+  it('leaves what matchFriend already links to alone', () => {
+    expect(possibleMatches('Maple Sparrow星星', [maple])).toEqual([]);
+  });
+});
+
+describe('several names for one friend', () => {
+  const maple: MatchCandidate = { id: 'c', name: 'Maple Sparrow', tokens: [] };
+
+  it('lets the first name that matches decide', () => {
+    expect(matchFriendByNames([null, 'Nobody', 'Maple Sparrow星星'], [maple])).toEqual({ kind: 'one', connectionId: 'c', by: 'core' });
+    expect(matchFriendByNames(['Nobody', null], [maple])).toEqual({ kind: 'none' });
+  });
+
+  it('keeps the best guess per connection across names', () => {
+    const hits = possibleMatchesByNames(['Sugar Sparrow', 'Sparrow星星'], [maple]);
+    expect(hits).toHaveLength(1);
+    expect(hits[0].id).toBe('c');
   });
 });
 

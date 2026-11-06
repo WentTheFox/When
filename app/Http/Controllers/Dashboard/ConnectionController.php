@@ -8,6 +8,7 @@ use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionAttributeValue;
 use App\Models\ShareLink;
 use App\Services\Calendar\HighlightWordsResolver;
+use App\Services\Discord\DiscordSyncService;
 use App\Services\Vrcx\VrcxSyncService;
 use App\Support\FieldFeatures;
 use App\Support\ListMerge;
@@ -37,7 +38,7 @@ use Inertia\Response;
  */
 class ConnectionController extends Controller
 {
-    public function __construct(private readonly VrcxSyncService $vrcx) {}
+    public function __construct(private readonly VrcxSyncService $vrcx, private readonly DiscordSyncService $discord) {}
 
     public function index(Request $request): Response
     {
@@ -45,6 +46,7 @@ class ConnectionController extends Controller
 
         // Stale VRChat data is refreshed in the background; this load shows what is cached.
         $this->vrcx->maybeQueue($user);
+        $this->discord->maybeQueue($user);
 
         return Inertia::render('Dashboard/Connections', [
             'connections' => $user->connections()->with(['attributeValues', 'sources', 'shareLink'])->ordered()->get([
@@ -58,6 +60,7 @@ class ConnectionController extends Controller
             'edges' => $user->connectionEdges()->get(['id', 'from_connection_id', 'to_connection_id']),
             // §0.2 tier (server-readable): cached VRChat names/pictures and time together.
             'vrchat' => $this->vrcx->summary($user),
+            'discord' => $this->discord->summary($user),
         ]);
     }
 

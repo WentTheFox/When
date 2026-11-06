@@ -78,6 +78,11 @@ use Illuminate\Support\Facades\Crypt;
  * @property string|null $vrchat_user_id_definition_id
  * @property string|null $discord_user_id_definition_id
  * @property bool $vrcx_auto_create_friends
+ * @property string|null $discord_access_token
+ * @property string|null $discord_refresh_token
+ * @property Carbon|null $discord_token_expires_at
+ * @property string|null $discord_account_name
+ * @property Carbon|null $discord_synced_at
  * @property string|null $vrcx_friends_source_id
  * @property-read Collection<int, ActivityLocalization> $activityLocalizations
  * @property-read int|null $activity_localizations_count
@@ -178,6 +183,11 @@ use Illuminate\Support\Facades\Crypt;
  * @method static Builder<static>|User whereVrcxFriendsBaselineAt($value)
  * @method static Builder<static>|User whereVrcxFriendsSourceId($value)
  * @method static Builder<static>|User whereDiscordUserIdDefinitionId($value)
+ * @method static Builder<static>|User whereDiscordAccessToken($value)
+ * @method static Builder<static>|User whereDiscordAccountName($value)
+ * @method static Builder<static>|User whereDiscordRefreshToken($value)
+ * @method static Builder<static>|User whereDiscordSyncedAt($value)
+ * @method static Builder<static>|User whereDiscordTokenExpiresAt($value)
  *
  * @mixin \Eloquent
  */
@@ -261,6 +271,9 @@ class User extends Authenticatable
         'calendar_url_ciphertext',
         // The owner's VRCX API key — same discipline: decrypted only inside the sync.
         'vrcx_api_key',
+        // Discord OAuth2 tokens: decrypted only inside the Discord client.
+        'discord_access_token',
+        'discord_refresh_token',
     ];
 
     /**
@@ -291,6 +304,12 @@ class User extends Authenticatable
             'vrcx_api_key' => 'encrypted',
             'vrcx_synced_at' => 'datetime',
             'vrcx_auto_create_friends' => 'boolean',
+            // §0.2 tier: the owner's Discord OAuth2 tokens, APP_KEY-encrypted at rest.
+            'discord_access_token' => 'encrypted',
+            'discord_refresh_token' => 'encrypted',
+            'discord_token_expires_at' => 'datetime',
+            'discord_account_name' => 'encrypted',
+            'discord_synced_at' => 'datetime',
             'dnd_event_pattern' => 'encrypted',
             'dnd_event_pattern_preview' => 'encrypted',
             'nap_event_pattern' => 'encrypted',

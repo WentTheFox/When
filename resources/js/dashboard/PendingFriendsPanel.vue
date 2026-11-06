@@ -14,7 +14,7 @@
  */
 import { BBadge, BButton, BCard } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
-import { defaultFriendChoice, type MatchCandidate, matchFriend, type PossibleMatch, possibleMatches } from './friendMatching';
+import { defaultFriendChoice, type MatchBy, type MatchCandidate, matchFriend, type PossibleMatch, possibleMatches } from './friendMatching';
 import type { FriendChoice, FriendDecision, PendingFriend } from './vrchat';
 
 const props = defineProps<{
@@ -40,7 +40,7 @@ const names = computed(() => Object.fromEntries(props.candidates.map((c) => [c.i
 interface Row {
   friend: PendingFriend;
   /** Connections that matched by name or token, best first. */
-  suggested: { id: string; by: 'name' | 'token' }[];
+  suggested: { id: string; by: MatchBy }[];
   /** Lower-confidence guesses (a renamed account...), only for a friend with no exact match. Never preselected. */
   possible: PossibleMatch[];
 }
@@ -132,7 +132,7 @@ const counts = computed(() => {
               <div class="fw-semibold">{{ row.friend.display_name ?? row.friend.vrchat_user_id }}</div>
               <div class="text-muted font-monospace">{{ row.friend.vrchat_user_id }}</div>
               <div v-if="row.suggested.length === 1" class="text-success">
-                Matches <strong>{{ names[row.suggested[0].id] || '(unnamed)' }}</strong> by {{ row.suggested[0].by === 'name' ? 'name' : 'highlight token' }}
+                Matches <strong>{{ names[row.suggested[0].id] || '(unnamed)' }}</strong> by {{ row.suggested[0].by === 'name' ? 'name' : row.suggested[0].by === 'token' ? 'highlight token' : 'name, ignoring symbols and other-script characters' }}
               </div>
               <div v-else-if="row.suggested.length > 1" class="text-warning">Matches {{ row.suggested.length }} connections: pick one, or create a new one</div>
               <div v-else-if="row.possible.length" class="text-body-secondary">

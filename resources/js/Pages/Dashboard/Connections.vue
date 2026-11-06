@@ -15,11 +15,13 @@ import EncryptedText from '../../Components/EncryptedText.vue';
 import ConnectionCard, { type ConnectionRow } from '../../dashboard/ConnectionCard.vue';
 import SourcesPanel from '../../dashboard/SourcesPanel.vue';
 import { discordMark, type MarkState, type ShareLinkMark, shareLinkMark, vrchatMark } from '../../dashboard/connectionMarks';
+import PendingDiscordFriendsPanel from '../../dashboard/PendingDiscordFriendsPanel.vue';
 import PendingFriendsPanel from '../../dashboard/PendingFriendsPanel.vue';
 import VrchatNotesPanel, { type NoteImportItem } from '../../dashboard/VrchatNotesPanel.vue';
 import { appendNote } from '../../dashboard/vrchatNotes';
 import MergeConnectionModal from '../../dashboard/MergeConnectionModal.vue';
 import { holdsOtherId, type MatchCandidate } from '../../dashboard/friendMatching';
+import { type DiscordSummary, emptyDiscordSummary, discordFriendName, type PendingDiscordFriend } from '../../dashboard/discord';
 import type { FriendDecision, PendingFriend, VrchatSummary } from '../../dashboard/vrchat';
 import {
   buildConnectionsHash,
@@ -51,12 +53,15 @@ const props = defineProps<{
   fieldFeatures: Record<string, string[]>;
   /** Cached VRChat names, pictures and time together (§0.2 tier, not E2EE). */
   vrchat: VrchatSummary;
+  /** The Discord connection and its friend count (§0.2 tier, not E2EE). Absent on a server without Discord. */
+  discord?: DiscordSummary;
 }>();
 
 const { createRecordKey, getRecordKey, vaultUnlocked } = useVault();
 
 const connections = ref<ConnectionRow[]>(props.connections);
 const vrchat = ref<VrchatSummary>(props.vrchat);
+const discord = ref<DiscordSummary>(props.discord ?? emptyDiscordSummary);
 /**
  * The lists below are populated from the server's data right away, with every
  * name still as ciphertext (`label` undefined) — they show the raw blobs under
@@ -454,19 +459,18 @@ async function linkFriend(
   return 'linked';
 }
 
-/** Makes a connection for a friend: named after them, the VRChat id in the field, the Settings source tied to it. */
-async function createFriendConnection(friend: PendingFriend, field: { id: string; type: string }, sourceId: string | null): Promise<string> {
+/** Makes a connection for a friend: named after them, their id (VRChat or Discord) in the field, the Settings source tied to it. */
+async function createFriendConnection(name: string, externalId: string, field: { id: string; type: string }, sourceId: string | null): Promise<string> {
   const id = crypto.randomUUID();
   const key = await createRecordKey(id);
-  const name = friend.display_name || friend.vrchat_user_id;
   const { data: row } = await axios.post('/dashboard/connections', {
     id,
     name_ciphertext: await encryptString(key, name),
     // The source chosen in Settings (the server omits it once that source is gone).
     source_ids: sourceId ? [sourceId] : [],
     attribute_values: [field.type === 'identifier_list'
-      ? { attribute_definition_id: field.id, identifier_list_value: [friend.vrchat_user_id] }
-      : { attribute_definition_id: field.id, identifier_value: friend.vrchat_user_id }],
+      ? { attribute_definition_id: field.id, identifier_list_value: [externalId] }
+      : { attribute_definition_id: field.id, identifier_value: externalId }],
   });
 
   connections.value.push(row);
@@ -506,14 +510,14 @@ async function matchCandidates(): Promise<MatchCandidate[]> {
   return candidates;
 }
 
-function showFriendNotice(created: number, linked: number, dismissed: number, failed: number): void {
+function showFriendNotice(created: number, linked: number, dismissed: number, failed: number, label = 'VRChat friends'): void {
   const parts: string[] = [];
   if (created > 0) parts.push(`added ${created} connection${created === 1 ? '' : 's'}`);
   if (linked > 0) parts.push(`added ${linked} friend${linked === 1 ? '' : 's'} to existing connections`);
   if (dismissed > 0) parts.push(`dismissed ${dismissed}`);
 
   const sentences: string[] = [];
-  if (parts.length > 0) sentences.push(`VRChat friends: ${parts.join(', ')}.`);
+  if (parts.length > 0) sentences.push(`${label}: ${parts.join(', ')}.`);
   if (failed > 0) sentences.push(`${failed} could not be done and ${failed === 1 ? 'is' : 'are'} still waiting.`);
 
   friendNotice.value = sentences.join(' ');
@@ -540,7 +544,7 @@ async function loadPendingFriends(): Promise<void> {
 /** Matching needs every connection's name, so it only runs once the vault is open. */
 async function prepareFriendMatching(): Promise<void> {
   friendsReady.value = false;
-  if (!vaultUnlocked.value || pendingFriends.value.length === 0) return;
+  if (!vaultUnlocked.value || (pendingFriends.value.length === 0 && pendingDiscord.value.length === 0)) return;
 
   friendCandidates.value = await matchCandidates();
   friendsReady.value = true;
@@ -691,7 +695,7 @@ async function applyFriendDecisions(decisions: FriendDecision[]): Promise<void> 
           skipped.push(friend.id);
           dismissed++;
         } else if (decision.choice === 'new') {
-          await createFriendConnection(friend, field, friendsSourceId.value);
+          await createFriendConnection(friend.display_name || friend.vrchat_user_id, friend.vrchat_user_id, field, friendsSourceId.value);
           done.push(friend.id);
           created++;
         } else {
@@ -726,6 +730,129 @@ async function applyFriendDecisions(decisions: FriendDecision[]): Promise<void> 
 
   try {
     vrchat.value = (await axios.get<VrchatSummary>('/dashboard/vrchat')).data;
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+/** Discord friends waiting for the owner (persisted on the server, listed again after every refresh until acted on). */
+const pendingDiscord = ref<PendingDiscordFriend[]>([]);
+const discordBusy = ref(false);
+
+/** The list is only worth fetching once Discord is connected and there is a field to put the IDs in. */
+const discordEnabled = computed(() => discord.value.configured && discord.value.field !== null);
+
+async function loadPendingDiscord(): Promise<void> {
+  if (!discordEnabled.value) {
+    pendingDiscord.value = [];
+    return;
+  }
+
+  try {
+    const { data } = await axios.get<{ friends: PendingDiscordFriend[] }>('/dashboard/discord/friends');
+    pendingDiscord.value = data.friends;
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+/** Would adding this Discord id to that connection need the single identifier turned into a list? */
+function discordNeedsConversion(connectionId: string, discordId: string): boolean {
+  const field = discord.value.field;
+  if (!field || field.type !== 'identifier') return false;
+
+  const value = connections.value.find((c) => c.id === connectionId)?.attribute_values.find((v) => v.attribute_definition_id === field.id);
+
+  return holdsOtherId(value?.identifier_value, discordId);
+}
+
+/**
+ * Carries out the owner's choices for pending Discord friends: a new connection (named after
+ * your nickname for them, else their display name), the friend's ID added to an existing one,
+ * or a dismissal. Same rules as the VRChat list: a single-identifier field that already holds a
+ * different ID is turned into a list after confirming, and a friend whose request fails stays pending.
+ */
+async function applyDiscordDecisions(decisions: FriendDecision[]): Promise<void> {
+  let field = discord.value.field;
+  if (discordBusy.value || !field || decisions.length === 0) return;
+
+  const friends = new Map(pendingDiscord.value.map((f) => [f.id, f]));
+  const chosen = decisions.filter((d) => friends.has(d.friendId));
+
+  discordBusy.value = true;
+  let created = 0;
+  let linked = 0;
+  let dismissed = 0;
+  let failed = 0;
+  const done: string[] = [];
+  const skipped: string[] = [];
+
+  try {
+    const conflicts = chosen.some((d) => d.choice !== 'new' && d.choice !== 'skip' && discordNeedsConversion(d.choice, friends.get(d.friendId)!.discord_user_id));
+
+    if (conflicts) {
+      const confirmed = await requestConfirm({
+        title: 'Turn the Discord ID field into a list?',
+        message: 'At least one connection you chose already has a different Discord ID, and the field holds only one. It becomes an identifier list first (every connection keeps its ID as a one-entry list). This cannot be undone.',
+        confirmText: 'Convert and continue',
+        variant: 'primary',
+      });
+      if (!confirmed) return;
+
+      await convertDefinitionToList(field.id);
+
+      if (definitionItems.value.find((d) => d.id === field!.id)?.type !== 'identifier_list') {
+        friendNotice.value = definitionError.value ?? 'The Discord ID field could not be turned into a list, so nothing was changed.';
+        return;
+      }
+
+      field = { ...field, type: 'identifier_list' };
+      discord.value = { ...discord.value, field };
+    }
+
+    for (const decision of chosen) {
+      const friend = friends.get(decision.friendId)!;
+
+      try {
+        if (decision.choice === 'skip') {
+          skipped.push(friend.id);
+          dismissed++;
+        } else if (decision.choice === 'new') {
+          await createFriendConnection(discordFriendName(friend), friend.discord_user_id, field, null);
+          done.push(friend.id);
+          created++;
+        } else {
+          const connection = connections.value.find((c) => c.id === decision.choice);
+
+          if (connection && (await linkFriend(connection, friend.discord_user_id, field)) === 'linked') {
+            done.push(friend.id);
+            linked++;
+          } else {
+            failed++;
+          }
+        }
+      } catch (error) {
+        console.error(error);
+        failed++;
+      }
+    }
+
+    if (done.length || skipped.length) {
+      await axios.post('/dashboard/discord/friends/complete', { ids: done, skipped });
+    }
+  } catch (error) {
+    console.error(error);
+  } finally {
+    discordBusy.value = false;
+  }
+
+  showFriendNotice(created, linked, dismissed, failed, 'Discord friends');
+
+  const handled = new Set([...done, ...skipped]);
+  pendingDiscord.value = pendingDiscord.value.filter((f) => !handled.has(f.id));
+
+  try {
+    discord.value = (await axios.get<DiscordSummary>('/dashboard/discord')).data;
   } catch (error) {
     console.error(error);
   }
@@ -813,7 +940,7 @@ async function importVrchatNotes(): Promise<void> {
 
 watch(vaultUnlocked, prepareFriendMatching);
 onMounted(async () => {
-  await loadPendingFriends();
+  await Promise.all([loadPendingFriends(), loadPendingDiscord()]);
   await prepareFriendMatching();
 });
 
@@ -1263,6 +1390,16 @@ async function removeEdge(id: string): Promise<void> {
     :needs-conversion="friendNeedsConversion"
     :busy="friendsBusy"
     @apply="applyFriendDecisions"
+  />
+  <PendingDiscordFriendsPanel
+    v-if="discordEnabled && pendingDiscord.length"
+    :friends="pendingDiscord"
+    :candidates="friendCandidates"
+    :ready="friendsReady"
+    :single-field="discord.field?.type === 'identifier'"
+    :needs-conversion="discordNeedsConversion"
+    :busy="discordBusy"
+    @apply="applyDiscordDecisions"
   />
   <BCard id="connections-workspace" class="mb-4">
     <BTabs v-model="pageTab" pills no-fade content-class="pt-3">
