@@ -274,7 +274,7 @@ function add(): void {
             <BButton size="sm" variant="primary" :disabled="!newLabel.trim()" @click="add">Create</BButton>
           </BCard>
 
-          <p v-if="filteredDefinitions.length === 0" class="text-muted small">No attributes found.</p>
+          <p v-if="filteredDefinitions.length === 0" class="text-muted small wtf-master-list">No attributes found.</p>
           <div v-else class="list-group wtf-master-list">
             <button
               v-for="definition in filteredDefinitions"

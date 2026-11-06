@@ -106,7 +106,13 @@ function ruleIconColor(icon: ResolvedIcon, selected: boolean): string | undefine
 const sources = computed(() =>
   sourceItems.value
     .filter((s): s is SourceItem & { label: string } => s.label !== undefined)
-    .map(({ id, category_id, label }) => ({ id, category_id, label })),
+    // The category's color rides along so every source name can show its group's dot.
+    .map(({ id, category_id, label }) => ({
+      id,
+      category_id,
+      label,
+      color_key: categoryItems.value.find((c) => c.id === category_id)?.color_key ?? null,
+    })),
 );
 const categories = computed(() =>
   categoryItems.value
@@ -1667,14 +1673,14 @@ async function removeEdge(id: string): Promise<void> {
                     v-model="newSourceIds"
                     multiple
                     placeholder="(none)"
-                    :options="sources.map((source) => ({ value: source.id, text: source.label }))"
+                    :options="sources.map((source) => ({ value: source.id, text: source.label, swatch: source.color_key }))"
                   />
                 </BFormGroup>
                 <BButton size="sm" variant="primary" @click="createConnection">Create</BButton>
                 <div class="text-danger small mt-2">{{ newConnectionError }}</div>
               </BCard>
 
-              <p v-if="filteredConnections.length === 0" class="text-muted">No connections found.</p>
+              <p v-if="filteredConnections.length === 0" class="text-muted wtf-master-list">No connections found.</p>
               <div v-else class="list-group wtf-master-list">
                 <button
                   v-for="connection in filteredConnections"

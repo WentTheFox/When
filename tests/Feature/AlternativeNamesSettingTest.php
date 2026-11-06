@@ -77,4 +77,16 @@ class AlternativeNamesSettingTest extends TestCase
 
         $this->actingAs($user)->deleteJson("/dashboard/connection-attribute-definitions/{$field->id}")->assertStatus(422);
     }
+
+    public function test_the_settings_page_gives_each_source_its_category_color(): void
+    {
+        $user = User::factory()->create();
+        $category = $user->connectionSourceCategories()->create(['id' => (string) Str::uuid(), 'name_ciphertext' => 'opaque', 'color_key' => 'red', 'sort_order' => 0]);
+        $user->connectionSources()->create(['id' => (string) Str::uuid(), 'name_ciphertext' => 'opaque', 'category_id' => $category->id, 'sort_order' => 0]);
+        $user->connectionSources()->create(['id' => (string) Str::uuid(), 'name_ciphertext' => 'opaque', 'sort_order' => 1]);
+
+        $this->actingAs($user)->get('/settings')->assertInertia(fn ($page) => $page
+            ->where('connectionSources.0.color_key', 'red')
+            ->where('connectionSources.1.color_key', null));
+    }
 }

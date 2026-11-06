@@ -3,6 +3,7 @@ import { BButton, BFormGroup, BFormInput, BFormSelect } from 'bootstrap-vue-next
 import { computed, ref, watch } from 'vue';
 import EncryptedInput from '../Components/EncryptedInput.vue';
 import EncryptedText from '../Components/EncryptedText.vue';
+import SwatchDot from '../Components/SwatchDot.vue';
 import { requestConfirm } from './confirmModal';
 import LockedOverlay from './LockedOverlay.vue';
 
@@ -17,10 +18,16 @@ interface SourceOption {
 interface CategoryOption {
   id: string;
   label: string;
+  color_key?: string | null;
 }
 
 const props = defineProps<{ sources: SourceOption[]; categories: CategoryOption[] }>();
 const emit = defineEmits<{ add: [string]; update: [string, string, string | null]; remove: [string] }>();
+
+/** A source shows its category's color dot before its name. */
+function colorOf(source: SourceOption): string | null {
+  return props.categories.find((c) => c.id === source.category_id)?.color_key ?? null;
+}
 
 const newName = ref('');
 /** The open record; bound by the page (v-model:selected-id) so it can live in the URL hash. */
@@ -87,7 +94,7 @@ async function remove(): Promise<void> {
             <BFormInput v-model="newName" type="text" placeholder="Search or new source" @keyup.enter="add" />
             <BButton variant="outline-secondary" @click="add">Add</BButton>
           </div>
-          <p v-if="filteredSources.length === 0" class="text-muted small">No sources found.</p>
+          <p v-if="filteredSources.length === 0" class="text-muted small wtf-master-list">No sources found.</p>
           <div v-else class="list-group wtf-master-list">
             <button
               v-for="source in filteredSources"
@@ -97,6 +104,7 @@ async function remove(): Promise<void> {
               :class="{ active: selectedId === source.id }"
               @click="select(source.id)"
             >
+              <SwatchDot :color-key="colorOf(source)" class="me-2" />
               <EncryptedText :value="source.label" :ciphertext="source.name_ciphertext" />
             </button>
           </div>

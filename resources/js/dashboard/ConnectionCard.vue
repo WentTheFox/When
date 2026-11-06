@@ -64,7 +64,7 @@ export interface EdgeRow {
 
 const props = defineProps<{
   connection: ConnectionRow;
-  sources: { id: string; label: string }[];
+  sources: { id: string; label: string; color_key?: string | null }[];
   attributeDefinitions: { id: string; label: string; type: string; options: string[] }[];
   edges: EdgeRow[];
   connectionOptions: { id: string; label: string }[];
@@ -441,7 +441,7 @@ async function remove(): Promise<void> {
             v-model="editSourceIds"
             multiple
             placeholder="(none)"
-            :options="sortedSources.map((source) => ({ value: source.id, text: source.label }))"
+            :options="sortedSources.map((source) => ({ value: source.id, text: source.label, swatch: source.color_key }))"
           />
         </BFormGroup>
       </div>

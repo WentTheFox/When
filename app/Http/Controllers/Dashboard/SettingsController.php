@@ -135,7 +135,14 @@ class SettingsController extends Controller
                 ->whereIn('type', ['identifier', 'identifier_list'])
                 ->get(['id', 'label_ciphertext', 'type']),
             // Names are §0.1 E2EE: the card decrypts them client-side.
-            'connectionSources' => $user->connectionSources()->ordered()->get(['id', 'name_ciphertext']),
+            // color_key is the source's category color (a plain palette key, not E2EE): the card draws it as a dot.
+            'connectionSources' => $user->connectionSources()->ordered()->with('category:id,color_key')
+                ->get(['id', 'name_ciphertext', 'category_id'])
+                ->map(fn ($source) => [
+                    'id' => $source->id,
+                    'name_ciphertext' => $source->name_ciphertext,
+                    'color_key' => $source->category?->color_key,
+                ])->values(),
             'vrcx' => [
                 'base_url' => $user->vrcx_base_url,
                 // Shown back to the owner verbatim, like the calendar URL below: the server can decrypt it either way.
