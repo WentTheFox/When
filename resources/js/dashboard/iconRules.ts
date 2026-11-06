@@ -26,7 +26,9 @@ export type RuleCondition =
   | { op: 'choiceIn'; choices: string[] }
   /** Matched case-insensitively with the unicode flag ('iu'), exactly as the pattern preview and every other pattern in the app does. `preview` is the owner's persisted example lines for the visual editor's live preview; it lives inside the encrypted blob and plays no part in matching. */
   | { op: 'regex'; pattern: string; preview?: string | null }
-  | { op: 'range'; min?: number; max?: number };
+  | { op: 'range'; min?: number; max?: number }
+  /** How many entries an identifier list holds (blank lines don't count), inclusive bounds: min 3 + max 3 means exactly three. */
+  | { op: 'count'; min?: number; max?: number };
 
 export type RuleOp = RuleCondition['op'];
 
@@ -67,7 +69,8 @@ export function allowedOps(type: string): RuleOp[] {
   if (type === 'boolean') return ['isTrue', 'isFalse', 'nonEmpty', 'empty'];
   if (type === 'radio') return ['choiceIn', 'nonEmpty', 'empty'];
   if (type === 'number') return ['range', 'nonEmpty', 'empty'];
-  if (TEXT_TYPES.includes(type) || type === 'identifier' || type === 'identifier_list') return ['nonEmpty', 'empty', 'regex'];
+  if (type === 'identifier_list') return ['nonEmpty', 'empty', 'count', 'regex'];
+  if (TEXT_TYPES.includes(type) || type === 'identifier') return ['nonEmpty', 'empty', 'regex'];
 
   return ['nonEmpty', 'empty'];
 }
@@ -175,6 +178,14 @@ export function conditionMatches(condition: RuleCondition, type: string, value: 
       if (typeof condition.max === 'number' && number > condition.max) return false;
 
       return true;
+    }
+    case 'count': {
+      const entries = value.split('\n').filter((entry) => entry.trim() !== '').length;
+      if (typeof condition.min === 'number' && entries < condition.min) return false;
+      if (typeof condition.max === 'number' && entries > condition.max) return false;
+
+      // A rule with neither bound has nothing to say, so it never matches (the editor won't save one).
+      return typeof condition.min === 'number' || typeof condition.max === 'number';
     }
     case 'regex': {
       const regex = compileRulePattern(condition.pattern);

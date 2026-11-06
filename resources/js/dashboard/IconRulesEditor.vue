@@ -40,6 +40,7 @@ const OP_LABELS: Record<RuleOp, string> = {
   choiceIn: 'is one of',
   regex: 'matches pattern',
   range: 'is within range',
+  count: 'has this many entries',
 };
 
 /** The value preview just answers "does this match?" for each example line, the same way the activity and DND pattern fields do. */
@@ -109,10 +110,13 @@ function toggleChoice(rule: IconRule, choice: string, checked: boolean): void {
 }
 
 function setBound(rule: IconRule, bound: 'min' | 'max', raw: string): void {
-  if (rule.condition.op !== 'range') return;
+  const condition = rule.condition;
+  if (condition.op !== 'range' && condition.op !== 'count') return;
+
   const number = raw.trim() === '' ? undefined : Number(raw);
-  if (number === undefined || !Number.isFinite(number)) delete rule.condition[bound];
-  else rule.condition[bound] = number;
+  if (number === undefined || !Number.isFinite(number)) delete condition[bound];
+  // A number of entries is a whole number, never below zero.
+  else condition[bound] = condition.op === 'count' ? Math.max(0, Math.floor(number)) : number;
 }
 
 function patternInvalid(rule: IconRule): boolean {
@@ -128,7 +132,7 @@ function problemWith(rule: IconRule): string | null {
     if (condition.pattern === '') return 'Enter a pattern.';
     if (patternInvalid(rule)) return 'This pattern is not valid (or is over 200 characters).';
   }
-  if (condition.op === 'range') {
+  if (condition.op === 'range' || condition.op === 'count') {
     if (condition.min === undefined && condition.max === undefined) return 'Set a minimum, a maximum, or both.';
     if (condition.min !== undefined && condition.max !== undefined && condition.min > condition.max) return 'The minimum is above the maximum.';
   }
@@ -185,12 +189,14 @@ function discard(): void {
             @update:model-value="setOp(rule, $event as RuleOp)"
           />
 
-          <template v-if="rule.condition.op === 'range'">
+          <template v-if="rule.condition.op === 'range' || rule.condition.op === 'count'">
             <input
               type="number"
               class="form-control form-control-sm w-auto"
               style="max-width: 7rem"
               placeholder="min"
+              :min="rule.condition.op === 'count' ? 0 : undefined"
+              :step="rule.condition.op === 'count' ? 1 : 'any'"
               :value="rule.condition.min ?? ''"
               aria-label="Minimum"
               @input="setBound(rule, 'min', ($event.target as HTMLInputElement).value)"
@@ -201,10 +207,13 @@ function discard(): void {
               class="form-control form-control-sm w-auto"
               style="max-width: 7rem"
               placeholder="max"
+              :min="rule.condition.op === 'count' ? 0 : undefined"
+              :step="rule.condition.op === 'count' ? 1 : 'any'"
               :value="rule.condition.max ?? ''"
               aria-label="Maximum"
               @input="setBound(rule, 'max', ($event.target as HTMLInputElement).value)"
             />
+            <span v-if="rule.condition.op === 'count'" class="small text-muted">entries (leave one empty for no limit)</span>
           </template>
 
         </div>
