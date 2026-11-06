@@ -56,6 +56,8 @@ export interface ConnectionRow {
   attribute_values: AttributeValue[];
   /** Present on the response to a save: the VRChat accounts fetched as part of it. */
   vrchat_profiles?: VrchatProfile[];
+  /** The Discord accounts on it as of this save: placeholders, or looked up (§0.2 tier). */
+  discord_profiles?: DiscordProfile[];
 }
 
 export interface EdgeRow {

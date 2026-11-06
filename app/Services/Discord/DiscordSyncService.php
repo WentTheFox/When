@@ -2,6 +2,7 @@
 
 namespace App\Services\Discord;
 
+use App\Models\Connection;
 use App\Models\ConnectionAttributeValue;
 use App\Models\ConnectionVrchatProfile;
 use App\Models\DiscordFriend;
@@ -10,6 +11,7 @@ use App\Services\Calendar\HighlightWordsResolver;
 use App\Support\DiscordUserId;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Pulls the owner's Discord friend list and remembers it (§0.2 tier) so friends
@@ -314,6 +316,29 @@ class DiscordSyncService
     }
 
     /**
+     * Called when a connection is saved: looks up the Discord ids it now holds that nobody has looked up
+     * yet (when the server can), so a freshly entered id shows its real profile straight away; otherwise
+     * the id is still returned as a placeholder. Never fails the save: a Discord error is swallowed and
+     * the placeholder stays, ready for the card's own lookup button.
+     *
+     * @return list<array{discord_user_id: string, known: bool, username: ?string, global_name: ?string, nickname: ?string, picture_url: ?string}>
+     */
+    public function syncConnection(User $user, Connection $connection): array
+    {
+        $profiles = $this->profilesFor($user, $connection->id);
+
+        if (DiscordClient::canLookUp() && collect($profiles)->contains(fn (array $p) => ! $p['known'])) {
+            try {
+                return $this->lookup($user, $connection->id, onlyUnknown: true);
+            } catch (DiscordException $e) {
+                Log::info('Discord lookup on save failed: '.$e->getMessage());
+            }
+        }
+
+        return $profiles;
+    }
+
+    /**
      * Looks up the Discord accounts on one connection by id (the app's bot token: works for anyone,
      * friend or not), saves what Discord says so the connection form can show it, and adds the names as
      * highlight tokens. A lookup never makes someone a pending friend, and an existing friend's
@@ -323,7 +348,7 @@ class DiscordSyncService
      *
      * @throws DiscordException
      */
-    public function lookup(User $user, string $connectionId): array
+    public function lookup(User $user, string $connectionId, bool $onlyUnknown = false): array
     {
         if (! DiscordClient::canLookUp()) {
             throw new DiscordException('Looking up Discord users is not set up on this server.');
@@ -341,6 +366,13 @@ class DiscordSyncService
         $error = null;
 
         foreach ($ids as $id) {
+            // On save only the ids nobody has looked up are fetched; a known one keeps what it has.
+            if ($onlyUnknown && $known->has(DiscordUserId::hash($id))) {
+                $found++;
+
+                continue;
+            }
+
             try {
                 $profile = $this->client->user($id);
             } catch (DiscordException $e) {
