@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { faDiscord } from '@fortawesome/free-brands-svg-icons';
-import { faBoxArchive, faLink, faUserPlus, faVrCardboard } from '@fortawesome/free-solid-svg-icons';
+import { faBoxArchive, faLink, faNoteSticky, faUserPlus, faVrCardboard } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
@@ -1328,6 +1328,16 @@ async function removeEdge(id: string): Promise<void> {
                   >
                     <FontAwesomeIcon :icon="faUserPlus" />
                     <span class="visually-hidden">Added from your VRChat friends on this visit</span>
+                  </span>
+                  <!-- Has notes. The notes are end-to-end encrypted and an empty note is never stored, so a stored note is what marks it. -->
+                  <span
+                    v-if="connection.notes_ciphertext"
+                    class="ms-1 connection-notes"
+                    :class="selectedConnectionId === connection.id ? '' : 'text-secondary'"
+                    title="Has notes"
+                  >
+                    <FontAwesomeIcon :icon="faNoteSticky" />
+                    <span class="visually-hidden">Has notes</span>
                   </span>
                   <!-- Archived. Muted, except on the selected row, where the inherited white stays readable. -->
                   <span

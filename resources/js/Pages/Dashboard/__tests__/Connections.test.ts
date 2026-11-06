@@ -92,6 +92,17 @@ describe('Connections page', () => {
     expect(await render('')).not.toContain('connection-archived');
   });
 
+  it('marks the connections that have notes, and only those', async () => {
+    const noted = { ...props.connections[0], notes_ciphertext: 'bm90ZXMtY2lwaGVy' };
+    const plain = { ...props.connections[0], id: '88888888-8888-4888-8888-888888888888', notes_ciphertext: null };
+
+    const html = await renderWith({ ...props, connections: [noted, plain] }, '');
+    expect(html.match(/connection-notes/g)).toHaveLength(1);
+    expect(html).toMatch(/connection-notes[\s\S]*?visually-hidden[^>]*>Has notes</);
+
+    expect(await render('')).not.toContain('connection-notes');
+  });
+
   it('shows both marks when a connection is archived and shared', async () => {
     const both = { ...props.connections[0], archived: true, share_link: { id: 'l1', highlight_token: 'tok', last_visited_at: '2026-11-01T00:00:00+00:00' } };
 
