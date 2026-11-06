@@ -14,14 +14,15 @@ import { isBeyondRange } from './rangeEnd';
 import { TZDate } from '@date-fns/tz';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
 import { faRepeat, faSpinner } from '@fortawesome/free-solid-svg-icons';
-import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import { computed } from 'vue';
 import { currentLocale, trans } from 'laravel-vue-i18n';
 import { recurrenceText } from './recurrence';
 import { formatFromTime, formatReservedDuration, formatTentativeStart, formatUntilTime, getBlocksForDay, isTentativeEndDisplay, isTentativeStartDisplay, isTentativeSuffixShown, pctToTime, tildeTime } from './nuxt-blocks';
 import type { DayBlock, EventSlot } from './nuxt-blocks';
 import { resolveLocalizedText } from './localizedText';
+import PaletteIcon from '../Components/PaletteIcon.vue';
 import { resolveIcon } from './icon-palette';
+import type { PaletteIcon as PaletteIconType } from './icon-palette';
 import { activityColorStyle as activityColorStyleFor, tentativeFadeStyle } from './blockColors';
 import { useResolvedTheme } from '../composables/useTheme';
 
@@ -51,7 +52,7 @@ const props = defineProps<{
   days: Date[];
   events: EventSlot[];
   /** Owner-customizable per block type — already resolved to real FA icons by Free/Show.vue's resolvedIcons (icon-palette.ts). */
-  icons: { free: IconDefinition; busy: IconDefinition; work: IconDefinition; school: IconDefinition; public: IconDefinition; sleep: IconDefinition; highlighted: IconDefinition };
+  icons: { free: PaletteIconType; busy: PaletteIconType; work: PaletteIconType; school: PaletteIconType; public: PaletteIconType; sleep: PaletteIconType; highlighted: PaletteIconType };
   pending: boolean;
   hasError: boolean;
   timezone: string;
@@ -63,7 +64,7 @@ const props = defineProps<{
 }>();
 
 // Same DayBlock-type-vs-icon-slot-name mismatch as CalendarView.vue.
-const slotTypeIcon = computed<Record<DayBlock['type'], IconDefinition>>(() => ({
+const slotTypeIcon = computed<Record<DayBlock['type'], PaletteIconType>>(() => ({
   free: props.icons.free,
   unavailable: props.icons.busy,
   highlighted: props.icons.highlighted,
@@ -76,7 +77,7 @@ const slotTypeIcon = computed<Record<DayBlock['type'], IconDefinition>>(() => ({
 const dateFnsLocale = computed(() => resolveDateFnsLocale(currentLocale.value));
 
 /** Same per-role icon override as CalendarView.vue's own iconFor — see its doc comment. */
-function iconFor(slot: DayBlock): IconDefinition {
+function iconFor(slot: DayBlock): PaletteIconType {
   if ((slot.type === 'highlighted' || slot.type === 'public') && slot.activityIcon) {
     return resolveIcon(slot.activityIcon, slot.type);
   }
@@ -206,7 +207,7 @@ const agendaEntries = computed(() =>
             :style="{ top: `${currentTimeOffsetPct}%` }"
           />
           <span class="wtf-fagenda-slot-time">{{ slotTimeText(slot) }}</span>
-          <span class="wtf-fagenda-slot-label"><FontAwesomeIcon :icon="iconFor(slot)" class="wtf-fagenda-slot-icon me-1" />{{ slotLabel(slot) }}{{ isTentativeSuffixShown(slot) ? $t('free.tentativeSuffix') : '' }}<span v-if="slot.recurrence" class="wtf-recurrence" :title="$t('free.recurring')"> · <FontAwesomeIcon :icon="faRepeat" class="me-1" />{{ recurrenceText(slot.recurrence) }}</span></span>
+          <span class="wtf-fagenda-slot-label"><PaletteIcon :icon="iconFor(slot)" class="wtf-fagenda-slot-icon me-1" />{{ slotLabel(slot) }}{{ isTentativeSuffixShown(slot) ? $t('free.tentativeSuffix') : '' }}<span v-if="slot.recurrence" class="wtf-recurrence" :title="$t('free.recurring')"> · <FontAwesomeIcon :icon="faRepeat" class="me-1" />{{ recurrenceText(slot.recurrence) }}</span></span>
         </div>
       </div>
     </div>

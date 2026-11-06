@@ -2294,3 +2294,12 @@ hr {
 .wtf-fmonth-day-cell.is-beyond-range {
     opacity: 0.6;
 }
+
+/* PaletteIcon.vue: baseline-aligned like the Font Awesome glyphs it replaced, and never squashed in a flex row. */
+
+.wtf-palette-icon {
+    width: 1em;
+    height: 1em;
+    vertical-align: -0.125em;
+    flex-shrink: 0;
+}
