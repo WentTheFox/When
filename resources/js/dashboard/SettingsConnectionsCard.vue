@@ -4,7 +4,7 @@
  * connection's other names (previous names, nicknames). The connections search then
  * finds a connection by any of them, and shows which one matched.
  *
- * Either an identifier list or a multi-line field (one name per line) works. Field labels
+ * A list, an identifier list or a multi-line field (one name per line) works. Field labels
  * are §0.1 E2EE, hence the vault gate; the server only remembers which field was chosen and
  * never reads the names, so this adds nothing server-side to protect.
  */
@@ -42,7 +42,7 @@ const options = computed(() => [
   { value: '', text: '(none — search by name only)' },
   ...props.definitions.map((d) => ({
     value: d.id,
-    text: `${labels.value[d.id] ?? rawPreview(d.label_ciphertext)} (${d.type === 'identifier_list' ? 'identifier list' : 'multi-line'})`,
+    text: `${labels.value[d.id] ?? rawPreview(d.label_ciphertext)} (${d.type === 'identifier_list' ? 'identifier list' : d.type === 'list' ? 'list' : 'multi-line'})`,
   })),
 ]);
 
@@ -67,7 +67,7 @@ function save(): void {
             the connections list then finds a connection by any of them, and shows which one matched.
           </p>
           <p v-if="!definitions.length" class="small mb-0">
-            No suitable fields yet — add one under Connections → Custom attributes, of type “Identifier list (not E2EE)”
+            No suitable fields yet — add one under Connections → Custom attributes, of type “List”, “Identifier list (not E2EE)”
             or “Multi-line” (one name per line).
           </p>
           <BFormGroup v-else label="Alternative names field" style="max-width: 28rem;">

@@ -75,7 +75,7 @@ class UpdateSettingsRequest extends FormRequest
                 ->where('user_id', Auth::id())->where('type', 'boolean')->whereNull('deleted_at')],
             // Must be one of this owner's own identifier_list or multi-line fields; null turns searching by other names off.
             'alternative_names_definition_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('connection_attribute_definitions', 'id')
-                ->where('user_id', Auth::id())->whereIn('type', ['identifier_list', 'textarea'])->whereNull('deleted_at')],
+                ->where('user_id', Auth::id())->whereIn('type', ['identifier_list', 'list', 'textarea'])->whereNull('deleted_at')],
             'accent_color_key' => ['sometimes', 'nullable', Rule::enum(ColorSwatchKey::class)],
             'secondary_color_key' => ['sometimes', 'nullable', Rule::enum(ColorSwatchKey::class)],
             'sleep_color_key' => ['sometimes', 'nullable', Rule::enum(ColorSwatchKey::class)],

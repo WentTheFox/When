@@ -24,7 +24,7 @@ class AlternativeNamesSettingTest extends TestCase
     {
         $user = User::factory()->create();
 
-        foreach (['identifier_list', 'textarea'] as $type) {
+        foreach (['identifier_list', 'list', 'textarea'] as $type) {
             $field = $this->definition($user, $type);
             $this->actingAs($user)->patch('/settings', ['alternative_names_definition_id' => $field->id])->assertSessionHasNoErrors();
             $this->assertSame($field->id, $user->fresh()->alternative_names_definition_id);

@@ -8,6 +8,7 @@ import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput, BTab, BTabs } f
 import { computed, nextTick, onBeforeUnmount, onMounted, type Ref, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../../crypto';
 import { matchConnection, parseAlternativeNames } from '../../dashboard/alternativeNames';
+import { paddedListText } from '../../dashboard/encryptedList';
 import { useResolvedTheme } from '../../composables/useTheme';
 import { requestConfirm } from '../../dashboard/confirmModal';
 import PageHeader from '../../Components/PageHeader.vue';
@@ -1518,6 +1519,57 @@ async function convertDefinitionToList(id: string): Promise<void> {
   }
 }
 
+/**
+ * One-way: a multi-line field becomes an E2EE list. Only this browser can read the values, so it decrypts
+ * each one, normalizes it to one entry per line, pads it (see encryptedList.ts) and encrypts it again,
+ * then the server swaps all of them in and flips the type in one step. It refuses (409) if any value
+ * changed since this page read it; if a value can't be decrypted nothing is sent at all.
+ */
+async function convertDefinitionToEncryptedList(id: string): Promise<void> {
+  definitionError.value = null;
+  copyBusy.value = true;
+
+  try {
+    const values: { connection_id: string; base_ciphertext: string; value_ciphertext: string | null }[] = [];
+
+    for (const connection of connections.value) {
+      const row = connection.attribute_values.find((v) => v.attribute_definition_id === id);
+      if (!row?.value_ciphertext) continue;
+
+      // A value that can't be decrypted aborts everything: sending it as blank would delete it.
+      const key = await getRecordKey(connection.id);
+      const padded = paddedListText(await decryptString(key, row.value_ciphertext));
+      values.push({
+        connection_id: connection.id,
+        base_ciphertext: row.value_ciphertext,
+        value_ciphertext: padded === '' ? null : await encryptString(key, padded),
+      });
+    }
+
+    await axios.post(`/dashboard/connection-attribute-definitions/${id}/convert-to-encrypted-list`, { values });
+
+    const definition = definitionItems.value.find((d) => d.id === id);
+    if (definition) definition.type = 'list';
+
+    const converted = new Map(values.map((v) => [v.connection_id, v.value_ciphertext]));
+    connections.value = connections.value.map((c) => ({
+      ...c,
+      attribute_values: c.attribute_values.flatMap((v) => {
+        if (v.attribute_definition_id !== id) return [v];
+        const next = converted.get(c.id);
+        return next ? [{ ...v, value_ciphertext: next }] : [];
+      }),
+    }));
+  } catch (error) {
+    console.error(error);
+    definitionError.value = axios.isAxiosError(error)
+      ? (error.response?.data?.errors?.definition?.[0] ?? error.response?.data?.message ?? 'This field could not be converted.')
+      : 'A value could not be decrypted, so nothing was converted.';
+  } finally {
+    copyBusy.value = false;
+  }
+}
+
 /** "Knows" is undirected: at most one edge per pair, whichever side it was added from. */
 async function addEdge(fromId: string, toId: string): Promise<void> {
   const alreadyKnown = edges.value.some(
@@ -1763,6 +1815,7 @@ async function removeEdge(id: string): Promise<void> {
           @remove="removeDefinition"
           @convert-to-identifier="convertDefinitionToIdentifier"
           @convert-to-list="convertDefinitionToList"
+          @convert-to-encrypted-list="convertDefinitionToEncryptedList"
           @copy-to-identifier="copyToIdentifier"
           @create-identifier-and-copy="createIdentifierAndCopy"
           @sweep-orphans="sweepOrphans"
