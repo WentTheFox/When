@@ -31,6 +31,28 @@ class ConnectionAttributeDefinitionTest extends TestCase
         $this->assertSame('new-label', $definition->fresh()->label_ciphertext);
     }
 
+    public function test_a_choice_fields_options_can_be_updated(): void
+    {
+        $owner = User::factory()->create();
+        $definition = $this->definition($owner, 'radio');
+
+        $this->actingAs($owner)
+            ->patchJson("/dashboard/connection-attribute-definitions/{$definition->id}", ['options_ciphertext' => 'new-options'])
+            ->assertOk();
+
+        $this->assertSame('new-options', $definition->fresh()->options_ciphertext);
+    }
+
+    public function test_only_a_choice_field_has_options(): void
+    {
+        $owner = User::factory()->create();
+        $definition = $this->definition($owner, 'text');
+
+        $this->actingAs($owner)
+            ->patchJson("/dashboard/connection-attribute-definitions/{$definition->id}", ['options_ciphertext' => 'x'])
+            ->assertUnprocessable();
+    }
+
     public function test_renaming_cannot_change_the_type(): void
     {
         $owner = User::factory()->create();

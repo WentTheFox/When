@@ -972,6 +972,22 @@ async function renameDefinition(id: string, label: string): Promise<void> {
   }
 }
 
+/** Additive only: the panel passes the existing choices (possibly reordered) plus any new ones. */
+async function updateDefinitionOptions(id: string, choices: string[]): Promise<void> {
+  try {
+    const key = await getRecordKey(id);
+    const optionsCiphertext = await encryptString(key, JSON.stringify({ choices }));
+    await axios.patch(`/dashboard/connection-attribute-definitions/${id}`, { options_ciphertext: optionsCiphertext });
+    const definition = definitionItems.value.find((d) => d.id === id);
+    if (definition) {
+      definition.options_ciphertext = optionsCiphertext;
+      definition.options = choices;
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 /** The panel has already asked for confirmation. The server still refuses a field a site feature depends on. */
 async function removeDefinition(id: string): Promise<void> {
   definitionError.value = null;
@@ -1250,6 +1266,7 @@ async function removeEdge(id: string): Promise<void> {
           :copy-busy="copyBusy"
           @add="addDefinition"
           @rename="renameDefinition"
+          @update-options="updateDefinitionOptions"
           @remove="removeDefinition"
           @convert-to-identifier="convertDefinitionToIdentifier"
           @convert-to-list="convertDefinitionToList"

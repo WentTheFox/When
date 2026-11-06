@@ -35,17 +35,23 @@ class ConnectionAttributeDefinitionController extends Controller
     }
 
     /**
-     * Rename: only the (client-encrypted) label can change. The type is fixed
-     * for the life of the field, since existing values are stored in the
-     * column that type dictates.
+     * Rename and/or update a choice field's options. The type is fixed for the
+     * life of the field, since existing values are stored in the column that
+     * type dictates. The options blob is E2EE, so the server cannot verify the
+     * change is additive (new choices / reordering only); the client enforces it.
      */
     public function update(Request $request, string $definition): JsonResponse
     {
         $definition = $request->user()->connectionAttributeDefinitions()->where('id', $definition)->firstOrFail();
 
         $data = $request->validate([
-            'label_ciphertext' => ['required', 'string'],
+            'label_ciphertext' => ['required_without:options_ciphertext', 'string'],
+            'options_ciphertext' => ['required_without:label_ciphertext', 'string'],
         ]);
+
+        if (isset($data['options_ciphertext']) && $definition->type !== 'radio') {
+            throw ValidationException::withMessages(['options_ciphertext' => 'Only a choice field has options.']);
+        }
 
         $definition->update($data);
 
