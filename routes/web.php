@@ -24,6 +24,7 @@ use App\Http\Controllers\Dashboard\SleepExceptionController;
 use App\Http\Controllers\Dashboard\VaultController;
 use App\Http\Controllers\Dashboard\VrcxController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DevMockCalendarController;
 use App\Http\Controllers\InviteController;
 use App\Http\Controllers\ShareLinkController;
 use App\Support\Locales;
@@ -299,3 +300,9 @@ Route::middleware('auth')->group(function () {
     Route::delete('/dashboard/connection-edges/{edge}', [ConnectionEdgeController::class, 'destroy'])
         ->name('dashboard.connection-edges.destroy');
 });
+
+// A fake owner calendar for local development (ConnectionsDemoSeeder points the demo account at it).
+// Never registered in production.
+if (! app()->isProduction()) {
+    Route::get('/dev/mock-calendar.ics', [DevMockCalendarController::class, 'show'])->name('dev.mock-calendar');
+}
