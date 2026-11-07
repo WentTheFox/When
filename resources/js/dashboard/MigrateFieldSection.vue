@@ -104,8 +104,8 @@ async function run(path: MigrationPath): Promise<void> {
   <section class="mt-4">
     <h3 class="h6">Migrate field</h3>
     <p v-if="!available.length && definition.type !== 'text'" class="small text-muted">No migrations are available for {{ typeLabels[definition.type] ?? definition.type }} fields.</p>
-    <ul v-else class="list-group list-group-flush mb-2">
-      <li v-for="path in available" :key="path.to" class="list-group-item px-0">
+    <ul v-else class="list-group mb-2">
+      <li v-for="path in available" :key="path.to" class="list-group-item px-3 py-2">
         <div class="d-flex flex-wrap align-items-center gap-2">
           <span class="fw-semibold">
             <AppIcon v-if="ATTRIBUTE_TYPE_ICONS[path.to]" :icon="ATTRIBUTE_TYPE_ICONS[path.to]!" class="me-1" />{{ targetLabel(path) }}
