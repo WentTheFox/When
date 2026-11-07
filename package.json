@@ -4,8 +4,9 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev:server": "vite",
-        "dev:queue": "php artisan horizon",
+        "dev:server": "infisical run --env=dev -- vite",
+        "dev:php": "git-deploy-dev when-fpm",
+        "dev:queue": "git-deploy-dev when-horizon",
         "dev": "concurrently -p name pnpm:dev:*",
         "test": "vitest run",
         "test:watch": "vitest",

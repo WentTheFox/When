@@ -3,6 +3,8 @@
 .env
 /PLAN.md
 .env.backup
+.env.*
+!.env.example
 .env.production
 .env.testing
 .phpactor.json
