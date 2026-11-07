@@ -35,6 +35,13 @@ class DiscordSyncService
     /** Refresh the access token when it expires within this many seconds. */
     private const REFRESH_MARGIN_SECONDS = 120;
 
+    /**
+     * Relationships Discord sent in the last sync by type (1 friend, 2 blocked, ...); empty if none ran.
+     *
+     * @var array<string, int>
+     */
+    public array $lastTypes = [];
+
     public function __construct(private readonly DiscordClient $client) {}
 
     public function isConnected(User $user): bool
@@ -105,6 +112,7 @@ class DiscordSyncService
 
         try {
             $relationships = $this->fetch($user);
+            $this->lastTypes = $relationships['types'];
             $this->store($user, $relationships['friends'], $onlyNew);
             $this->storeBlocked($user, $relationships['blocked'], $onlyNew);
 
@@ -121,7 +129,7 @@ class DiscordSyncService
     }
 
     /**
-     * @return array{friends: array<string, array{username: ?string, globalName: ?string, nickname: ?string, avatarUrl: ?string}>, blocked: array<string, array{username: ?string, globalName: ?string, nickname: ?string, avatarUrl: ?string}>}
+     * @return array{friends: array<string, array{username: ?string, globalName: ?string, nickname: ?string, avatarUrl: ?string}>, blocked: array<string, array{username: ?string, globalName: ?string, nickname: ?string, avatarUrl: ?string}>, types: array<string, int>}
      *
      * @throws DiscordException
      */

@@ -72,6 +72,14 @@ function disconnect(): void {
 const syncing = ref(false);
 const syncResult = ref<{ ok: boolean; text: string } | null>(null);
 
+// What Discord sent, by relationship type: shows at a glance whether blocked users come back at all.
+const TYPE_NAMES: Record<string, string> = { 1: 'friends', 2: 'blocked', 3: 'incoming requests', 4: 'outgoing requests', 5: 'implicit' };
+
+function describeTypes(types: Record<string, number> | undefined): string {
+  const parts = Object.entries(types ?? {}).map(([type, count]) => `${count} ${TYPE_NAMES[type] ?? `type ${type}`}`);
+  return `Discord sent: ${parts.length ? parts.join(', ') : 'nothing'}.`;
+}
+
 async function syncNow(): Promise<void> {
   syncing.value = true;
   syncResult.value = null;
@@ -81,7 +89,7 @@ async function syncNow(): Promise<void> {
     syncResult.value = {
       ok: true,
       text: data.ran
-        ? `Synced. ${data.pending_friends} friend${data.pending_friends === 1 ? '' : 's'} waiting on the Connections page.`
+        ? `Synced. ${data.pending_friends} friend${data.pending_friends === 1 ? '' : 's'} waiting on the Connections page. ${describeTypes(data.relationship_types)}`
         : 'A sync is already running.',
     };
   } catch (error) {

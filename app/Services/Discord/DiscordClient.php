@@ -8,7 +8,6 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 
 /**
  * Discord OAuth2 + the two read calls the friends import needs. Tokens and the
@@ -102,24 +101,24 @@ class DiscordClient
     /**
      * The owner's relationships from one call: mutual friends and blocked users, each by Discord user id.
      *
-     * @return array{friends: array<string, array{username: ?string, globalName: ?string, nickname: ?string, avatarUrl: ?string}>, blocked: array<string, array{username: ?string, globalName: ?string, nickname: ?string, avatarUrl: ?string}>}
+     * @return array{friends: array<string, array{username: ?string, globalName: ?string, nickname: ?string, avatarUrl: ?string}>, blocked: array<string, array{username: ?string, globalName: ?string, nickname: ?string, avatarUrl: ?string}>, types: array<string, int>}
      *
      * @throws DiscordException
      */
     public function relationships(string $accessToken): array
     {
         $rows = $this->get($accessToken, '/users/@me/relationships');
-        $result = ['friends' => [], 'blocked' => []];
+        $result = ['friends' => [], 'blocked' => [], 'types' => []];
         $text = fn (mixed $v) => is_string($v) && $v !== '' ? $v : null;
 
-        // Counts only (never ids or names): shows what Discord actually sends, e.g. whether blocked users (type 2) come back at all.
+        // How many relationships Discord sent per type (1 friend, 2 blocked, 3 incoming, 4 outgoing, 5 implicit), shown after a manual sync.
         $types = [];
         foreach ($rows as $row) {
             $type = is_array($row) ? ($row['type'] ?? 'none') : 'invalid';
             $type = is_int($type) || is_string($type) ? (string) $type : 'other';
             $types[$type] = ($types[$type] ?? 0) + 1;
         }
-        Log::info('Discord relationships by type', ['total' => count($rows), 'types' => $types]);
+        $result['types'] = $types;
 
         foreach ($rows as $row) {
             $key = match (is_array($row) ? ($row['type'] ?? null) : null) {

@@ -80,7 +80,7 @@ class DiscordController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        return response()->json(['ran' => $ran] + $this->sync->summary($user->refresh()));
+        return response()->json(['ran' => $ran, 'relationship_types' => (object) $this->sync->lastTypes] + $this->sync->summary($user->refresh()));
     }
 
     /**
