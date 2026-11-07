@@ -37,5 +37,7 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- With a Vite dev server running (public/hot) Inertia tries to server-render through it, and that request shows up in Http::fake() assertions. -->
+        <env name="INERTIA_SSR_ENABLED" value="false" force="true"/>
     </php>
 </phpunit>

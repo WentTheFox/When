@@ -11,10 +11,14 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class CalendarFetcherSsrfTest extends TestCase
 {
+    // The preview-endpoint test creates a user; without this it is committed and never removed.
+    use RefreshDatabase;
+
     private function fetcher(array $responses): CalendarFetcher
     {
         $client = new Client(['handler' => HandlerStack::create(new MockHandler($responses))]);
