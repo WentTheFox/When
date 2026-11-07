@@ -16,6 +16,7 @@ interface UnsupportedLocale {
 defineProps<{
   userName: string;
   shareLinkCount: number;
+  usersCount: number;
   connectionCount: number;
   hasCalendarUrl: boolean;
   unsupportedVisitorLocales: UnsupportedLocale[];
@@ -34,46 +35,57 @@ function languageName(code: string): string {
 <template>
   <Head title="Dashboard" />
 
-  <PageHeader :title="`Welcome, ${userName}`" subtitle="Your share links, connections and availability at a glance." />
+  <PageHeader
+    :title="`Welcome, ${userName}`"
+    subtitle="Your share links, connections and availability at a glance."
+  />
 
   <div v-if="unsupportedVisitorLocales.length" class="alert alert-danger">
     <h2 class="h6 mb-2">Visitors are using languages this app doesn't support yet</h2>
     <ul class="mb-0">
       <li v-for="entry in unsupportedVisitorLocales" :key="entry.language">
-        {{ languageName(entry.language) }} ({{ entry.language }}) — {{ entry.count }} visit{{ entry.count === 1 ? '' : 's' }}
+        {{ languageName(entry.language) }} ({{ entry.language }}) — {{ entry.count }}
+        visit{{ entry.count === 1 ? '' : 's' }}
       </li>
     </ul>
   </div>
 
   <div v-if="!hasCalendarUrl" class="alert alert-info">
-    You haven't added a calendar yet. Head to <Link href="/settings">Settings</Link> to
+    You haven't added a calendar yet. Head to
+    <Link href="/settings">Settings</Link>
+    to
     paste your calendar's ICS URL and preview it.
   </div>
 
   <div class="row">
-    <div class="col-md-4 mb-3">
-      <div class="card h-100">
-        <div class="card-body">
-          <h2 class="h5">Share links</h2>
-          <p class="display-4 mb-2">{{ shareLinkCount }}</p>
-          <Link href="/dashboard/connections" class="btn btn-outline-secondary btn-sm">Manage</Link>
+    <div class="col-md-8 mb-3">
+      <BCard class="h-100">
+        <div class="row justify-content-center text-center text-md-start">
+          <div class="col-6 col-sm-4 col-md mb-3 mb-md-0">
+            <h2 class="h5">Connections</h2>
+            <p class="display-4 mb-2">{{ connectionCount }}</p>
+          </div>
+          <div class="col-6 col-sm-4 col-md mb-3 mb-md-0">
+            <h2 class="h5">Share links</h2>
+            <p class="display-4 mb-2">{{ shareLinkCount }}</p>
+          </div>
+          <div class="col-6 col-sm-4 col-md mb-3 mb-md-0">
+            <h2 class="h5">Global users</h2>
+            <p class="display-4 mb-2">{{ usersCount }}</p>
+          </div>
         </div>
-      </div>
-    </div>
-    <div class="col-md-4 mb-3">
-      <div class="card h-100">
-        <div class="card-body">
-          <h2 class="h5">Connections</h2>
-          <p class="display-4 mb-2">{{ connectionCount }}</p>
+        <template #footer>
           <Link href="/dashboard/connections" class="btn btn-outline-secondary btn-sm">Manage</Link>
-        </div>
-      </div>
+        </template>
+      </BCard>
     </div>
     <div class="col-md-4 mb-3">
       <div class="card h-100">
         <div class="card-body">
           <h2 class="h5">Settings</h2>
           <p class="small text-muted mb-2">Calendar, sleep windows, page colors, and more.</p>
+        </div>
+        <div class="card-footer">
           <Link href="/settings" class="btn btn-outline-secondary btn-sm">Open</Link>
         </div>
       </div>
@@ -99,7 +111,8 @@ function languageName(code: string): string {
         </div>
         <p v-if="connectionCount === 0" class="text-muted mb-0">
           No connections tracked yet. Add some on the
-          <Link href="/dashboard/connections">Connections page</Link> to see your network graph
+          <Link href="/dashboard/connections">Connections page</Link>
+          to see your network graph
           here.
         </p>
         <ConnectionsGraph v-else />
