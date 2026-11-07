@@ -202,17 +202,23 @@ class DashboardController extends Controller
         $busyMin = max(0, $windowMin - $freeMin);
         $hhmm = fn (int $m) => sprintf('%d:%02d', intdiv($m, 60), $m % 60);
 
+        // All three percentages are shares of the whole bucket so they add up to
+        // 100%; free is the remainder so rounding can't push the sum past it.
+        $sleepPct = (int) round($sleepMin / $totalMin * 100);
+        $busyPct = min(100 - $sleepPct, (int) round($busyMin / $totalMin * 100));
+        $freePct = 100 - $sleepPct - $busyPct;
+
         return [
             'title' => $title,
             'notAvail' => false,
             'sleepLabel' => $hhmm($sleepMin),
-            'sleepPct' => (int) round($sleepMin / $totalMin * 100),
-            'sleepBarPct' => (int) round($sleepMin / $totalMin * 100),
+            'sleepPct' => $sleepPct,
+            'sleepBarPct' => $sleepPct,
             'busyLabel' => $hhmm($busyMin),
-            'busyPct' => min(100, (int) round($busyMin / $windowMin * 100)),
-            'busyBarPct' => (int) round($busyMin / $totalMin * 100),
+            'busyPct' => $busyPct,
+            'busyBarPct' => $busyPct,
             'freeLabel' => $hhmm($freeMin),
-            'freePct' => min(100, (int) round($freeMin / $windowMin * 100)),
+            'freePct' => $freePct,
         ];
     }
 
