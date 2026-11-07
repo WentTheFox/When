@@ -50,6 +50,10 @@ use Illuminate\Support\Carbon;
  * @method static Builder<static>|ShareLink withTrashed(bool $withTrashed = true)
  * @method static Builder<static>|ShareLink withoutTrashed()
  *
+ * @property string|null $display_identity
+ *
+ * @method static Builder<static>|ShareLink whereDisplayIdentity($value)
+ *
  * @mixin \Eloquent
  */
 class ShareLink extends Model
