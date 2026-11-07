@@ -33,6 +33,17 @@ function render(overrides: Record<string, unknown> = {}): Promise<string> {
   return renderToString(createSSRApp({ render: () => h(ConnectionCard, props) }));
 }
 
+/** Props that make the given custom fields show: a field only appears once it has a stored value (or is added by hand). */
+function withStoredValues<T extends { id: string }>(definitions: T[]): Record<string, unknown> {
+  return {
+    attributeDefinitions: definitions,
+    connection: {
+      ...connection,
+      attribute_values: definitions.map((d) => ({ attribute_definition_id: d.id, value_ciphertext: 'x' })),
+    },
+  };
+}
+
 describe('ConnectionCard', () => {
   // ConnectionSharing builds the link URL from window.location, which doesn't exist when server-rendering under node.
   beforeAll(() => {
@@ -183,7 +194,7 @@ describe('ConnectionCard', () => {
     }
 
     it('selects "(unset)" on a choice field instead of leaving every option unchecked', async () => {
-      const group = groupOf(await render({ attributeDefinitions: definitions }), 'Tier');
+      const group = groupOf(await render(withStoredValues(definitions)), 'Tier');
       const radios = [...group.matchAll(/<input\b[^>]*type="radio"[^>]*>/g)].map(([tag]) => tag);
 
       expect(radios).toHaveLength(3); // (unset), Gold, Silver
@@ -194,7 +205,7 @@ describe('ConnectionCard', () => {
     });
 
     it('shows a Yes/No field as three radios — (unset), Yes, No — with "(unset)" selected', async () => {
-      const group = groupOf(await render({ attributeDefinitions: definitions }), 'VIP');
+      const group = groupOf(await render(withStoredValues(definitions)), 'VIP');
       const radios = [...group.matchAll(/<input\b[^>]*type="radio"[^>]*>/g)].map(([tag]) => tag);
 
       expect(radios).toHaveLength(3);
@@ -205,7 +216,7 @@ describe('ConnectionCard', () => {
     });
 
     it('groups each field\'s radios under one name, so the arrow keys move between them', async () => {
-      const html = await render({ attributeDefinitions: definitions });
+      const html = await render(withStoredValues(definitions));
       for (const label of ['Tier', 'VIP']) {
         const names = new Set([...groupOf(html, label).matchAll(/<input\b[^>]*type="radio"[^>]*\bname="([^"]+)"/g)].map((m) => m[1]));
         expect(names.size, label).toBe(1);
@@ -217,7 +228,7 @@ describe('ConnectionCard', () => {
     // the control exists and shows "(none)" while unset.
     it('shows "(none)" on an unset connection field, which is a searchable select', async () => {
       const group = groupOf(await render({
-        attributeDefinitions: definitions,
+        ...withStoredValues(definitions),
         connectionOptions: [{ id: 'other', label: 'Alice' }],
       }), 'Referrer');
       expect(group).toContain('searchable-select');
@@ -226,8 +237,24 @@ describe('ConnectionCard', () => {
     });
   });
 
+  it('hides custom fields without a value behind an "add a field" picker', async () => {
+    const definitions = [
+      { id: 'a', type: 'text', label: 'Nickname', label_ciphertext: 'x', options: [] },
+      { id: 'b', type: 'email', label: 'Mail', label_ciphertext: 'x', options: [] },
+    ];
+    const html = await render({
+      attributeDefinitions: definitions,
+      connection: { ...connection, attribute_values: [{ attribute_definition_id: 'a', value_ciphertext: 'x' }] },
+    });
+
+    expect(html).toContain('>Nickname<');
+    expect(html).not.toContain('>Mail<');
+    expect(html).toContain('Add a custom field…');
+    expect(buttonLabels(html)).toContain('Add field');
+  });
+
   it('gives a url field an open-in-a-new-tab button, disabled while there is no valid link', async () => {
-    const html = await render({ attributeDefinitions: [{ id: 'u1', type: 'url', label: 'Website', label_ciphertext: 'x', options: [] }] });
+    const html = await render(withStoredValues([{ id: 'u1', type: 'url', label: 'Website', label_ciphertext: 'x', options: [] }]));
 
     expect(html).toContain('type="url"');
     expect(html).toContain('aria-label="Open in a new tab"');
@@ -235,7 +262,7 @@ describe('ConnectionCard', () => {
   });
 
   it('edits a link list as one link per line, with no read-only summary', async () => {
-    const html = await render({ attributeDefinitions: [{ id: 'l1', type: 'link_list', label: 'Contacts', label_ciphertext: 'x', options: [] }] });
+    const html = await render(withStoredValues([{ id: 'l1', type: 'link_list', label: 'Contacts', label_ciphertext: 'x', options: [] }]));
 
     expect(html).toContain('<textarea');
     expect(html).toContain('One https:// link per line');
