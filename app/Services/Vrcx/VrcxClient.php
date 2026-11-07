@@ -3,6 +3,8 @@
 namespace App\Services\Vrcx;
 
 use App\Models\User;
+use App\Services\Calendar\CalendarUrlGuard;
+use App\Services\Calendar\UnsafeCalendarUrlException;
 use App\Support\VrchatUserId;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
@@ -15,6 +17,10 @@ use Illuminate\Support\Facades\Log;
  * (<base>/api/v1/openapi.json): `users:read` for cached name/picture and
  * `playtime:read` for shared-instance intervals. The API key is a bearer
  * token and is never put in an exception message.
+ *
+ * SSRF: the owner supplies the server's URL and this app calls it, so every request goes through
+ * CalendarUrlGuard (public, internet-reachable addresses only; any port) and the connection is pinned to the IPs the
+ * guard vetted, so the HTTP client cannot re-resolve to another address. Redirects are not followed.
  */
 final class VrcxClient
 {
@@ -242,8 +248,9 @@ final class VrcxClient
     public static function assertCompatible(string $baseUrl, array $also = []): void
     {
         try {
-            $response = Http::acceptJson()->timeout(10)->connectTimeout(5)
-                ->get(self::normalizeBaseUrl($baseUrl).'/api/v1/openapi.json');
+            $normalized = self::normalizeBaseUrl($baseUrl);
+            $response = self::guarded(Http::acceptJson()->timeout(10)->connectTimeout(5), $normalized)
+                ->get($normalized.'/api/v1/openapi.json');
         } catch (ConnectionException) {
             throw new VrcxException('Could not reach that address. Check the URL and that the VRCX server is running.');
         }
@@ -365,10 +372,33 @@ final class VrcxClient
 
     private function request(): PendingRequest
     {
-        return Http::baseUrl($this->baseUrl)
-            ->withToken($this->apiKey)
-            ->acceptJson()
-            ->timeout($this->timeout)
-            ->connectTimeout(min(5, $this->timeout));
+        return self::guarded(
+            Http::baseUrl($this->baseUrl)
+                ->withToken($this->apiKey)
+                ->acceptJson()
+                ->timeout($this->timeout)
+                ->connectTimeout(min(5, $this->timeout)),
+            $this->baseUrl,
+        );
+    }
+
+    /**
+     * Refuses an address the guard rejects (loopback, private, link-local, odd ports, hosts that do not
+     * resolve) and pins the connection to the addresses it vetted. The message never contains the URL.
+     *
+     * @throws VrcxException
+     */
+    private static function guarded(PendingRequest $request, string $url): PendingRequest
+    {
+        try {
+            $target = app(CalendarUrlGuard::class)->inspect($url, anyPort: true);
+        } catch (UnsafeCalendarUrlException) {
+            throw new VrcxException('That address is not allowed: the VRCX server has to be reachable over the internet (a public http(s) address).');
+        }
+
+        return $request->withoutRedirecting()->withOptions(['curl' => [
+            CURLOPT_RESOLVE => array_map(fn (string $ip) => "{$target['host']}:{$target['port']}:{$ip}", $target['ips']),
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+        ]]);
     }
 }

@@ -40,15 +40,18 @@ class CalendarUrlGuard
     public function __construct(?Closure $resolver = null, ?bool $allowPrivateHosts = null)
     {
         $this->resolver = $resolver ?? $this->resolveViaDns(...);
-        $this->allowPrivateHosts = $allowPrivateHosts ?? (bool) config('services.calendar.allow_private_hosts', false);
+        // The dev switch can never be honoured in production, whatever the environment variable says.
+        $this->allowPrivateHosts = $allowPrivateHosts ?? ((bool) config('services.calendar.allow_private_hosts', false) && ! app()->isProduction());
     }
 
     /**
+     * @param  bool  $anyPort  Allow a port other than 80/443. For servers that are meant to be reachable over the
+     *                         internet on a port of their own (VRCX); the address still has to be public.
      * @return array{host: string, port: int, ips: list<string>}
      *
      * @throws UnsafeCalendarUrlException
      */
-    public function inspect(string $url): array
+    public function inspect(string $url, bool $anyPort = false): array
     {
         $parts = parse_url($url);
         if ($parts === false || ! isset($parts['scheme'], $parts['host'])) {
@@ -61,7 +64,7 @@ class CalendarUrlGuard
         }
 
         $port = $parts['port'] ?? ($scheme === 'https' ? 443 : 80);
-        if (! $this->allowPrivateHosts && ! in_array($port, [80, 443], true)) {
+        if (! $this->allowPrivateHosts && ! $anyPort && ! in_array($port, [80, 443], true)) {
             throw new UnsafeCalendarUrlException;
         }
 
@@ -86,9 +89,9 @@ class CalendarUrlGuard
     }
 
     /** @throws UnsafeCalendarUrlException */
-    public function assertSafe(string $url): void
+    public function assertSafe(string $url, bool $anyPort = false): void
     {
-        $this->inspect($url);
+        $this->inspect($url, $anyPort);
     }
 
     /** @return list<string> */

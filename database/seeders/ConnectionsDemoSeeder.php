@@ -11,6 +11,7 @@ use App\Models\ConnectionSourceCategory;
 use App\Models\ShareLink;
 use App\Models\User;
 use App\Services\Crypto\AesGcm;
+use App\Support\DevMockVrchat;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Crypt;
@@ -104,7 +105,7 @@ class ConnectionsDemoSeeder extends Seeder
             $connections = $this->createConnections($user, $sources, $definitions);
             $this->createEdges($user, $connections);
             $this->createShareLinks($user, $connections);
-            $this->bindFeatures($user, $definitions);
+            $this->bindFeatures($user, $definitions, $sources);
             $this->storeKeyRing($user);
         });
 
@@ -238,6 +239,9 @@ class ConnectionsDemoSeeder extends Seeder
             'highlight' => ['Highlight words', 'identifier_list', null],
             'alt_names' => ['Other names', 'identifier_list', null],
             'bypass_dnd' => ['Bypass DND', 'boolean', null],
+            // Bound in Settings (VRCX integration): where each connection keeps its VRChat / Discord accounts.
+            'vrchat_id' => ['VRChat user ID', 'identifier_list', null],
+            'discord_id' => ['Discord user ID', 'identifier', null],
         ];
 
         foreach ($spec as $slug => [$label, $type, $choices]) {
@@ -396,6 +400,36 @@ class ConnectionsDemoSeeder extends Seeder
             $connections[] = $connection;
         }
 
+        // Accounts that match the mock VRCX server's users (DevMockVrchat), so a sync has real-looking data to pull:
+        // the first 12 connections each hold one VRChat account (one holds two), the other mock users stay pending friends.
+        foreach (array_slice($connections, 0, 12) as $i => $connection) {
+            $ids = $i === 3 ? [DevMockVrchat::userId($i + 1), DevMockVrchat::userId(15)] : [DevMockVrchat::userId($i + 1)];
+
+            ConnectionAttributeValue::create([
+                'connection_id' => $connection->id,
+                'attribute_definition_id' => $d['vrchat_id']->id,
+                'identifier_list_value' => $ids,
+            ]);
+
+            // Some already know the Discord ID VRCX will report; the rest are filled in by the first sync.
+            if (in_array($i, [2, 8], true)) {
+                ConnectionAttributeValue::create([
+                    'connection_id' => $connection->id,
+                    'attribute_definition_id' => $d['discord_id']->id,
+                    'identifier_value' => DevMockVrchat::discordId($i + 1),
+                ]);
+            }
+        }
+
+        // Discord IDs on connections that have no VRChat account.
+        foreach ([14, 17, 20] as $i) {
+            ConnectionAttributeValue::create([
+                'connection_id' => $connections[$i]->id,
+                'attribute_definition_id' => $d['discord_id']->id,
+                'identifier_value' => (string) $faker->numberBetween(300000000000000000, 900000000000000000),
+            ]);
+        }
+
         // 'connection'-type values hold the referenced connection's id inside the ciphertext.
         foreach ($connections as $i => $connection) {
             if ($i > 0 && $faker->boolean(35)) {
@@ -467,14 +501,25 @@ class ConnectionsDemoSeeder extends Seeder
         }
     }
 
-    /** @param array<string, ConnectionAttributeDefinition> $d */
-    private function bindFeatures(User $user, array $d): void
+    /**
+     * @param  array<string, ConnectionAttributeDefinition>  $d
+     * @param  list<ConnectionSource>  $sources
+     */
+    private function bindFeatures(User $user, array $d, array $sources): void
     {
         $user->forceFill([
             'notes_field_definition_id' => $d['notes']->id,
             'highlight_identifier_definition_id' => $d['highlight']->id,
             'alternative_names_definition_id' => $d['alt_names']->id,
             'bypass_dnd_definition_id' => $d['bypass_dnd']->id,
+            'vrchat_user_id_definition_id' => $d['vrchat_id']->id,
+            'discord_user_id_definition_id' => $d['discord_id']->id,
+            // The dev mock VRCX server (DevMockVrcxController): plain http on the app's own host, like the mock
+            // calendar. New friends it reports become connections under the "VRChat world meetup" source.
+            'vrcx_base_url' => 'http://'.parse_url((string) config('app.url'), PHP_URL_HOST).'/dev/mock-vrcx',
+            'vrcx_api_key' => DevMockVrchat::API_KEY,
+            'vrcx_auto_create_friends' => true,
+            'vrcx_friends_source_id' => $sources[1]->id,
         ])->save();
     }
 
