@@ -10,9 +10,10 @@
  * never reads the names, so this adds nothing server-side to protect.
  */
 import { useForm } from '@inertiajs/vue3';
-import { BButton, BFormCheckbox, BFormGroup, BFormSelect } from 'bootstrap-vue-next';
+import { BButton, BFormGroup, BFormSelect } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
 import { decryptString } from '../crypto';
+import SearchableSelect from '../Components/SearchableSelect.vue';
 import { rawPreview } from './rawCiphertext';
 import VaultGate from './VaultGate.vue';
 import { useVault } from './useVault';
@@ -32,7 +33,9 @@ const { vaultUnlocked, getRecordKey } = useVault();
 const labels = ref<Record<string, string>>({});
 watch(vaultUnlocked, async (unlocked) => {
   if (!unlocked) return;
-  for (const definition of props.definitions) {
+  // Both lists carry encrypted labels; a field may be in only one of them.
+  for (const definition of [...props.definitions, ...props.graphDefinitions]) {
+    if (labels.value[definition.id] !== undefined) continue;
     try {
       labels.value[definition.id] = await decryptString(await getRecordKey(definition.id), definition.label_ciphertext);
     } catch (error) {
@@ -98,9 +101,9 @@ function save(): void {
             No suitable fields yet — add one under Connections → Custom attributes, of type “Relationship” or “Connection”.
           </p>
           <template v-else>
-            <BFormCheckbox v-for="option in graphOptions" :key="option.value" v-model="form.graph_field_ids" :value="option.value">
-              {{ option.text }}
-            </BFormCheckbox>
+            <div style="max-width: 28rem;">
+              <SearchableSelect v-model="form.graph_field_ids" :options="graphOptions" multiple placeholder="(none)" aria-label="Network graph fields" />
+            </div>
           </template>
         </div>
 
