@@ -138,6 +138,17 @@ describe('ConnectionCard', () => {
     expect(rows[1]).not.toContain('Alice');
   });
 
+  it('offers an Open button per relation, and lists relationships below Save as a separate section', async () => {
+    const html = await render({
+      edges: [{ id: 'e1', from_connection_id: connection.id, to_connection_id: 'alice' }],
+      connectionOptions: [{ id: 'alice', label: 'Alice' }],
+    });
+    const row = [...html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/g)][0][1];
+    expect(row).toContain('aria-label="Open Alice"');
+    expect(html.indexOf('>Save<')).toBeGreaterThan(-1);
+    expect(html.indexOf('Relationships')).toBeGreaterThan(html.indexOf('>Save<'));
+  });
+
   it('does not stretch the rows so the button ends up far from the name', async () => {
     const html = await render({
       edges: [{ id: 'e1', from_connection_id: connection.id, to_connection_id: 'alice' }],

@@ -136,7 +136,8 @@ const definitions = computed(() =>
     .filter((d): d is DefinitionItem & { label: string } => d.label !== undefined)
     .map(({ id, label, type, options }) => ({ id, label, type, options })),
 );
-const edges = ref<EdgeRow[]>([]);
+/** Seeded once from the server; add/remove keep it current from then on (never re-seed it from props later, that would drop edges added since the page loaded). */
+const edges = ref<EdgeRow[]>(props.edges.map((edge) => ({ ...edge })));
 /** Why the last attempt to delete a field was refused, if it was. */
 const definitionError = ref<string | null>(null);
 
@@ -399,8 +400,6 @@ watch(vaultUnlocked, async (unlocked) => {
       console.error(error);
     }
   }
-
-  edges.value = props.edges.map((edge) => ({ ...edge }));
 
   await normalizeAllLists();
 }, { immediate: true });
@@ -1722,6 +1721,7 @@ async function removeEdge(id: string): Promise<void> {
                 @deleted="onConnectionDeleted"
                 @add-edge="addEdge"
                 @remove-edge="removeEdge"
+                @open-connection="selectedConnectionId = $event"
               />
             </LockedOverlay>
             <p v-else class="text-muted">Select a connection on the left to view or edit it.</p>
