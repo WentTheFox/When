@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Domain\Calendar\AvailabilitySlot;
 use App\Models\User;
+use App\Rules\SafeCalendarUrl;
 use App\Services\Calendar\AvailabilityService;
 use App\Services\Calendar\CalendarFetcher;
 use App\Services\Calendar\EventNormalizer;
@@ -36,7 +37,7 @@ class CalendarPreviewController extends Controller
         AvailabilityService $availabilityService,
     ): JsonResponse {
         $data = $request->validate([
-            'calendar_url' => ['required', 'url'],
+            'calendar_url' => ['required', 'url', new SafeCalendarUrl],
             'timezone' => ['nullable', 'string'],
             'calendar_parsing_mode' => ['nullable', Rule::enum(CalendarParsingMode::class)],
             'dnd_event_pattern' => ['nullable', 'string'],

@@ -39,6 +39,19 @@ return [
         'bot_token' => env('DISCORD_BOT_TOKEN'),
     ],
 
+    // Owner calendar URLs are fetched server-side, so CalendarUrlGuard blocks loopback/private/link-local
+    // targets and non-standard ports. Enable ONLY in local development (e.g. for /dev/mock-calendar.ics).
+    'calendar' => [
+        'allow_private_hosts' => (bool) env('CALENDAR_ALLOW_PRIVATE_HOSTS', false),
+        // Seconds to establish the connection, and for the whole request (connect + transfer) per redirect hop.
+        'connect_timeout' => (int) env('CALENDAR_CONNECT_TIMEOUT', 5),
+        'timeout' => (int) env('CALENDAR_TIMEOUT', 15),
+        // Largest ICS body accepted, in bytes; bigger feeds are aborted mid-download.
+        'max_body_bytes' => (int) env('CALENDAR_MAX_BODY_BYTES', 5 * 1024 * 1024),
+        // Redirect hops followed (each one re-checked by CalendarUrlGuard).
+        'max_redirects' => (int) env('CALENDAR_MAX_REDIRECTS', 3),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

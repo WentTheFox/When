@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateSettingsRequest;
 use App\Models\User;
+use App\Rules\SafeCalendarUrl;
 use App\Services\Calendar\ActivityExtractor;
 use App\Services\Calendar\HighlightMatcher;
 use App\Services\Calendar\HighlightWordsResolver;
@@ -273,7 +274,7 @@ class SettingsController extends Controller
     public function updateCalendarUrl(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'calendar_url' => ['required', 'url'],
+            'calendar_url' => ['required', 'url', new SafeCalendarUrl],
             'calendar_url_preview_confirmed' => ['required', 'accepted'],
         ]);
 
