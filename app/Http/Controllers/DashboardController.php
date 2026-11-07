@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Domain\Calendar\AvailabilityResult;
 use App\Domain\Calendar\AvailabilitySlot;
 use App\Domain\Calendar\ParsedEvent;
+use App\Models\Connection;
 use App\Models\ShareLinkVisit;
 use App\Models\SleepException;
 use App\Models\User;
@@ -25,6 +26,9 @@ use Inertia\Response;
 class DashboardController extends Controller
 {
     private const PAST_DAYS = 30;
+
+    /** Trailing window for the "Time spent" leaderboard and the 90-day breakdown row. */
+    private const TIME_SPENT_DAYS = 90;
 
     /** How many of this owner's most recent visits (across all their share links) get scanned for the unsupported-locale widget below. */
     private const MAX_VISITS_FOR_LOCALE_SCAN = 1000;
@@ -107,7 +111,9 @@ class DashboardController extends Controller
             $weekEnd = $now->endOfWeek(CarbonImmutable::SUNDAY);
             $past30Start = $now->subDays(self::PAST_DAYS - 1)->startOfDay();
 
-            $rangeStart = $past30Start;
+            $timeSpentStart = $now->subDays(self::TIME_SPENT_DAYS - 1)->startOfDay();
+
+            $rangeStart = $timeSpentStart;
             $rangeEnd = $weekEnd;
 
             $calendarUrl = Crypt::decryptString($user->calendar_url_ciphertext);
@@ -151,10 +157,11 @@ class DashboardController extends Controller
                 $this->buildRow('Today', $result, $todayStart, $todayEnd, 1),
                 $this->buildRow('This week', $result, $weekStart, $weekStart->addDays(7), 7),
                 $this->buildRow('Past '.self::PAST_DAYS.' days', $result, $past30Start, $todayEnd, self::PAST_DAYS),
+                $this->buildRow('Past '.self::TIME_SPENT_DAYS.' days', $result, $timeSpentStart, $todayEnd, self::TIME_SPENT_DAYS),
             ];
 
             [$topHighlights, $restHighlights, $noTimeHighlights] = $this->computeHighlightLeaderboard(
-                $user, $events, $availabilityService, $weeklyAvailability, $sleepExceptions, $past30Start, $todayEnd,
+                $user, $events, $availabilityService, $weeklyAvailability, $sleepExceptions, $timeSpentStart, $todayEnd,
             );
 
             return response()->json([
@@ -211,7 +218,7 @@ class DashboardController extends Controller
     /**
      * "Top time spent": one entry per share link that has highlight words,
      * summing App\Domain\Calendar\AvailabilitySlot minutes matched by that
-     * link's own words over the trailing 30 days — the same matching
+     * link's own words over the trailing TIME_SPENT_DAYS (90) days — the same matching
      * RecomputeShareLinkAvailability uses to build a viewer's own
      * highlighted blocks, just aggregated for the owner instead of encrypted
      * and cached for a viewer. No new "highlight group" concept: a share
@@ -237,13 +244,15 @@ class DashboardController extends Controller
         $noTime = [];
 
         $resolver = app(HighlightWordsResolver::class);
-        $shareLinks = $user->shareLinks()->active()->with('connection')->get();
+        $shareLinks = $user->shareLinks()->active()->with('connection.vrchatStays')->get();
         $activityLocalizations = $user->activityLocalizations->map(fn ($r) => ['pattern' => $r->pattern, 'label' => $r->label, 'icon_key' => $r->icon_key, 'color_key' => $r->color_key, 'has_capture_group' => $r->has_capture_group])->all();
 
         foreach ($shareLinks as $shareLink) {
             $words = $resolver->forShareLink($shareLink, $user);
 
-            if (empty($words)) {
+            $vrchatSlots = $this->vrchatStaySlots($shareLink->connection, $rangeStart, $rangeEnd);
+
+            if (empty($words) && $vrchatSlots === []) {
                 continue;
             }
 
@@ -262,8 +271,22 @@ class DashboardController extends Controller
                 activityLocalizations: $activityLocalizations,
             );
 
-            $linkHighlighted = $this->slotsOfType($linkResult, 'highlighted');
-            $minutes = $this->sumSlotMinutes($linkHighlighted, $rangeStart, $rangeEnd);
+            $linkHighlighted = empty($words) ? [] : $this->slotsOfType($linkResult, 'highlighted');
+            $calendarEvents = $this->matchedSlotsInRange($linkHighlighted, $rangeStart, $rangeEnd);
+            $vrchatEvents = array_map(fn (array $s) => [
+                'start' => $s['start']->toIso8601String(),
+                'end' => $s['end']->toIso8601String(),
+                'tentative_start' => false,
+                'tentative_end' => false,
+                'activity' => null,
+                'activity_label' => null,
+                'highlight_words' => [],
+                'source' => 'vrchat',
+            ], $vrchatSlots);
+            $minutes = $this->unionMinutes(array_values(array_merge(
+                array_map(fn (AvailabilitySlot $s) => ['start' => $s->start, 'end' => $s->end], $linkHighlighted),
+                $vrchatSlots,
+            )), $rangeStart, $rangeEnd);
 
             $connection = $shareLink->connection;
 
@@ -271,7 +294,7 @@ class DashboardController extends Controller
                 'share_link_id' => $shareLink->id,
                 'minutes' => $minutes,
                 'connection' => $connection ? ['id' => $connection->id, 'name_ciphertext' => $connection->name_ciphertext] : null,
-                'events' => $this->matchedSlotsInRange($linkHighlighted, $rangeStart, $rangeEnd),
+                'events' => collect([...$calendarEvents, ...$vrchatEvents])->sortBy('start')->values()->all(),
             ];
 
             if ($minutes > 0) {
@@ -284,6 +307,75 @@ class DashboardController extends Controller
         usort($withTime, fn ($a, $b) => $b['minutes'] <=> $a['minutes']);
 
         return [array_slice($withTime, 0, 10), array_slice($withTime, 10), $noTime];
+    }
+
+    /**
+     * Time spent together in VRChat with this connection (ConnectionVrchatStay,
+     * §0.2 tier — APP_KEY-decrypted transiently here), clipped to the range.
+     *
+     * @return list<array{start: CarbonImmutable, end: CarbonImmutable}>
+     */
+    private function vrchatStaySlots(?Connection $connection, CarbonImmutable $rangeStart, CarbonImmutable $rangeEnd): array
+    {
+        if ($connection === null) {
+            return [];
+        }
+
+        $slots = [];
+
+        foreach ($connection->vrchatStays as $stay) {
+            try {
+                $start = CarbonImmutable::parse((string) ($stay->payload['start'] ?? ''));
+                $end = CarbonImmutable::parse((string) ($stay->payload['end'] ?? ''));
+            } catch (\Throwable) {
+                continue;
+            }
+
+            if ($end->gt($rangeStart) && $start->lt($rangeEnd) && $end->gt($start)) {
+                $slots[] = ['start' => $start->max($rangeStart), 'end' => $end->min($rangeEnd)];
+            }
+        }
+
+        return $slots;
+    }
+
+    /**
+     * Whole minutes covered by the union of the given intervals within the
+     * range, so calendar time and VRChat time that overlap count once.
+     *
+     * @param  list<array{start: CarbonImmutable, end: CarbonImmutable}>  $intervals
+     */
+    private function unionMinutes(array $intervals, CarbonImmutable $rangeStart, CarbonImmutable $rangeEnd): int
+    {
+        $clipped = [];
+        foreach ($intervals as $i) {
+            $start = $i['start']->max($rangeStart);
+            $end = $i['end']->min($rangeEnd);
+            if ($end->gt($start)) {
+                $clipped[] = [$start, $end];
+            }
+        }
+
+        usort($clipped, fn ($a, $b) => $a[0] <=> $b[0]);
+
+        $minutes = 0.0;
+        $curStart = null;
+        $curEnd = null;
+        foreach ($clipped as [$start, $end]) {
+            if ($curEnd === null || $start->gt($curEnd)) {
+                if ($curEnd !== null) {
+                    $minutes += $curStart->diffInMinutes($curEnd);
+                }
+                [$curStart, $curEnd] = [$start, $end];
+            } elseif ($end->gt($curEnd)) {
+                $curEnd = $end;
+            }
+        }
+        if ($curEnd !== null) {
+            $minutes += $curStart->diffInMinutes($curEnd);
+        }
+
+        return (int) $minutes;
     }
 
     /**

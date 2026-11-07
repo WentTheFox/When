@@ -16,19 +16,23 @@ use Illuminate\Http\Response;
  */
 class DevMockCalendarController extends Controller
 {
+    /** Weeks of history before this one, so the 30- and 90-day stats have something to chew on. */
+    private const PAST_WEEKS = 13;
+
     private const WEEKS = 4;
 
     public function show(): Response
     {
-        $monday = CarbonImmutable::now('UTC')->startOfWeek(CarbonImmutable::MONDAY)->startOfDay();
+        $thisMonday = CarbonImmutable::now('UTC')->startOfWeek(CarbonImmutable::MONDAY)->startOfDay();
+        $monday = $thisMonday->subWeeks(self::PAST_WEEKS);
 
         $events = [];
 
-        // Recurring: weekday stand-up and twice-weekly gym, starting this week.
+        // Recurring: weekday stand-up and twice-weekly gym, starting 13 weeks ago.
         $events[] = $this->event('standup', 'Team standup', $monday->setTime(8, 0), $monday->setTime(8, 30), ['RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR']);
         $events[] = $this->event('gym', 'Gym', $monday->setTime(16, 30), $monday->setTime(17, 30), ['RRULE:FREQ=WEEKLY;BYDAY=TU,TH']);
 
-        for ($week = 0; $week < self::WEEKS; $week++) {
+        for ($week = 0; $week < self::PAST_WEEKS + self::WEEKS; $week++) {
             $w = $monday->addWeeks($week);
 
             $events[] = $this->event("dentist-$week", 'Dentist appointment', $w->addDays(1)->setTime(10, 0), $w->addDays(1)->setTime(11, 0));
@@ -42,7 +46,7 @@ class DevMockCalendarController extends Controller
         }
 
         // An all-day, multi-day trip two weeks out (DTEND is exclusive for all-day events).
-        $trip = $monday->addWeeks(2)->addDays(2);
+        $trip = $thisMonday->addWeeks(2)->addDays(2);
         $events[] = implode("\r\n", [
             'BEGIN:VEVENT',
             'UID:dev-trip@when.invalid',
