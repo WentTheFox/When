@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArchiveIcon, ArchiveRestoreIcon, ExternalLinkIcon, Trash2Icon, UserMinusIcon } from '@lucide/vue';
+import { ArchiveIcon, ArrowRightIcon, ArchiveRestoreIcon, ExternalLinkIcon, Trash2Icon, UserMinusIcon } from '@lucide/vue';
 import AppIcon from '../Components/AppIcon.vue';
 import axios from 'axios';
 import {
@@ -88,6 +88,8 @@ const emit = defineEmits<{
   deleted: [string];
   addEdge: [string, string];
   removeEdge: [string];
+  /** Open another connection's card (its id), e.g. from the relationships list. */
+  openConnection: [string];
   vrchatSynced: [VrchatSummary];
   /** The Discord card looked this connection's IDs up: its connection id and the new profiles. */
   discordSynced: [string, DiscordProfile[]];
@@ -162,6 +164,23 @@ async function removeRelationship(edge: { id: string; otherName: string }): Prom
   if (!(await requestConfirm(removalPrompt(name.value, edge.otherName)))) return;
 
   emit('removeEdge', edge.id);
+}
+
+/** Switches the page to the other connection's card; asks first if this one has unsaved edits, since they'd be dropped. */
+async function openRelationship(edge: { otherId: string; otherName: string }): Promise<void> {
+  if (
+    isDirty.value &&
+    !(await requestConfirm({
+      title: 'Discard unsaved changes?',
+      message: `You have unsaved changes to “${name.value}”. Opening “${edge.otherName}” will discard them.`,
+      confirmText: 'Discard',
+      variant: 'danger',
+    }))
+  ) {
+    return;
+  }
+
+  emit('openConnection', edge.otherId);
 }
 
 function addRelationship(): void {
@@ -471,6 +490,10 @@ async function remove(): Promise<void> {
         @synced="emit('discordSynced', connection.id, $event)"
       />
     </BFormGroup>
+    <!-- Everything above is built in; the fields below are the owner's own, so they get their own heading. -->
+    <div v-if="attributeDefinitions.length" class="border-top pt-3 mt-4 mb-3">
+      <h4 class="h6 text-uppercase text-body-secondary mb-0">Custom fields</h4>
+    </div>
     <BFormGroup v-for="definition in attributeDefinitions" :key="definition.id" :label="definition.label" class="mb-3">
       <EncryptedInput
         v-if="definition.type === 'textarea'"
@@ -606,13 +629,28 @@ async function remove(): Promise<void> {
       />
     </BFormGroup>
 
-    <BFormGroup label="Relationships" class="mb-3">
-      <!-- w-auto keeps each Remove button next to the name it removes (not pushed to the far edge); the row highlights on hover. -->
+    <BButton size="sm" variant="primary" :disabled="!decrypted || !isDirty || !urlFieldsValid" @click="save">Save</BButton>
+    <BButton v-if="isDirty" size="sm" variant="outline-secondary" class="ms-2" @click="populateEditForm">Discard changes</BButton>
+
+    <!-- A separate section from the form above: every change here saves on its own, immediately. -->
+    <hr class="my-4" />
+    <BFormGroup label="Relationships" description="Changes here save immediately." class="mb-0">
+      <!-- w-auto keeps each button next to the name it acts on (not pushed to the far edge); the row highlights on hover. -->
       <table v-if="myEdges.length" class="table table-sm table-hover align-middle w-auto mb-2">
         <tbody>
           <tr v-for="edge in myEdges" :key="edge.id">
             <td class="pe-3">{{ edge.otherName }}</td>
-            <td>
+            <td class="text-nowrap">
+              <BButton
+                size="sm"
+                variant="outline-secondary"
+                class="me-1"
+                :aria-label="`Open ${edge.otherName}`"
+                :title="`Open ${edge.otherName}`"
+                @click="openRelationship(edge)"
+              >
+                <AppIcon :icon="ArrowRightIcon" /> Open
+              </BButton>
               <BButton
                 size="sm"
                 variant="outline-danger"
@@ -636,8 +674,5 @@ async function remove(): Promise<void> {
         <BButton variant="outline-secondary" size="sm" @click="addRelationship">Add</BButton>
       </div>
     </BFormGroup>
-
-    <BButton size="sm" variant="primary" :disabled="!decrypted || !isDirty || !urlFieldsValid" @click="save">Save</BButton>
-    <BButton v-if="isDirty" size="sm" variant="outline-secondary" class="ms-2" @click="populateEditForm">Discard changes</BButton>
   </BCard>
 </template>
