@@ -73,14 +73,15 @@ watch([rows, () => props.ready], syncChoices);
 
 const visible = computed(() => (showAll.value ? rows.value : rows.value.slice(0, PAGE)));
 
-/** The per-friend action list: new / suggested / every other connection / dismiss. */
+/** The per-friend action list: new / dismiss / suggested / every other connection. */
 function choiceOptions(row: { suggested: { id: string }[] }): SelectOption[] {
   const suggested = new Set(row.suggested.map((s) => s.id));
   return [
+    // The meta-options come first, so they are never a long scroll away.
     { value: 'new', text: 'Create a new connection' },
+    { value: 'skip', text: "Dismiss (don't ask again)" },
     ...allOptions.value.filter((o) => suggested.has(o.id)).map((o) => ({ value: o.id, text: `Add to ${o.label}`, group: 'Suggested' })),
     ...allOptions.value.filter((o) => !suggested.has(o.id)).map((o) => ({ value: o.id, text: o.label, group: 'Add to another connection' })),
-    { value: 'skip', text: "Dismiss (don't ask again)" },
   ];
 }
 
@@ -147,7 +148,10 @@ function alsoKnownAs(friend: PendingDiscordFriend): string {
             <div v-else class="rounded bg-body-secondary flex-shrink-0" style="width: 40px; height: 40px;" aria-hidden="true" />
 
             <div class="flex-grow-1 small">
-              <div class="fw-semibold">{{ discordFriendName(row.friend) }}</div>
+              <div class="fw-semibold">
+                {{ discordFriendName(row.friend) }}
+                <BBadge v-if="row.friend.blocked" variant="danger" class="ms-1" title="You have blocked this person on Discord">Blocked</BBadge>
+              </div>
               <div v-if="alsoKnownAs(row.friend)" class="text-muted">{{ alsoKnownAs(row.friend) }}</div>
               <div class="text-muted font-monospace">{{ row.friend.discord_user_id }}</div>
               <div v-if="row.suggested.length === 1" class="text-success">

@@ -87,7 +87,7 @@ class DiscordIntegrationTest extends TestCase
             'user' => ['id' => $id, 'username' => 'user'.substr($id, -2), 'global_name' => 'Friend '.substr($id, -2), 'avatar' => 'abc'],
         ], $ids);
 
-        // Blocked users (2) are remembered as 'blocked'; incoming/outgoing requests (3, 4) are never imported.
+        // Blocked users (2) are offered like friends, flagged as blocked; incoming/outgoing requests (3, 4) are never imported.
         if ($withBlocked) {
             $rows[] = ['id' => '9', 'type' => 2, 'user' => ['id' => '100000000000000099', 'username' => 'blocked', 'global_name' => null, 'avatar' => null]];
         }
@@ -117,14 +117,43 @@ class DiscordIntegrationTest extends TestCase
         Http::assertSent(fn (Request $r) => $r->hasHeader('Authorization', 'Bearer '.self::ACCESS));
     }
 
-    public function test_only_friends_and_blocked_users_are_imported_and_blocked_are_never_pending(): void
+    public function test_only_friends_and_blocked_users_are_imported_and_blocked_are_offered_flagged(): void
     {
         $user = $this->owner();
         $this->fakeFriends([self::OLD], withBlocked: true);
 
         app(DiscordSyncService::class)->sync($user);
 
-        $this->assertSame([self::OLD => 'pending', '100000000000000099' => 'blocked'], $this->statuses($user));
+        $this->assertSame([self::OLD => 'pending', '100000000000000099' => 'pending'], $this->statuses($user));
+
+        $friends = $this->actingAs($user)->getJson(route('dashboard.discord.friends'))->assertOk()->json('friends');
+        $this->assertEquals(['100000000000000099' => true, self::OLD => false], collect($friends)->pluck('blocked', 'discord_user_id')->sortKeys()->all());
+    }
+
+    public function test_a_blocked_user_with_a_connection_is_not_offered(): void
+    {
+        $user = $this->owner();
+        $this->connectionWith($user, '100000000000000099');
+        $this->fakeFriends([self::OLD], withBlocked: true);
+
+        app(DiscordSyncService::class)->sync($user);
+
+        $this->assertSame('created', $this->statuses($user)['100000000000000099']);
+        $ids = collect($this->actingAs($user)->getJson('/dashboard/discord/friends')->json('friends'))->pluck('discord_user_id')->all();
+        $this->assertSame([self::OLD], $ids);
+    }
+
+    public function test_a_dismissed_blocked_user_stays_dismissed_across_syncs(): void
+    {
+        $user = $this->owner();
+        $this->fakeFriends([self::OLD], withBlocked: true);
+        app(DiscordSyncService::class)->sync($user);
+        DiscordFriend::where('user_id', $user->id)->where('discord_user_id_hash', DiscordUserId::hash('100000000000000099'))->update(['status' => 'dismissed']);
+
+        $this->fakeFriends([self::OLD], withBlocked: true);
+        app(DiscordSyncService::class)->sync($user);
+
+        $this->assertSame('dismissed', $this->statuses($user)['100000000000000099']);
     }
 
     public function test_an_unblocked_user_drops_to_a_lookup_row_and_nothing_is_deleted(): void
@@ -138,6 +167,7 @@ class DiscordIntegrationTest extends TestCase
         app(DiscordSyncService::class)->sync($user);
 
         $this->assertSame('lookup', $this->statuses($user)['100000000000000099']);
+        $this->assertFalse(DiscordFriend::where('user_id', $user->id)->get()->firstWhere('discord_user_id', '100000000000000099')->is_blocked);
     }
 
     public function test_a_discord_id_learned_through_vrcx_counts_as_linked(): void

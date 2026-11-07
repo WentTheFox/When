@@ -68,6 +68,13 @@ describe('PendingDiscordFriendsPanel', () => {
     expect(html).toContain('100000000000000004');
   });
 
+  it('flags a friend you have blocked on Discord, and only that one', async () => {
+    const html = await render([friend('1', { username: 'blockedone', blocked: true }), friend('2', { username: 'plainone' })], []);
+    expect(html.match(/>Blocked</g)).toHaveLength(1);
+    expect(html.indexOf('>Blocked<')).toBeGreaterThan(html.indexOf('blockedone'));
+    expect(html.indexOf('>Blocked<')).toBeLessThan(html.indexOf('plainone'));
+  });
+
   it('waits for the vault before matching or offering any action', async () => {
     const html = await render([friend('5')], [], { ready: false });
     expect(html).toContain('Unlock your vault');

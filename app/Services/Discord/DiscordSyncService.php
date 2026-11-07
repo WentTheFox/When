@@ -141,6 +141,7 @@ class DiscordSyncService
                     'nickname' => $friend['nickname'],
                     'avatar_url' => $friend['avatarUrl'],
                     'status' => $isLinked ? DiscordFriend::CREATED : DiscordFriend::PENDING,
+                    'is_blocked' => false,
                 ]);
 
                 continue;
@@ -159,10 +160,8 @@ class DiscordSyncService
                 $row->status = DiscordFriend::CREATED;
             }
 
-            // Blocked earlier and now a friend again: back into the friend flow.
-            if ($row->status === DiscordFriend::BLOCKED) {
-                $row->status = $isLinked ? DiscordFriend::CREATED : DiscordFriend::PENDING;
-            }
+            // A friend is not blocked (blocked earlier and now a friend again).
+            $row->is_blocked = false;
 
             // Looked up by id earlier and now a friend: they take part in the friend flow like any other.
             if ($row->status === DiscordFriend::LOOKUP) {
@@ -174,13 +173,16 @@ class DiscordSyncService
     }
 
     /**
-     * Remembers who the owner has blocked, so they are never offered as new friends. Someone who was
-     * blocked but no longer is (and isn't a friend either) drops to a plain lookup row: nothing is deleted.
+     * Remembers who the owner has blocked. They are offered like friends (flagged as blocked), so the owner can
+     * still add them as a connection. A blocked row keeps its status (created / dismissed stay as they are).
+     * Someone no longer blocked (and not a friend either) loses the flag; if still waiting, they drop to a plain
+     * lookup row: nothing is deleted.
      *
      * @param  array<string, array{username: ?string, globalName: ?string, nickname: ?string, avatarUrl: ?string}>  $blocked
      */
     private function storeBlocked(User $user, array $blocked): void
     {
+        $linked = array_flip($this->linkedIds($user));
         $known = DiscordFriend::where('user_id', $user->id)->get()->keyBy('discord_user_id_hash');
         $seen = [];
 
@@ -188,6 +190,7 @@ class DiscordSyncService
             $hash = DiscordUserId::hash((string) $id);
             $seen[$hash] = true;
             $row = $known->get($hash);
+            $isLinked = isset($linked[$id]);
 
             if ($row === null) {
                 DiscordFriend::create([
@@ -198,7 +201,8 @@ class DiscordSyncService
                     'global_name' => $person['globalName'],
                     'nickname' => $person['nickname'],
                     'avatar_url' => $person['avatarUrl'],
-                    'status' => DiscordFriend::BLOCKED,
+                    'status' => $isLinked ? DiscordFriend::CREATED : DiscordFriend::PENDING,
+                    'is_blocked' => true,
                 ]);
 
                 continue;
@@ -209,13 +213,30 @@ class DiscordSyncService
                 'global_name' => $person['globalName'] ?? $row->global_name,
                 'nickname' => $person['nickname'],
                 'avatar_url' => $person['avatarUrl'] ?? $row->avatar_url,
-                'status' => DiscordFriend::BLOCKED,
-            ])->save();
+                'is_blocked' => true,
+            ]);
+
+            if ($row->status === DiscordFriend::PENDING && $isLinked) {
+                $row->status = DiscordFriend::CREATED;
+            }
+
+            // Looked up by id earlier, now blocked: they take part in the flow like anyone else.
+            if ($row->status === DiscordFriend::LOOKUP) {
+                $row->status = $isLinked ? DiscordFriend::CREATED : DiscordFriend::PENDING;
+            }
+
+            $row->save();
         }
 
         foreach ($known as $hash => $row) {
-            if ($row->status === DiscordFriend::BLOCKED && ! isset($seen[$hash])) {
-                $row->update(['status' => DiscordFriend::LOOKUP]);
+            if ($row->is_blocked && ! isset($seen[$hash])) {
+                $row->is_blocked = false;
+
+                if ($row->status === DiscordFriend::PENDING) {
+                    $row->status = DiscordFriend::LOOKUP;
+                }
+
+                $row->save();
             }
         }
     }

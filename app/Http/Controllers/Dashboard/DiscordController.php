@@ -131,6 +131,7 @@ class DiscordController extends Controller
                 'global_name' => $f->global_name,
                 'nickname' => $f->nickname,
                 'picture_url' => $f->avatar_url,
+                'blocked' => $f->is_blocked,
             ])->values();
 
         return response()->json(['friends' => $friends]);
