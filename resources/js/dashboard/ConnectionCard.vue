@@ -29,6 +29,7 @@ import { requestConfirm } from './confirmModal';
 import { bindField } from './fieldBinding';
 import { onVaultUnlocked } from './onVaultUnlocked';
 import { removalPrompt } from './relationships';
+import { ATTRIBUTE_TYPE_ICONS } from './attributeTypeIcons';
 import { VaultLockedError } from './vault';
 import { useVault } from './useVault';
 
@@ -144,6 +145,34 @@ const knowableConnections = computed(() => {
 });
 
 const newRelationTargetId = ref('');
+
+/** Custom fields the owner asked to fill in on this card although they have no value yet (it remounts per connection, so this starts empty). */
+const addedFieldIds = ref<string[]>([]);
+const newFieldId = ref('');
+
+/** A custom field shows once it has a value (saved or being typed); the rest wait behind the "add a field" picker. */
+function hasValue(id: string): boolean {
+  // Judged from the stored row, not the decrypted text, so a filled field is there from the first paint.
+  const stored = props.connection.attribute_values.some(
+    (v) => v.attribute_definition_id === id
+      && (v.value_ciphertext || v.boolean_value != null || v.identifier_list_value?.length || v.identifier_value),
+  );
+  return stored || (editAttributeValues.value[id] ?? '') !== '';
+}
+const shownDefinitions = computed(() =>
+  props.attributeDefinitions.filter((d) => addedFieldIds.value.includes(d.id) || hasValue(d.id)),
+);
+const addableFieldOptions = computed(() =>
+  props.attributeDefinitions
+    .filter((d) => !shownDefinitions.value.some((shown) => shown.id === d.id))
+    .map((d) => ({ value: d.id, text: d.label, icon: ATTRIBUTE_TYPE_ICONS[d.type] })),
+);
+
+function addField(): void {
+  if (!newFieldId.value) return;
+  addedFieldIds.value.push(newFieldId.value);
+  newFieldId.value = '';
+}
 
 /** Linked accounts with a name, as the free page can show them (keys match ShareLinkIdentity). */
 const identityOptions = computed<IdentityOption[]>(() => [
@@ -494,7 +523,7 @@ async function remove(): Promise<void> {
     <div v-if="attributeDefinitions.length" class="border-top pt-3 mt-4 mb-3">
       <h4 class="h6 text-uppercase text-body-secondary mb-0">Custom fields</h4>
     </div>
-    <BFormGroup v-for="definition in attributeDefinitions" :key="definition.id" :label="definition.label" class="mb-3">
+    <BFormGroup v-for="definition in shownDefinitions" :key="definition.id" :label="definition.label" class="mb-3">
       <EncryptedInput
         v-if="definition.type === 'textarea'"
         v-model="editAttributeValues[definition.id]"
@@ -628,6 +657,16 @@ async function remove(): Promise<void> {
         size="sm"
       />
     </BFormGroup>
+    <div v-if="addableFieldOptions.length" class="input-group input-group-sm mb-3">
+      <SearchableSelect
+        v-model="newFieldId"
+        class="flex-grow-1"
+        placeholder="Add a custom field…"
+        aria-label="Custom field to add"
+        :options="addableFieldOptions"
+      />
+      <BButton variant="outline-secondary" size="sm" :disabled="!newFieldId" @click="addField">Add field</BButton>
+    </div>
 
     <BButton size="sm" variant="primary" :disabled="!decrypted || !isDirty || !urlFieldsValid" @click="save">Save</BButton>
     <BButton v-if="isDirty" size="sm" variant="outline-secondary" class="ms-2" @click="populateEditForm">Discard changes</BButton>
