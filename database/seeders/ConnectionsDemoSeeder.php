@@ -8,10 +8,12 @@ use App\Models\ConnectionAttributeValue;
 use App\Models\ConnectionEdge;
 use App\Models\ConnectionSource;
 use App\Models\ConnectionSourceCategory;
+use App\Models\ConnectionVrchatStay;
 use App\Models\ShareLink;
 use App\Models\User;
 use App\Services\Crypto\AesGcm;
 use App\Support\DevMockVrchat;
+use App\Support\VrchatUserId;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Crypt;
@@ -410,6 +412,26 @@ class ConnectionsDemoSeeder extends Seeder
                 'attribute_definition_id' => $d['vrchat_id']->id,
                 'identifier_list_value' => $ids,
             ]);
+
+            // Time together in VRChat (what a VRCX sync would store), so the dashboard's "Time spent" has data without a sync.
+            foreach ($ids as $vrchatId) {
+                $n = DevMockVrchat::numberOf($vrchatId);
+
+                foreach ($n === null ? [] : DevMockVrchat::intervals($n, 90) as $row) {
+                    ConnectionVrchatStay::create([
+                        'connection_id' => $connection->id,
+                        'vrchat_user_id_hash' => VrchatUserId::hash($vrchatId),
+                        'dedupe_hash' => VrchatUserId::hash($vrchatId.'|'.$row['start']),
+                        'payload' => [
+                            'vrchat_user_id' => $vrchatId,
+                            'start' => $row['start'],
+                            'end' => $row['end'],
+                            'duration_ms' => $row['durationMs'],
+                            'other_player_count' => $row['otherPlayerCount'],
+                        ],
+                    ]);
+                }
+            }
 
             // Some already know the Discord ID VRCX will report; the rest are filled in by the first sync.
             if (in_array($i, [2, 8], true)) {

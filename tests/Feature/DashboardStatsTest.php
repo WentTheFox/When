@@ -102,7 +102,7 @@ class DashboardStatsTest extends TestCase
 
         $response->assertOk();
         $rows = $response->json('rows');
-        $this->assertSame(['Today', 'This week', 'Past 30 days'], array_column($rows, 'title'));
+        $this->assertSame(['Today', 'This week', 'Past 30 days', 'Past 90 days'], array_column($rows, 'title'));
 
         $today = $rows[0];
         $this->assertFalse($today['notAvail']);

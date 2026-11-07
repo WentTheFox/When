@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Time-breakdown (sleep/busy/free for Today, This week, Past 30 days)
+ * Time-breakdown (sleep/busy/free for Today, This week, Past 30/90 days)
  * + top-time-spent leaderboard — a close port of the source app's own
  * dashboard widgets (its own dashboard.ts's avail-stats/highlight-list
  * handling), fed by DashboardController::statsAvailability(). Both
@@ -71,6 +71,7 @@ interface HighlightSlot {
   activity: string | null;
   activity_label: LocalizedText | null;
   highlight_words: string[];
+  source?: 'vrchat';
 }
 
 interface HighlightEntry {
@@ -170,7 +171,7 @@ onMounted(async () => {
 
 <template>
   <div v-if="loading">
-    <div v-for="title in ['Today', 'This week', 'Past 30 days']" :key="title" class="mb-3">
+    <div v-for="title in ['Today', 'This week', 'Past 30 days', 'Past 90 days']" :key="title" class="mb-3">
       <div class="d-flex justify-content-between small mb-1">
         <span class="fw-semibold">{{ title }}</span>
         <span class="placeholder-glow"><span class="placeholder" style="width:8rem"></span></span>
@@ -205,7 +206,7 @@ onMounted(async () => {
     </div>
 
     <template v-if="highlights.length > 0">
-      <div class="small fw-semibold mb-1 mt-3">Top highlights (past 30 days)</div>
+      <div class="small fw-semibold mb-1 mt-3">Time spent (past 90 days)</div>
       <p v-if="!vaultUnlocked" class="small mb-0">
         <a href="#" @click.prevent="requestUnlock()">Unlock your vault</a> to see names.
       </p>
@@ -228,7 +229,7 @@ onMounted(async () => {
     </template>
 
     <template v-if="highlightsNoTime.length > 0">
-      <div class="small fw-semibold mb-1 mt-3">No time yet (past 30 days)</div>
+      <div class="small fw-semibold mb-1 mt-3">No time yet (past 90 days)</div>
       <p v-if="!vaultUnlocked" class="small mb-0">
         <a href="#" @click.prevent="requestUnlock()">Unlock your vault</a> to see names.
       </p>
@@ -260,7 +261,7 @@ onMounted(async () => {
               {{ fmtSlotTime(slot.end) }}{{ slot.tentative_end ? '?' : '' }}
             </td>
             <td class="small">
-              {{ resolveLocalizedText(slot.activity_label, currentLocale) ?? slot.activity ?? slot.highlight_words.join(', ') }}
+              {{ slot.source === 'vrchat' ? 'Together in VRChat' : (resolveLocalizedText(slot.activity_label, currentLocale) ?? slot.activity ?? slot.highlight_words.join(', ')) }}
               <span v-if="slot.tentative_start || slot.tentative_end" class="badge bg-secondary ms-1">Tentative</span>
             </td>
           </tr>
