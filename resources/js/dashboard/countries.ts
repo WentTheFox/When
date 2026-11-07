@@ -33,3 +33,78 @@ export function countryOptions(locale?: string): CountryOption[] {
 
   return [{ value: '', text: '(unset)' }, ...options];
 }
+
+/**
+ * Common alternative names and abbreviations, matched in every country search (the country selector and the
+ * icon picker's flags) on top of the localized name and the code. English only: they are search hints, never shown.
+ */
+export const COUNTRY_ALIASES: Readonly<Record<string, readonly string[]>> = {
+  GB: ['uk', 'u.k.', 'britain', 'great britain', 'england', 'scotland', 'wales', 'northern ireland', 'united kingdom of great britain'],
+  US: ['usa', 'u.s.', 'u.s.a.', 'america', 'united states of america', 'the states'],
+  AE: ['uae', 'emirates'],
+  CZ: ['czech republic'],
+  NL: ['holland'],
+  DE: ['deutschland'],
+  CH: ['switzerland', 'schweiz', 'suisse'],
+  KR: ['south korea', 'korea'],
+  KP: ['north korea', 'korea'],
+  RU: ['russian federation'],
+  CD: ['drc', 'congo-kinshasa', 'democratic republic of the congo'],
+  CG: ['congo-brazzaville', 'republic of the congo'],
+  CI: ['ivory coast'],
+  MM: ['burma'],
+  SZ: ['swaziland'],
+  TR: ['turkey', 'turkiye'],
+  VA: ['vatican', 'holy see'],
+  MK: ['macedonia'],
+  CV: ['cape verde'],
+  TL: ['east timor'],
+  HK: ['hong kong'],
+  MO: ['macau'],
+  PS: ['palestine'],
+  TW: ['taiwan', 'roc'],
+  IE: ['eire'],
+  FM: ['micronesia'],
+  BA: ['bosnia'],
+  TT: ['trinidad', 'tobago'],
+  AG: ['antigua', 'barbuda'],
+  KN: ['st kitts', 'nevis'],
+  VC: ['st vincent', 'grenadines'],
+  ST: ['sao tome'],
+};
+
+/** Every term a country is searchable by beyond its displayed name: its code and the aliases above, lowercased. */
+export function countryKeywords(code: string): string[] {
+  return [code.toLowerCase(), ...(COUNTRY_ALIASES[code.toUpperCase()] ?? [])];
+}
+
+/**
+ * How well a search query matches: 0 = exactly the name or a keyword (so "uk" puts the United Kingdom above
+ * Ukraine), 1 = the start of the name, a word of it, or a keyword, 2 = anywhere inside one of them, null = no match.
+ */
+export function searchRank(query: string, texts: readonly string[], keywords: readonly string[] = []): number | null {
+  const q = query.trim().toLowerCase();
+  if (q === '') return 0;
+
+  const all = [...texts, ...keywords].map((t) => t.toLowerCase());
+  if (all.some((t) => t === q)) return 0;
+  if (all.some((t) => t.startsWith(q) || t.split(/[\s\-/]+/).some((word) => word.startsWith(q)))) return 1;
+  if (all.some((t) => t.includes(q))) return 2;
+
+  return null;
+}
+
+/** A rule icon that is a country flag instead of a palette icon is stored as `flag:xx` (lowercase alpha-2). */
+export const FLAG_ICON_PREFIX = 'flag:';
+
+export function flagIconKey(code: string): string {
+  return FLAG_ICON_PREFIX + code.toLowerCase();
+}
+
+/** The country code behind a `flag:xx` icon key, or null when the key is not a (known) flag. */
+export function flagIconCode(key: string | null | undefined): string | null {
+  if (!key || !key.startsWith(FLAG_ICON_PREFIX)) return null;
+  const code = key.slice(FLAG_ICON_PREFIX.length).toUpperCase();
+
+  return COUNTRY_CODES.includes(code) ? code : null;
+}

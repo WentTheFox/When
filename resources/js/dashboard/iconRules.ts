@@ -24,6 +24,8 @@ export type RuleCondition =
   | { op: 'isTrue' }
   | { op: 'isFalse' }
   | { op: 'choiceIn'; choices: string[] }
+  /** A country field whose value (an ISO 3166-1 alpha-2 code) equals any of these codes. */
+  | { op: 'countryIn'; countries: string[] }
   /** Matched case-insensitively with the unicode flag ('iu'), exactly as the pattern preview and every other pattern in the app does. `preview` is the owner's persisted example lines for the visual editor's live preview; it lives inside the encrypted blob and plays no part in matching. */
   | { op: 'regex'; pattern: string; preview?: string | null }
   | { op: 'range'; min?: number; max?: number }
@@ -34,7 +36,7 @@ export type RuleOp = RuleCondition['op'];
 
 export interface IconRule {
   id: string;
-  /** An IconKey (app/Support/IconKey.php). */
+  /** An IconKey (app/Support/IconKey.php), or `flag:xx` (a country flag, see countries.ts flagIconKey). Both live only inside the encrypted blob. */
   icon: string;
   /** A ColorPalette key (app/Support/ColorPalette.php), never a raw hex. null = the default row-icon colour. */
   color: string | null;
@@ -68,6 +70,7 @@ const TEXT_TYPES = ['text', 'textarea', 'url', 'email', 'phone'];
 export function allowedOps(type: string): RuleOp[] {
   if (type === 'boolean') return ['isTrue', 'isFalse', 'nonEmpty', 'empty'];
   if (type === 'radio') return ['choiceIn', 'nonEmpty', 'empty'];
+  if (type === 'country') return ['countryIn', 'nonEmpty', 'empty'];
   if (type === 'number') return ['range', 'nonEmpty', 'empty'];
   if (type === 'identifier_list' || type === 'list' || type === 'link_list') return ['nonEmpty', 'empty', 'count', 'regex'];
   // A relationship field holds connection ids, which mean nothing to a pattern, so only how many it has matters (count 0 = none).
@@ -172,6 +175,8 @@ export function conditionMatches(condition: RuleCondition, type: string, value: 
       return trimmed === 'false';
     case 'choiceIn':
       return trimmed !== '' && Array.isArray(condition.choices) && condition.choices.includes(value);
+    case 'countryIn':
+      return trimmed !== '' && Array.isArray(condition.countries) && condition.countries.some((code) => code.toUpperCase() === trimmed.toUpperCase());
     case 'range': {
       if (trimmed === '') return false;
       const number = Number(trimmed);

@@ -46,6 +46,18 @@ describe('IconRulesEditor', () => {
     expect(await render({ type: 'identifier', choices: [], pending: false })).not.toContain('has this many entries');
   });
 
+  it('offers a country condition for a country field, with a flag icon rule', async () => {
+    const parsed: ParsedRuleSet = {
+      kind: 'ok',
+      set: { version: 1, stopAfterFirst: false, rules: [{ id: 'r1', icon: 'flag:gb', color: null, condition: { op: 'countryIn', countries: ['GB'] } }] },
+    };
+
+    const html = await render({ type: 'country', choices: [], parsed, pending: false });
+    expect(html).toContain('is one of these countries');
+    expect(html).toContain('fi-gb');
+    expect(await render({ type: 'text', choices: [], pending: false })).not.toContain('is one of these countries');
+  });
+
   it('says so, and offers no editing, for rules saved by a newer version', async () => {
     const html = await render({ type: 'text', choices: [], parsed: { kind: 'newer', version: 99 }, pending: false });
 

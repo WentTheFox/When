@@ -2343,3 +2343,10 @@ hr {
         animation: wtf-icon-spin 3s steps(8, end) infinite;
     }
 }
+
+/* A country flag used as a rule icon (RuleIcon.vue): keeps flag-icons' 4:3 box, sized like a glyph. */
+.wtf-rule-flag {
+    font-size: 1em;
+    line-height: 1;
+    vertical-align: -0.1em;
+}

@@ -178,3 +178,16 @@ describe('parseIconRules / serializeIconRules', () => {
     expect(JSON.parse(serializeIconRules(stale)).version).toBe(ICON_RULES_VERSION);
   });
 });
+
+describe('countryIn', () => {
+  it('matches a country value against any listed code, case-insensitively, for country fields only', () => {
+    const condition: RuleCondition = { op: 'countryIn', countries: ['DE', 'gb'] };
+
+    expect(conditionMatches(condition, 'country', 'DE')).toBe(true);
+    expect(conditionMatches(condition, 'country', 'GB')).toBe(true);
+    expect(conditionMatches(condition, 'country', 'US')).toBe(false);
+    expect(conditionMatches(condition, 'country', '')).toBe(false);
+    expect(conditionMatches(condition, 'text', 'DE')).toBe(false);
+    expect(allowedOps('country')).toContain('countryIn');
+  });
+});

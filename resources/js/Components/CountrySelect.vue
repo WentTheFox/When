@@ -4,14 +4,14 @@
  * `v-model` is the ISO alpha-2 code, '' for "(unset)".
  */
 import { computed } from 'vue';
-import { countryOptions } from '../dashboard/countries';
+import { countryKeywords, countryOptions } from '../dashboard/countries';
 import SearchableSelect from './SearchableSelect.vue';
 
 const props = defineProps<{ locale?: string; disabled?: boolean }>();
 
 const model = defineModel<string>({ default: '' });
 
-const options = computed(() => countryOptions(props.locale).map((o) => ({ ...o, flag: o.value || undefined })));
+const options = computed(() => countryOptions(props.locale).map((o) => ({ ...o, flag: o.value || undefined, keywords: o.value ? countryKeywords(o.value) : undefined })));
 </script>
 
 <template>

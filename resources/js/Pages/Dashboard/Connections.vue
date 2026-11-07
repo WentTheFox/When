@@ -53,6 +53,8 @@ import { requestUnlock } from '../../dashboard/vaultModal';
 import { useRuleIcons } from '../../dashboard/useRuleIcons';
 import { useVault } from '../../dashboard/useVault';
 import { swatchByKey } from '../../free/color-palette';
+import RuleIcon from '../../Components/RuleIcon.vue';
+import { flagIconCode } from '../../dashboard/countries';
 import { paletteIconFor } from '../../free/icon-palette';
 import { type IconRuleSet, serializeIconRules, type ResolvedIcon } from '../../dashboard/iconRules';
 import DashboardLayout from '../../Layouts/DashboardLayout.vue';
@@ -111,6 +113,11 @@ const definitionItems = ref<DefinitionItem[]>(props.attributeDefinitions.map((d)
 /** The rule-driven icons (per-field icon rules, see iconRules.ts) shown after the fixed marks in each row. */
 const { ruleIcons, ruleSets } = useRuleIcons(connections, definitionItems, vaultUnlocked, getRecordKey);
 const resolvedTheme = useResolvedTheme();
+
+/** Whether a rule icon key is a palette icon or a country flag this client can draw. */
+function ruleIconKnown(key: string): boolean {
+  return flagIconCode(key) !== null || paletteIconFor(key) !== undefined;
+}
 
 /** A rule icon's palette colour for the current theme; undefined (inherit) when it has none or the row is selected, where the inherited white stays readable. */
 function ruleIconColor(icon: ResolvedIcon, selected: boolean): string | undefined {
@@ -1781,13 +1788,13 @@ async function migrateDefinition(id: string, to: string, options: MigrateOptions
                   <!-- Icons from the per-field icon rules (Fields tab). Evaluated in the browser against decrypted values. -->
                   <template v-for="icon in ruleIcons[connection.id] ?? []" :key="icon.ruleId">
                     <span
-                      v-if="paletteIconFor(icon.icon)"
+                      v-if="ruleIconKnown(icon.icon)"
                       class="ms-1 connection-rule-icon"
                       :class="selectedConnectionId === connection.id || icon.color ? '' : 'text-secondary'"
                       :style="{ color: ruleIconColor(icon, selectedConnectionId === connection.id) }"
                       :title="icon.label ?? undefined"
                     >
-                      <AppIcon :icon="paletteIconFor(icon.icon)!" />
+                      <RuleIcon :icon-key="icon.icon" />
                       <span v-if="icon.label" class="visually-hidden">{{ icon.label }}</span>
                     </span>
                   </template>

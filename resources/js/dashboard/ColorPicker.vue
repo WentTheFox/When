@@ -46,6 +46,8 @@ const props = withDefaults(defineProps<{
   preview?: 'wash' | 'solid';
   /** Which calendar block type to preview the wash/label-tint as — required (and only meaningful) when preview="wash". */
   previewSlot?: ColorSlot;
+  /** Greys the toggle out so nothing can be picked. */
+  disabled?: boolean;
 }>(), {
   options: undefined,
   preview: 'wash',
@@ -105,6 +107,7 @@ function chipStyle(hex: string, theme: 'light' | 'dark'): Record<string, string>
     toggle-class="wtf-color-picker-toggle"
     menu-class="wtf-color-picker-menu"
     :aria-label="props.label"
+    :disabled="props.disabled"
   >
     <template #button-content>
       <span

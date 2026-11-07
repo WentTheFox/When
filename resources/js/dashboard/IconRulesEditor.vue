@@ -6,8 +6,10 @@
  */
 import { BAlert, BButton, BFormCheckbox, BFormInput, BFormSelect } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
+import { countryKeywords, countryOptions, flagIconCode } from './countries';
 import ColorPicker from './ColorPicker.vue';
 import IconPicker from './IconPicker.vue';
+import SearchableSelect from '../Components/SearchableSelect.vue';
 import PatternPreview from './PatternPreview.vue';
 import RegexPatternInput from './RegexPatternInput.vue';
 import {
@@ -38,6 +40,7 @@ const OP_LABELS: Record<RuleOp, string> = {
   isTrue: 'is Yes',
   isFalse: 'is No',
   choiceIn: 'is one of',
+  countryIn: 'is one of these countries',
   regex: 'matches pattern',
   range: 'is within range',
   count: 'has this many entries',
@@ -49,6 +52,12 @@ const PREVIEW_CONFIG: PatternPreviewConfig = {
   examples: ['https://example.com/profile', 'plain text value', 'Another Value'],
   placeholder: 'Type example values to test the pattern, one per line',
 };
+
+const pageLocale = typeof document === 'undefined' ? undefined : document.documentElement.lang || undefined;
+/** Every country (no "(unset)" entry) with the aliases that make "uk" or "usa" findable. */
+const countryChoices = countryOptions(pageLocale)
+  .filter((o) => o.value !== '')
+  .map((o) => ({ ...o, flag: o.value, keywords: countryKeywords(o.value) }));
 
 const ops = computed(() => allowedOps(props.type).map((op) => ({ value: op, text: OP_LABELS[op] })));
 
@@ -73,6 +82,8 @@ function conditionFor(op: RuleOp): RuleCondition {
   switch (op) {
     case 'choiceIn':
       return { op, choices: [] };
+    case 'countryIn':
+      return { op, countries: [] };
     case 'regex':
       return { op, pattern: '' };
     default:
@@ -83,6 +94,12 @@ function conditionFor(op: RuleOp): RuleCondition {
 function addRule(): void {
   if (draft.value.rules.length >= MAX_RULES_PER_FIELD) return;
   draft.value.rules.push({ id: crypto.randomUUID(), icon: 'star', color: null, condition: conditionFor(allowedOps(props.type)[0]) });
+}
+
+/** A flag has its own colours, so picking one clears the rule's colour (and the colour picker is disabled while one is chosen). */
+function setIcon(rule: IconRule, icon: string | null): void {
+  rule.icon = icon ?? rule.icon;
+  if (flagIconCode(rule.icon) !== null) rule.color = null;
 }
 
 function removeRule(index: number): void {
@@ -128,6 +145,7 @@ function problemWith(rule: IconRule): string | null {
   const condition = rule.condition;
   if (!rule.icon) return 'Choose an icon.';
   if (condition.op === 'choiceIn' && condition.choices.length === 0) return 'Tick at least one choice.';
+  if (condition.op === 'countryIn' && condition.countries.length === 0) return 'Pick at least one country.';
   if (condition.op === 'regex') {
     if (condition.pattern === '') return 'Enter a pattern.';
     if (patternInvalid(rule)) return 'This pattern is not valid (or is over 200 characters).';
@@ -237,6 +255,17 @@ function discard(): void {
           />
         </div>
 
+        <div v-if="rule.condition.op === 'countryIn'" class="mb-2">
+          <SearchableSelect
+            :model-value="rule.condition.countries"
+            multiple
+            :options="countryChoices"
+            placeholder="Pick countries…"
+            :aria-label="`Countries for rule ${index + 1}`"
+            @update:model-value="rule.condition.op === 'countryIn' && (rule.condition.countries = $event as string[])"
+          />
+        </div>
+
         <div v-if="rule.condition.op === 'choiceIn'" class="mb-2">
           <p v-if="choices.length === 0" class="small text-muted fst-italic mb-0">This field has no choices yet.</p>
           <label v-for="choice in choices" :key="choice" class="d-inline-flex align-items-center gap-1 me-3 small">
@@ -255,10 +284,17 @@ function discard(): void {
           <IconPicker
             :model-value="rule.icon"
             :label="`Icon for rule ${index + 1}`"
+            with-flags
             :active-color="undefined"
-            @update:model-value="rule.icon = $event ?? rule.icon"
+            @update:model-value="setIcon(rule, $event)"
           />
-          <ColorPicker v-model="rule.color" :label="`Colour for rule ${index + 1}`" preview="solid" />
+          <ColorPicker
+            v-model="rule.color"
+            :label="`Colour for rule ${index + 1}`"
+            preview="solid"
+            :disabled="flagIconCode(rule.icon) !== null"
+            :title="flagIconCode(rule.icon) !== null ? 'Flags cannot be coloured' : undefined"
+          />
           <BFormInput
             :model-value="rule.label ?? ''"
             size="sm"

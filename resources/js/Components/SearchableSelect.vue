@@ -11,6 +11,7 @@
 import 'flag-icons/css/flag-icons.min.css';
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue';
 import { CheckIcon, type LucideIcon } from '@lucide/vue';
+import { searchRank } from '../dashboard/countries';
 import AppIcon from './AppIcon.vue';
 import SwatchDot from './SwatchDot.vue';
 
@@ -23,6 +24,8 @@ export interface SelectOption {
   swatch?: string | null;
   /** A Lucide icon drawn before the text. */
   icon?: LucideIcon;
+  /** Extra search terms (aliases such as "uk" for the United Kingdom); never displayed. */
+  keywords?: string[];
   group?: string;
   disabled?: boolean;
 }
@@ -52,8 +55,19 @@ const hasSwatches = computed(() => props.options.some((o) => o.swatch));
 const hasIcons = computed(() => props.options.some((o) => o.icon));
 const hasFlags = computed(() => props.options.some((o) => o.flag));
 const visible = computed(() => {
-  const q = query.value.trim().toLowerCase();
-  const matches = q ? props.options.filter((o) => o.text.toLowerCase().includes(q) || o.value.toLowerCase() === q) : props.options;
+  const q = query.value.trim();
+  let matches = props.options;
+  if (q) {
+    // Exact name/code/alias hits first ("uk" -> United Kingdom before Ukraine), then prefixes, then substrings; ties keep list order.
+    const ranked: { option: SelectOption; rank: number; index: number }[] = [];
+    props.options.forEach((option, index) => {
+      // The value only counts on an exact hit (it can be an opaque id).
+      const rank = option.value.toLowerCase() === q.toLowerCase() ? 0 : searchRank(q, [option.text], option.keywords ?? []);
+      if (rank !== null) ranked.push({ option, rank, index });
+    });
+    ranked.sort((a, b) => a.rank - b.rank || a.index - b.index);
+    matches = ranked.map((r) => r.option);
+  }
   return matches.map((o, i) => ({ ...o, heading: o.group && o.group !== matches[i - 1]?.group ? o.group : '' }));
 });
 
