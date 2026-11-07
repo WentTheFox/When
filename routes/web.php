@@ -25,6 +25,7 @@ use App\Http\Controllers\Dashboard\VaultController;
 use App\Http\Controllers\Dashboard\VrcxController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DevMockCalendarController;
+use App\Http\Controllers\DevMockVrcxController;
 use App\Http\Controllers\InviteController;
 use App\Http\Controllers\ShareLinkController;
 use App\Support\Locales;
@@ -305,4 +306,15 @@ Route::middleware('auth')->group(function () {
 // Never registered in production.
 if (! app()->isProduction()) {
     Route::get('/dev/mock-calendar.ics', [DevMockCalendarController::class, 'show'])->name('dev.mock-calendar');
+
+    // A fake VRCX headless server (ConnectionsDemoSeeder points the demo account's VRCX URL at it).
+    Route::prefix('/dev/mock-vrcx')->withoutMiddleware(['web'])->group(function () {
+        Route::get('/api/v1/openapi.json', [DevMockVrcxController::class, 'openapi']);
+        Route::post('/api/v1/users', [DevMockVrcxController::class, 'users']);
+        Route::get('/api/v1/users/{id}', [DevMockVrcxController::class, 'user']);
+        Route::get('/api/v1/time-together', [DevMockVrcxController::class, 'timeTogether']);
+        Route::post('/api/v1/time-together', [DevMockVrcxController::class, 'timeTogether']);
+        Route::get('/api/v1/friends', [DevMockVrcxController::class, 'friends']);
+        Route::get('/avatar/{n}.svg', [DevMockVrcxController::class, 'avatar'])->whereNumber('n');
+    });
 }

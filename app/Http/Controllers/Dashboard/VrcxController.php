@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\VrchatFriend;
+use App\Rules\SafeCalendarUrl;
 use App\Services\Vrcx\VrcxClient;
 use App\Services\Vrcx\VrcxException;
 use App\Services\Vrcx\VrcxSyncService;
@@ -29,7 +30,7 @@ class VrcxController extends Controller
     public function update(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'vrcx_base_url' => ['sometimes', 'nullable', 'url:http,https', 'max:500'],
+            'vrcx_base_url' => ['sometimes', 'nullable', 'url:http,https', 'max:500', new SafeCalendarUrl(anyPort: true)],
             // Blank keeps the stored key; it is replaced only by a new value.
             'vrcx_api_key' => ['sometimes', 'nullable', 'string', 'max:500'],
             'vrcx_auto_create_friends' => ['sometimes', 'boolean'],
