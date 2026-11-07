@@ -75,6 +75,11 @@ describe('PendingDiscordFriendsPanel', () => {
     expect(html.indexOf('>Blocked<')).toBeLessThan(html.indexOf('plainone'));
   });
 
+  it('offers a set-all dropdown only when there is more than one friend', async () => {
+    expect(await render([friend('1'), friend('2')], [])).toContain('Set all 2 to:');
+    expect(await render([friend('1')], [])).not.toContain('Set all');
+  });
+
   it('waits for the vault before matching or offering any action', async () => {
     const html = await render([friend('5')], [], { ready: false });
     expect(html).toContain('Unlock your vault');

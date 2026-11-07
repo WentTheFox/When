@@ -71,6 +71,26 @@ function syncChoices(): void {
 syncChoices();
 watch([rows, () => props.ready], syncChoices);
 
+// Sets the action of every pending friend at once (not just the visible page), e.g. dismiss all but the couple you pick out by hand.
+// It only changes the per-friend dropdowns; nothing is applied until you press Apply.
+const bulkChoice = ref('');
+const bulkOptions: SelectOption[] = [
+  { value: 'new', text: 'Create a new connection for all' },
+  { value: 'skip', text: "Dismiss all (don't ask again)" },
+  { value: 'suggested', text: 'Back to the suggestions' },
+];
+
+watch(bulkChoice, (value) => {
+  if (!value) return;
+
+  const next: Record<string, FriendChoice> = {};
+  for (const row of rows.value) {
+    next[row.friend.id] = value === 'suggested' ? defaultFriendChoice(row.suggested.map((s) => s.id)) : (value as FriendChoice);
+  }
+  choices.value = next;
+  bulkChoice.value = '';
+});
+
 const visible = computed(() => (showAll.value ? rows.value : rows.value.slice(0, PAGE)));
 
 /** The per-friend action list: new / dismiss / suggested / every other connection. */
@@ -132,6 +152,17 @@ function alsoKnownAs(friend: PendingDiscordFriend): string {
     <p v-if="!ready" class="small mb-0">Unlock your vault to match these friends against your connections.</p>
 
     <template v-else>
+      <div v-if="rows.length > 1" class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <span class="small text-muted">Set all {{ rows.length }} to:</span>
+        <SearchableSelect
+          v-model="bulkChoice"
+          style="width: 18rem; max-width: 100%;"
+          :options="bulkOptions"
+          placeholder="Choose an action for everyone…"
+          :aria-label="`Set the action for all ${rows.length} pending friends`"
+        />
+        <span class="small text-muted">then change the few you do want, and press Apply all.</span>
+      </div>
       <div class="list-group" style="max-height: 28rem; overflow-y: auto;">
         <div v-for="row in visible" :key="row.friend.id" class="list-group-item">
           <div class="d-flex align-items-center gap-3">
