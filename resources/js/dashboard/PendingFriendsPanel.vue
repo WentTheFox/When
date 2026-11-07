@@ -72,14 +72,15 @@ watch([rows, () => props.ready], syncChoices);
 
 const visible = computed(() => (showAll.value ? rows.value : rows.value.slice(0, PAGE)));
 
-/** The per-friend action list: new / suggested / every other connection / dismiss. */
+/** The per-friend action list: new / dismiss / suggested / every other connection. */
 function choiceOptions(row: { suggested: { id: string }[] }): SelectOption[] {
   const suggested = new Set(row.suggested.map((s) => s.id));
   return [
+    // The meta-options come first, so they are never a long scroll away.
     { value: 'new', text: 'Create a new connection' },
+    { value: 'skip', text: "Dismiss (don't ask again)" },
     ...allOptions.value.filter((o) => suggested.has(o.id)).map((o) => ({ value: o.id, text: `Add to ${o.label}`, group: 'Suggested' })),
     ...allOptions.value.filter((o) => !suggested.has(o.id)).map((o) => ({ value: o.id, text: o.label, group: 'Add to another connection' })),
-    { value: 'skip', text: "Dismiss (don't ask again)" },
   ];
 }
 

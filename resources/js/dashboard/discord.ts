@@ -59,6 +59,8 @@ export interface PendingDiscordFriend {
   /** Your own private nickname for them in Discord. */
   nickname: string | null;
   picture_url?: string | null;
+  /** You have blocked them on Discord (still offered, so you can decide). */
+  blocked?: boolean;
 }
 
 /** What to call a friend: your nickname for them, else their display name, else their username. */

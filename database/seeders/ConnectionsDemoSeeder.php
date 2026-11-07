@@ -9,10 +9,12 @@ use App\Models\ConnectionEdge;
 use App\Models\ConnectionSource;
 use App\Models\ConnectionSourceCategory;
 use App\Models\ConnectionVrchatStay;
+use App\Models\DiscordFriend;
 use App\Models\ShareLink;
 use App\Models\User;
 use App\Services\Crypto\AesGcm;
 use App\Support\DevMockVrchat;
+use App\Support\DiscordUserId;
 use App\Support\VrchatUserId;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
@@ -108,6 +110,7 @@ class ConnectionsDemoSeeder extends Seeder
             $this->createEdges($user, $connections);
             $this->createShareLinks($user, $connections);
             $this->bindFeatures($user, $definitions, $sources);
+            $this->seedDiscord($user, $definitions, $connections);
             $this->storeKeyRing($user);
         });
 
@@ -543,6 +546,59 @@ class ConnectionsDemoSeeder extends Seeder
             'vrcx_auto_create_friends' => true,
             'vrcx_friends_source_id' => $sources[1]->id,
         ])->save();
+    }
+
+    /**
+     * Pre-seeded Discord state (there is no mock Discord server, unlike VRCX): the account counts as connected and
+     * the sync's friends/blocked rows are inserted directly. For the panel to show up locally, DISCORD_CLIENT_ID
+     * must also be set in the dev environment (Infisical); a real "Sync now" fails against these dummy tokens.
+     * Names are invented. Covers: plain pending friends, blocked pending ones (name-matching a connection, so the
+     * suggestion shows), a blocked person who already has a connection (never offered) and a dismissed/looked-up one.
+     *
+     * @param  array<string, ConnectionAttributeDefinition>  $d
+     * @param  list<Connection>  $connections
+     */
+    private function seedDiscord(User $user, array $d, array $connections): void
+    {
+        $user->forceFill([
+            'discord_access_token' => 'demo-access-token',
+            'discord_refresh_token' => 'demo-refresh-token',
+            'discord_token_expires_at' => now()->addYear(),
+            'discord_account_name' => 'demo_account',
+            'discord_synced_at' => now()->subHour(),
+        ])->save();
+
+        $existing = array_keys($this->usernames);
+        $linkedId = (string) ConnectionAttributeValue::where('connection_id', $connections[14]->id)
+            ->where('attribute_definition_id', $d['discord_id']->id)->value('identifier_value');
+
+        // [snowflake, username, global name, status, blocked]
+        $rows = [
+            ['500000000000000001', 'mossy_lantern', 'Mossy Lantern', DiscordFriend::PENDING, false],
+            ['500000000000000002', 'quietharbor', 'Quiet Harbor', DiscordFriend::PENDING, false],
+            ['500000000000000003', 'pixel.parsley', null, DiscordFriend::PENDING, false],
+            // Same name as an existing connection: shows the "Matches ..." suggestion.
+            ['500000000000000004', 'friend_of_'.$existing[0], $existing[0], DiscordFriend::PENDING, false],
+            ['500000000000000011', 'blockedbramble', 'Blocked Bramble', DiscordFriend::PENDING, true],
+            ['500000000000000012', 'saltwater_sam', 'Saltwater Sam', DiscordFriend::PENDING, true],
+            ['500000000000000013', 'old_'.$existing[1], $existing[1], DiscordFriend::PENDING, true],
+            // Blocked, but already a connection (its Discord ID is on connection 14): must not be offered.
+            [$linkedId, 'linked_and_blocked', 'Linked And Blocked', DiscordFriend::CREATED, true],
+            ['500000000000000014', 'dismissed_dusk', 'Dismissed Dusk', DiscordFriend::DISMISSED, true],
+            ['500000000000000015', 'lookup_larch', 'Lookup Larch', DiscordFriend::LOOKUP, false],
+        ];
+
+        foreach ($rows as [$id, $username, $globalName, $status, $blocked]) {
+            DiscordFriend::create([
+                'user_id' => $user->id,
+                'discord_user_id_hash' => DiscordUserId::hash($id),
+                'discord_user_id' => $id,
+                'username' => $username,
+                'global_name' => $globalName,
+                'status' => $status,
+                'is_blocked' => $blocked,
+            ]);
+        }
     }
 
     /** Must run last: the ring has to hold a key for every record encrypted above. */

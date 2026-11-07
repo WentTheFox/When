@@ -11,7 +11,7 @@ use Illuminate\Support\Carbon;
  * A Discord friend the sync has seen (§0.2 tier, APP_KEY-encrypted at rest;
  * discord_user_id_hash is the lookup key). status: 'pending' = waiting for the
  * owner, 'created' = they have a connection, 'dismissed' = the owner chose not
- * to add them, 'blocked' = blocked on Discord, 'lookup' = looked up by id only.
+ * to add them, 'lookup' = looked up by id only.
  *
  * @property string $id
  * @property string $user_id
@@ -22,6 +22,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $nickname
  * @property string|null $avatar_url
  * @property string $status
+ * @property bool $is_blocked
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read User|null $user
@@ -40,6 +41,7 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|DiscordFriend whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|DiscordFriend whereUserId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|DiscordFriend whereUsername($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|DiscordFriend whereIsBlocked($value)
  *
  * @mixin \Eloquent
  */
@@ -53,9 +55,6 @@ class DiscordFriend extends Model
 
     public const DISMISSED = 'dismissed';
 
-    /** Someone the owner has blocked on Discord (seen by the sync). Never listed as pending. */
-    public const BLOCKED = 'blocked';
-
     /** Not a friend: looked up by id for a connection's Discord card. Never listed as pending. */
     public const LOOKUP = 'lookup';
 
@@ -68,6 +67,7 @@ class DiscordFriend extends Model
         'nickname',
         'avatar_url',
         'status',
+        'is_blocked',
     ];
 
     protected function casts(): array
@@ -78,6 +78,7 @@ class DiscordFriend extends Model
             'global_name' => 'encrypted',
             'nickname' => 'encrypted',
             'avatar_url' => 'encrypted',
+            'is_blocked' => 'boolean',
         ];
     }
 
