@@ -2,6 +2,7 @@
 
 namespace App\Services\Discord;
 
+use App\Jobs\SyncDiscordFriends;
 use App\Models\Connection;
 use App\Models\ConnectionAttributeValue;
 use App\Models\ConnectionVrchatProfile;
@@ -18,12 +19,19 @@ use Illuminate\Support\Facades\Log;
  * without a connection can be linked or turned into one. The browser does that
  * part: it alone can read and encrypt connection names.
  *
- * Runs only when the owner presses "Sync now": there is no automatic or scheduled sync,
- * so Discord is only ever called because someone asked. Every friend is remembered, so deleting a connection never turns its
- * friend "new" again, and a sync never deletes anything.
+ * Two ways in: the owner's "Sync now" (full: also refreshes names, avatars and blocked flags of
+ * everyone already tracked), and a background sync queued by request traffic (see maybeQueue) that
+ * only adds people not tracked at all yet and never touches existing rows. Every friend is remembered,
+ * so deleting a connection never turns its friend "new" again, and a sync never deletes anything.
  */
 class DiscordSyncService
 {
+    /** An automatic sync is queued when the last one is older than this. */
+    public const STALE_AFTER_MINUTES = 30;
+
+    /** After an attempt (success or not), no automatic retry for this long. */
+    private const AUTO_COOLDOWN_MINUTES = 10;
+
     /** Refresh the access token when it expires within this many seconds. */
     private const REFRESH_MARGIN_SECONDS = 120;
 
@@ -37,6 +45,20 @@ class DiscordSyncService
     public function isConfigured(User $user): bool
     {
         return DiscordClient::isConfigured() && $this->isConnected($user) && $user->discord_user_id_definition_id !== null;
+    }
+
+    /** Queues a background sync (new people only) if this owner's friend list is stale and nobody tried recently. */
+    public function maybeQueue(User $user): void
+    {
+        if (! $this->isConfigured($user)) {
+            return;
+        }
+
+        $stale = $user->discord_synced_at === null || $user->discord_synced_at->lt(now()->subMinutes(self::STALE_AFTER_MINUTES));
+
+        if ($stale && Cache::add("discord-auto-sync:{$user->id}", 1, now()->addMinutes(self::AUTO_COOLDOWN_MINUTES))) {
+            SyncDiscordFriends::dispatch($user->id);
+        }
     }
 
     /** Stores a fresh grant (after the OAuth callback) and who it belongs to. */
@@ -60,11 +82,12 @@ class DiscordSyncService
     }
 
     /**
+     * @param  bool  $onlyNew  Add people not tracked yet and leave every existing row (names, avatars, flags, status) as it is.
      * @return bool False when another sync of this owner was already running (nothing was done).
      *
      * @throws DiscordException
      */
-    public function sync(User $user): bool
+    public function sync(User $user, bool $onlyNew = false): bool
     {
         if (! $this->isConnected($user)) {
             throw new DiscordException('Connect your Discord account in Settings first.');
@@ -82,9 +105,13 @@ class DiscordSyncService
 
         try {
             $relationships = $this->fetch($user);
-            $this->store($user, $relationships['friends']);
-            $this->storeBlocked($user, $relationships['blocked']);
-            $this->addNameTokens($user);
+            $this->store($user, $relationships['friends'], $onlyNew);
+            $this->storeBlocked($user, $relationships['blocked'], $onlyNew);
+
+            if (! $onlyNew) {
+                $this->addNameTokens($user);
+            }
+
             $user->forceFill(['discord_synced_at' => now()])->save();
         } finally {
             $lock->release();
@@ -121,7 +148,7 @@ class DiscordSyncService
     /**
      * @param  array<string, array{username: ?string, globalName: ?string, nickname: ?string, avatarUrl: ?string}>  $friends
      */
-    private function store(User $user, array $friends): void
+    private function store(User $user, array $friends, bool $onlyNew = false): void
     {
         $linked = array_flip($this->linkedIds($user));
         $known = DiscordFriend::where('user_id', $user->id)->get()->keyBy('discord_user_id_hash');
@@ -144,6 +171,10 @@ class DiscordSyncService
                     'is_blocked' => false,
                 ]);
 
+                continue;
+            }
+
+            if ($onlyNew) {
                 continue;
             }
 
@@ -180,7 +211,7 @@ class DiscordSyncService
      *
      * @param  array<string, array{username: ?string, globalName: ?string, nickname: ?string, avatarUrl: ?string}>  $blocked
      */
-    private function storeBlocked(User $user, array $blocked): void
+    private function storeBlocked(User $user, array $blocked, bool $onlyNew = false): void
     {
         $linked = array_flip($this->linkedIds($user));
         $known = DiscordFriend::where('user_id', $user->id)->get()->keyBy('discord_user_id_hash');
@@ -208,6 +239,10 @@ class DiscordSyncService
                 continue;
             }
 
+            if ($onlyNew) {
+                continue;
+            }
+
             $row->fill([
                 'username' => $person['username'] ?? $row->username,
                 'global_name' => $person['globalName'] ?? $row->global_name,
@@ -226,6 +261,10 @@ class DiscordSyncService
             }
 
             $row->save();
+        }
+
+        if ($onlyNew) {
+            return;
         }
 
         foreach ($known as $hash => $row) {

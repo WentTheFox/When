@@ -47,6 +47,8 @@ class ConnectionController extends Controller
 
         // Stale VRChat data is refreshed in the background; this load shows what is cached.
         $this->vrcx->maybeQueue($user);
+        // New Discord friends / blocked accounts are picked up in the background; existing ones are never refreshed.
+        $this->discord->maybeQueue($user);
 
         return Inertia::render('Dashboard/Connections', [
             'connections' => $user->connections()->with(['attributeValues', 'sources', 'shareLink'])->ordered()->get([

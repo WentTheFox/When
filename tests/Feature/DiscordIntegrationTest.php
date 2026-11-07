@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\SyncDiscordFriends;
 use App\Models\Connection;
 use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionAttributeValue;
@@ -382,20 +383,51 @@ class DiscordIntegrationTest extends TestCase
         $this->assertSame([], $this->actingAs($user)->getJson('/dashboard/discord/friends')->json('friends'));
     }
 
-    public function test_nothing_syncs_in_the_background_loading_the_page_never_calls_discord(): void
+    public function test_a_background_sync_is_queued_when_stale_and_not_again_during_the_cooldown(): void
     {
         Queue::fake();
         Cache::flush();
-        // Connected, a field chosen, and never synced: exactly the state an automatic sync would have fired in.
         $user = $this->owner();
-        $this->assertNull($user->discord_synced_at);
-        Http::fake();
 
         $this->actingAs($user)->get('/dashboard/connections')->assertOk();
         $this->actingAs($user)->get('/dashboard/connections')->assertOk();
+
+        Queue::assertPushed(SyncDiscordFriends::class, 1);
+    }
+
+    public function test_nothing_is_queued_when_fresh_or_not_connected(): void
+    {
+        Queue::fake();
+        $fresh = $this->owner();
+        $fresh->forceFill(['discord_synced_at' => now()->subMinutes(5)])->save();
+        app(DiscordSyncService::class)->maybeQueue($fresh);
+        app(DiscordSyncService::class)->maybeQueue($this->owner(connected: false));
 
         Queue::assertNothingPushed();
-        Http::assertNothingSent();
+    }
+
+    public function test_a_background_sync_adds_new_people_but_never_refreshes_existing_ones(): void
+    {
+        $user = $this->owner();
+        $this->fakeFriend('100000000000000501', 'Old Name', 'oldname');
+        app(DiscordSyncService::class)->sync($user);
+
+        Http::swap($factory = new Factory);
+        $factory->preventStrayRequests();
+        $factory->fake(['discord.com/api/v10/users/@me/relationships' => Http::response([
+            ['id' => '1', 'type' => 1, 'nickname' => null, 'user' => ['id' => '100000000000000501', 'username' => 'renamed', 'global_name' => 'New Name', 'avatar' => 'abc']],
+            ['id' => '2', 'type' => 1, 'nickname' => null, 'user' => ['id' => '100000000000000502', 'username' => 'fresh', 'global_name' => 'Fresh', 'avatar' => null]],
+            ['id' => '3', 'type' => 2, 'user' => ['id' => '100000000000000503', 'username' => 'nope', 'global_name' => null, 'avatar' => null]],
+        ])]);
+
+        (new SyncDiscordFriends($user->id))->handle(app(DiscordSyncService::class));
+
+        $existing = DiscordFriend::where('user_id', $user->id)->where('discord_user_id_hash', DiscordUserId::hash('100000000000000501'))->first();
+        $this->assertSame('oldname', $existing->username);
+        $this->assertSame('Old Name', $existing->global_name);
+        $this->assertNull($existing->avatar_url);
+        $this->assertSame('Fresh', DiscordFriend::where('discord_user_id_hash', DiscordUserId::hash('100000000000000502'))->value('global_name'));
+        $this->assertTrue((bool) DiscordFriend::where('discord_user_id_hash', DiscordUserId::hash('100000000000000503'))->value('is_blocked'));
     }
 
     public function test_the_manual_sync_is_rate_limited_so_a_click_cannot_become_a_burst(): void

@@ -123,8 +123,8 @@ const syncedAt = computed(() => (props.discord.synced_at ? new Date(props.discor
       people who are not your friends, and needs no connected account. Those people are never added to the friends waiting to be linked.
     </p>
     <p class="small text-muted">
-      Nothing runs in the background: Discord is only asked when you press <strong>Sync now</strong> here, or <strong>Sync</strong> on a
-      connection's Discord card.
+      In the background, opening Connections only picks up <strong>new</strong> friends and blocked accounts we are not tracking yet; it never
+      refreshes anyone's avatar or name. To refresh those, press <strong>Sync now</strong> here, or <strong>Sync</strong> on a connection's Discord card.
     </p>
     <p class="small text-muted">
       This data is <strong>not</strong> end-to-end encrypted: the server asks Discord for your friend list (the <code>identify</code> and
