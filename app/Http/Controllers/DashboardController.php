@@ -39,6 +39,7 @@ class DashboardController extends Controller
 
         return Inertia::render('Dashboard/Index', [
             'userName' => $user->name,
+            'usersCount' => User::count(),
             'shareLinkCount' => $user->shareLinks()->active()->count(),
             'connectionCount' => $user->connections()->count(),
             'hasCalendarUrl' => $user->calendar_url_ciphertext !== null,
