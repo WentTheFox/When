@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Connection;
 use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionAttributeValue;
-use App\Models\ConnectionEdge;
 use App\Models\ConnectionSource;
 use App\Models\ConnectionSourceCategory;
 use App\Models\SleepException;
@@ -133,10 +132,19 @@ class AccountExportDecryptionScriptsTest extends TestCase
             'value_ciphertext' => $this->encryptFor($connection->id, $plaintexts['attribute_value']),
         ]);
 
-        ConnectionEdge::create([
+        // A relationship field: each side's list of related connection ids is a plain E2EE value under its own
+        // connection's key, so the generic scripts decrypt it with no special handling.
+        $relationship = ConnectionAttributeDefinition::create([
             'user_id' => $user->id,
-            'from_connection_id' => $connection->id,
-            'to_connection_id' => $otherConnection->id,
+            'label_ciphertext' => 'placeholder',
+            'type' => 'relationship',
+        ]);
+        $relationship->forceFill(['label_ciphertext' => $this->encryptFor($relationship->id, 'Friends')])->save();
+        $plaintexts['relationship_value'] = $otherConnection->id;
+        ConnectionAttributeValue::create([
+            'connection_id' => $connection->id,
+            'attribute_definition_id' => $relationship->id,
+            'value_ciphertext' => $this->encryptFor($connection->id, $plaintexts['relationship_value']),
         ]);
 
         $sleepException = SleepException::create([
@@ -190,6 +198,7 @@ class AccountExportDecryptionScriptsTest extends TestCase
         $this->assertContains($plaintexts['definition_options'], collect($decryptedFiles['connections/attribute-definitions']['records'])->pluck('options'));
         $this->assertContains($plaintexts['definition_icon_rules'], collect($decryptedFiles['connections/attribute-definitions']['records'])->pluck('icon_rules'));
         $this->assertContains($plaintexts['attribute_value'], collect($decryptedFiles['connections/attribute-values']['records'])->pluck('value'));
+        $this->assertContains($plaintexts['relationship_value'], collect($decryptedFiles['connections/attribute-values']['records'])->pluck('value'));
         $this->assertContains($plaintexts['sleep_exception_label'], collect($decryptedFiles['availability/sleep-exceptions']['records'])->pluck('label'));
     }
 

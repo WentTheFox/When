@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArchiveIcon, ArrowRightIcon, ArchiveRestoreIcon, ExternalLinkIcon, Trash2Icon, UserMinusIcon } from '@lucide/vue';
+import { ArchiveIcon, ArrowRightIcon, ArchiveRestoreIcon, ExternalLinkIcon, Trash2Icon } from '@lucide/vue';
 import AppIcon from '../Components/AppIcon.vue';
 import axios from 'axios';
 import {
@@ -20,7 +20,7 @@ import RadioChoices from '../Components/RadioChoices.vue';
 import EncryptedText from '../Components/EncryptedText.vue';
 import ConnectionSharing, { type IdentityOption, type ShareLinkInfo } from './ConnectionSharing.vue';
 import ConnectionDiscord from './ConnectionDiscord.vue';
-import { listText, paddedListText } from './encryptedList';
+import { listEntries, listText, paddedListText } from './encryptedList';
 import { invalidLinkLines, isValidWebUrl, parseWebUrl, validLinks } from './urlField';
 import ConnectionVrchat from './ConnectionVrchat.vue';
 import type { DiscordProfile } from './discord';
@@ -28,7 +28,6 @@ import type { VrchatProfile, VrchatSummary } from './vrchat';
 import { requestConfirm } from './confirmModal';
 import { bindField } from './fieldBinding';
 import { onVaultUnlocked } from './onVaultUnlocked';
-import { removalPrompt } from './relationships';
 import { ATTRIBUTE_TYPE_ICONS } from './attributeTypeIcons';
 import { VaultLockedError } from './vault';
 import { useVault } from './useVault';
@@ -61,18 +60,20 @@ export interface ConnectionRow {
   discord_profiles?: DiscordProfile[];
 }
 
-export interface EdgeRow {
-  id: string;
-  from_connection_id: string;
-  to_connection_id: string;
+/** One other connection's side of a relationship field, as this save rewrote it (null = the value is gone). */
+export interface PeerUpdate {
+  connection_id: string;
+  attribute_definition_id: string;
+  value_ciphertext: string | null;
 }
 
 const props = defineProps<{
   connection: ConnectionRow;
   sources: { id: string; label: string; color_key?: string | null }[];
   attributeDefinitions: { id: string; label: string; type: string; options: string[] }[];
-  edges: EdgeRow[];
   connectionOptions: { id: string; label: string }[];
+  /** Another connection's stored ciphertext for a relationship field (null = none), so a save can rewrite its side too. */
+  peerCiphertext?: (connectionId: string, definitionId: string) => string | null;
   /** Linked VRChat accounts with cached profile and time together (§0.2 tier, not E2EE). */
   vrchatProfiles?: VrchatProfile[];
   vrchatSyncedAt?: string | null;
@@ -87,10 +88,10 @@ const emit = defineEmits<{
   /** The connection's name changed (id, new name), so the list can show it and re-place it. */
   renamed: [string, string];
   deleted: [string];
-  addEdge: [string, string];
-  removeEdge: [string];
-  /** Open another connection's card (its id), e.g. from the relationships list. */
+  /** Open another connection's card (its id), e.g. from a relationship field. */
   openConnection: [string];
+  /** A save also rewrote these connections' sides of relationship fields; the page keeps its copy current. */
+  peersUpdated: [PeerUpdate[]];
   vrchatSynced: [VrchatSummary];
   /** The Discord card looked this connection's IDs up: its connection id and the new profiles. */
   discordSynced: [string, DiscordProfile[]];
@@ -121,30 +122,10 @@ function otherConnectionName(id: string): string {
   return props.connectionOptions.find((c) => c.id === id)?.label ?? '?';
 }
 
-/** This connection's own relationships — every edge touching its id, either direction. */
-const myEdges = computed(() =>
-  props.edges
-    .filter((e) => e.from_connection_id === props.connection.id || e.to_connection_id === props.connection.id)
-    .map((e) => ({
-      ...e,
-      otherId: e.from_connection_id === props.connection.id ? e.to_connection_id : e.from_connection_id,
-    }))
-    .map((e) => ({ ...e, otherName: otherConnectionName(e.otherId) }))
-    .sort((a, b) => a.otherName.localeCompare(b.otherName)),
-);
-
 /** Picker options for connection-type fields — every other connection, self excluded. */
 const relatableConnections = computed(() =>
   props.connectionOptions.filter((c) => c.id !== props.connection.id),
 );
-
-/** Picker options for "knows" — like the above, minus anyone already known (there's one edge per pair). */
-const knowableConnections = computed(() => {
-  const known = new Set(myEdges.value.map((e) => e.otherId));
-  return relatableConnections.value.filter((c) => !known.has(c.id));
-});
-
-const newRelationTargetId = ref('');
 
 /** Custom fields the owner asked to fill in on this card although they have no value yet (it remounts per connection, so this starts empty). */
 const addedFieldIds = ref<string[]>([]);
@@ -188,13 +169,6 @@ function onShareLinkChanged(shareLink: ShareLinkInfo | null): void {
   emit('updated', { ...props.connection, share_link: shareLink });
 }
 
-/** Asks first, naming both connections, then hands the removal to the page. */
-async function removeRelationship(edge: { id: string; otherName: string }): Promise<void> {
-  if (!(await requestConfirm(removalPrompt(name.value, edge.otherName)))) return;
-
-  emit('removeEdge', edge.id);
-}
-
 /** Switches the page to the other connection's card; asks first if this one has unsaved edits, since they'd be dropped. */
 async function openRelationship(edge: { otherId: string; otherName: string }): Promise<void> {
   if (
@@ -212,12 +186,6 @@ async function openRelationship(edge: { otherId: string; otherName: string }): P
   emit('openConnection', edge.otherId);
 }
 
-function addRelationship(): void {
-  if (!newRelationTargetId.value) return;
-  emit('addEdge', props.connection.id, newRelationTargetId.value);
-  newRelationTargetId.value = '';
-}
-
 async function decryptAll(): Promise<void> {
   // The card can be on screen before the unlock (a reload with this record in the URL). Not being able to
   // decrypt *yet* is not a failure: stay pending, and onVaultUnlocked below runs this again once the keys exist.
@@ -231,7 +199,7 @@ async function decryptAll(): Promise<void> {
     name.value = await decryptString(key, props.connection.name_ciphertext);
 
     const values: Record<string, string> = {};
-    const listIds = new Set(props.attributeDefinitions.filter((d) => d.type === 'list' || d.type === 'link_list').map((d) => d.id));
+    const listIds = new Set(props.attributeDefinitions.filter((d) => d.type === 'list' || d.type === 'link_list' || d.type === 'relationship').map((d) => d.id));
     for (const attributeValue of props.connection.attribute_values) {
       // Lists are edited as one entry per line, so they ride in the same string map as every other value.
       // Booleans ride in the same string map as 'true'/'false' ('' = unset).
@@ -287,6 +255,9 @@ function populateEditForm(): void {
     if (definition.type === 'connection' && value && !connectionRefLabel(value)) {
       editAttributeValues.value[definition.id] = '';
     }
+    if (definition.type === 'relationship' && value) {
+      editAttributeValues.value[definition.id] = splitLines(value).filter((id) => connectionRefLabel(id) !== null).join('\n');
+    }
   }
 }
 
@@ -308,6 +279,16 @@ const isDirty = computed(() => {
 onVaultUnlocked(vaultUnlocked, decryptAll);
 // The parent can replace this row from outside (e.g. the bulk identifier copy).
 watch(() => props.connection.attribute_values, decryptAll);
+
+/** v-model for a relationship field's picker: the related connections' ids. */
+function relationshipBinding(definitionId: string) {
+  return {
+    modelValue: splitLines(editAttributeValues.value[definitionId]),
+    'onUpdate:modelValue': (ids: string | string[]) => {
+      editAttributeValues.value[definitionId] = (Array.isArray(ids) ? ids : [ids]).join('\n');
+    },
+  };
+}
 
 /** v-model for the Connection dropdown: an unset field reads as '' so "(none)" is selected (see bindField). */
 function fieldBinding(definitionId: string) {
@@ -349,9 +330,49 @@ function splitLines(value: string | undefined): string[] {
   return (value ?? '').split('\n').map((v) => v.trim()).filter(Boolean);
 }
 
+const saveError = ref('');
+
+/**
+ * Relationships are mirrored: whoever this save added to (or removed from) a relationship field gets this
+ * connection added to (or removed from) the same field on their side. Their lists are E2EE under their own
+ * keys, so the browser rewrites them and the server only checks that nothing changed in between.
+ */
+async function mirrorRelationships(): Promise<(PeerUpdate & { base_ciphertext: string | null })[]> {
+  const mirrors: (PeerUpdate & { base_ciphertext: string | null })[] = [];
+
+  for (const definition of props.attributeDefinitions.filter((d) => d.type === 'relationship')) {
+    const before = new Set(splitLines(attributeValues.value[definition.id]));
+    const after = new Set(splitLines(editAttributeValues.value[definition.id]).filter((id) => id !== props.connection.id));
+    const added = [...after].filter((id) => !before.has(id));
+    // A connection that no longer exists has nothing to rewrite.
+    const removed = [...before].filter((id) => !after.has(id) && connectionRefLabel(id) !== null);
+
+    for (const peerId of [...added, ...removed]) {
+      const base = props.peerCiphertext?.(peerId, definition.id) ?? null;
+      const peerKey = await getRecordKey(peerId);
+      const current = base ? listEntries(await decryptString(peerKey, base)) : [];
+      const next = added.includes(peerId)
+        ? [...new Set([...current, props.connection.id])]
+        : current.filter((id) => id !== props.connection.id);
+      const padded = paddedListText(next.join('\n'));
+
+      mirrors.push({
+        connection_id: peerId,
+        attribute_definition_id: definition.id,
+        value_ciphertext: padded === '' ? null : await encryptString(peerKey, padded),
+        base_ciphertext: base,
+      });
+    }
+  }
+
+  return mirrors;
+}
+
 async function save(): Promise<void> {
   // Belt and braces: the encrypted fields are disabled until decrypted anyway.
   if (!decrypted.value || !urlFieldsValid.value) return;
+
+  saveError.value = '';
 
   try {
     const key = await getRecordKey(props.connection.id);
@@ -385,7 +406,7 @@ async function save(): Promise<void> {
         values.push({ attribute_definition_id: definition.id, boolean_value: value === 'true' });
         continue;
       }
-      if (definition.type === 'list' || definition.type === 'link_list') {
+      if (definition.type === 'list' || definition.type === 'link_list' || definition.type === 'relationship') {
         // One ciphertext for the whole list, padded: the server learns neither the entries nor how many.
         const padded = paddedListText(value);
         if (padded !== '') values.push({ attribute_definition_id: definition.id, value_ciphertext: await encryptString(key, padded) });
@@ -398,19 +419,26 @@ async function save(): Promise<void> {
       );
     }
 
+    const mirrors = await mirrorRelationships();
+
     const { data } = await axios.patch(`/dashboard/connections/${props.connection.id}`, {
       source_ids: editSourceIds.value,
       name_ciphertext: await encryptString(key, editName.value),
       attribute_values: values,
+      ...(mirrors.length ? { mirror_values: mirrors } : {}),
     });
 
     const renamed = editName.value !== name.value;
     name.value = editName.value;
     attributeValues.value = { ...editAttributeValues.value };
     emit('updated', data);
+    if (mirrors.length) emit('peersUpdated', mirrors.map(({ base_ciphertext: _base, ...update }) => update));
     if (renamed) emit('renamed', props.connection.id, editName.value);
   } catch (error) {
     console.error(error);
+    if (axios.isAxiosError(error) && error.response?.status === 409) {
+      saveError.value = 'A related connection was changed somewhere else. Reload the page and try again.';
+    }
   }
 }
 
@@ -552,6 +580,32 @@ async function remove(): Promise<void> {
         :options="[{ value: '', text: '(none)' }, ...relatableConnections.map((c) => ({ value: c.id, text: c.label }))]"
         :disabled="!decrypted"
       />
+      <div v-else-if="definition.type === 'relationship'">
+        <SearchableSelect
+          v-bind="relationshipBinding(definition.id)"
+          multiple
+          placeholder="Add a connection…"
+          :aria-label="`Connections for ${definition.label}`"
+          :options="relatableConnections.map((c) => ({ value: c.id, text: c.label }))"
+          :disabled="!decrypted"
+        />
+        <ul v-if="splitLines(editAttributeValues[definition.id]).length" class="list-unstyled mt-2 mb-0">
+          <li v-for="id in splitLines(editAttributeValues[definition.id])" :key="id" class="d-flex align-items-center gap-2 mb-1">
+            <span>{{ connectionRefLabel(id) ?? '?' }}</span>
+            <BButton
+              v-if="connectionRefLabel(id) !== null"
+              size="sm"
+              variant="outline-secondary"
+              :aria-label="`Open ${connectionRefLabel(id)}`"
+              :title="`Open ${connectionRefLabel(id)}`"
+              @click="openRelationship({ otherId: id, otherName: connectionRefLabel(id) ?? '' })"
+            >
+              <AppIcon :icon="ArrowRightIcon" /> Open
+            </BButton>
+          </li>
+        </ul>
+        <div class="form-text">End-to-end encrypted. Related connections list each other; changes save with Save.</div>
+      </div>
       <RadioChoices
         v-else-if="definition.type === 'boolean'"
         v-model="editAttributeValues[definition.id]"
@@ -670,48 +724,7 @@ async function remove(): Promise<void> {
 
     <BButton size="sm" variant="primary" :disabled="!decrypted || !isDirty || !urlFieldsValid" @click="save">Save</BButton>
     <BButton v-if="isDirty" size="sm" variant="outline-secondary" class="ms-2" @click="populateEditForm">Discard changes</BButton>
+    <div v-if="saveError" class="text-danger small mt-2" role="alert">{{ saveError }}</div>
 
-    <!-- A separate section from the form above: every change here saves on its own, immediately. -->
-    <hr class="my-4" />
-    <BFormGroup label="Relationships" description="Changes here save immediately." class="mb-0">
-      <!-- w-auto keeps each button next to the name it acts on (not pushed to the far edge); the row highlights on hover. -->
-      <table v-if="myEdges.length" class="table table-sm table-hover align-middle w-auto mb-2">
-        <tbody>
-          <tr v-for="edge in myEdges" :key="edge.id">
-            <td class="pe-3">{{ edge.otherName }}</td>
-            <td class="text-nowrap">
-              <BButton
-                size="sm"
-                variant="outline-secondary"
-                class="me-1"
-                :aria-label="`Open ${edge.otherName}`"
-                :title="`Open ${edge.otherName}`"
-                @click="openRelationship(edge)"
-              >
-                <AppIcon :icon="ArrowRightIcon" /> Open
-              </BButton>
-              <BButton
-                size="sm"
-                variant="outline-danger"
-                :aria-label="`Remove ${edge.otherName}`"
-                :title="`Remove the link to ${edge.otherName}`"
-                @click="removeRelationship(edge)"
-              >
-                <AppIcon :icon="UserMinusIcon" /> Remove
-              </BButton>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <div class="input-group input-group-sm">
-        <SearchableSelect
-          v-model="newRelationTargetId"
-          class="flex-grow-1"
-          placeholder="Knows…"
-          :options="knowableConnections.map((c) => ({ value: c.id, text: c.label }))"
-        />
-        <BButton variant="outline-secondary" size="sm" @click="addRelationship">Add</BButton>
-      </div>
-    </BFormGroup>
   </BCard>
 </template>

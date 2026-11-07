@@ -37,6 +37,16 @@ class FieldFeaturesTest extends TestCase
 
     private function bind(array $binding, User $user, ?string $definitionId): void
     {
+        if ($binding['pivot'] ?? false) {
+            DB::table($binding['table'])->where($binding['user_column'], $user->getKey())->delete();
+
+            if ($definitionId !== null) {
+                DB::table($binding['table'])->insert([$binding['user_column'] => $user->getKey(), $binding['column'] => $definitionId]);
+            }
+
+            return;
+        }
+
         DB::table($binding['table'])->where($binding['user_column'], $user->getKey())->update([$binding['column'] => $definitionId]);
     }
 

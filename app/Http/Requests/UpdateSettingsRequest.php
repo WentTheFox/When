@@ -77,6 +77,10 @@ class UpdateSettingsRequest extends FormRequest
             // Must be one of this owner's own identifier_list or multi-line fields; null turns searching by other names off.
             'alternative_names_definition_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('connection_attribute_definitions', 'id')
                 ->where('user_id', Auth::id())->whereIn('type', FieldFeatures::BINDINGS['alternative_names']['types'])->whereNull('deleted_at')],
+            // Which of this owner's own relationship/connection fields feed the dashboard network graph.
+            'graph_field_ids' => ['sometimes', 'array', 'max:50'],
+            'graph_field_ids.*' => ['uuid', 'distinct', Rule::exists('connection_attribute_definitions', 'id')
+                ->where('user_id', Auth::id())->whereIn('type', FieldFeatures::BINDINGS['network_graph']['types'])->whereNull('deleted_at')],
             'accent_color_key' => ['sometimes', 'nullable', Rule::enum(ColorSwatchKey::class)],
             'secondary_color_key' => ['sometimes', 'nullable', Rule::enum(ColorSwatchKey::class)],
             'sleep_color_key' => ['sometimes', 'nullable', Rule::enum(ColorSwatchKey::class)],

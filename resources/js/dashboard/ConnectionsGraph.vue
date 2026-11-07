@@ -12,18 +12,58 @@
  */
 import axios from 'axios';
 import { onMounted, onUnmounted, ref, watch } from 'vue';
+import { decryptString } from '../crypto';
 import { useResolvedTheme } from '../composables/useTheme';
+import { listEntries } from './encryptedList';
+import { onVaultUnlocked } from './onVaultUnlocked';
+import { useVault } from './useVault';
 import { swatchByKey } from '../free/color-palette';
 
 interface GraphNode { id: string; type: 'connection' | 'source'; color_key: string | null }
 interface GraphEdge { from: string; to: string; kind: 'introduced' | 'mutual' }
-interface GraphResponse { seed: number; nodes: GraphNode[]; edges: GraphEdge[] }
+/** One connection's stored value in a field the owner chose for the graph: E2EE, only the browser can read it. */
+interface FieldValue { connection_id: string; attribute_definition_id: string; type: string; value_ciphertext: string }
+interface GraphResponse { seed: number; nodes: GraphNode[]; edges: GraphEdge[]; field_values: FieldValue[] }
 
 const canvas = ref<HTMLCanvasElement | null>(null);
 const loadFailed = ref(false);
 const resolvedTheme = useResolvedTheme();
 
 let lastData: GraphResponse | null = null;
+/** The edges the server drew (connection to source), before any relationship edges are added. */
+let serverEdges: GraphEdge[] = [];
+const { getRecordKey, vaultUnlocked } = useVault();
+
+/**
+ * Connection-to-connection edges come from the relationship fields the owner chose for the graph. Those lists
+ * are end-to-end encrypted, so once the vault is unlocked they are decrypted here and drawn as undirected
+ * edges (one per pair, however many fields or sides list it). Until then only the source links show.
+ */
+async function addRelationshipEdges(): Promise<void> {
+  const data = lastData;
+  if (!data || !vaultUnlocked.value) return;
+
+  const pairs = new Map<string, GraphEdge>();
+  for (const value of data.field_values) {
+    if (value.type !== 'relationship' && value.type !== 'connection') continue;
+
+    try {
+      const plain = await decryptString(await getRecordKey(value.connection_id), value.value_ciphertext);
+      for (const other of value.type === 'relationship' ? listEntries(plain) : [plain.trim()]) {
+        if (!other || other === value.connection_id) continue;
+        const [from, to] = [value.connection_id, other].sort();
+        pairs.set(`${from}|${to}`, { from, to, kind: 'mutual' });
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  data.edges = [...serverEdges, ...pairs.values()];
+  render();
+}
+
+onVaultUnlocked(vaultUnlocked, () => void addRelationshipEdges());
 
 /** Same fallback WhenTheFox's own ColorPalette gives every other unset slot — this app's signature hue. */
 function nodeColor(colorKey: string | null): string {
@@ -199,7 +239,9 @@ onMounted(async () => {
   try {
     const { data } = await axios.get<GraphResponse>('/dashboard/connections/graph');
     lastData = data;
+    serverEdges = [...data.edges];
     render();
+    void addRelationshipEdges();
   } catch (error) {
     console.error(error);
     loadFailed.value = true;

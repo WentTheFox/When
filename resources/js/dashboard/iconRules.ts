@@ -70,6 +70,8 @@ export function allowedOps(type: string): RuleOp[] {
   if (type === 'radio') return ['choiceIn', 'nonEmpty', 'empty'];
   if (type === 'number') return ['range', 'nonEmpty', 'empty'];
   if (type === 'identifier_list' || type === 'list' || type === 'link_list') return ['nonEmpty', 'empty', 'count', 'regex'];
+  // A relationship field holds connection ids, which mean nothing to a pattern, so only how many it has matters (count 0 = none).
+  if (type === 'relationship') return ['nonEmpty', 'empty', 'count'];
   if (TEXT_TYPES.includes(type) || type === 'identifier') return ['nonEmpty', 'empty', 'regex'];
 
   return ['nonEmpty', 'empty'];

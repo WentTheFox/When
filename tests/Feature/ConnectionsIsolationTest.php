@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Connection;
 use App\Models\ConnectionAttributeDefinition;
-use App\Models\ConnectionEdge;
 use App\Models\ConnectionSource;
 use App\Models\ConnectionSourceCategory;
 use App\Models\User;
@@ -212,50 +211,42 @@ class ConnectionsIsolationTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_cannot_create_an_edge_using_another_users_connections(): void
-    {
-        $owner = User::factory()->create();
-        $stranger = User::factory()->create();
-        $theirFrom = Connection::create(['id' => (string) Str::uuid(), 'user_id' => $stranger->id, 'name_ciphertext' => 'a']);
-        $theirTo = Connection::create(['id' => (string) Str::uuid(), 'user_id' => $stranger->id, 'name_ciphertext' => 'b']);
-
-        $this->actingAs($owner)->postJson('/dashboard/connection-edges', [
-            'id' => (string) Str::uuid(),
-            'from_connection_id' => $theirFrom->id,
-            'to_connection_id' => $theirTo->id,
-        ])->assertNotFound();
-    }
-
-    /** Half-and-half: one of mine, one of theirs — still must be rejected. */
-    public function test_cannot_create_an_edge_from_own_connection_to_another_users_connection(): void
+    public function test_cannot_mirror_a_relationship_into_another_users_connection(): void
     {
         $owner = User::factory()->create();
         $stranger = User::factory()->create();
         $mine = Connection::create(['id' => (string) Str::uuid(), 'user_id' => $owner->id, 'name_ciphertext' => 'a']);
         $theirs = Connection::create(['id' => (string) Str::uuid(), 'user_id' => $stranger->id, 'name_ciphertext' => 'b']);
+        $field = ConnectionAttributeDefinition::create(['id' => (string) Str::uuid(), 'user_id' => $owner->id, 'label_ciphertext' => 'a', 'type' => 'relationship']);
 
-        $this->actingAs($owner)->postJson('/dashboard/connection-edges', [
-            'id' => (string) Str::uuid(),
-            'from_connection_id' => $mine->id,
-            'to_connection_id' => $theirs->id,
-        ])->assertNotFound();
+        $this->actingAs($owner)->patchJson("/dashboard/connections/{$mine->id}", [
+            'mirror_values' => [['connection_id' => $theirs->id, 'attribute_definition_id' => $field->id, 'value_ciphertext' => 'x', 'base_ciphertext' => null]],
+        ])->assertUnprocessable();
+
+        $this->assertDatabaseCount('connection_attribute_values', 0);
     }
 
-    public function test_cannot_delete_another_users_edge(): void
+    public function test_cannot_mirror_with_another_users_relationship_field(): void
     {
         $owner = User::factory()->create();
         $stranger = User::factory()->create();
-        $a = Connection::create(['id' => (string) Str::uuid(), 'user_id' => $stranger->id, 'name_ciphertext' => 'a']);
-        $b = Connection::create(['id' => (string) Str::uuid(), 'user_id' => $stranger->id, 'name_ciphertext' => 'b']);
-        $theirEdge = ConnectionEdge::create([
-            'id' => (string) Str::uuid(),
-            'user_id' => $stranger->id,
-            'from_connection_id' => $a->id,
-            'to_connection_id' => $b->id,
-        ]);
+        $a = Connection::create(['id' => (string) Str::uuid(), 'user_id' => $owner->id, 'name_ciphertext' => 'a']);
+        $b = Connection::create(['id' => (string) Str::uuid(), 'user_id' => $owner->id, 'name_ciphertext' => 'b']);
+        $theirField = ConnectionAttributeDefinition::create(['id' => (string) Str::uuid(), 'user_id' => $stranger->id, 'label_ciphertext' => 'a', 'type' => 'relationship']);
+
+        $this->actingAs($owner)->patchJson("/dashboard/connections/{$a->id}", [
+            'mirror_values' => [['connection_id' => $b->id, 'attribute_definition_id' => $theirField->id, 'value_ciphertext' => 'x', 'base_ciphertext' => null]],
+        ])->assertUnprocessable();
+    }
+
+    public function test_cannot_rewrite_values_of_another_users_relationship_field(): void
+    {
+        $owner = User::factory()->create();
+        $stranger = User::factory()->create();
+        $theirField = ConnectionAttributeDefinition::create(['id' => (string) Str::uuid(), 'user_id' => $stranger->id, 'label_ciphertext' => 'a', 'type' => 'relationship']);
 
         $this->actingAs($owner)
-            ->deleteJson("/dashboard/connection-edges/{$theirEdge->id}")
+            ->postJson("/dashboard/connection-attribute-definitions/{$theirField->id}/rewrite-values", ['values' => []])
             ->assertNotFound();
     }
 

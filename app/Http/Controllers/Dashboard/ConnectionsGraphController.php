@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\Connection;
-use App\Models\ConnectionEdge;
+use App\Models\ConnectionAttributeValue;
 use App\Models\ConnectionSource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,16 +25,21 @@ class ConnectionsGraphController extends Controller
         $connectionNodes = $user->connections()->get(['id'])
             ->map(fn (Connection $c) => ['id' => $c->id, 'type' => 'connection', 'color_key' => null]);
 
-        // Undirected — connection_edges has no "introduced vs mutual"
-        // directionality column (unlike a source link, which is always a
-        // "met via" relationship in one direction), so no arrowhead for
-        // these when the frontend draws them.
-        $connectionEdges = $user->connectionEdges()->get(['from_connection_id', 'to_connection_id'])
-            ->map(fn (ConnectionEdge $e) => [
-                'from' => $e->from_connection_id,
-                'to' => $e->to_connection_id,
-                'kind' => 'mutual',
-            ]);
+        // Connection-to-connection edges are E2EE now (relationship fields hold the related ids under each
+        // connection's own key), so the server cannot draw them: it hands over the ciphertext of the fields
+        // the owner chose for the graph and the browser decrypts and draws the undirected edges.
+        $types = $user->graphFields()->pluck('connection_attribute_definitions.type', 'connection_attribute_definitions.id');
+        $fieldValues = ConnectionAttributeValue::whereIn('attribute_definition_id', $types->keys())
+            ->whereIn('connection_id', $user->connections()->select('id'))
+            ->whereNotNull('value_ciphertext')
+            ->get(['connection_id', 'attribute_definition_id', 'value_ciphertext'])
+            ->map(fn (ConnectionAttributeValue $v) => [
+                'connection_id' => $v->connection_id,
+                'attribute_definition_id' => $v->attribute_definition_id,
+                'type' => $types[$v->attribute_definition_id],
+                'value_ciphertext' => $v->value_ciphertext,
+            ])
+            ->values();
 
         $sources = $user->connectionSources()->with(['category', 'connections'])->get();
 
@@ -56,7 +61,8 @@ class ConnectionsGraphController extends Controller
             // random scatter each time.
             'seed' => crc32($userId),
             'nodes' => $connectionNodes->concat($sourceNodes)->values(),
-            'edges' => $connectionEdges->concat($sourceEdges)->values(),
+            'edges' => $sourceEdges->values(),
+            'field_values' => $fieldValues,
         ]);
     }
 }

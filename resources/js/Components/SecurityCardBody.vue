@@ -81,6 +81,16 @@ const page = usePage();
     “bypass do not disturb” switch, and is stored the same way.
   </p>
   <p class="mb-4">
+    The <strong>relationship</strong> type records which of your connections are
+    related to each other (you can define several, such as Friends or Family). It is
+    end-to-end encrypted like any other field: each connection's list of related
+    connections is encrypted in your browser with that connection's own key, so the
+    server cannot see who is related to whom, or how many. Relationships are listed on
+    both sides, so saving one connection also re-encrypts the other's list. The
+    dashboard's network graph is drawn in your browser, from the fields you choose in
+    Settings, once the vault is unlocked.
+  </p>
+  <p class="mb-4">
     A custom field's type can be changed later with <strong>Migrate field</strong>,
     and a few of those changes cross this boundary. Turning a text or list field into an
     identifier or identifier list sends its values to the server in plaintext, so from then on

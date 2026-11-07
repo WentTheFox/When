@@ -57,6 +57,7 @@ const props = defineProps<{
   identifierListDefinitions: { id: string; label_ciphertext: string }[];
   booleanDefinitions: { id: string; label_ciphertext: string }[];
   alternativeNamesDefinitions: { id: string; label_ciphertext: string; type: string }[];
+  graphFieldDefinitions: { id: string; label_ciphertext: string; type: string }[];
   connectionSources: { id: string; name_ciphertext: string; color_key: string | null }[];
   vrchatIdDefinitions: { id: string; label_ciphertext: string; type: string }[];
   vrcx: {
@@ -314,6 +315,8 @@ const previewAvailability = ref<AvailabilityResponse | null>(null);
         <SettingsConnectionsCard
           :definitions="alternativeNamesDefinitions"
           :selected-id="settings.alternative_names_definition_id"
+          :graph-definitions="graphFieldDefinitions"
+          :selected-graph-ids="settings.graph_field_ids"
         />
       </BTab>
 

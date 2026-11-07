@@ -16,6 +16,7 @@ export interface Settings {
   bypass_dnd_definition_id: string | null;
   /** The identifier_list or multi-line custom field listing a connection's other names; null = search by name only. */
   alternative_names_definition_id: string | null;
+  graph_field_ids: string[];
   dnd_event_pattern: string | null;
   dnd_event_pattern_preview: string | null;
   nap_event_pattern: string | null;

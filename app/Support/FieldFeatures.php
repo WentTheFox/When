@@ -23,9 +23,10 @@ final class FieldFeatures
      * `table`.`column` holds the bound field's id. `user_column` is the column
      * on that table that identifies the owning user. `types` are the field types the feature can use: validation of
      * the binding and the field-migration check (see bindingsBrokenBy) both read it, so it lives only here. `label` is shown to the
-     * owner (it must not be derived from the field itself: field names are E2EE).
+     * owner (it must not be derived from the field itself: field names are E2EE). `pivot` marks a table with one row
+     * per bound field: releasing deletes the row instead of nulling the column.
      *
-     * @var array<string, array{table: string, column: string, types: list<string>, user_column: string, label: string}>
+     * @var array<string, array{table: string, column: string, types: list<string>, user_column: string, label: string, pivot?: bool}>
      */
     public const BINDINGS = [
         'highlight_tokens' => [
@@ -62,6 +63,15 @@ final class FieldFeatures
             'types' => ['identifier', 'identifier_list'],
             'user_column' => 'id',
             'label' => 'Discord user ID',
+        ],
+        // Several fields may feed the widget, so these are rows of a pivot table, not one column on users.
+        'network_graph' => [
+            'table' => 'connection_graph_fields',
+            'column' => 'definition_id',
+            'types' => ['relationship', 'connection'],
+            'user_column' => 'user_id',
+            'label' => 'Network graph',
+            'pivot' => true,
         ],
     ];
 
@@ -126,10 +136,11 @@ final class FieldFeatures
     {
         foreach ($keys as $key) {
             $binding = self::BINDINGS[$key];
-            DB::table($binding['table'])
+            $query = DB::table($binding['table'])
                 ->where($binding['user_column'], $user->getKey())
-                ->where($binding['column'], $definitionId)
-                ->update([$binding['column'] => null]);
+                ->where($binding['column'], $definitionId);
+
+            ($binding['pivot'] ?? false) ? $query->delete() : $query->update([$binding['column'] => null]);
         }
     }
 }

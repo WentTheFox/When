@@ -28,6 +28,7 @@ const TYPE_LABELS: Record<string, string> = {
   email: 'Email',
   phone: 'Phone',
   connection: 'Connection',
+  relationship: 'Relationship',
   identifier: 'Identifier (not E2EE)',
   identifier_list: 'Identifier list (not E2EE)',
   boolean: 'Yes/No (not E2EE)',
@@ -81,7 +82,7 @@ const decryptedDefinitions = computed(() =>
   props.definitions.filter((d): d is DefinitionItem & { label: string } => d.label !== undefined),
 );
 const identifierDefinitions = computed(() => decryptedDefinitions.value.filter((d) => d.type === 'identifier'));
-const hasConnectionDefinitions = computed(() => props.definitions.some((d) => d.type === 'connection'));
+const hasConnectionDefinitions = computed(() => props.definitions.some((d) => d.type === 'connection' || d.type === 'relationship'));
 
 const filter = ref('');
 // Lists render in the order they were given (their stored order, see listOrder.ts); sorting by name here would reshuffle them as names decrypt.

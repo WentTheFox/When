@@ -60,7 +60,11 @@ class ConnectionController extends Controller
             // Which field types each feature (by label) can use, and every type change a field may go through (the Migrate field section).
             'fieldFeatureTypes' => collect(FieldFeatures::BINDINGS)->mapWithKeys(fn ($b) => [$b['label'] => $b['types']]),
             'fieldMigrations' => FieldMigrations::all(),
-            'edges' => $user->connectionEdges()->get(['id', 'from_connection_id', 'to_connection_id']),
+            // The old plaintext "knows" edges, only until the browser has moved them into a relationship field.
+            'legacyEdges' => $user->relationships_migrated_at === null
+                ? $user->connectionEdges()->get(['id', 'from_connection_id', 'to_connection_id'])
+                : [],
+            'relationshipsFieldId' => $user->relationships_field_definition_id,
             // §0.2 tier (server-readable): cached VRChat names/pictures and time together.
             'vrchat' => $this->vrcx->summary($user),
             'discord' => $this->discord->summary($user),
@@ -176,6 +180,97 @@ class ConnectionController extends Controller
         ]);
     }
 
+    /**
+     * The old plaintext "knows" edges become a relationship custom field. Like notesField(), the browser calls this
+     * to create the field (first call: id, label_ciphertext and optional icon_rules_ciphertext, built client-side),
+     * to write each connection's merged list of related ids (E2EE, the server never reads it), and finally with
+     * `finish` to retire the edges. A value whose base_ciphertext no longer matches comes back in `conflicts`
+     * (connection id => the current ciphertext) and is not written; the browser merges again and re-sends.
+     * Safe to call repeatedly, and from two tabs at once.
+     */
+    public function relationshipsField(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'id' => ['nullable', 'uuid'],
+            'label_ciphertext' => ['nullable', 'string'],
+            'icon_rules_ciphertext' => ['nullable', 'string'],
+            'values' => ['nullable', 'array', 'max:500'],
+            'values.*.connection_id' => ['required', 'uuid', Rule::exists('connections', 'id')->where('user_id', $user->id)],
+            'values.*.value_ciphertext' => ['required', 'string'],
+            'values.*.base_ciphertext' => ['present', 'nullable', 'string'],
+            'finish' => ['sometimes', 'boolean'],
+        ]);
+
+        [$definition, $created, $changed, $conflicts] = DB::transaction(function () use ($user, $data) {
+            $owner = $user->newQuery()->whereKey($user->getKey())->lockForUpdate()->firstOrFail();
+            $definition = $owner->relationships_field_definition_id === null
+                ? null
+                : ConnectionAttributeDefinition::where('user_id', $owner->id)->where('id', $owner->relationships_field_definition_id)->first();
+            $created = false;
+
+            if ($definition === null) {
+                if (empty($data['id']) || empty($data['label_ciphertext'])) {
+                    throw ValidationException::withMessages(['id' => 'There is no Relationships field yet; say how to create it (id and label_ciphertext).']);
+                }
+
+                if (ConnectionAttributeDefinition::withTrashed()->where('id', $data['id'])->exists()) {
+                    throw ValidationException::withMessages(['id' => 'That id is already taken.']);
+                }
+
+                $definition = $owner->connectionAttributeDefinitions()->create([
+                    'id' => $data['id'],
+                    'label_ciphertext' => $data['label_ciphertext'],
+                    'type' => 'relationship',
+                    'icon_rules_ciphertext' => $data['icon_rules_ciphertext'] ?? null,
+                    'sort_order' => SortOrder::next($owner->connectionAttributeDefinitions()),
+                ]);
+                $owner->forceFill(['relationships_field_definition_id' => $definition->id])->save();
+                // The network graph drew these edges before, so the new field feeds it from the start.
+                $owner->graphFields()->syncWithoutDetaching([$definition->id]);
+                $created = true;
+            }
+
+            $changed = [];
+            $conflicts = [];
+
+            foreach ($data['values'] ?? [] as $item) {
+                $row = ConnectionAttributeValue::where('connection_id', $item['connection_id'])
+                    ->where('attribute_definition_id', $definition->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (($row?->value_ciphertext) !== $item['base_ciphertext']) {
+                    $conflicts[$item['connection_id']] = $row?->value_ciphertext;
+
+                    continue;
+                }
+
+                ConnectionAttributeValue::updateOrCreate(
+                    ['connection_id' => $item['connection_id'], 'attribute_definition_id' => $definition->id],
+                    ['value_ciphertext' => $item['value_ciphertext'], 'identifier_value' => null, 'identifier_list_value' => null, 'boolean_value' => null],
+                );
+                $changed[] = $item['connection_id'];
+            }
+
+            if (($data['finish'] ?? false) && $conflicts === []) {
+                $owner->connectionEdges()->delete();
+                $owner->forceFill(['relationships_migrated_at' => now()])->save();
+            }
+
+            return [$definition, $created, $changed, $conflicts];
+        });
+
+        return response()->json([
+            'definition' => $definition->only(['id', 'label_ciphertext', 'type', 'options_ciphertext', 'icon_rules_ciphertext']),
+            'created' => $created,
+            'connections' => $user->connections()->with(['attributeValues', 'sources', 'shareLink'])->whereIn('id', $changed)->get()
+                ->map(fn (Connection $c) => $this->serialize($c))->values(),
+            'conflicts' => (object) $conflicts,
+        ]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $data = $this->validateConnection($request, requireId: true);
@@ -194,6 +289,7 @@ class ConnectionController extends Controller
             }
 
             $this->syncAttributeValues($connection, $data['attribute_values'] ?? null);
+            $this->applyMirrorValues($connection, $data['mirror_values'] ?? []);
 
             return $connection;
         });
@@ -231,6 +327,8 @@ class ConnectionController extends Controller
             if (array_key_exists('attribute_values', $data)) {
                 $this->syncAttributeValues($connection, $data['attribute_values']);
             }
+
+            $this->applyMirrorValues($connection, $data['mirror_values'] ?? []);
         });
 
         if (array_key_exists('attribute_values', $data)) {
@@ -375,6 +473,13 @@ class ConnectionController extends Controller
             // What the client's copy of that list looked like when it loaded; see ListMerge. Optional: without it the list is replaced.
             'attribute_values.*.identifier_list_base' => ['nullable', 'array', 'max:500'],
             'attribute_values.*.identifier_list_base.*' => ['nullable', 'string', 'max:1000'],
+            // Relationships are mirrored: the other connection's side of a relationship field, written in the same save.
+            // base_ciphertext is that value as the client last saw it (null = none); a mismatch means someone else changed it.
+            'mirror_values' => ['nullable', 'array', 'max:500'],
+            'mirror_values.*.connection_id' => ['required', 'uuid', Rule::exists('connections', 'id')->where('user_id', $userId)],
+            'mirror_values.*.attribute_definition_id' => ['required', 'uuid', Rule::exists('connection_attribute_definitions', 'id')->where('user_id', $userId)],
+            'mirror_values.*.value_ciphertext' => ['present', 'nullable', 'string'],
+            'mirror_values.*.base_ciphertext' => ['present', 'nullable', 'string'],
         ]);
 
         $this->assertValueShapesMatchDefinitions($data['attribute_values'] ?? [], $userId);
@@ -418,6 +523,56 @@ class ConnectionController extends Controller
             if (($value[$field] ?? null) === null || $others !== []) {
                 throw ValidationException::withMessages(["attribute_values.$i.$field" => "Expected $field only for this attribute type."]);
             }
+        }
+    }
+
+    /**
+     * The other side of the relationships this save changed: each entry is one connection's value in a
+     * relationship field (null removes it). Everything is E2EE, so the server only checks ownership, that
+     * the field really is a relationship field, and that nobody changed the value since the browser read
+     * it (409 and the whole save rolls back, the browser reloads and retries).
+     *
+     * @param  array<int, array<string, mixed>>  $mirrors
+     */
+    private function applyMirrorValues(Connection $connection, array $mirrors): void
+    {
+        if ($mirrors === []) {
+            return;
+        }
+
+        $userId = $connection->user_id;
+        $types = ConnectionAttributeDefinition::where('user_id', $userId)
+            ->whereIn('id', array_column($mirrors, 'attribute_definition_id'))
+            ->pluck('type', 'id');
+
+        foreach ($mirrors as $i => $mirror) {
+            if (($types[$mirror['attribute_definition_id']] ?? null) !== 'relationship') {
+                throw ValidationException::withMessages(["mirror_values.$i.attribute_definition_id" => 'Only a relationship field is mirrored.']);
+            }
+
+            if ($mirror['connection_id'] === $connection->id) {
+                throw ValidationException::withMessages(["mirror_values.$i.connection_id" => 'A connection is not related to itself.']);
+            }
+
+            $row = ConnectionAttributeValue::where('connection_id', $mirror['connection_id'])
+                ->where('attribute_definition_id', $mirror['attribute_definition_id'])
+                ->lockForUpdate()
+                ->first();
+
+            if (($row?->value_ciphertext) !== $mirror['base_ciphertext']) {
+                abort(409, 'A related connection changed since it was loaded.');
+            }
+
+            if ($mirror['value_ciphertext'] === null) {
+                $row?->delete();
+
+                continue;
+            }
+
+            ConnectionAttributeValue::updateOrCreate(
+                ['connection_id' => $mirror['connection_id'], 'attribute_definition_id' => $mirror['attribute_definition_id']],
+                ['value_ciphertext' => $mirror['value_ciphertext'], 'identifier_value' => null, 'identifier_list_value' => null, 'boolean_value' => null],
+            );
         }
     }
 
