@@ -190,6 +190,8 @@ use Illuminate\Support\Facades\Crypt;
  * @method static Builder<static>|User whereDiscordRefreshToken($value)
  * @method static Builder<static>|User whereDiscordSyncedAt($value)
  * @method static Builder<static>|User whereDiscordTokenExpiresAt($value)
+ * @method static Builder<static>|User whereAlternativeNamesDefinitionId($value)
+ * @method static Builder<static>|User whereNotesFieldDefinitionId($value)
  *
  * @mixin \Eloquent
  */
