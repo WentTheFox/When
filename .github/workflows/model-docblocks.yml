@@ -16,6 +16,17 @@ on:
 jobs:
   model-docblocks:
     runs-on: ubuntu-latest
+    # .env.testing is gitignored, so the test database is configured here instead (the same values as
+    # phpunit.xml). The key is a throwaway: nothing is encrypted or kept.
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: '5432'
+      DB_DATABASE: whenthefox_test
+      DB_USERNAME: postgres
+      DB_PASSWORD: ''
     services:
       postgres:
         image: postgres:17
@@ -50,7 +61,6 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
-      # .env.testing is committed and already points at 127.0.0.1:5432 / whenthefox_test / postgres.
       - name: Migrate the test database
         run: php artisan migrate --env=testing --force
 
