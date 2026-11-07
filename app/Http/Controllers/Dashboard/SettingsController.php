@@ -116,6 +116,7 @@ class SettingsController extends Controller
                 'highlight_identifier_definition_id' => $user->highlight_identifier_definition_id,
                 'bypass_dnd_definition_id' => $user->bypass_dnd_definition_id,
                 'alternative_names_definition_id' => $user->alternative_names_definition_id,
+                'graph_field_ids' => $user->graphFields()->pluck('connection_attribute_definitions.id'),
                 'availability' => $user->weeklyAvailability(),
             ],
             'defaults' => [
@@ -166,6 +167,9 @@ class SettingsController extends Controller
             // Other-names candidates: identifier lists, lists and multi-line fields. Labels are E2EE like the rest.
             'alternativeNamesDefinitions' => $user->connectionAttributeDefinitions()
                 ->whereIn('type', FieldFeatures::BINDINGS['alternative_names']['types'])
+                ->get(['id', 'label_ciphertext', 'type']),
+            'graphFieldDefinitions' => $user->connectionAttributeDefinitions()
+                ->whereIn('type', FieldFeatures::BINDINGS['network_graph']['types'])
                 ->get(['id', 'label_ciphertext', 'type']),
             'booleanDefinitions' => $user->connectionAttributeDefinitions()->whereIn('type', FieldFeatures::BINDINGS['bypass_dnd']['types'])->get(['id', 'label_ciphertext']),
             'timezones' => \DateTimeZone::listIdentifiers(),
@@ -245,6 +249,10 @@ class SettingsController extends Controller
 
         $user->fill(array_intersect_key($data, array_flip(self::SIMPLE_FIELDS)));
         $user->save();
+
+        if (array_key_exists('graph_field_ids', $data)) {
+            $user->graphFields()->sync($data['graph_field_ids']);
+        }
 
         // Switching the highlight-words or bypass-DND source changes every link's inputs, so cached results are stale.
         if ([$user->highlight_identifier_definition_id, $user->bypass_dnd_definition_id] !== $highlightSourceBefore) {

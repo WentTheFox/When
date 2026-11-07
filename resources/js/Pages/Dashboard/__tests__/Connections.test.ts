@@ -25,7 +25,7 @@ const props = {
   sources: [{ id: SOURCE, category_id: null, name_ciphertext: 'c291cmNlLWNpcGhlcg==' }],
   categories: [],
   attributeDefinitions: [{ id: DEFINITION, label_ciphertext: 'ZmllbGQtY2lwaGVy', type: 'text', options_ciphertext: null }],
-  edges: [],
+  legacyEdges: [],
   fieldFeatures: {},
   fieldFeatureTypes: {},
   fieldMigrations: [],

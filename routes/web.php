@@ -11,7 +11,6 @@ use App\Http\Controllers\Dashboard\AccountExportController;
 use App\Http\Controllers\Dashboard\ActivityLocalizationController;
 use App\Http\Controllers\Dashboard\ConnectionAttributeDefinitionController;
 use App\Http\Controllers\Dashboard\ConnectionController;
-use App\Http\Controllers\Dashboard\ConnectionEdgeController;
 use App\Http\Controllers\Dashboard\ConnectionsGraphController;
 use App\Http\Controllers\Dashboard\ConnectionShareLinkController;
 use App\Http\Controllers\Dashboard\ConnectionSourceCategoryController;
@@ -205,6 +204,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/dashboard/vrchat/notes/imported', [VrcxController::class, 'notesImported'])->name('dashboard.vrchat.notes.imported');
     Route::post('/dashboard/vrchat/friends/complete', [VrcxController::class, 'completeFriends'])->name('dashboard.vrchat.friends.complete');
     Route::post('/dashboard/connections/notes-field', [ConnectionController::class, 'notesField'])->name('dashboard.connections.notes-field');
+    Route::post('/dashboard/connections/relationships-field', [ConnectionController::class, 'relationshipsField'])->name('dashboard.connections.relationships-field');
     Route::post('/dashboard/connections/{connection}/vrchat/sync', [VrcxController::class, 'syncConnection'])
         ->name('dashboard.connections.vrchat.sync');
     Route::get('/dashboard/connections/{connection}/vrchat/stays', [VrcxController::class, 'stays'])
@@ -291,15 +291,13 @@ Route::middleware('auth')->group(function () {
         ->name('dashboard.connection-attribute-definitions.migrate');
     Route::post('/dashboard/connection-attribute-definitions/{definition}/clear-values', [ConnectionAttributeDefinitionController::class, 'clearValues'])
         ->name('dashboard.connection-attribute-definitions.clear-values');
+    Route::post('/dashboard/connection-attribute-definitions/{definition}/rewrite-values', [ConnectionAttributeDefinitionController::class, 'rewriteValues'])
+        ->name('dashboard.connection-attribute-definitions.rewrite-values');
     Route::patch('/dashboard/connection-attribute-definitions/{definition}', [ConnectionAttributeDefinitionController::class, 'update'])
         ->name('dashboard.connection-attribute-definitions.update');
     Route::delete('/dashboard/connection-attribute-definitions/{definition}', [ConnectionAttributeDefinitionController::class, 'destroy'])
         ->name('dashboard.connection-attribute-definitions.destroy');
 
-    Route::post('/dashboard/connection-edges', [ConnectionEdgeController::class, 'store'])
-        ->name('dashboard.connection-edges.store');
-    Route::delete('/dashboard/connection-edges/{edge}', [ConnectionEdgeController::class, 'destroy'])
-        ->name('dashboard.connection-edges.destroy');
 });
 
 // A fake owner calendar for local development (ConnectionsDemoSeeder points the demo account at it).

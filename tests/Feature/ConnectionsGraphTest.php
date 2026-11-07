@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Connection;
-use App\Models\ConnectionEdge;
+use App\Models\ConnectionAttributeValue;
 use App\Models\ConnectionSource;
 use App\Models\ConnectionSourceCategory;
 use App\Models\User;
@@ -64,24 +64,35 @@ class ConnectionsGraphTest extends TestCase
         $this->assertSame((string) $source->id, $introduced['to']);
     }
 
-    public function test_a_connection_to_connection_edge_has_no_directionality(): void
+    public function test_connection_edges_are_never_computed_server_side_only_bound_field_ciphertext_is_handed_over(): void
     {
         $owner = User::factory()->create();
+        $other = User::factory()->create();
 
         $a = Connection::create(['id' => Str::uuid(), 'user_id' => $owner->id, 'name_ciphertext' => 'x']);
-        $b = Connection::create(['id' => Str::uuid(), 'user_id' => $owner->id, 'name_ciphertext' => 'y']);
-        ConnectionEdge::create([
-            'id' => Str::uuid(),
-            'user_id' => $owner->id,
-            'from_connection_id' => $a->id,
-            'to_connection_id' => $b->id,
-        ]);
+        $bound = $owner->connectionAttributeDefinitions()->create(['id' => (string) Str::uuid(), 'label_ciphertext' => 'l', 'type' => 'relationship', 'sort_order' => 1]);
+        $unbound = $owner->connectionAttributeDefinitions()->create(['id' => (string) Str::uuid(), 'label_ciphertext' => 'l', 'type' => 'relationship', 'sort_order' => 2]);
+        $owner->graphFields()->attach($bound->id);
+
+        foreach ([$bound, $unbound] as $definition) {
+            ConnectionAttributeValue::create([
+                'connection_id' => $a->id,
+                'attribute_definition_id' => $definition->id,
+                'value_ciphertext' => 'blob-'.$definition->id,
+            ]);
+        }
 
         $response = $this->actingAs($owner)->getJson('/dashboard/connections/graph');
 
         $response->assertOk();
-        $edges = collect($response->json('edges'));
-        $this->assertSame('mutual', $edges->firstWhere('from', (string) $a->id)['kind']);
+        $this->assertSame([], collect($response->json('edges'))->where('kind', 'mutual')->values()->all());
+        $values = $response->json('field_values');
+        $this->assertCount(1, $values);
+        $this->assertSame('blob-'.$bound->id, $values[0]['value_ciphertext']);
+        $this->assertSame('relationship', $values[0]['type']);
+        $this->assertSame((string) $a->id, $values[0]['connection_id']);
+
+        $this->assertSame([], $this->actingAs($other)->getJson('/dashboard/connections/graph')->json('field_values'));
     }
 
     public function test_category_color_key_must_be_a_valid_palette_key(): void

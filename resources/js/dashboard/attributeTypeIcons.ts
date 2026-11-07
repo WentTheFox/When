@@ -14,6 +14,7 @@ import {
   ToggleLeftIcon,
   TypeIcon,
   UserIcon,
+  UsersIcon,
   type LucideIcon,
 } from '@lucide/vue';
 
@@ -31,6 +32,7 @@ export const ATTRIBUTE_TYPE_ICONS: Record<string, LucideIcon> = {
   email: MailIcon,
   phone: PhoneIcon,
   connection: UserIcon,
+  relationship: UsersIcon,
   identifier: FingerprintIcon,
   identifier_list: ListChecksIcon,
   boolean: ToggleLeftIcon,

@@ -25,7 +25,7 @@ import SearchableSelect from '../../Components/SearchableSelect.vue';
 import AttributesPanel from '../../dashboard/AttributesPanel.vue';
 import CategoriesPanel from '../../dashboard/CategoriesPanel.vue';
 import EncryptedText from '../../Components/EncryptedText.vue';
-import ConnectionCard, { type ConnectionRow } from '../../dashboard/ConnectionCard.vue';
+import ConnectionCard, { type ConnectionRow, type PeerUpdate } from '../../dashboard/ConnectionCard.vue';
 import SourcesPanel from '../../dashboard/SourcesPanel.vue';
 import { discordMark, type MarkState, type ShareLinkMark, shareLinkMark, vrchatMark } from '../../dashboard/connectionMarks';
 import PendingDiscordFriendsPanel from '../../dashboard/PendingDiscordFriendsPanel.vue';
@@ -34,6 +34,9 @@ import VrchatNotesPanel, { type NoteImportItem } from '../../dashboard/VrchatNot
 import { appendNote } from '../../dashboard/vrchatNotes';
 import { moveLegacyNotes, NOTES_FIELD_LABEL, notesTextOf, saveNotes } from '../../dashboard/notesField';
 import type { NotesFieldDeps, NotesFieldResponse } from '../../dashboard/notesField';
+import { moveLegacyRelationships, RELATIONSHIPS_FIELD_LABEL, VALUES_PER_CALL } from '../../dashboard/relationshipsField';
+import type { LegacyEdge, RelationshipsDeps, RelationshipsResponse } from '../../dashboard/relationshipsField';
+import { listEntries, paddedListText } from '../../dashboard/encryptedList';
 import { holdsOtherId, type MatchCandidate } from '../../dashboard/friendMatching';
 import { type DiscordProfile, type DiscordSummary, emptyDiscordSummary, discordFriendName, type PendingDiscordFriend } from '../../dashboard/discord';
 import type { FriendDecision, PendingFriend, VrchatSummary } from '../../dashboard/vrchat';
@@ -59,14 +62,16 @@ defineOptions({ layout: DashboardLayout });
 interface SourceRow { id: string; category_id: string | null; name_ciphertext: string }
 interface CategoryRow { id: string; color_key: string | null; name_ciphertext: string }
 interface DefinitionRow { id: string; label_ciphertext: string; type: string; options_ciphertext: string | null; icon_rules_ciphertext: string | null }
-interface EdgeRow { id: string; from_connection_id: string; to_connection_id: string }
 
 const props = defineProps<{
   connections: ConnectionRow[];
   sources: SourceRow[];
   categories: CategoryRow[];
   attributeDefinitions: DefinitionRow[];
-  edges: EdgeRow[];
+  /** The old plaintext "knows" edges, only until they have been moved into a relationship field (see relationshipsField.ts). */
+  legacyEdges: LegacyEdge[];
+  /** The field the old edges are moved into, once it exists. */
+  relationshipsFieldId?: string | null;
   /** Fields that site features depend on (field id to feature labels); those can't be deleted. */
   fieldFeatures: Record<string, string[]>;
   /** Which field types each feature (by label) can use: a migration that leaves them unbinds the feature. */
@@ -136,8 +141,9 @@ const definitions = computed(() =>
     .filter((d): d is DefinitionItem & { label: string } => d.label !== undefined)
     .map(({ id, label, type, options }) => ({ id, label, type, options })),
 );
-/** Seeded once from the server; add/remove keep it current from then on (never re-seed it from props later, that would drop edges added since the page loaded). */
-const edges = ref<EdgeRow[]>(props.edges.map((edge) => ({ ...edge })));
+/** The edges still waiting to be moved; emptied once the move has finished. */
+const legacyEdges = ref<LegacyEdge[]>(props.legacyEdges.map((edge) => ({ ...edge })));
+const relationshipsFieldId = ref<string | null>(props.relationshipsFieldId ?? null);
 /** Why the last attempt to delete a field was refused, if it was. */
 const definitionError = ref<string | null>(null);
 
@@ -982,6 +988,82 @@ watch(vaultUnlocked, (unlocked) => {
   if (unlocked) void moveOldNotes();
 }, { immediate: true });
 
+/** Another connection's stored ciphertext in a relationship field, so a save can rewrite that connection's side too. */
+function peerCiphertext(connectionId: string, definitionId: string): string | null {
+  return connections.value.find((c) => c.id === connectionId)?.attribute_values.find((v) => v.attribute_definition_id === definitionId)?.value_ciphertext ?? null;
+}
+
+/** A save rewrote these connections' sides of relationship fields: keep the page's copy of them current. */
+function onPeersUpdated(updates: PeerUpdate[]): void {
+  for (const update of updates) {
+    const index = connections.value.findIndex((c) => c.id === update.connection_id);
+    if (index === -1) continue;
+
+    const connection = connections.value[index];
+    const others = connection.attribute_values.filter((v) => v.attribute_definition_id !== update.attribute_definition_id);
+    connections.value[index] = {
+      ...connection,
+      attribute_values: update.value_ciphertext === null
+        ? others
+        : [...others, { attribute_definition_id: update.attribute_definition_id, value_ciphertext: update.value_ciphertext }],
+    };
+  }
+}
+
+const relationshipsDeps: RelationshipsDeps<ConnectionRow> = {
+  fieldId: () => relationshipsFieldId.value,
+  edges: () => legacyEdges.value,
+  connections: () => connections.value,
+  getRecordKey,
+  createRecordKey,
+  encrypt: encryptString,
+  decrypt: decryptString,
+  post: async (body) => (await axios.post<RelationshipsResponse<ConnectionRow>>('/dashboard/connections/relationships-field', body)).data,
+  apply: async (response) => {
+    const { definition } = response;
+    relationshipsFieldId.value = definition.id;
+
+    if (!definitionItems.value.some((d) => d.id === definition.id)) {
+      let label: string | undefined = response.created ? RELATIONSHIPS_FIELD_LABEL : undefined;
+      if (label === undefined) {
+        try {
+          label = await decryptString(await getRecordKey(definition.id), definition.label_ciphertext);
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      definitionItems.value.push({ ...definition, options: [], label });
+      if (label !== undefined) await placeAndSave(definitionItems, 'attributes', definition.id, labelOfItem);
+    }
+
+    for (const updated of response.connections) onConnectionUpdated(updated);
+  },
+  finished: () => {
+    legacyEdges.value = [];
+  },
+};
+
+const movingRelationships = ref(false);
+
+/** One time per owner, on the first unlock after the change: the old plaintext edges become a Relationships field. */
+async function moveOldRelationships(): Promise<void> {
+  if (movingRelationships.value || !vaultUnlocked.value) return;
+
+  movingRelationships.value = true;
+  try {
+    await moveLegacyRelationships(relationshipsDeps);
+  } catch (error) {
+    console.error(error);
+  } finally {
+    movingRelationships.value = false;
+  }
+}
+
+watch(vaultUnlocked, (unlocked) => {
+  if (unlocked) void moveOldRelationships();
+}, { immediate: true });
+
 /**
  * Appends each waiting VRChat note to the connection's Notes field, on a new line, in this
  * browser (the notes are end-to-end encrypted), then tells the server which ones are done
@@ -1128,6 +1210,49 @@ async function clearOrphanedReferences(): Promise<number> {
           ? { ...c, attribute_values: c.attribute_values.filter((v) => v.attribute_definition_id !== definition.id) }
           : c);
         cleared += chunk.length;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+  }
+  cleared += await clearOrphanedRelationships(liveIds);
+  return cleared;
+}
+
+/**
+ * Relationship lists live inside E2EE ciphertext too, and a deleted connection's id lingers in the other
+ * connections' lists. Rewrites each affected list without the dead ids (the server only checks that nothing
+ * changed since, and reports a changed one as a conflict, which the next sweep sees again).
+ */
+async function clearOrphanedRelationships(liveIds: Set<string>): Promise<number> {
+  let cleared = 0;
+  for (const definition of definitions.value.filter((d) => d.type === 'relationship')) {
+    const values: { connection_id: string; value_ciphertext: string | null; base_ciphertext: string }[] = [];
+    for (const connection of connections.value) {
+      const row = connection.attribute_values.find((v) => v.attribute_definition_id === definition.id);
+      if (!row?.value_ciphertext) continue;
+      try {
+        const key = await getRecordKey(connection.id);
+        const entries = listEntries(await decryptString(key, row.value_ciphertext));
+        const live = entries.filter((id) => liveIds.has(id));
+        if (live.length === entries.length) continue;
+
+        values.push({
+          connection_id: connection.id,
+          value_ciphertext: live.length === 0 ? null : await encryptString(key, paddedListText(live.join('\n'))),
+          base_ciphertext: row.value_ciphertext,
+        });
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    for (let i = 0; i < values.length; i += VALUES_PER_CALL) {
+      const chunk = values.slice(i, i + VALUES_PER_CALL);
+      try {
+        const { data } = await axios.post<{ conflicts: Record<string, string | null> }>(`/dashboard/connection-attribute-definitions/${definition.id}/rewrite-values`, { values: chunk });
+        const written = chunk.filter((v) => !(v.connection_id in data.conflicts));
+        onPeersUpdated(written.map((v) => ({ connection_id: v.connection_id, attribute_definition_id: definition.id, value_ciphertext: v.value_ciphertext })));
+        cleared += written.length;
       } catch (error) {
         console.error(error);
       }
@@ -1523,35 +1648,6 @@ async function migrateDefinition(id: string, to: string, options: MigrateOptions
   }
 }
 
-/** "Knows" is undirected: at most one edge per pair, whichever side it was added from. */
-async function addEdge(fromId: string, toId: string): Promise<void> {
-  const alreadyKnown = edges.value.some(
-    (e) => (e.from_connection_id === fromId && e.to_connection_id === toId)
-      || (e.from_connection_id === toId && e.to_connection_id === fromId),
-  );
-  if (alreadyKnown) return;
-
-  try {
-    const { data } = await axios.post<EdgeRow>('/dashboard/connection-edges', {
-      from_connection_id: fromId,
-      to_connection_id: toId,
-    });
-
-    // The server returns the existing edge if one raced in; don't list it twice.
-    if (!edges.value.some((e) => e.id === data.id)) edges.value.push(data);
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-async function removeEdge(id: string): Promise<void> {
-  try {
-    await axios.delete(`/dashboard/connection-edges/${id}`);
-    edges.value = edges.value.filter((e) => e.id !== id);
-  } catch (error) {
-    console.error(error);
-  }
-}
 </script>
 
 <template>
@@ -1707,7 +1803,7 @@ async function removeEdge(id: string): Promise<void> {
                 :connection="selectedConnection"
                 :sources="sources"
                 :attribute-definitions="definitions"
-                :edges="edges"
+                :peer-ciphertext="peerCiphertext"
                 :connection-options="connectionOptions"
                 :vrchat-profiles="vrchat.profiles[selectedConnection.id]"
                 :vrchat-synced-at="vrchat.synced_at"
@@ -1719,8 +1815,7 @@ async function removeEdge(id: string): Promise<void> {
                 @updated="onConnectionUpdated"
                 @renamed="onConnectionRenamed"
                 @deleted="onConnectionDeleted"
-                @add-edge="addEdge"
-                @remove-edge="removeEdge"
+                @peers-updated="onPeersUpdated"
                 @open-connection="selectedConnectionId = $event"
               />
             </LockedOverlay>

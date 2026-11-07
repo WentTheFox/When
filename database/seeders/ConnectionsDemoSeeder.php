@@ -5,7 +5,6 @@ namespace Database\Seeders;
 use App\Models\Connection;
 use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionAttributeValue;
-use App\Models\ConnectionEdge;
 use App\Models\ConnectionSource;
 use App\Models\ConnectionSourceCategory;
 use App\Models\ConnectionVrchatStay;
@@ -25,7 +24,7 @@ use RuntimeException;
 
 /**
  * Fills a LOCAL database with one demo owner and a realistic Connections CRM
- * (categories, sources, every custom-field type, connections, "knows" edges,
+ * (categories, sources, every custom-field type, connections, mirrored relationship fields,
  * share links), for development and demos.
  *
  * Everything E2EE (§0.1) is encrypted here exactly the way the browser does
@@ -107,7 +106,7 @@ class ConnectionsDemoSeeder extends Seeder
             $sources = $this->createSources($user, $categories);
             $definitions = $this->createDefinitions($user);
             $connections = $this->createConnections($user, $sources, $definitions);
-            $this->createEdges($user, $connections);
+            $this->createRelationships($connections, $definitions);
             $this->createShareLinks($user, $connections);
             $this->bindFeatures($user, $definitions, $sources);
             $this->seedDiscord($user, $definitions, $connections);
@@ -240,6 +239,10 @@ class ConnectionsDemoSeeder extends Seeder
             'interests' => ['Interests', 'list', null],
             'links' => ['Links', 'link_list', null],
             'introduced_by' => ['Introduced by', 'connection', null],
+            // Several relationship fields, each mirrored on both connections (see createRelationships). All feed the network graph.
+            'friends' => ['Friends', 'relationship', null],
+            'family' => ['Family', 'relationship', null],
+            'taken_by' => ['Taken by', 'relationship', null],
             'handle' => ['Handle', 'identifier', null],
             'highlight' => ['Highlight words', 'identifier_list', null],
             'alt_names' => ['Other names', 'identifier_list', null],
@@ -260,6 +263,15 @@ class ConnectionsDemoSeeder extends Seeder
                     'color' => 'amber',
                     'label' => 'Can reach me during Do Not Disturb',
                     'condition' => ['op' => 'isTrue'],
+                ]]];
+            } elseif ($slug === 'friends') {
+                // Relationship fields support the "number of connections" condition: min 0 + max 0 = exactly none.
+                $rules = ['version' => 1, 'stopAfterFirst' => false, 'rules' => [[
+                    'id' => (string) Str::uuid(),
+                    'icon' => 'alert',
+                    'color' => 'amber',
+                    'label' => 'No friends listed',
+                    'condition' => ['op' => 'count', 'min' => 0, 'max' => 0],
                 ]]];
             } elseif ($slug === 'closeness') {
                 $rules = ['version' => 1, 'stopAfterFirst' => true, 'rules' => [[
@@ -469,19 +481,24 @@ class ConnectionsDemoSeeder extends Seeder
         return $connections;
     }
 
-    /** @param list<Connection> $connections */
-    private function createEdges(User $user, array $connections): void
+    /**
+     * Relationships are E2EE custom fields, mirrored: a pair listed in a field appears in both connections'
+     * lists of that field, each list encrypted under its own connection's key (like the browser writes them).
+     *
+     * @param  list<Connection>  $connections
+     * @param  array<string, ConnectionAttributeDefinition>  $d
+     */
+    private function createRelationships(array $connections, array $d): void
     {
         $faker = fake();
-        $seen = [];
 
-        // A few small friend groups plus some random cross-links, one edge per unordered pair.
-        $pairs = [];
+        // A few small friend groups plus some random cross-links, one pair per unordered pair.
+        $friends = [];
         foreach (array_chunk(array_keys($connections), 5) as $group) {
             foreach ($group as $a) {
                 foreach ($group as $b) {
                     if ($a < $b && $faker->boolean(60)) {
-                        $pairs[] = [$a, $b];
+                        $friends[] = [$a, $b];
                     }
                 }
             }
@@ -490,21 +507,38 @@ class ConnectionsDemoSeeder extends Seeder
             $a = $faker->numberBetween(0, count($connections) - 1);
             $b = $faker->numberBetween(0, count($connections) - 1);
             if ($a !== $b) {
-                $pairs[] = [min($a, $b), max($a, $b)];
+                $friends[] = [min($a, $b), max($a, $b)];
             }
         }
 
-        foreach ($pairs as [$a, $b]) {
-            if (isset($seen["$a-$b"])) {
-                continue;
+        $randomPairs = function (int $count) use ($faker, $connections): array {
+            $pairs = [];
+            for ($n = 0; $n < $count; $n++) {
+                $a = $faker->numberBetween(0, count($connections) - 1);
+                $b = $faker->numberBetween(0, count($connections) - 1);
+                if ($a !== $b) {
+                    $pairs[] = [min($a, $b), max($a, $b)];
+                }
             }
-            $seen["$a-$b"] = true;
 
-            ConnectionEdge::create([
-                'user_id' => $user->id,
-                'from_connection_id' => $connections[$a]->id,
-                'to_connection_id' => $connections[$b]->id,
-            ]);
+            return $pairs;
+        };
+
+        foreach (['friends' => $friends, 'family' => $randomPairs(4), 'taken_by' => $randomPairs(3)] as $slug => $pairs) {
+            /** @var array<int, array<string, true>> $lists connection index => related connection ids */
+            $lists = [];
+            foreach ($pairs as [$a, $b]) {
+                $lists[$a][$connections[$b]->id] = true;
+                $lists[$b][$connections[$a]->id] = true;
+            }
+
+            foreach ($lists as $index => $related) {
+                ConnectionAttributeValue::create([
+                    'connection_id' => $connections[$index]->id,
+                    'attribute_definition_id' => $d[$slug]->id,
+                    'value_ciphertext' => $this->encryptFor($connections[$index]->id, $this->paddedList(array_keys($related))),
+                ]);
+            }
         }
     }
 
@@ -546,6 +580,9 @@ class ConnectionsDemoSeeder extends Seeder
             'vrcx_auto_create_friends' => true,
             'vrcx_friends_source_id' => $sources[1]->id,
         ])->save();
+
+        // The dashboard's network graph draws its lines from the relationship fields.
+        $user->graphFields()->attach([$d['friends']->id, $d['family']->id, $d['taken_by']->id]);
     }
 
     /**

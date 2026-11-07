@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -192,6 +193,14 @@ use Illuminate\Support\Facades\Crypt;
  * @method static Builder<static>|User whereDiscordTokenExpiresAt($value)
  * @method static Builder<static>|User whereAlternativeNamesDefinitionId($value)
  * @method static Builder<static>|User whereNotesFieldDefinitionId($value)
+ *
+ * @property string|null $relationships_field_definition_id
+ * @property string|null $relationships_migrated_at
+ * @property-read Collection<int, ConnectionAttributeDefinition> $graphFields
+ * @property-read int|null $graph_fields_count
+ *
+ * @method static Builder<static>|User whereRelationshipsFieldDefinitionId($value)
+ * @method static Builder<static>|User whereRelationshipsMigratedAt($value)
  *
  * @mixin \Eloquent
  */
@@ -566,6 +575,12 @@ class User extends Authenticatable
     public function connectionEdges(): HasMany
     {
         return $this->hasMany(ConnectionEdge::class);
+    }
+
+    /** @return BelongsToMany<ConnectionAttributeDefinition, $this> */
+    public function graphFields(): BelongsToMany
+    {
+        return $this->belongsToMany(ConnectionAttributeDefinition::class, 'connection_graph_fields', 'user_id', 'definition_id');
     }
 
     /** @return HasMany<Invite, $this> */

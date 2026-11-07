@@ -26,7 +26,6 @@ function render(overrides: Record<string, unknown> = {}): Promise<string> {
     connection,
     sources: [],
     attributeDefinitions: [],
-    edges: [],
     connectionOptions: [],
     ...overrides,
   };
@@ -129,45 +128,25 @@ describe('ConnectionCard', () => {
     expect(html).not.toContain('Discard changes');
   });
 
-  it('lists the people it knows with a Remove button right beside each name', async () => {
-    const html = await render({
-      edges: [
-        { id: 'e1', from_connection_id: connection.id, to_connection_id: 'alice' },
-        { id: 'e2', from_connection_id: 'bob', to_connection_id: connection.id },
-      ],
-      connectionOptions: [{ id: 'alice', label: 'Alice' }, { id: 'bob', label: 'Bob' }],
-    });
-
-    // One row per person, the name and its own Remove button in the same row.
-    const rows = [...html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/g)].map(([, row]) => row);
-    expect(rows).toHaveLength(2);
-    expect(rows[0]).toContain('Alice');
-    expect(rows[0]).toContain('aria-label="Remove Alice"');
-    expect(rows[0]).not.toContain('Bob');
-    expect(rows[1]).toContain('Bob');
-    expect(rows[1]).toContain('aria-label="Remove Bob"');
-    expect(rows[1]).not.toContain('Alice');
+  it('has no separate Relationships section any more: nothing saves outside the Save button', async () => {
+    const html = await render({ connectionOptions: [{ id: 'alice', label: 'Alice' }] });
+    expect(html).not.toContain('Changes here save immediately');
+    expect(html).not.toContain('Knows…');
+    expect(html).not.toMatch(/<table\b/);
   });
 
-  it('offers an Open button per relation, and lists relationships below Save as a separate section', async () => {
-    const html = await render({
-      edges: [{ id: 'e1', from_connection_id: connection.id, to_connection_id: 'alice' }],
-      connectionOptions: [{ id: 'alice', label: 'Alice' }],
-    });
-    const row = [...html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/g)][0][1];
-    expect(row).toContain('aria-label="Open Alice"');
-    expect(html.indexOf('>Save<')).toBeGreaterThan(-1);
-    expect(html.indexOf('Relationships')).toBeGreaterThan(html.indexOf('>Save<'));
+  it('shows a relationship field among the custom fields, above Save, as a multi-select of the other connections', async () => {
+    const html = await render(withStoredValues([{ id: 'd-friends', label: 'Friends', type: 'relationship', options: [] }]));
+
+    expect(html).toContain('>Friends<');
+    expect(html).toContain('aria-label="Connections for Friends"');
+    expect(html).toContain('Related connections list each other; changes save with Save.');
+    expect(html.indexOf('>Friends<')).toBeLessThan(html.indexOf('>Save<'));
   });
 
-  it('does not stretch the rows so the button ends up far from the name', async () => {
-    const html = await render({
-      edges: [{ id: 'e1', from_connection_id: connection.id, to_connection_id: 'alice' }],
-      connectionOptions: [{ id: 'alice', label: 'Alice' }],
-    });
-    expect(html).toMatch(/<table[^>]*\bw-auto\b/);
-    expect(html).toMatch(/<table[^>]*\btable-hover\b/);
-    expect(html).not.toMatch(/justify-content-between[^"]*"[^>]*>\s*<span>Alice/);
+  it('offers a relationship field in the "add a custom field" picker like any other field', async () => {
+    const html = await render({ attributeDefinitions: [{ id: 'd-family', label: 'Family', type: 'relationship', options: [] }] });
+    expect(html).toContain('Add a custom field…');
   });
 
   it('offers "Enable sharing" as a solid primary button (an outline one is unreadable on the dark theme)', async () => {

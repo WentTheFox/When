@@ -23,7 +23,7 @@ class ConnectionAttributeDefinitionController extends Controller
         $data = $request->validate([
             'id' => ['required', 'uuid', 'unique:connection_attribute_definitions,id'],
             'label_ciphertext' => ['required', 'string'],
-            'type' => ['required', 'in:text,textarea,date,number,url,email,phone,radio,country,list,link_list,identifier,identifier_list,boolean,connection'],
+            'type' => ['required', 'in:text,textarea,date,number,url,email,phone,radio,country,list,link_list,identifier,identifier_list,boolean,connection,relationship'],
             // Only meaningful for 'radio' (JSON-encoded {"choices": [...]},
             // client-encrypted with this definition's own record key — same
             // key as label_ciphertext, not any connection's key.
@@ -307,6 +307,61 @@ class ConnectionAttributeDefinitionController extends Controller
             ->delete();
 
         return response()->json(['cleared' => $cleared]);
+    }
+
+    /**
+     * Orphan cleanup for 'relationship' definitions. A deleted connection's id lingers inside the other
+     * connections' E2EE lists, so the browser rewrites those lists without it and sends them here. Each value
+     * carries the ciphertext it was built from (base_ciphertext); one that changed since is reported in
+     * `conflicts` (connection id => current ciphertext) and left alone. A null value removes the row.
+     */
+    public function rewriteValues(Request $request, string $definition): JsonResponse
+    {
+        $user = $request->user();
+        $definition = $user->connectionAttributeDefinitions()->where('id', $definition)->firstOrFail();
+
+        if ($definition->type !== 'relationship') {
+            throw ValidationException::withMessages(['definition' => 'Not a relationship field.']);
+        }
+
+        $data = $request->validate([
+            'values' => ['required', 'array', 'max:500'],
+            'values.*.connection_id' => ['required', 'uuid', Rule::exists('connections', 'id')->where('user_id', $user->id)],
+            'values.*.value_ciphertext' => ['present', 'nullable', 'string'],
+            'values.*.base_ciphertext' => ['present', 'nullable', 'string'],
+        ]);
+
+        $conflicts = DB::transaction(function () use ($definition, $data) {
+            $conflicts = [];
+
+            foreach ($data['values'] as $item) {
+                $row = ConnectionAttributeValue::where('connection_id', $item['connection_id'])
+                    ->where('attribute_definition_id', $definition->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (($row?->value_ciphertext) !== $item['base_ciphertext']) {
+                    $conflicts[$item['connection_id']] = $row?->value_ciphertext;
+
+                    continue;
+                }
+
+                if ($item['value_ciphertext'] === null) {
+                    $row?->delete();
+
+                    continue;
+                }
+
+                ConnectionAttributeValue::updateOrCreate(
+                    ['connection_id' => $item['connection_id'], 'attribute_definition_id' => $definition->id],
+                    ['value_ciphertext' => $item['value_ciphertext'], 'identifier_value' => null, 'identifier_list_value' => null, 'boolean_value' => null],
+                );
+            }
+
+            return $conflicts;
+        });
+
+        return response()->json(['conflicts' => (object) $conflicts]);
     }
 
     /**
