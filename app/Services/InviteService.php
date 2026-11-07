@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
 /**
  * Registration is closed by default (§4) — this is the only way in. Also
  * generates the "create your own" invite attributed to a share link when a
- * viewer clicks through from someone's calendar (source_share_link_id).
+ * viewer clicks the footer link on someone's calendar (source_share_link_id).
  */
 class InviteService
 {
@@ -29,6 +29,18 @@ class InviteService
             'expires_at' => $expiresAt,
             'source_share_link_id' => $sourceShareLink?->id,
         ]);
+    }
+
+    /**
+     * The one open-ended invite a share link's "create your own" footer link
+     * hands out, created on first click and reused after that.
+     */
+    public function forShareLink(ShareLink $shareLink): Invite
+    {
+        return Invite::where('source_share_link_id', $shareLink->id)
+            ->whereNull('max_uses')
+            ->whereNull('expires_at')
+            ->first() ?? $this->issue(inviter: $shareLink->user, sourceShareLink: $shareLink);
     }
 
     /** Finds a still-usable invite by code, or null if invalid/expired/exhausted. */

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
-import { getRememberedInviteCode } from '../composables/useInviteCode';
+import { getRememberedShareLinkToken } from '../composables/useShareLinkToken';
 import type { SharedPageProps } from '../sharedPageProps';
 
 /**
@@ -18,13 +18,13 @@ withDefaults(defineProps<{ showInviteCta?: boolean; showAboutLink?: boolean }>()
 });
 
 const page = usePage<SharedPageProps>();
-const inviteCode = getRememberedInviteCode();
+const shareLinkToken = getRememberedShareLinkToken();
 </script>
 <template>
   <footer class="wtf-footer">
-    <template v-if="showInviteCta && !page.props.auth?.user && inviteCode">
+    <template v-if="showInviteCta && !page.props.auth?.user && shareLinkToken">
       <span>
-        <Link :href="`/register?code=${inviteCode}`">
+        <Link :href="`/invite/${encodeURIComponent(shareLinkToken)}`">
           Create your own <em>{{ $page.props.appName }}</em> calendar
         </Link>
       </span>

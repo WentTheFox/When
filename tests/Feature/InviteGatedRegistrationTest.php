@@ -135,19 +135,61 @@ class InviteGatedRegistrationTest extends TestCase
         $response->assertDontSee('id="register-form"', false);
     }
 
-    public function test_viewing_a_share_link_surfaces_a_create_your_own_invite_attributed_to_the_owner(): void
+    public function test_viewing_a_share_link_does_not_issue_an_invite(): void
+    {
+        $shareLink = ShareLink::factory()->for(User::factory()->create())->create();
+
+        $this->get(route('share-links.show', $shareLink->highlight_token))->assertOk();
+
+        $this->assertSame(0, Invite::count());
+    }
+
+    public function test_the_footer_route_creates_one_invite_on_demand_and_reuses_it(): void
     {
         $owner = User::factory()->create();
         $shareLink = ShareLink::factory()->for($owner)->create();
 
-        $response = $this->get(route('share-links.show', $shareLink->highlight_token));
+        $first = $this->get(route('invites.from-share-link', $shareLink->highlight_token));
+        $second = $this->get(route('invites.from-share-link', $shareLink->highlight_token));
 
-        $response->assertOk();
-
-        $invite = Invite::where('source_share_link_id', $shareLink->id)->first();
-        $this->assertNotNull($invite);
+        $invite = Invite::where('source_share_link_id', $shareLink->id)->sole();
         $this->assertSame($owner->id, $invite->inviter_user_id);
-        $response->assertSee($invite->code);
+        $first->assertRedirect(route('register', ['code' => $invite->code]));
+        $second->assertRedirect(route('register', ['code' => $invite->code]));
+    }
+
+    public function test_the_footer_route_with_an_unknown_token_creates_nothing(): void
+    {
+        $this->get(route('invites.from-share-link', 'nope'))->assertRedirect(route('register'));
+
+        $this->assertSame(0, Invite::count());
+    }
+
+    public function test_deleting_a_share_link_deletes_unredeemed_invites_but_keeps_redeemed_ones_expired(): void
+    {
+        $owner = User::factory()->create();
+        $redeemed = ShareLink::factory()->for($owner)->create();
+        $unused = ShareLink::factory()->for($owner)->create();
+        $this->get(route('invites.from-share-link', $redeemed->highlight_token));
+        $this->get(route('invites.from-share-link', $unused->highlight_token));
+
+        $kept = Invite::where('source_share_link_id', $redeemed->id)->sole();
+        $this->invites()->redeem($kept, User::factory()->create());
+
+        $redeemed->forceDelete();
+        $unused->forceDelete();
+
+        $kept->refresh();
+        $this->assertSame(1, Invite::count());
+        $this->assertNull($kept->source_share_link_id);
+        $this->assertTrue($kept->expires_at->isPast() || $kept->expires_at->isToday());
+        $this->assertSame(1, $kept->redemptions()->count());
+        $this->assertNull($this->invites()->findValid($kept->code));
+    }
+
+    private function invites(): InviteService
+    {
+        return app(InviteService::class);
     }
 
     private function registrationPayload(array $overrides = []): array
