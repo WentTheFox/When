@@ -107,7 +107,7 @@ describe('allowedOps', () => {
     expect(allowedOps('radio')).toContain('choiceIn');
     expect(allowedOps('number')).toContain('range');
     expect(allowedOps('text')).toContain('regex');
-    expect(allowedOps('date')).toEqual(['nonEmpty', 'empty']);
+    expect(allowedOps('date')).toEqual(['dateAnnual', 'nonEmpty', 'empty']);
     expect(allowedOps('text')).not.toContain('range');
     expect(allowedOps('identifier_list')).toContain('count');
     expect(allowedOps('identifier')).not.toContain('count');
@@ -189,5 +189,34 @@ describe('countryIn', () => {
     expect(conditionMatches(condition, 'country', '')).toBe(false);
     expect(conditionMatches(condition, 'text', 'DE')).toBe(false);
     expect(allowedOps('country')).toContain('countryIn');
+  });
+});
+
+describe('dateAnnual', () => {
+  const at = (iso: string) => new Date(`${iso}T12:00:00`);
+  const check = (when: 'before' | 'on' | 'after', value: string, today: string) => conditionMatches({ op: 'dateAnnual', when }, 'date', value, at(today));
+
+  it('compares month and day only, ignoring the year', () => {
+    expect(check('on', '1990-03-14', '2026-03-14')).toBe(true);
+    expect(check('on', '1990-03-14', '2026-03-15')).toBe(false);
+    expect(check('before', '1990-03-14', '2026-03-13')).toBe(true);
+    expect(check('before', '1990-03-14', '2026-03-14')).toBe(false);
+    expect(check('after', '1990-03-14', '2026-03-15')).toBe(true);
+    expect(check('after', '1990-03-14', '2026-03-14')).toBe(false);
+    expect(check('after', '2030-01-01', '2026-12-31')).toBe(true);
+  });
+
+  it('treats 29 February as 28 February in a year without one', () => {
+    expect(check('on', '2000-02-29', '2027-02-28')).toBe(true);
+    expect(check('on', '2000-02-29', '2028-02-28')).toBe(false);
+    expect(check('on', '2000-02-29', '2028-02-29')).toBe(true);
+  });
+
+  it('never matches an unset or unreadable date, or a non-date field', () => {
+    expect(check('on', '', '2026-03-14')).toBe(false);
+    expect(check('after', 'not a date', '2026-03-14')).toBe(false);
+    expect(check('after', '2026-02-30', '2026-03-14')).toBe(false);
+    expect(conditionMatches({ op: 'dateAnnual', when: 'on' }, 'text', '1990-03-14', at('2026-03-14'))).toBe(false);
+    expect(allowedOps('date')).toContain('dateAnnual');
   });
 });

@@ -25,6 +25,8 @@ export type RuleCondition =
   | { op: 'isFalse' }
   | { op: 'choiceIn'; choices: string[] }
   /** A country field whose value (an ISO 3166-1 alpha-2 code) equals any of these codes. */
+  /** A date field (YYYY-MM-DD), compared by month and day only against today's: before / on / after that day this year (birthdays, namedays). A 29 February counts as 28 February in a year without one. */
+  | { op: 'dateAnnual'; when: 'before' | 'on' | 'after' }
   | { op: 'countryIn'; countries: string[] }
   /** Matched case-insensitively with the unicode flag ('iu'), exactly as the pattern preview and every other pattern in the app does. `preview` is the owner's persisted example lines for the visual editor's live preview; it lives inside the encrypted blob and plays no part in matching. */
   | { op: 'regex'; pattern: string; preview?: string | null }
@@ -70,6 +72,7 @@ const TEXT_TYPES = ['text', 'textarea', 'url', 'email', 'phone'];
 export function allowedOps(type: string): RuleOp[] {
   if (type === 'boolean') return ['isTrue', 'isFalse', 'nonEmpty', 'empty'];
   if (type === 'radio') return ['choiceIn', 'nonEmpty', 'empty'];
+  if (type === 'date') return ['dateAnnual', 'nonEmpty', 'empty'];
   if (type === 'country') return ['countryIn', 'nonEmpty', 'empty'];
   if (type === 'number') return ['range', 'nonEmpty', 'empty'];
   if (type === 'identifier_list' || type === 'list' || type === 'link_list') return ['nonEmpty', 'empty', 'count', 'regex'];
@@ -158,8 +161,37 @@ export function compileRulePattern(pattern: string): RegExp | null {
   return compiled;
 }
 
+/** The month and day of a YYYY-MM-DD value, or null when it is not a real calendar date. */
+function monthDayOf(value: string): { month: number; day: number } | null {
+  const found = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!found) return null;
+
+  const [year, month, day] = [Number(found[1]), Number(found[2]), Number(found[3])];
+  const check = new Date(Date.UTC(year, month - 1, day));
+
+  return check.getUTCFullYear() === year && check.getUTCMonth() === month - 1 && check.getUTCDate() === day ? { month, day } : null;
+}
+
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+/** -1 / 0 / 1: whether today (in the viewer's own timezone) falls before, on or after the value's month and day this year. null for an unreadable value. */
+function compareToToday(value: string, now: Date): number | null {
+  const target = monthDayOf(value);
+  if (!target) return null;
+
+  let { month, day } = target;
+  if (month === 2 && day === 29 && !isLeapYear(now.getFullYear())) day = 28;
+
+  const today = (now.getMonth() + 1) * 100 + now.getDate();
+  const wanted = month * 100 + day;
+
+  return today < wanted ? -1 : today > wanted ? 1 : 0;
+}
+
 /** Whether one condition holds for a decrypted value of a field of this type. Unknown ops and ops not allowed for the type never match. */
-export function conditionMatches(condition: RuleCondition, type: string, value: string): boolean {
+export function conditionMatches(condition: RuleCondition, type: string, value: string, now: Date = new Date()): boolean {
   if (!allowedOps(type).includes(condition.op)) return false;
 
   const trimmed = value.trim();
@@ -175,6 +207,13 @@ export function conditionMatches(condition: RuleCondition, type: string, value: 
       return trimmed === 'false';
     case 'choiceIn':
       return trimmed !== '' && Array.isArray(condition.choices) && condition.choices.includes(value);
+    case 'dateAnnual': {
+      const order = compareToToday(value, now);
+      if (order === null) return false;
+
+      // "before" means the day has not come yet this year, i.e. today is before it.
+      return condition.when === 'before' ? order < 0 : condition.when === 'after' ? order > 0 : condition.when === 'on' && order === 0;
+    }
     case 'countryIn':
       return trimmed !== '' && Array.isArray(condition.countries) && condition.countries.some((code) => code.toUpperCase() === trimmed.toUpperCase());
     case 'range': {
@@ -209,11 +248,11 @@ export function conditionMatches(condition: RuleCondition, type: string, value: 
 }
 
 /** The icons one field contributes to one connection, in rule order. */
-export function evaluateRules(set: IconRuleSet, type: string, value: string): ResolvedIcon[] {
+export function evaluateRules(set: IconRuleSet, type: string, value: string, now: Date = new Date()): ResolvedIcon[] {
   const resolved: ResolvedIcon[] = [];
 
   for (const rule of set.rules.slice(0, MAX_RULES_PER_FIELD)) {
-    if (!conditionMatches(rule.condition, type, value)) continue;
+    if (!conditionMatches(rule.condition, type, value, now)) continue;
 
     resolved.push({ ruleId: rule.id, icon: rule.icon, color: rule.color, label: rule.label?.trim() ? rule.label.trim() : null });
     if (set.stopAfterFirst) break;

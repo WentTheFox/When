@@ -41,6 +41,7 @@ const OP_LABELS: Record<RuleOp, string> = {
   isFalse: 'is No',
   choiceIn: 'is one of',
   countryIn: 'is one of these countries',
+  dateAnnual: 'month and day is',
   regex: 'matches pattern',
   range: 'is within range',
   count: 'has this many entries',
@@ -58,6 +59,12 @@ const pageLocale = typeof document === 'undefined' ? undefined : document.docume
 const countryChoices = countryOptions(pageLocale)
   .filter((o) => o.value !== '')
   .map((o) => ({ ...o, flag: o.value, keywords: countryKeywords(o.value) }));
+
+const DATE_WHEN_OPTIONS = [
+  { value: 'before', text: 'still ahead this year (today is before it)' },
+  { value: 'on', text: 'today (month and day match)' },
+  { value: 'after', text: 'already passed this year (today is after it)' },
+];
 
 const ops = computed(() => allowedOps(props.type).map((op) => ({ value: op, text: OP_LABELS[op] })));
 
@@ -84,6 +91,8 @@ function conditionFor(op: RuleOp): RuleCondition {
       return { op, choices: [] };
     case 'countryIn':
       return { op, countries: [] };
+    case 'dateAnnual':
+      return { op, when: 'on' };
     case 'regex':
       return { op, pattern: '' };
     default:
@@ -205,6 +214,16 @@ function discard(): void {
             class="w-auto"
             :aria-label="`Condition for rule ${index + 1}`"
             @update:model-value="setOp(rule, $event as RuleOp)"
+          />
+
+          <BFormSelect
+            v-if="rule.condition.op === 'dateAnnual'"
+            :model-value="rule.condition.when"
+            :options="DATE_WHEN_OPTIONS"
+            size="sm"
+            class="w-auto"
+            :aria-label="`Date comparison for rule ${index + 1}`"
+            @update:model-value="rule.condition.op === 'dateAnnual' && (rule.condition.when = $event as 'before' | 'on' | 'after')"
           />
 
           <template v-if="rule.condition.op === 'range' || rule.condition.op === 'count'">

@@ -55,6 +55,9 @@ enum IconKey: string
     case Heart = 'heart';
     case Users = 'users';
     case Gift = 'gift';
+    case PartyPopper = 'party-popper';
+    case Sparkles = 'sparkles';
+    case CalendarHeart = 'calendar-heart';
     case Bell = 'bell';
     case Ban = 'ban';
     case Lock = 'lock';
@@ -151,6 +154,9 @@ enum IconKey: string
     case MugSaucer = 'mug-saucer';
     case IceCream = 'ice-cream';
     case CakeCandles = 'cake-candles';
+    case CakeSlice = 'cake-slice';
+    case Candy = 'candy';
+    case Wine = 'wine';
 
     // Sports & fitness.
     case Futbol = 'futbol';
@@ -314,6 +320,12 @@ enum IconKey: string
             self::MugSaucer => 'Mug',
             self::IceCream => 'Ice cream',
             self::CakeCandles => 'Birthday cake',
+            self::CakeSlice => 'Slice of cake',
+            self::Candy => 'Candy',
+            self::Wine => 'Wine glass',
+            self::PartyPopper => 'Party popper',
+            self::Sparkles => 'Sparkles',
+            self::CalendarHeart => 'Calendar with heart',
             self::PersonRunning => 'Running',
             self::PersonSwimming => 'Swimming',
             self::PaperPlane => 'Paper plane',
@@ -395,7 +407,7 @@ enum IconKey: string
             self::Tree, self::Sun, self::Mountain, self::Leaf, self::Seedling, self::Compass, self::UmbrellaBeach, self::PersonHiking, self::Fire => 'Nature & outdoors',
             self::Cloud, self::CloudRain, self::Snowflake, self::Bolt, self::Umbrella, self::Droplet => 'Weather',
             self::Paw, self::Cat, self::Dog, self::Fish => 'Animals',
-            self::Coffee, self::Utensils, self::PizzaSlice, self::MugSaucer, self::IceCream, self::CakeCandles => 'Food & drink',
+            self::Coffee, self::Utensils, self::PizzaSlice, self::MugSaucer, self::IceCream, self::CakeCandles, self::CakeSlice, self::Candy, self::Wine => 'Food & drink',
             self::Dumbbell, self::Futbol, self::Basketball, self::Bicycle, self::PersonRunning, self::PersonSwimming, self::Volleyball => 'Sports & fitness',
             self::Plane, self::Car, self::Train, self::Ship, self::Rocket, self::PaperPlane, self::Map, self::Globe, self::Anchor,
             self::MapPin, self::MapPinned, self::MapPinPlus, self::MapPinCheck, self::MapPinHouse, self::Navigation, self::NavigationArrow,
@@ -406,7 +418,7 @@ enum IconKey: string
             self::Signal, self::BatteryFull, self::BatteryThreeQuarters, self::BatteryHalf, self::BatteryQuarter, self::BatteryEmpty,
             self::Signal0, self::Signal1, self::Signal2, self::Signal3, self::VolumeOff, self::VolumeLow, self::VolumeHigh, self::FaceFrown, self::FaceMeh, self::FaceSmile, self::FaceGrinBeam, self::StarHalf, self::CircleDot, self::CircleHalfStroke, self::Thermometer, self::ThermometerSnowflake, self::ThermometerSun, self::Gauge, self::Hourglass, self::TrafficLight, self::Flag, self::FlagCheckered, self::Medal, self::Trophy, self::RankingStar, self::ThumbsDown => 'Levels & ranking',
             self::Equals, self::Minus, self::ArrowUp, self::ArrowDown, self::ArrowLeft, self::ArrowRight, self::AngleUp, self::AngleDown, self::AnglesUp, self::AnglesDown, self::ArrowTrendUp, self::ArrowTrendDown => 'Arrows & direction',
-            self::Star, self::Heart, self::Gift, self::Bell, self::ThumbsUp, self::Poop, self::Lightbulb, self::StickyNote => 'Misc',
+            self::Star, self::Heart, self::Gift, self::PartyPopper, self::Sparkles, self::CalendarHeart, self::Bell, self::ThumbsUp, self::Poop, self::Lightbulb, self::StickyNote => 'Misc',
         };
     }
 
@@ -460,6 +472,12 @@ enum IconKey: string
             self::Book, self::Books => ['reading', 'study'],
             self::Paw, self::Cat, self::Dog => ['pet', 'animal'],
             self::CakeCandles => ['birthday', 'party', 'celebration'],
+            self::CakeSlice => ['birthday', 'dessert', 'celebration', 'anniversary'],
+            self::Candy => ['sweet', 'sweets', 'treat', 'birthday'],
+            self::Wine => ['drink', 'toast', 'celebration', 'cheers', 'nameday'],
+            self::PartyPopper => ['party', 'celebration', 'birthday', 'nameday', 'confetti', 'congratulations', 'anniversary'],
+            self::Sparkles => ['celebration', 'special', 'new', 'magic', 'nameday', 'sparkle'],
+            self::CalendarHeart => ['birthday', 'anniversary', 'nameday', 'special date', 'celebration'],
             self::Gift => ['present', 'birthday', 'celebration'],
             self::Tent, self::Campground, self::Caravan, self::Trailer => ['camping', 'trip', 'vacation'],
             self::UmbrellaBeach => ['vacation', 'holiday', 'beach'],
