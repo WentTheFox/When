@@ -115,6 +115,7 @@ Route::middleware('guest')->group(function () {
     // guess invite codes, so both are throttled — not just the redeeming
     // action.
     Route::middleware('throttle:invite-redemption')->group(function () {
+        Route::get('/invite/{token}', [InviteController::class, 'fromShareLink'])->name('invites.from-share-link');
         Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');
         Route::post('/register', [RegisteredUserController::class, 'store']);
     });

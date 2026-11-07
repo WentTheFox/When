@@ -2,10 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Invite;
 use App\Models\ShareLink;
 use App\Models\User;
-use App\Services\InviteService;
 use App\Services\ShareLinkIdentity;
 use App\Support\Locales;
 use App\Support\LocalizedText;
@@ -46,7 +44,7 @@ class ShareLinkController extends Controller
 
     private const LOCALE_COOKIE_MINUTES = 60 * 24 * 365;
 
-    public function __construct(private readonly InviteService $invites, private readonly ShareLinkIdentity $identities) {}
+    public function __construct(private readonly ShareLinkIdentity $identities) {}
 
     /**
      * $token is optional: /free and /{locale}/free (no token segment at
@@ -153,24 +151,11 @@ class ShareLinkController extends Controller
      */
     private function render(?ShareLink $shareLink, ?string $token, string $locale): InertiaResponse
     {
-        $invite = $shareLink !== null ? Invite::where('source_share_link_id', $shareLink->id)
-            ->whereNull('max_uses')
-            ->whereNull('expires_at')
-            ->first() : null;
-
-        if (! $invite && $shareLink !== null) {
-            $invite = $this->invites->issue(
-                inviter: $shareLink->user,
-                sourceShareLink: $shareLink,
-            );
-        }
-
         $owner = $shareLink?->user;
 
         return Inertia::render('Free/Show', [
             'token' => $token,
             'linkFound' => $shareLink !== null,
-            'inviteCode' => $invite?->code,
             'ownerName' => $owner?->name,
             // Who this link was made for (the owner's pick, see ShareLinkIdentity); null shows nobody.
             'identity' => $shareLink !== null ? $this->identities->resolve($shareLink) : null,

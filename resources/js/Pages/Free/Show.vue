@@ -41,7 +41,7 @@ import { BLOCK_ALPHA, fcalTextVars, hexToRgba, hexToRgbTriplet, yiqTextColor } f
 import { resolveSwatchHex } from '../../free/color-palette';
 import { resolveIcon } from '../../free/icon-palette';
 import { useResolvedTheme } from '../../composables/useTheme';
-import { rememberInviteCode } from '../../composables/useInviteCode';
+import { rememberShareLinkToken } from '../../composables/useShareLinkToken';
 import { resolveNowColorHex } from '../../free/now-color-presets';
 import type { AvailabilityResponse } from '../../free/nuxt-blocks';
 
@@ -49,7 +49,6 @@ const props = defineProps<{
   token: string | null;
   /** False for a bare /free visit or a token that doesn't resolve to any share link — see ShareLinkController::render()'s doc comment. */
   linkFound: boolean;
-  inviteCode: string | null;
   ownerName: string | null;
   /** The linked Discord/VRChat account the owner chose to show for this link; null shows nobody. */
   identity: { provider: string; name: string; username: string | null; picture_url: string | null } | null;
@@ -83,8 +82,9 @@ const props = defineProps<{
 
 // Runs before SiteFooter's own setup (child components mount after this
 // component's setup body finishes), so its "Create your own calendar" link
-// already sees this on this very page, not just after navigating away.
-if (props.inviteCode) rememberInviteCode(props.inviteCode);
+// already sees this on this very page, not just after navigating away. Only
+// the token is stored: the invite itself is created if the link is clicked.
+if (props.linkFound && props.token) rememberShareLinkToken(props.token);
 
 const resolvedTheme = useResolvedTheme();
 

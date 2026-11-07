@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Invite;
+use App\Models\ShareLink;
 use App\Services\InviteService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,6 +14,24 @@ use Inertia\Response;
 class InviteController extends Controller
 {
     public function __construct(private readonly InviteService $invites) {}
+
+    /**
+     * Target of the footer's "create your own calendar" link: creates (or
+     * reuses) the invite for the share link only now that a visitor actually
+     * clicked, then forwards to registration with its code. An unknown token
+     * (deleted/regenerated link) lands on /register with no code, which
+     * shows the usual "invite required" state.
+     */
+    public function fromShareLink(string $token): RedirectResponse
+    {
+        $shareLink = ShareLink::where('highlight_token', $token)->first();
+
+        if ($shareLink === null) {
+            return redirect()->route('register');
+        }
+
+        return redirect()->route('register', ['code' => $this->invites->forShareLink($shareLink)->code]);
+    }
 
     public function index(Request $request): Response
     {
