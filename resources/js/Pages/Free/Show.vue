@@ -16,7 +16,7 @@ import AppIcon from '../../Components/AppIcon.vue';
  * showing the same week regardless, since a month's worth of agenda rows
  * isn't a useful mobile view.
  */
-import { Head } from '@inertiajs/vue3';
+import { Head, usePage } from '@inertiajs/vue3';
 import { clearOwnerMarkers, getOwnerMarkers } from '../../ownerMarker';
 import axios from 'axios';
 import { BButton, BFormSelect } from 'bootstrap-vue-next';
@@ -29,8 +29,9 @@ import {
   startOfWeek as startOfWeekFns,
 } from 'date-fns';
 import { currentLocale, loadLanguageAsync, trans } from 'laravel-vue-i18n';
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { decryptString, DecryptionFailedError, deriveHighlightTokenKey } from '../../crypto';
+import type { SharedPageProps } from '../../sharedPageProps';
 import SiteFooter from '../../Components/SiteFooter.vue';
 import SiteHeader from '../../Components/SiteHeader.vue';
 import CalendarView from '../../free/CalendarView.vue';
@@ -382,6 +383,36 @@ const ownerCustomizationsEnabled = ref(true);
 /** True while the owner preview's own customizations are actually showing — i.e. this *is* the owner's preview, and they haven't toggled it off. */
 const showOwnerCustomizations = computed(() => isOwnerPreview.value && ownerCustomizationsEnabled.value);
 
+/* Admin-only strings (owner banner, refresh button, visitor-locale/timezone notes) are deliberately plain English, never translated, whatever language the view is in. */
+
+/** True while the owner is previewing "as a visitor" (customizations toggled off). */
+const previewingAsVisitor = computed(() => isOwnerPreview.value && !ownerCustomizationsEnabled.value);
+
+const supportedLocaleCodes = usePage<SharedPageProps>().props.locales.map((l) => l.code);
+
+/**
+ * The page language while previewing as a visitor: the most-viewed recorded
+ * visitor locale (e.g. "hu-HU" -> "hu") that the app actually supports, else
+ * the page's own locale. Only the client-side translations change; the
+ * server-rendered title and URL stay as they were.
+ */
+const effectiveLocale = computed(() => {
+  if (!previewingAsVisitor.value) return props.locale;
+  for (const option of visitorLocaleOptions.value) {
+    const base = option.locale.split(/[-_]/)[0].toLowerCase();
+    if (supportedLocaleCodes.includes(base)) return base;
+  }
+  return props.locale;
+});
+
+const effectiveTextDirection = computed(() => (
+  effectiveLocale.value === props.locale ? props.textDirection : (['ar', 'he'].includes(effectiveLocale.value) ? 'rtl' : 'ltr')
+));
+
+watch(effectiveLocale, (code) => {
+  loadLanguageAsync(code).catch((e) => console.error(e));
+});
+
 /**
  * The timezone both the calendar grid and the offset note are computed
  * against. For an ordinary (non-owner) viewer, always the viewer's own
@@ -684,17 +715,17 @@ async function forceRefresh(): Promise<void> {
 
     if (response.status !== 200) {
       refreshMessage.value = response.status === 429
-        ? trans('free.refreshThrottled', { minutes: String(Math.max(1, Math.ceil((response.data.retry_after_seconds ?? 0) / 60))) })
-        : trans('free.refreshFailed');
+        ? `You can refresh again in about ${Math.max(1, Math.ceil((response.data.retry_after_seconds ?? 0) / 60))} minute(s).`
+        : 'Couldn\'t refresh right now — please try again.';
       return;
     }
 
     if (await pollUntilFresh()) return;
 
-    refreshMessage.value = trans('free.refreshTimedOut');
+    refreshMessage.value = 'This is taking longer than expected — check back in a bit.';
   } catch (error) {
     console.error(error);
-    refreshMessage.value = trans('free.refreshFailed');
+    refreshMessage.value = 'Couldn\'t refresh right now — please try again.';
   } finally {
     refreshing.value = false;
   }
@@ -724,8 +755,8 @@ onMounted(() => {
 <template>
   <Head :title="pageTitle ?? $t('free.linkExpiredTitle')" />
 
-  <div class="wtf-backdrop" :style="rootStyle" :dir="textDirection">
-    <SiteHeader :identity="identity" :as-visitor="isOwnerPreview && !ownerCustomizationsEnabled" />
+  <div class="wtf-backdrop" :style="rootStyle" :dir="effectiveTextDirection">
+    <SiteHeader :identity="identity" :as-visitor="previewingAsVisitor" :locale-override="previewingAsVisitor ? effectiveLocale : undefined" />
 
     <div class="wtf-page-content container py-4">
       <div class="card mx-auto" style="max-width: 60rem;">
@@ -740,13 +771,13 @@ onMounted(() => {
                  (picker, locale note, refresh button, and the offset note's
                  comparison target) reacts to that via showOwnerCustomizations. -->
             <div v-if="isOwnerPreview" class="alert alert-info d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-              <span class="small">{{ $t('free.ownerPreviewNotice') }}</span>
+              <span class="small">{{ 'You\'re viewing this as the owner.' }}</span>
               <span class="d-flex flex-wrap gap-2">
                 <BButton variant="outline-secondary" size="sm" @click="ownerCustomizationsEnabled = !ownerCustomizationsEnabled">
-                  {{ ownerCustomizationsEnabled ? $t('free.ownerPreviewDisable') : $t('free.ownerPreviewEnable') }}
+                  {{ ownerCustomizationsEnabled ? 'Preview as a visitor' : 'Show owner view' }}
                 </BButton>
                 <BButton v-if="hasOwnerMarker" variant="outline-secondary" size="sm" @click="clearMarker">
-                  {{ $t('free.ownerPreviewClearMarker') }}
+                  {{ 'Clear owner marker' }}
                 </BButton>
               </span>
             </div>
@@ -756,7 +787,7 @@ onMounted(() => {
                    no "match" concept for locale the way there is for a
                    timezone offset. -->
               <template v-if="showOwnerCustomizations && visitorLocaleOptions.length">
-                {{ $t('free.visitorLocalesLabel') }}
+                {{ 'Visitor locales seen:' }}
                 {{ visitorLocaleOptions.map((o) => `${o.locale} (${o.count})`).join(', ') }}
               </template>
               <template v-else>
@@ -774,13 +805,13 @@ onMounted(() => {
                 v-model="selectedVisitorTimezone"
                 size="sm"
                 style="max-width: 24rem;"
-                :aria-label="$t('free.compareTimezoneLabel')"
+                :aria-label="'Compare against a real visitor\'s timezone'"
               >
                 <template #first>
-                  <option :value="null" disabled>{{ $t('free.compareTimezoneLabel') }}</option>
+                  <option :value="null" disabled>{{ 'Compare against a real visitor\'s timezone' }}</option>
                 </template>
                 <option v-for="option in visitorTimezoneOptions" :key="option.timezone" :value="option.timezone">
-                  {{ option.timezone }} ({{ option.count }} {{ option.count === 1 ? $t('free.compareTimezoneView') : $t('free.compareTimezoneViews') }})
+                  {{ option.timezone }} ({{ option.count }} {{ option.count === 1 ? 'view' : 'views' }})
                 </option>
               </BFormSelect>
             </div>
@@ -789,7 +820,7 @@ onMounted(() => {
             <div v-if="showOwnerCustomizations" class="d-flex flex-column align-items-center mb-3" style="gap: 0.25rem;">
               <BButton variant="outline-secondary" size="sm" :disabled="refreshing" @click="forceRefresh">
                 <AppIcon :icon="RotateCwIcon" :spin="refreshing" class="me-2" />
-                {{ refreshing ? $t('free.refreshing') : $t('free.refreshNow') }}
+                {{ refreshing ? 'Refreshing…' : 'Refresh now' }}
               </BButton>
               <span v-if="refreshMessage" class="small text-muted">{{ refreshMessage }}</span>
             </div>

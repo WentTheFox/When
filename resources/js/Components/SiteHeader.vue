@@ -32,6 +32,8 @@ const props = defineProps<{
   identity?: HeaderIdentity | null;
   /** Render as an anonymous visitor would see it, even though someone is logged in (the owner's "preview as visitor" on /free). */
   asVisitor?: boolean;
+  /** Language shown in the switcher instead of the URL's (the visitor preview applies a detected visitor locale client-side). */
+  localeOverride?: string;
 }>();
 
 const page = usePage<SharedPageProps>();
@@ -63,7 +65,7 @@ const LOCALE_PATH_RE = /^\/([a-z]{2})\/free\//;
 const isFreePage = computed(() => (
   window.location.pathname.startsWith('/free/') || LOCALE_PATH_RE.test(window.location.pathname)
 ));
-const currentLocaleCode = computed(() => window.location.pathname.match(LOCALE_PATH_RE)?.[1] ?? 'en');
+const currentLocaleCode = computed(() => props.localeOverride ?? window.location.pathname.match(LOCALE_PATH_RE)?.[1] ?? 'en');
 </script>
 
 <template>
