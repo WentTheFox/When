@@ -74,6 +74,7 @@ class AvailabilityServiceTest extends TestCase
         ?string $activityClausePattern = null,
         array $activityLocalizations = [],
         bool $showRecurring = true,
+        array $extraHighlighted = [],
     ): AvailabilityResult {
         return $this->service->compute(
             $events,
@@ -89,6 +90,7 @@ class AvailabilityServiceTest extends TestCase
             showActivity: $showActivity,
             activityLocalizations: $activityLocalizations,
             showRecurring: $showRecurring,
+            extraHighlighted: $extraHighlighted,
         );
     }
 
@@ -731,5 +733,32 @@ class AvailabilityServiceTest extends TestCase
         );
 
         $this->assertEmpty($this->eventsOfType($result, 'public'));
+    }
+
+    public function test_extra_highlighted_slots_are_trimmed_around_calendar_highlights(): void
+    {
+        $vr = fn (string $start, string $end) => new AvailabilitySlot(
+            start: CarbonImmutable::parse($start, 'UTC'),
+            end: CarbonImmutable::parse($end, 'UTC'),
+            type: 'highlighted',
+            activity: 'VRChat',
+        );
+
+        $result = $this->compute(
+            events: [$this->event('a', '2026-06-02 20:00:00', '2026-06-02 21:00:00', 'Hangout with Alice')],
+            highlightWords: ['Alice'],
+            extraHighlighted: [
+                $vr('2026-06-02 19:00:00', '2026-06-02 22:00:00'), // wraps the calendar event
+                $vr('2026-06-03 10:00:00', '2026-06-03 11:00:00'), // untouched
+            ],
+        );
+
+        $spans = array_map(
+            fn (AvailabilitySlot $s) => $s->start->format('d H').'-'.$s->end->format('H'),
+            array_values(array_filter($this->eventsOfType($result, 'highlighted'), fn ($s) => $s->activity === 'VRChat')),
+        );
+        sort($spans);
+
+        $this->assertSame(['02 19-20', '02 21-22', '03 10-11'], $spans);
     }
 }

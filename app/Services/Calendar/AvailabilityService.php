@@ -151,7 +151,9 @@ class AvailabilityService
             }
         }
 
-        $highlighted = [...$highlighted, ...$extraHighlighted];
+        // An extra slot (VRChat time) is dropped where a calendar highlight
+        // already covers the same time, so the two never double up or overlap.
+        $highlighted = [...$highlighted, ...$this->subtractCovered($extraHighlighted, $highlighted)];
 
         // Sleep is the lowest layer: every event-derived block (unavailable,
         // public, highlighted) renders at its own spot even inside a default
@@ -552,5 +554,49 @@ class AvailabilityService
         }
 
         return $result;
+    }
+
+    /**
+     * @param  AvailabilitySlot[]  $slots
+     * @param  AvailabilitySlot[]  $covering
+     * @return AvailabilitySlot[]
+     */
+    private function subtractCovered(array $slots, array $covering): array
+    {
+        $out = [];
+
+        foreach ($slots as $slot) {
+            $pieces = [[$slot->start, $slot->end]];
+
+            foreach ($covering as $c) {
+                $next = [];
+                foreach ($pieces as [$s, $e]) {
+                    if ($c->end->lte($s) || $c->start->gte($e)) {
+                        $next[] = [$s, $e];
+
+                        continue;
+                    }
+                    if ($c->start->gt($s)) {
+                        $next[] = [$s, $c->start];
+                    }
+                    if ($c->end->lt($e)) {
+                        $next[] = [$c->end, $e];
+                    }
+                }
+                $pieces = $next;
+            }
+
+            foreach ($pieces as [$s, $e]) {
+                $out[] = new AvailabilitySlot(
+                    start: $s,
+                    end: $e,
+                    type: $slot->type,
+                    activity: $slot->activity,
+                    activityIcon: $slot->activityIcon,
+                );
+            }
+        }
+
+        return $out;
     }
 }
