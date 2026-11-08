@@ -16,6 +16,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $deleted_at
  * @property-read Invite|null $invite
  * @property-read User|null $user
+ *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|InviteRedemption newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|InviteRedemption newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|InviteRedemption onlyTrashed()
@@ -27,6 +28,7 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|InviteRedemption whereUserId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|InviteRedemption withTrashed(bool $withTrashed = true)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|InviteRedemption withoutTrashed()
+ *
  * @mixin \Eloquent
  */
 class InviteRedemption extends Model

@@ -19,6 +19,7 @@ use Illuminate\Support\Carbon;
  * @property-read Connection|null $from
  * @property-read Connection|null $to
  * @property-read User|null $user
+ *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionEdge newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionEdge newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionEdge onlyTrashed()
@@ -32,6 +33,7 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionEdge whereUserId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionEdge withTrashed(bool $withTrashed = true)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionEdge withoutTrashed()
+ *
  * @mixin \Eloquent
  */
 class ConnectionEdge extends Model

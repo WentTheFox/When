@@ -29,6 +29,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read User|null $user
+ *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AvailabilityWindow newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AvailabilityWindow newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AvailabilityWindow query()
@@ -39,6 +40,7 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AvailabilityWindow whereUserId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AvailabilityWindow whereWakeTime($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|AvailabilityWindow whereWeekday($value)
+ *
  * @mixin \Eloquent
  */
 class AvailabilityWindow extends Model

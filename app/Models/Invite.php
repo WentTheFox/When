@@ -25,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, InviteRedemption> $redemptions
  * @property-read int|null $redemptions_count
  * @property-read ShareLink|null $sourceShareLink
+ *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Invite newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Invite newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Invite onlyTrashed()
@@ -41,6 +42,7 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Invite whereUsedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Invite withTrashed(bool $withTrashed = true)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Invite withoutTrashed()
+ *
  * @mixin \Eloquent
  */
 class Invite extends Model

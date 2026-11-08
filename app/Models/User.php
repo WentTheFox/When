@@ -117,6 +117,7 @@ use Illuminate\Support\Facades\Crypt;
  * @property-read int|null $share_links_count
  * @property-read Collection<int, SleepException> $sleepExceptions
  * @property-read int|null $sleep_exceptions_count
+ *
  * @method static \Database\Factories\UserFactory factory($count = null, $state = [])
  * @method static Builder<static>|User newModelQuery()
  * @method static Builder<static>|User newQuery()
@@ -193,13 +194,16 @@ use Illuminate\Support\Facades\Crypt;
  * @method static Builder<static>|User whereDiscordTokenExpiresAt($value)
  * @method static Builder<static>|User whereAlternativeNamesDefinitionId($value)
  * @method static Builder<static>|User whereNotesFieldDefinitionId($value)
+ *
  * @property string|null $relationships_field_definition_id
  * @property string|null $relationships_migrated_at
  * @property-read Collection<int, ConnectionAttributeDefinition> $graphFields
  * @property-read int|null $graph_fields_count
+ *
  * @method static Builder<static>|User whereRelationshipsFieldDefinitionId($value)
  * @method static Builder<static>|User whereRelationshipsMigratedAt($value)
  * @method static Builder<static>|User whereVaultLockTimeoutMinutes($value)
+ *
  * @mixin \Eloquent
  */
 class User extends Authenticatable

@@ -62,6 +62,10 @@
             "@php artisan config:clear --ansi",
             "@php artisan test"
         ],
+        "docblocks": [
+            "@php artisan ide-helper:models --write --env=testing",
+            "./vendor/bin/pint app/Models"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"

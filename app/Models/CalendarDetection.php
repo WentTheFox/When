@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $fetched_at
  * @property Carbon|null $deleted_at
  * @property-read User|null $user
+ *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CalendarDetection newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CalendarDetection newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CalendarDetection onlyTrashed()
@@ -26,6 +27,7 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CalendarDetection whereUserId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CalendarDetection withTrashed(bool $withTrashed = true)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CalendarDetection withoutTrashed()
+ *
  * @mixin \Eloquent
  */
 class CalendarDetection extends Model

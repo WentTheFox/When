@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Connection|null $connection
+ *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionVrchatStay newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionVrchatStay newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionVrchatStay query()
@@ -31,6 +32,7 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionVrchatStay wherePayload($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionVrchatStay whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionVrchatStay whereVrchatUserIdHash($value)
+ *
  * @mixin \Eloquent
  */
 class ConnectionVrchatStay extends Model

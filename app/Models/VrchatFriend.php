@@ -23,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read User|null $user
+ *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|VrchatFriend newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|VrchatFriend newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|VrchatFriend query()
@@ -36,6 +37,7 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|VrchatFriend whereUserId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|VrchatFriend whereVrchatUserId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|VrchatFriend whereVrchatUserIdHash($value)
+ *
  * @mixin \Eloquent
  */
 class VrchatFriend extends Model

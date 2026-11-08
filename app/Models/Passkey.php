@@ -27,6 +27,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
  * @property-read User|null $user
+ *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Passkey newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Passkey newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Passkey onlyTrashed()
@@ -44,6 +45,7 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Passkey whereUserId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Passkey withTrashed(bool $withTrashed = true)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Passkey withoutTrashed()
+ *
  * @mixin \Eloquent
  */
 class Passkey extends Model
