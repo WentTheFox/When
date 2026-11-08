@@ -725,7 +725,7 @@ onMounted(() => {
   <Head :title="pageTitle ?? $t('free.linkExpiredTitle')" />
 
   <div class="wtf-backdrop" :style="rootStyle" :dir="textDirection">
-    <SiteHeader :identity="identity" />
+    <SiteHeader :identity="identity" :as-visitor="isOwnerPreview && !ownerCustomizationsEnabled" />
 
     <div class="wtf-page-content container py-4">
       <div class="card mx-auto" style="max-width: 60rem;">

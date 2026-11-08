@@ -28,9 +28,14 @@ export interface HeaderIdentity {
   picture_url: string | null;
 }
 
-defineProps<{ identity?: HeaderIdentity | null }>();
+const props = defineProps<{
+  identity?: HeaderIdentity | null;
+  /** Render as an anonymous visitor would see it, even though someone is logged in (the owner's "preview as visitor" on /free). */
+  asVisitor?: boolean;
+}>();
 
 const page = usePage<SharedPageProps>();
+const user = computed(() => (props.asVisitor ? null : page.props.auth?.user));
 
 // Owned here (not local to HeaderBar) so it can be reset on navigation —
 // otherwise following a link from the mobile menu would leave the panel
@@ -63,7 +68,7 @@ const currentLocaleCode = computed(() => window.location.pathname.match(LOCALE_P
 
 <template>
   <HeaderBar v-model:open="collapseOpen">
-    <BrandMark :app-name="page.props.appName" :href="page.props.auth?.user ? '/dashboard' : '/'" />
+    <BrandMark :app-name="page.props.appName" :href="user ? '/dashboard' : '/'" />
 
     <!--
       One flex group, not several loose children — .navbar > .container
@@ -95,11 +100,11 @@ const currentLocaleCode = computed(() => window.location.pathname.match(LOCALE_P
       <ThemeToggle />
 
       <!-- Here, not in the collapsible nav below, so the auto-lock countdown stays visible on mobile too. -->
-      <AccountMenu />
+      <AccountMenu v-if="!asVisitor" />
     </div>
 
     <template #collapsible>
-      <div v-if="!page.props.auth?.user" class="navbar-nav me-auto">
+      <div v-if="!user" class="navbar-nav me-auto">
         <Link class="nav-item nav-link" :class="{ active: isActive('/login', true) }" :aria-current="isActive('/login', true) ? 'page' : undefined" href="/login">Log in</Link>
         <Link
           v-if="page.props.isFirstUser"
