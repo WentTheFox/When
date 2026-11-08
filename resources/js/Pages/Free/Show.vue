@@ -17,6 +17,7 @@ import AppIcon from '../../Components/AppIcon.vue';
  * isn't a useful mobile view.
  */
 import { Head, usePage } from '@inertiajs/vue3';
+import OwnerOnlyAlert from '../../Components/OwnerOnlyAlert.vue';
 import { clearOwnerMarkers, getOwnerMarkers } from '../../ownerMarker';
 import axios from 'axios';
 import { BButton, BFormSelect } from 'bootstrap-vue-next';
@@ -764,23 +765,12 @@ onMounted(() => {
           <template v-if="linkFound">
             <h1 class="mb-1 text-center">{{ pageTitle }}</h1>
 
-            <!-- Owner-only: recordVisit()'s POST only ever comes back 202
-                 (setting isOwnerPreview) when this *is* the owner viewing
-                 their own link. The toggle just flips
-                 ownerCustomizationsEnabled — every owner-only bit below
-                 (picker, locale note, refresh button, and the offset note's
-                 comparison target) reacts to that via showOwnerCustomizations. -->
-            <div v-if="isOwnerPreview" class="alert alert-info d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-              <span class="small">{{ 'You\'re viewing this as the owner.' }}</span>
-              <span class="d-flex flex-wrap gap-2">
-                <BButton variant="outline-secondary" size="sm" @click="ownerCustomizationsEnabled = !ownerCustomizationsEnabled">
-                  {{ ownerCustomizationsEnabled ? 'Preview as a visitor' : 'Show owner view' }}
-                </BButton>
-                <BButton v-if="hasOwnerMarker" variant="outline-secondary" size="sm" @click="clearMarker">
-                  {{ 'Clear owner marker' }}
-                </BButton>
-              </span>
-            </div>
+            <OwnerOnlyAlert
+              :is-owner-preview="isOwnerPreview"
+              :has-owner-marker="hasOwnerMarker"
+              v-model:owner-customizations-enabled="ownerCustomizationsEnabled"
+              @clear-marker="clearMarker"
+            />
 
             <p class="small text-center text-muted mt-n2 mb-3">
               <!-- Owner-only, purely informational — no picker, since there's
