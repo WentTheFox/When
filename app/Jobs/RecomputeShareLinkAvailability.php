@@ -16,6 +16,7 @@ use App\Services\Calendar\HighlightWordsResolver;
 use App\Services\Calendar\IcsParser;
 use App\Services\Crypto\AesGcm;
 use App\Services\Crypto\HighlightTokenKey;
+use App\Services\Vrcx\VrchatStaySlots;
 use App\Support\StageTimer;
 use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
@@ -181,6 +182,8 @@ class RecomputeShareLinkAvailability implements ShouldBeUnique, ShouldQueue
             activityClausePattern: $user->activity_clause_pattern,
             highlightSplitPattern: $user->highlight_split_pattern,
             activityLocalizations: $activityLocalizations,
+            // Only this link's own connection's VR time, never anyone else's.
+            extraHighlighted: app(VrchatStaySlots::class)->highlightedSlots($shareLink->connection, $rangeStart, $rangeEnd),
         );
 
         $timer->lap('compute_availability', array_merge(

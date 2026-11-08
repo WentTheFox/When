@@ -33,6 +33,7 @@ class AvailabilityService
      * @param  array{start: CarbonImmutable, end: CarbonImmutable}[]  $sleepExceptions  Date-only ranges; suppress the default sleep block.
      * @param  string[]  $highlightWords
      * @param  array<int, array{pattern: string, label: array<string, string>, icon_key?: ?string, color_key?: ?string, has_capture_group?: bool}>  $activityLocalizations  Owner's own configured roles, in display/check order.
+     * @param  AvailabilitySlot[]  $extraHighlighted  Highlighted slots that don't come from calendar events (VRChat time together). Treated exactly like event-derived ones: they punch through sleep, but never make the owner busy.
      */
     public function compute(
         array $events,
@@ -50,6 +51,7 @@ class AvailabilityService
         ?string $highlightSplitPattern = null,
         array $activityLocalizations = [],
         bool $showRecurring = true,
+        array $extraHighlighted = [],
     ): AvailabilityResult {
         $napIntervals = [];
         $busyIntervals = [];
@@ -148,6 +150,8 @@ class AvailabilityService
                 );
             }
         }
+
+        $highlighted = [...$highlighted, ...$extraHighlighted];
 
         // Sleep is the lowest layer: every event-derived block (unavailable,
         // public, highlighted) renders at its own spot even inside a default

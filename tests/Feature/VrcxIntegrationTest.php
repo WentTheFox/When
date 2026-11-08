@@ -199,6 +199,57 @@ class VrcxIntegrationTest extends TestCase
         $this->assertSame(2, $stats['stays']);
     }
 
+    public function test_stays_a_world_switch_apart_are_stored_as_one_block_and_stay_one_block_on_resync(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $connection = $this->link($user, $definition, [self::ALICE]);
+        $service = app(VrcxSyncService::class);
+
+        $this->fakeVrcx([$this->interval('2026-10-01T10:00:00.000Z', 60), $this->interval('2026-10-01T11:08:00.000Z', 52)]);
+        $service->sync($user);
+
+        $stay = ConnectionVrchatStay::where('connection_id', $connection->id)->sole();
+        $this->assertSame('2026-10-01T10:00:00.000Z', $stay->payload['start']);
+        $this->assertSame('2026-10-01T12:00:00.000Z', $stay->payload['end']);
+        $this->assertSame(120 * 60000, $stay->payload['duration_ms']);
+        $id = $stay->id;
+
+        // Same data again: still the one row.
+        $service->sync($user);
+        $this->assertSame($id, ConnectionVrchatStay::where('connection_id', $connection->id)->sole()->id);
+
+        // The first stay aged out of VRCX's window and a new one follows within the gap: the stored block grows, no duplicate.
+        $this->fakeVrcx([$this->interval('2026-10-01T11:08:00.000Z', 52), $this->interval('2026-10-01T12:06:00.000Z', 30)]);
+        $service->sync($user);
+
+        $stay = ConnectionVrchatStay::where('connection_id', $connection->id)->sole();
+        $this->assertSame($id, $stay->id);
+        $this->assertSame('2026-10-01T10:00:00.000Z', $stay->payload['start']);
+        $this->assertSame('2026-10-01T12:36:00.000Z', $stay->payload['end']);
+        $this->assertSame(1, ConnectionVrchatProfile::where('connection_id', $connection->id)->sole()->stats['stays']);
+    }
+
+    public function test_stays_already_stored_apart_are_joined_by_the_next_sync(): void
+    {
+        [$user, $definition] = $this->configuredOwner();
+        $connection = $this->link($user, $definition, [self::ALICE]);
+
+        foreach (['2026-10-01T10:00:00.000Z' => '2026-10-01T11:00:00.000Z', '2026-10-01T11:07:00.000Z' => '2026-10-01T12:00:00.000Z'] as $start => $end) {
+            ConnectionVrchatStay::create([
+                'connection_id' => $connection->id,
+                'vrchat_user_id_hash' => VrchatUserId::hash(self::ALICE),
+                'dedupe_hash' => VrchatUserId::hash(self::ALICE.'|'.$start),
+                'payload' => ['vrchat_user_id' => self::ALICE, 'start' => $start, 'end' => $end, 'duration_ms' => 1, 'other_player_count' => 0],
+            ]);
+        }
+
+        $this->fakeVrcx([]);
+        app(VrcxSyncService::class)->sync($user);
+
+        $stay = ConnectionVrchatStay::where('connection_id', $connection->id)->sole();
+        $this->assertSame('2026-10-01T12:00:00.000Z', $stay->payload['end']);
+    }
+
     public function test_a_user_vrcx_has_not_cached_keeps_the_previous_name(): void
     {
         [$user, $definition] = $this->configuredOwner();

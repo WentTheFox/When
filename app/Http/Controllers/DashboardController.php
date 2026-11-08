@@ -15,6 +15,7 @@ use App\Services\Calendar\CalendarFetcher;
 use App\Services\Calendar\EventNormalizer;
 use App\Services\Calendar\HighlightWordsResolver;
 use App\Services\Calendar\IcsParser;
+use App\Services\Vrcx\VrchatStaySlots;
 use App\Support\Locales;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -257,7 +258,7 @@ class DashboardController extends Controller
         foreach ($shareLinks as $shareLink) {
             $words = $resolver->forShareLink($shareLink, $user);
 
-            $vrchatSlots = $this->vrchatStaySlots($shareLink->connection, $rangeStart, $rangeEnd);
+            $vrchatSlots = app(VrchatStaySlots::class)->intervals($shareLink->connection, $rangeStart, $rangeEnd);
 
             if (empty($words) && $vrchatSlots === []) {
                 continue;
@@ -314,36 +315,6 @@ class DashboardController extends Controller
         usort($withTime, fn ($a, $b) => $b['minutes'] <=> $a['minutes']);
 
         return [array_slice($withTime, 0, 10), array_slice($withTime, 10), $noTime];
-    }
-
-    /**
-     * Time spent together in VRChat with this connection (ConnectionVrchatStay,
-     * §0.2 tier — APP_KEY-decrypted transiently here), clipped to the range.
-     *
-     * @return list<array{start: CarbonImmutable, end: CarbonImmutable}>
-     */
-    private function vrchatStaySlots(?Connection $connection, CarbonImmutable $rangeStart, CarbonImmutable $rangeEnd): array
-    {
-        if ($connection === null) {
-            return [];
-        }
-
-        $slots = [];
-
-        foreach ($connection->vrchatStays as $stay) {
-            try {
-                $start = CarbonImmutable::parse((string) ($stay->payload['start'] ?? ''));
-                $end = CarbonImmutable::parse((string) ($stay->payload['end'] ?? ''));
-            } catch (\Throwable) {
-                continue;
-            }
-
-            if ($end->gt($rangeStart) && $start->lt($rangeEnd) && $end->gt($start)) {
-                $slots[] = ['start' => $start->max($rangeStart), 'end' => $end->min($rangeEnd)];
-            }
-        }
-
-        return $slots;
     }
 
     /**

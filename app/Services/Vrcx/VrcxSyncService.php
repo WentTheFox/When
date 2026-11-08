@@ -8,9 +8,12 @@ use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionAttributeValue;
 use App\Models\ConnectionVrchatProfile;
 use App\Models\ConnectionVrchatStay;
+use App\Models\ShareLink;
+use App\Models\ShareLinkCache;
 use App\Models\User;
 use App\Models\VrchatFriend;
 use App\Services\Calendar\HighlightWordsResolver;
+use App\Support\VrchatStayMerger;
 use App\Support\VrchatUserId;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -470,10 +473,21 @@ class VrcxSyncService
             ->get()
             ->keyBy('dedupe_hash');
 
-        foreach ($intervals as $interval) {
+        // Stored blocks join the fresh intervals: VRCX only looks back a limited window, and a
+        // block that's already merged must stay one block (and keep its key) on every later sync.
+        $merged = VrchatStayMerger::merge([
+            ...$existing->map(fn (ConnectionVrchatStay $row) => $row->payload)->values()->all(),
+            ...$intervals,
+        ]);
+
+        $kept = [];
+        $changed = false;
+
+        foreach ($merged as $interval) {
             $dedupe = VrchatUserId::hash($vrchatId.'|'.$interval['start']);
             $payload = ['vrchat_user_id' => $vrchatId] + $interval;
             $row = $existing->get($dedupe);
+            $kept[$dedupe] = true;
 
             if ($row === null) {
                 ConnectionVrchatStay::create([
@@ -482,10 +496,25 @@ class VrcxSyncService
                     'dedupe_hash' => $dedupe,
                     'payload' => $payload,
                 ]);
+                $changed = true;
             } elseif ($row->payload !== $payload) {
-                // An interval that was still open at the last sync has a longer end now.
+                // An interval that was still open at the last sync has a longer end now, or a neighbour joined it.
                 $row->update(['payload' => $payload]);
+                $changed = true;
             }
+        }
+
+        // Rows a merged block now covers (their own start is no longer a block's start).
+        $absorbed = $existing->reject(fn (ConnectionVrchatStay $row, string $key) => isset($kept[$key]));
+
+        if ($absorbed->isNotEmpty()) {
+            ConnectionVrchatStay::whereIn('id', $absorbed->pluck('id'))->delete();
+            $changed = true;
+        }
+
+        if ($changed) {
+            // The free page shows these stays, so cached results for this connection's links are stale.
+            ShareLinkCache::whereIn('share_link_id', ShareLink::where('connection_id', $connectionId)->select('id'))->delete();
         }
 
         $record = ConnectionVrchatProfile::firstOrNew(['connection_id' => $connectionId, 'vrchat_user_id_hash' => $hash]);

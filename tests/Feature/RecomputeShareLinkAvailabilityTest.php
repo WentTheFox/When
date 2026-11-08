@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Jobs\RecomputeShareLinkAvailability;
+use App\Models\Connection;
+use App\Models\ConnectionVrchatStay;
 use App\Models\ShareLink;
 use App\Models\User;
 use App\Services\Crypto\AesGcm;
@@ -13,6 +15,7 @@ use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Str;
 use Tests\Concerns\SeedsHighlightWords;
 use Tests\TestCase;
 
@@ -79,6 +82,56 @@ class RecomputeShareLinkAvailabilityTest extends TestCase
         $this->assertCount(1, $highlighted);
         $this->assertSame(['Alice'], $highlighted[0]['highlight_words']);
         $this->assertCount(1, $unavailable);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function decryptedEvents(ShareLink $shareLink): array
+    {
+        $cache = $shareLink->fresh()->cache;
+        $this->assertNotNull($cache);
+
+        return json_decode(AesGcm::decrypt(HighlightTokenKey::derive($shareLink->highlight_token), $cache->ciphertext), true)['events'];
+    }
+
+    private function stayFor(Connection $connection, string $start, string $end): void
+    {
+        ConnectionVrchatStay::create([
+            'connection_id' => $connection->id,
+            'vrchat_user_id_hash' => 'hash',
+            'dedupe_hash' => 'dedupe-'.$start,
+            'payload' => ['vrchat_user_id' => 'usr_x', 'start' => $start, 'end' => $end, 'duration_ms' => 0, 'other_player_count' => 0],
+        ]);
+    }
+
+    public function test_vrchat_time_with_the_links_own_connection_appears_as_a_vrchat_event_and_never_on_anyone_elses_link(): void
+    {
+        $mock = new MockHandler([new Response(200, [], $this->icsFixture()), new Response(200, [], $this->icsFixture())]);
+        $this->app->bind(Client::class, fn () => new Client(['handler' => HandlerStack::create($mock)]));
+
+        $user = User::factory()->create(['calendar_url_ciphertext' => Crypt::encryptString('https://example.com/secret.ics')]);
+        $day = now()->addDays(1)->format('Y-m-d');
+
+        $mine = ShareLink::factory()->for($user)->create(['connection_id' => Connection::create(['id' => Str::uuid(), 'user_id' => $user->id, 'name_ciphertext' => 'a'])->id]);
+        $other = ShareLink::factory()->for($user)->create(['connection_id' => Connection::create(['id' => Str::uuid(), 'user_id' => $user->id, 'name_ciphertext' => 'b'])->id]);
+
+        $this->stayFor($mine->connection, "{$day}T20:00:00Z", "{$day}T22:00:00Z");
+        // Outside the computed range entirely.
+        $this->stayFor($mine->connection, '2020-01-01T10:00:00Z', '2020-01-01T11:00:00Z');
+
+        foreach ([$mine, $other] as $link) {
+            RecomputeShareLinkAvailability::dispatchSync($link->id);
+        }
+
+        $vr = array_values(array_filter($this->decryptedEvents($mine), fn ($e) => $e['type'] === 'highlighted' && $e['activity'] === 'VRChat'));
+        $this->assertCount(1, $vr);
+        $this->assertSame("{$day}T20:00:00+00:00", $vr[0]['start']);
+        $this->assertSame("{$day}T22:00:00+00:00", $vr[0]['end']);
+        $this->assertSame('vr-cardboard', $vr[0]['activity_icon']);
+
+        $this->assertSame([], array_values(array_filter($this->decryptedEvents($other), fn ($e) => $e['activity'] === 'VRChat')));
+
+        // VR time highlights but does not make the owner busy.
+        $this->assertSame([], array_values(array_filter($this->decryptedEvents($mine), fn ($e) => $e['type'] === 'unavailable' && str_starts_with($e['start'], "{$day}T20"))));
     }
 
     public function test_recompute_records_a_calendar_detection(): void

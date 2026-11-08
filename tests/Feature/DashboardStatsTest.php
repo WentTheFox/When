@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Connection;
+use App\Models\ConnectionVrchatStay;
 use App\Models\ShareLink;
 use App\Models\User;
 use GuzzleHttp\Client;
@@ -106,6 +107,63 @@ class DashboardStatsTest extends TestCase
 
         $today = $rows[0];
         $this->assertFalse($today['notAvail']);
+    }
+
+    /** @return array{0: User, 1: Connection, 2: ShareLink} */
+    private function ownerWithAliceLink(): array
+    {
+        // One calendar fetch per stats request, and a test makes up to two.
+        $mock = new MockHandler([new Response(200, [], $this->icsFixture()), new Response(200, [], $this->icsFixture())]);
+        $this->app->bind(Client::class, fn () => new Client(['handler' => HandlerStack::create($mock)]));
+
+        $user = User::factory()->create([
+            'calendar_url_ciphertext' => Crypt::encryptString('https://example.com/secret.ics'),
+            'timezone' => 'UTC',
+            'calendar_parsing_mode' => 'full_detail',
+        ]);
+        $connection = Connection::create(['id' => Str::uuid(), 'user_id' => $user->id, 'name_ciphertext' => 'opaque']);
+        $shareLink = ShareLink::factory()->for($user)->create(['connection_id' => $connection->id]);
+        $this->seedHighlightWords($user, $shareLink, ['Alice']);
+
+        return [$user, $connection, $shareLink];
+    }
+
+    private function vrStay(Connection $connection, string $start, string $end): void
+    {
+        ConnectionVrchatStay::create([
+            'connection_id' => $connection->id,
+            'vrchat_user_id_hash' => 'hash',
+            'dedupe_hash' => 'dedupe-'.$start,
+            'payload' => ['vrchat_user_id' => 'usr_x', 'start' => $start, 'end' => $end, 'duration_ms' => 0, 'other_player_count' => 0],
+        ]);
+    }
+
+    public function test_calendar_time_and_vrchat_time_that_overlap_are_counted_once(): void
+    {
+        [$user, $connection] = $this->ownerWithAliceLink();
+        $today = now('UTC')->format('Y-m-d');
+
+        // "Coffee with Alice" is 14:00-15:00; the stay runs 14:30-15:30, so together they cover 90 minutes, not 120.
+        $this->vrStay($connection, "{$today}T14:30:00Z", "{$today}T15:30:00Z");
+
+        $highlights = $this->actingAs($user)->getJson('/dashboard/stats/availability')->assertOk()->json('highlights');
+
+        $this->assertCount(1, $highlights);
+        $this->assertSame(90, $highlights[0]['minutes']);
+    }
+
+    public function test_a_vrchat_stay_inside_the_calendar_event_adds_nothing_and_one_outside_adds_its_length(): void
+    {
+        [$user, $connection] = $this->ownerWithAliceLink();
+        $today = now('UTC')->format('Y-m-d');
+
+        $this->vrStay($connection, "{$today}T14:10:00Z", "{$today}T14:50:00Z");
+        $highlights = $this->actingAs($user)->getJson('/dashboard/stats/availability')->json('highlights');
+        $this->assertSame(60, $highlights[0]['minutes']);
+
+        $this->vrStay($connection, "{$today}T18:00:00Z", "{$today}T18:45:00Z");
+        $highlights = $this->actingAs($user)->getJson('/dashboard/stats/availability')->json('highlights');
+        $this->assertSame(105, $highlights[0]['minutes']);
     }
 
     public function test_a_share_link_with_words_appears_in_the_highlights_leaderboard_labeled_by_its_linked_connection(): void
