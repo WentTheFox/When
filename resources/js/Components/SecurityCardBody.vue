@@ -35,6 +35,18 @@ const page = usePage();
     The encryption key is derived from your master password entirely
     client-side and never leaves your browser in any form.
   </p>
+  <p class="mb-4">
+    So that a page reload doesn't ask for your master password again, your
+    browser keeps that key in IndexedDB, encrypted under a random key held
+    only in your login session on our server. Your master password is never
+    stored. The server releases that session key only until your auto-lock
+    deadline (15 minutes of inactivity by default, configurable on your Account page, or never), and it is destroyed when you lock the vault,
+    sign out, or the deadline passes, which leaves the stored copy
+    undecryptable. The server never receives the key you derive from your
+    password, only the session key that wraps it. While your vault is
+    unlocked, scripts running on this site in your browser can use it,
+    exactly as they could before.
+  </p>
 
   <h2 class="h5">
     <span class="badge text-bg-warning text-dark me-2">Ciphertext at rest, not full E2EE</span>

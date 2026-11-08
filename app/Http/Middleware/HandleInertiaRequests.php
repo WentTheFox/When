@@ -87,6 +87,9 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user() ? [
                     'name' => $request->user()->name,
                     'avatarUrl' => $request->user()->gravatarUrl(),
+                    // Behaviour setting, not sensitive (§0.2 tier): minutes of
+                    // inactivity before the dashboard re-locks the vault; null = never.
+                    'vaultLockTimeoutMinutes' => $request->user()->vault_lock_timeout_minutes,
                     // Reflects the owner's own public-page accent/secondary
                     // colors (Settings) across their dashboard too, applied
                     // by DashboardLayout.vue the same way Free/Show.vue's

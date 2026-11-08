@@ -279,6 +279,26 @@
     color: var(--app-header-text-hover);
 }
 
+/*
+ * The active item used to differ from the others only by 92% vs 100% white
+ * text, which is invisible. Mark it with an underline bar instead (box-shadow
+ * rather than a transparent border, see CLAUDE.md on anti-aliasing seams),
+ * drawn at the bottom of the link on the horizontal bar and down the left
+ * edge in the stacked mobile menu. The account menu toggle deliberately gets
+ * no bar.
+ */
+.wtf-brand-header .navbar-nav .nav-link.active {
+    color: var(--app-header-text-hover);
+    box-shadow: inset 0 -2px 0 var(--app-header-text-hover);
+}
+
+@media (max-width: 991.98px) {
+    .wtf-brand-header .navbar-nav .nav-link.active {
+        box-shadow: inset 3px 0 0 var(--app-header-text-hover);
+        padding-left: 0.75rem;
+    }
+}
+
 /* .btn-outline-secondary's default color/border (var(--app-text-muted) /
    var(--app-border)) is tuned for a neutral card surface — unreadable
    against the header's vivid, always-blue background regardless of theme. */
@@ -1019,7 +1039,6 @@ hr {
     background-color: rgba(var(--app-accent-rgb), 0.12);
     color: var(--app-text-muted);
     font-style: italic;
-    font-weight: 600;
     font-size: 1.05rem;
     text-align: center;
     pointer-events: none;
@@ -1182,7 +1201,6 @@ hr {
     position: relative;
     z-index: 1;
     font-size: 0.875rem;
-    font-weight: 600;
     padding: 0.3rem 0;
     color: var(--app-fcal-text-free);
 }
@@ -1385,7 +1403,6 @@ hr {
     min-height: 1rem;
     padding: 2px 6px;
     font-size: 0.65rem;
-    font-weight: 600;
     line-height: 1.2;
     background-color: var(--app-color-free);
     color: var(--app-fcal-text-free);
@@ -2118,7 +2135,6 @@ hr {
 .wtf-regex-sequence-invalid-label {
     margin: 0;
     font-size: 0.75rem;
-    font-weight: 600;
     color: var(--bs-danger);
 }
 
@@ -2181,7 +2197,6 @@ hr {
 }
 
 .wtf-regex-block-label {
-    font-weight: 600;
     white-space: nowrap;
 }
 

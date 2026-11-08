@@ -105,6 +105,7 @@ class AccountExportService
                 'email' => $user->email,
                 'timezone' => $user->timezone,
                 'week_start' => $user->week_start,
+                'vault_lock_timeout_minutes' => $user->vault_lock_timeout_minutes,
                 'dnd_event_pattern' => $user->dnd_event_pattern,
                 'dnd_event_pattern_preview' => $user->dnd_event_pattern_preview,
                 'nap_event_pattern' => $user->nap_event_pattern,

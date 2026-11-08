@@ -43,6 +43,8 @@ export interface SharedPageProps {
     user: {
       name: string;
       avatarUrl: string;
+      /** Idle minutes before the vault auto-locks; null = never. */
+      vaultLockTimeoutMinutes: number | null;
       accentColorKey: string | null;
       secondaryColorKey: string | null;
       sleepColorKey: string | null;

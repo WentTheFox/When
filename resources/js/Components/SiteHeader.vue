@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import { LogOutIcon } from '@lucide/vue';
-import AppIcon from './AppIcon.vue';
-
 /**
  * The one header used everywhere — PublicLayout.vue (guest and public
  * pages) and DashboardLayout.vue alike — instead of each layout
@@ -14,10 +11,10 @@ import AppIcon from './AppIcon.vue';
  * (guest links vs. the dashboard's own) is the only thing that varies now,
  * gated on auth state below — the visual design itself never does.
  */
-import { Link, router, usePage } from '@inertiajs/vue3';
-import { BButton } from 'bootstrap-vue-next';
+import { Link, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import type { SharedPageProps } from '../sharedPageProps';
+import AccountMenu from './AccountMenu.vue';
 import BrandMark from './BrandMark.vue';
 import HeaderBar from './HeaderBar.vue';
 import LanguageSwitcher from './LanguageSwitcher.vue';
@@ -50,15 +47,18 @@ watch(() => page.url, () => {
 // doesn't exist. This is SiteHeader's own concern, not
 // LanguageSwitcher's — Errors/Maintenance.vue always shows its copy,
 // on whatever URL happens to be up.
+// page.url carries the query string and hash (`/dashboard?x=1`), which an
+// exact comparison would miss — match on the path alone.
+const path = computed(() => page.url.split(/[?#]/)[0]);
+const isActive = (prefix: string, exact = false) => (
+  exact ? path.value === prefix : path.value === prefix || path.value.startsWith(`${prefix}/`)
+);
+
 const LOCALE_PATH_RE = /^\/([a-z]{2})\/free\//;
 const isFreePage = computed(() => (
   window.location.pathname.startsWith('/free/') || LOCALE_PATH_RE.test(window.location.pathname)
 ));
 const currentLocaleCode = computed(() => window.location.pathname.match(LOCALE_PATH_RE)?.[1] ?? 'en');
-
-function logout(): void {
-  router.post('/logout');
-}
 </script>
 
 <template>
@@ -93,15 +93,19 @@ function logout(): void {
       />
 
       <ThemeToggle />
+
+      <!-- Here, not in the collapsible nav below, so the auto-lock countdown stays visible on mobile too. -->
+      <AccountMenu />
     </div>
 
     <template #collapsible>
       <div v-if="!page.props.auth?.user" class="navbar-nav me-auto">
-        <Link class="nav-item nav-link" :class="{ active: page.url === '/login' }" href="/login">Log in</Link>
+        <Link class="nav-item nav-link" :class="{ active: isActive('/login', true) }" :aria-current="isActive('/login', true) ? 'page' : undefined" href="/login">Log in</Link>
         <Link
           v-if="page.props.isFirstUser"
           class="nav-item nav-link"
-          :class="{ active: page.url === '/register' }"
+          :class="{ active: isActive('/register', true) }"
+          :aria-current="isActive('/register', true) ? 'page' : undefined"
           href="/register"
         >
           Create account
@@ -115,16 +119,17 @@ function logout(): void {
         of which page happens to render it.
       -->
       <div v-else class="navbar-nav me-auto">
-        <Link class="nav-item nav-link" :class="{ active: page.url === '/dashboard' }" href="/dashboard">Overview</Link>
-        <Link class="nav-item nav-link" :class="{ active: page.url.startsWith('/settings') }" href="/settings">Settings</Link>
+        <Link class="nav-item nav-link" :class="{ active: isActive('/dashboard', true) }" :aria-current="isActive('/dashboard', true) ? 'page' : undefined" href="/dashboard">Overview</Link>
+        <Link class="nav-item nav-link" :class="{ active: isActive('/settings') }" :aria-current="isActive('/settings') ? 'page' : undefined" href="/settings">Settings</Link>
         <Link
           class="nav-item nav-link"
-          :class="{ active: page.url.startsWith('/dashboard/connections') }"
+          :class="{ active: isActive('/dashboard/connections') }"
+          :aria-current="isActive('/dashboard/connections') ? 'page' : undefined"
           href="/dashboard/connections"
         >
           Connections
         </Link>
-        <Link class="nav-item nav-link" :class="{ active: page.url.startsWith('/invites') }" href="/invites">Invites</Link>
+        <Link class="nav-item nav-link" :class="{ active: isActive('/invites') }" :aria-current="isActive('/invites') ? 'page' : undefined" href="/invites">Invites</Link>
       </div>
 
       <div v-if="identity" class="d-flex align-items-center my-2 my-lg-0 ms-lg-auto me-3" style="color: var(--app-header-text);">
@@ -138,21 +143,6 @@ function logout(): void {
           referrerpolicy="no-referrer"
         >
         <span :title="identity.username ? `@${identity.username}` : undefined">{{ identity.name }}</span>
-      </div>
-
-      <div v-if="page.props.auth?.user" class="d-flex align-items-center flex-wrap" :class="{ 'ms-lg-auto': !identity }">
-        <Link href="/dashboard/account" class="d-flex align-items-center text-decoration-none my-2 my-lg-0 ms-lg-3 me-3" style="color: var(--app-header-text);">
-          <img
-            v-if="page.props.auth.user.avatarUrl"
-            :src="page.props.auth.user.avatarUrl"
-            alt=""
-            class="rounded-circle me-2"
-            width="28"
-            height="28"
-          >
-          <span>{{ page.props.auth.user.name }}</span>
-        </Link>
-        <BButton variant="outline-secondary" size="sm" @click="logout"><AppIcon :icon="LogOutIcon"/></BButton>
       </div>
     </template>
   </HeaderBar>

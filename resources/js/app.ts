@@ -7,6 +7,7 @@ import { setColorPalette } from './free/color-palette';
 import { setIconPalette } from './free/icon-palette';
 import { setNowColorPresets } from './free/now-color-presets';
 import { onPageNavigated } from './dashboard/vaultModal';
+import { initVaultSession, syncVaultSession } from './dashboard/vaultSession';
 import { rememberOwnerMarker } from './ownerMarker';
 
 // bootstrap-vue-next ships components, not CSS — resources/css/app.css's own
@@ -69,8 +70,16 @@ createInertiaApp({
     const markerOf = (page: { props: Record<string, unknown> }) =>
       (page.props.flash as { ownerMarker?: string | null } | undefined)?.ownerMarker;
     rememberOwnerMarker(markerOf(props.initialPage));
+    // Reopen the vault from its persisted (server-expiring) key before any
+    // gate asks for it — see dashboard/vaultSession.ts.
+    initVaultSession(props.initialPage);
+    // 'navigate' is skipped for visits that replace history, which is what a
+    // form save redirecting back to the same URL is — so a changed auto-lock
+    // setting would never arrive. 'success' fires for every visit.
+    router.on('success', (event) => syncVaultSession(event.detail.page));
     router.on('navigate', (event) => {
       rememberOwnerMarker(markerOf(event.detail.page));
+      syncVaultSession(event.detail.page);
       onPageNavigated(event.detail.page);
     });
 

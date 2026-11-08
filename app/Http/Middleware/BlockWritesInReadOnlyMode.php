@@ -26,6 +26,9 @@ class BlockWritesInReadOnlyMode
     protected const READING_POST_PATTERNS = [
         'login/lookup',
         'settings/calendar/preview',
+        // Session-only (no database writes): locking and idle pings must keep working.
+        'dashboard/vault/wrap-key',
+        'dashboard/vault/wrap-key/*',
     ];
 
     /**

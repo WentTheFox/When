@@ -88,5 +88,5 @@ export function useTheme() {
   onMounted(() => media?.addEventListener('change', onSystemChange));
   onUnmounted(() => media?.removeEventListener('change', onSystemChange));
 
-  return { icon, cycle };
+  return { icon, preference, cycle };
 }

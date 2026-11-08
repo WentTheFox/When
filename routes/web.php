@@ -188,6 +188,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard/vault', [VaultController::class, 'show'])->name('dashboard.vault.show');
     Route::patch('/dashboard/vault', [VaultController::class, 'update'])->name('dashboard.vault.update');
 
+    // Session-held wrap key that lets the browser keep the vault unlocked
+    // across reloads with a server-enforced expiry. See VaultController.
+    Route::get('/dashboard/vault/wrap-key', [VaultController::class, 'wrapKey'])->name('dashboard.vault.wrap-key');
+    Route::post('/dashboard/vault/wrap-key/touch', [VaultController::class, 'touchWrapKey'])->name('dashboard.vault.wrap-key.touch');
+    Route::delete('/dashboard/vault/wrap-key', [VaultController::class, 'forgetWrapKey'])->name('dashboard.vault.wrap-key.forget');
+
     Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
     Route::patch('/settings', [SettingsController::class, 'update'])->name('settings.update');
     // Its own action (not folded into the main settings save) so a pending,

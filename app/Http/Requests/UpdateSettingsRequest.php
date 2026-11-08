@@ -41,6 +41,8 @@ class UpdateSettingsRequest extends FormRequest
         return [
             'timezone' => ['sometimes', 'timezone'],
             'week_start' => ['sometimes', 'integer', 'between:0,6'],
+            // null = never auto-lock; must match the options in VaultAutoLockSection.vue (Account page).
+            'vault_lock_timeout_minutes' => ['sometimes', 'nullable', 'integer', 'in:1,5,15,30,60,240'],
             'dnd_event_pattern' => ['sometimes', 'nullable', 'string', 'max:255', Regex::validateCompiles(...)],
             'dnd_event_pattern_preview' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'nap_event_pattern' => ['sometimes', 'nullable', 'string', 'max:255', Regex::validateCompiles(...)],

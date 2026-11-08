@@ -15,6 +15,7 @@ import {
 import { requestConfirm } from '../../dashboard/confirmModal';
 import { requestConfirmation } from '../../dashboard/confirmPasswordModal';
 import { decryptVaultKeyRingWithPassphrase } from '../../dashboard/vault';
+import VaultAutoLockSection from '../../dashboard/VaultAutoLockSection.vue';
 import PageHeader from '../../Components/PageHeader.vue';
 import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 import type { SharedPageProps } from '../../sharedPageProps';
@@ -304,6 +305,8 @@ async function deleteAccount(): Promise<void> {
       </BFormGroup>
       <BButton type="submit" variant="primary" :disabled="emailForm.processing">Save email</BButton>
     </form>
+
+    <VaultAutoLockSection :vault-lock-timeout-minutes="page.props.auth.user?.vaultLockTimeoutMinutes ?? null" />
 
     <h2 class="h5 mb-3">
       Two-factor authentication

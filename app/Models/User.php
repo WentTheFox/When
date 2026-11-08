@@ -42,6 +42,7 @@ use Illuminate\Support\Facades\Crypt;
  * @property string|null $activity_clause_pattern
  * @property string|null $tentative_pattern
  * @property int $week_start
+ * @property int|null $vault_lock_timeout_minutes
  * @property string|null $accent_color_key
  * @property string|null $secondary_color_key
  * @property string|null $sleep_color_key
@@ -225,6 +226,7 @@ class User extends Authenticatable
         'key_ring_ciphertext',
         'timezone',
         'week_start',
+        'vault_lock_timeout_minutes',
         'highlight_identifier_definition_id',
         'bypass_dnd_definition_id',
         'notes_field_definition_id',
@@ -313,6 +315,7 @@ class User extends Authenticatable
             'two_factor_recovery_codes' => 'encrypted:array',
             'two_factor_confirmed_at' => 'datetime',
             'week_start' => 'integer',
+            'vault_lock_timeout_minutes' => 'integer',
             'timezone' => 'encrypted',
             // §0.2 tier: this owner's VRCX server, APP_KEY-encrypted at rest.
             'vrcx_base_url' => 'encrypted',

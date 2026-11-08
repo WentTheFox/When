@@ -216,7 +216,7 @@ class SettingsController extends Controller
      * @var list<string>
      */
     private const SIMPLE_FIELDS = [
-        'timezone', 'week_start', 'calendar_parsing_mode',
+        'timezone', 'week_start', 'vault_lock_timeout_minutes', 'calendar_parsing_mode',
         'dnd_event_pattern', 'dnd_event_pattern_preview',
         'nap_event_pattern', 'nap_event_pattern_preview',
         'public_event_pattern', 'public_event_pattern_preview',
