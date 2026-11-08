@@ -17,7 +17,6 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read ShareLink|null $shareLink
- *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ShareLinkCache newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ShareLinkCache newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ShareLinkCache query()
@@ -29,7 +28,6 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ShareLinkCache whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ShareLinkCache whereShareLinkId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ShareLinkCache whereUpdatedAt($value)
- *
  * @mixin \Eloquent
  */
 class ShareLinkCache extends Model

@@ -28,7 +28,6 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
  * @property-read User|null $user
- *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|SleepException newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|SleepException newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|SleepException onlyTrashed()
@@ -43,7 +42,6 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|SleepException whereUserId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|SleepException withTrashed(bool $withTrashed = true)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|SleepException withoutTrashed()
- *
  * @mixin \Eloquent
  */
 class SleepException extends Model

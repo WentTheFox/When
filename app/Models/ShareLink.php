@@ -30,7 +30,6 @@ use Illuminate\Support\Carbon;
  * @property-read User|null $user
  * @property-read Collection<int, ShareLinkVisit> $visits
  * @property-read int|null $visits_count
- *
  * @method static Builder<static>|ShareLink active()
  * @method static \Database\Factories\ShareLinkFactory factory($count = null, $state = [])
  * @method static Builder<static>|ShareLink newModelQuery()
@@ -49,11 +48,8 @@ use Illuminate\Support\Carbon;
  * @method static Builder<static>|ShareLink whereUserId($value)
  * @method static Builder<static>|ShareLink withTrashed(bool $withTrashed = true)
  * @method static Builder<static>|ShareLink withoutTrashed()
- *
  * @property string|null $display_identity
- *
  * @method static Builder<static>|ShareLink whereDisplayIdentity($value)
- *
  * @mixin \Eloquent
  */
 class ShareLink extends Model

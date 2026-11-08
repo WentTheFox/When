@@ -54,7 +54,6 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, Translation> $localizedTexts
  * @property-read int|null $localized_texts_count
  * @property-read User|null $user
- *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization onlyTrashed()
@@ -72,7 +71,6 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization whereUserId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization withTrashed(bool $withTrashed = true)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ActivityLocalization withoutTrashed()
- *
  * @mixin \Eloquent
  */
 class ActivityLocalization extends Model

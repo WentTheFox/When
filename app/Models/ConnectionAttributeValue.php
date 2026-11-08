@@ -20,7 +20,6 @@ use Illuminate\Support\Carbon;
  * @property bool|null $boolean_value
  * @property-read Connection|null $connection
  * @property-read ConnectionAttributeDefinition|null $definition
- *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeValue newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeValue newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeValue query()
@@ -33,7 +32,6 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeValue whereIdentifierValue($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeValue whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeValue whereValueCiphertext($value)
- *
  * @mixin \Eloquent
  */
 class ConnectionAttributeValue extends Model

@@ -5,6 +5,7 @@ namespace App\Services\Calendar;
 use App\Domain\Calendar\AvailabilityResult;
 use App\Domain\Calendar\AvailabilitySlot;
 use App\Domain\Calendar\ParsedEvent;
+use App\Support\VrchatStayMerger;
 use Carbon\CarbonImmutable;
 
 /**
@@ -151,9 +152,10 @@ class AvailabilityService
             }
         }
 
-        // An extra slot (VRChat time) is dropped where a calendar highlight
-        // already covers the same time, so the two never double up or overlap.
-        $highlighted = [...$highlighted, ...$this->subtractCovered($extraHighlighted, $highlighted)];
+        // Extra slots (VRChat time) fuse with calendar highlights they overlap
+        // or sit within the VRChat stay-merge gap of: planned and actual
+        // on/off times rarely line up exactly. The calendar slot's details win.
+        $highlighted = $this->mergeExtra($highlighted, $extraHighlighted);
 
         // Sleep is the lowest layer: every event-derived block (unavailable,
         // public, highlighted) renders at its own spot even inside a default
@@ -557,46 +559,74 @@ class AvailabilityService
     }
 
     /**
-     * @param  AvailabilitySlot[]  $slots
-     * @param  AvailabilitySlot[]  $covering
+     * @param  AvailabilitySlot[]  $calendar  Calendar-derived highlighted slots.
+     * @param  AvailabilitySlot[]  $extra
      * @return AvailabilitySlot[]
      */
-    private function subtractCovered(array $slots, array $covering): array
+    private function mergeExtra(array $calendar, array $extra): array
     {
-        $out = [];
+        $gap = VrchatStayMerger::GAP_MINUTES;
+        $calendar = array_values($calendar);
+        $remaining = array_values($extra);
 
-        foreach ($slots as $slot) {
-            $pieces = [[$slot->start, $slot->end]];
+        do {
+            $changed = false;
 
-            foreach ($covering as $c) {
-                $next = [];
-                foreach ($pieces as [$s, $e]) {
-                    if ($c->end->lte($s) || $c->start->gte($e)) {
-                        $next[] = [$s, $e];
-
-                        continue;
-                    }
-                    if ($c->start->gt($s)) {
-                        $next[] = [$s, $c->start];
-                    }
-                    if ($c->end->lt($e)) {
-                        $next[] = [$c->end, $e];
+            foreach ($remaining as $ri => $x) {
+                $hits = [];
+                foreach ($calendar as $ci => $c) {
+                    if ($x->start->lte($c->end->addMinutes($gap)) && $x->end->gte($c->start->subMinutes($gap))) {
+                        $hits[] = $ci;
                     }
                 }
-                $pieces = $next;
-            }
 
-            foreach ($pieces as [$s, $e]) {
-                $out[] = new AvailabilitySlot(
-                    start: $s,
-                    end: $e,
-                    type: $slot->type,
-                    activity: $slot->activity,
-                    activityIcon: $slot->activityIcon,
+                if ($hits === []) {
+                    continue;
+                }
+
+                $base = $calendar[$hits[0]];
+                $start = $x->start;
+                $end = $x->end;
+                $tentativeStart = false;
+                $tentativeEnd = false;
+                foreach ($hits as $ci) {
+                    $c = $calendar[$ci];
+                    $start = $start->min($c->start);
+                    $end = $end->max($c->end);
+                }
+                foreach ($hits as $ci) {
+                    $c = $calendar[$ci];
+                    $tentativeStart = $tentativeStart || ($c->start->eq($start) && $c->tentativeStart);
+                    $tentativeEnd = $tentativeEnd || ($c->end->eq($end) && $c->tentativeEnd);
+                }
+
+                $extended = $start->ne($base->start) || $end->ne($base->end);
+                $calendar[$hits[0]] = new AvailabilitySlot(
+                    start: $start,
+                    end: $end,
+                    type: $base->type,
+                    tentativeStart: $tentativeStart,
+                    tentativeEnd: $tentativeEnd,
+                    activity: $base->activity,
+                    activityLabel: $base->activityLabel,
+                    highlightWords: $base->highlightWords,
+                    activityIcon: $base->activityIcon,
+                    activityColor: $base->activityColor,
+                    // The series no longer describes a block that grew.
+                    recurrence: $extended ? null : $base->recurrence,
                 );
-            }
-        }
+                foreach (array_slice($hits, 1) as $ci) {
+                    unset($calendar[$ci]);
+                }
+                $calendar = array_values($calendar);
+                unset($remaining[$ri]);
+                $remaining = array_values($remaining);
+                $changed = true;
 
-        return $out;
+                break;
+            }
+        } while ($changed);
+
+        return [...$calendar, ...$remaining];
     }
 }

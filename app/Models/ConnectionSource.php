@@ -24,7 +24,6 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, Connection> $connections
  * @property-read int|null $connections_count
  * @property-read User|null $user
- *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSource newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSource newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSource onlyTrashed()
@@ -40,7 +39,6 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSource whereUserId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSource withTrashed(bool $withTrashed = true)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSource withoutTrashed()
- *
  * @mixin \Eloquent
  */
 class ConnectionSource extends Model

@@ -26,7 +26,6 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
  * @property-read Model|\Eloquent $localizable
- *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Translation newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Translation newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Translation onlyTrashed()
@@ -42,7 +41,6 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Translation whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Translation withTrashed(bool $withTrashed = true)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Translation withoutTrashed()
- *
  * @mixin \Eloquent
  */
 class Translation extends Model

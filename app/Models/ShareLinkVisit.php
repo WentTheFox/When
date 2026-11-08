@@ -16,7 +16,6 @@ use Illuminate\Support\Carbon;
  * @property Carbon $visited_at
  * @property string|null $locale
  * @property-read ShareLink|null $shareLink
- *
  * @method static \Database\Factories\ShareLinkVisitFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ShareLinkVisit newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ShareLinkVisit newQuery()
@@ -26,7 +25,6 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ShareLinkVisit whereShareLinkId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ShareLinkVisit whereTimezone($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ShareLinkVisit whereVisitedAt($value)
- *
  * @mixin \Eloquent
  */
 class ShareLinkVisit extends Model

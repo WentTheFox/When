@@ -35,7 +35,6 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, ConnectionSource> $sources
  * @property-read int|null $sources_count
  * @property-read User|null $user
- *
  * @method static \Database\Factories\ConnectionFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Connection newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Connection newQuery()
@@ -53,12 +52,10 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Connection whereUserId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Connection withTrashed(bool $withTrashed = true)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Connection withoutTrashed()
- *
  * @property-read Collection<int, ConnectionVrchatProfile> $vrchatProfiles
  * @property-read int|null $vrchat_profiles_count
  * @property-read Collection<int, ConnectionVrchatStay> $vrchatStays
  * @property-read int|null $vrchat_stays_count
- *
  * @mixin \Eloquent
  */
 class Connection extends Model

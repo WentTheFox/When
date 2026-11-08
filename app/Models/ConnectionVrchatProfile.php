@@ -27,7 +27,6 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Connection|null $connection
- *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionVrchatProfile newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionVrchatProfile newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionVrchatProfile query()
@@ -45,7 +44,6 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionVrchatProfile whereDiscordId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionVrchatProfile whereNoteImportedHash($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionVrchatProfile whereVrchatNote($value)
- *
  * @mixin \Eloquent
  */
 class ConnectionVrchatProfile extends Model
