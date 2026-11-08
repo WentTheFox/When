@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildConnectionsHash, hasRecord, isPageTab, parseConnectionsHash } from '../connectionsHash';
+import { buildConnectionsHash, buildConnectionsSearch, hasRecord, isPageTab, parseConnectionsHash } from '../connectionsHash';
 
 const A = '11111111-1111-4111-8111-111111111111';
 
@@ -34,21 +34,29 @@ describe('parseConnectionsHash', () => {
   });
 });
 
-describe('buildConnectionsHash', () => {
-  it('omits the default tab and returns an empty string for an empty state', () => {
+describe('query tab', () => {
+  it('reads the tab from ?tab= and the record from the hash', () => {
+    expect(parseConnectionsHash(`#id=${A}`, '?tab=sources')).toEqual({ tab: 'sources', id: A });
+    expect(parseConnectionsHash('', '?tab=bogus')).toEqual({ tab: 'connections' });
+  });
+});
+
+describe('buildConnectionsHash / buildConnectionsSearch', () => {
+  it('omits the default tab and an empty record', () => {
+    expect(buildConnectionsSearch({ tab: 'connections' })).toBe('');
     expect(buildConnectionsHash({ tab: 'connections' })).toBe('');
     expect(buildConnectionsHash({ tab: 'connections', id: A })).toBe(`#id=${A}`);
   });
 
-  it('writes a non-default tab and its record', () => {
-    expect(buildConnectionsHash({ tab: 'attributes', id: A })).toBe(`#tab=attributes&id=${A}`);
-    expect(buildConnectionsHash({ tab: 'sources' })).toBe('#tab=sources');
+  it('writes a non-default tab to the query and keeps other parameters', () => {
+    expect(buildConnectionsSearch({ tab: 'sources' })).toBe('?tab=sources');
+    expect(buildConnectionsSearch({ tab: 'sources' }, '?a=1')).toBe('?a=1&tab=sources');
   });
 
   it('round-trips every tab, with and without a record', () => {
     for (const tab of ['connections', 'sources', 'categories', 'attributes'] as const) {
       for (const state of [{ tab }, { tab, id: A }]) {
-        expect(parseConnectionsHash(buildConnectionsHash(state))).toEqual(state);
+        expect(parseConnectionsHash(buildConnectionsHash(state), buildConnectionsSearch(state))).toEqual(state);
       }
     }
   });

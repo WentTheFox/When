@@ -28,7 +28,7 @@ class DiscordController extends Controller
     public function connect(Request $request, DiscordClient $client): RedirectResponse
     {
         if (! DiscordClient::isConfigured()) {
-            return redirect()->route('settings.edit')->withErrors(['discord' => 'Discord is not set up on this server.']);
+            return redirect()->route('settings.edit', ['tab' => 'discord'])->withErrors(['discord' => 'Discord is not set up on this server.']);
         }
 
         $state = Str::random(40);
@@ -40,7 +40,7 @@ class DiscordController extends Controller
     public function callback(Request $request): RedirectResponse
     {
         $expected = $request->session()->pull(self::STATE_KEY);
-        $back = redirect()->route('settings.edit');
+        $back = redirect()->route('settings.edit', ['tab' => 'discord']);
 
         if (! is_string($expected) || ! hash_equals($expected, (string) $request->query('state'))) {
             return $back->withErrors(['discord' => 'The Discord sign-in expired. Try connecting again.']);

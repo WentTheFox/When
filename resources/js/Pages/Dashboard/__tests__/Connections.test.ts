@@ -32,13 +32,13 @@ const props = {
   vrchat: { configured: false, synced_at: null, auto_create_friends: false, pending_friends: 0, friends_source_id: null, highlight_field_id: null, discord_field_id: null, field: null, profiles: {} },
 };
 
-function renderWith(pageProps: object, hash: string): Promise<string> {
-  vi.stubGlobal('window', { location: { hash, origin: 'https://when.test', pathname: '/dashboard/connections', search: '' } });
+function renderWith(pageProps: object, hash: string, search = ''): Promise<string> {
+  vi.stubGlobal('window', { location: { hash, origin: 'https://when.test', pathname: '/dashboard/connections', search } });
   return renderToString(createSSRApp({ render: () => h(Connections as object, pageProps) }));
 }
 
-function render(hash: string): Promise<string> {
-  return renderWith(props, hash);
+function render(hash: string, search = ''): Promise<string> {
+  return renderWith(props, hash, search);
 }
 
 describe('Connections page', () => {
@@ -145,13 +145,13 @@ describe('Connections page', () => {
   });
 
   it('opens the tab named in the hash, with that record open and undecrypted', async () => {
-    const html = await render(`#tab=attributes&id=${DEFINITION}`);
+    const html = await render(`#id=${DEFINITION}`, '?tab=attributes');
     expect(html).toMatch(/nav-link active[^>]*aria-controls="connections-tab-attributes"/);
     expect(html).toMatch(/<input[^>]*value="ZmllbGQtY2lwaGVy"[^>]*\bdisabled\b/);
   });
 
   it('opens a source from the hash on the sources tab', async () => {
-    const html = await render(`#tab=sources&id=${SOURCE}`);
+    const html = await render(`#id=${SOURCE}`, '?tab=sources');
     expect(html).toMatch(/nav-link active[^>]*aria-controls="connections-tab-sources"/);
     expect(html).toMatch(/<input[^>]*value="c291cmNlLWNpcGhlcg=="[^>]*\bdisabled\b/);
   });

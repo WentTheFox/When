@@ -1,9 +1,11 @@
 /**
- * Tabs of the Settings page and their URL hash, so a reload (or a link) reopens
+ * Tabs of the Settings page and their URL, so a reload (or a link) reopens
  * the same one:
  *
- *   #tab=vrchat        the tab itself (Calendar is the default and is omitted)
+ *   ?tab=vrchat        the tab itself (Calendar is the default and is omitted)
  *   #share-links       an element id: the tab holding it opens and it scrolls into view
+ *
+ * The older `#tab=vrchat` form is still understood.
  *
  * Element-id links already exist (the "Choose one below" links between cards, a
  * link from the custom attributes panel), and a link into a card that sits in a
@@ -58,18 +60,21 @@ export function tabForAnchor(id: string): SettingsTabName | null {
   return id.endsWith('_pattern') ? 'matching' : null;
 }
 
+import { readTabParam, withTabParam } from './tabQuery';
+
 export interface SettingsHashState {
   tab: SettingsTabName;
   /** An element to scroll to once its tab is open. */
   anchor?: string;
 }
 
-export function parseSettingsHash(hash: string): SettingsHashState {
+/** Reads `?tab=` first, then an element-id hash (or the older `#tab=` form). */
+export function parseSettingsHash(hash: string, search = ''): SettingsHashState {
+  const queryTab = readTabParam(search);
   const raw = hash.startsWith('#') ? hash.slice(1) : hash;
-  if (raw === '') return { tab: DEFAULT_TAB };
 
-  if (raw.includes('=')) {
-    const tab = new URLSearchParams(raw).get('tab');
+  if (raw === '' || raw.includes('=')) {
+    const tab = isSettingsTab(queryTab) ? queryTab : raw === '' ? null : new URLSearchParams(raw).get('tab');
     return { tab: isSettingsTab(tab) ? tab : DEFAULT_TAB };
   }
 
@@ -80,11 +85,14 @@ export function parseSettingsHash(hash: string): SettingsHashState {
     // Not valid percent-encoding: use it as typed.
   }
 
+  // An element-id link names its own tab; an explicit ?tab= only matters when the id is unknown.
   const tab = tabForAnchor(anchor);
-  return tab === null ? { tab: DEFAULT_TAB } : { tab, anchor };
+  if (tab !== null) return { tab, anchor };
+
+  return { tab: isSettingsTab(queryTab) ? queryTab : DEFAULT_TAB };
 }
 
-/** Inverse of the tab form; '' for the default tab. */
-export function buildSettingsHash(tab: SettingsTabName): string {
-  return tab === DEFAULT_TAB ? '' : `#tab=${tab}`;
+/** The query string for a tab, keeping other parameters; the default tab drops `tab`. */
+export function buildSettingsSearch(tab: SettingsTabName, search = ''): string {
+  return withTabParam(search, tab === DEFAULT_TAB ? null : tab);
 }

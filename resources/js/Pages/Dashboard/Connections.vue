@@ -42,6 +42,7 @@ import { type DiscordProfile, type DiscordSummary, emptyDiscordSummary, discordF
 import type { FriendDecision, PendingFriend, VrchatSummary } from '../../dashboard/vrchat';
 import {
   buildConnectionsHash,
+  buildConnectionsSearch,
   hasRecord,
   PAGE_TABS,
   parseConnectionsHash,
@@ -185,7 +186,7 @@ const connectionOptions = computed(() =>
  * editing, just for one connection at a time now instead of all of them
  * simultaneously.
  */
-const initialHash = typeof window === 'undefined' ? { tab: 'connections' as PageTabName } : parseConnectionsHash(window.location.hash);
+const initialHash = typeof window === 'undefined' ? { tab: 'connections' as PageTabName } : parseConnectionsHash(window.location.hash, window.location.search);
 /** An id from the hash only counts if that record exists, so a stale link just opens nothing. */
 function known(list: { id: string }[], id?: string): string | null {
   return id && list.some((item) => item.id === id) ? id : null;
@@ -418,7 +419,7 @@ watch(vaultUnlocked, async (unlocked) => {
 }, { immediate: true });
 
 /**
- * The active tab and the record open in it live in the URL hash (see
+ * The active tab and the record open in it live in the URL (`?tab=` and `#id=`, see
  * connectionsHash.ts), so a reload — or a link — reopens the same view. It is
  * written with replaceState (keeping Inertia's history state), so selecting
  * things doesn't pile up history entries or jump the page.
@@ -434,11 +435,13 @@ function selectionFor(tab: PageTabName) {
 
 function writeHash(): void {
   const tab = activeTabName();
-  const hash = buildConnectionsHash({ tab, id: selectionFor(tab).value ?? undefined });
+  const state = { tab, id: selectionFor(tab).value ?? undefined };
+  const hash = buildConnectionsHash(state);
+  const search = buildConnectionsSearch(state, window.location.search);
 
-  if (window.location.hash === hash) return;
+  if (window.location.hash === hash && window.location.search === search) return;
 
-  window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}${hash}`);
+  window.history.replaceState(window.history.state, '', `${window.location.pathname}${search}${hash}`);
 }
 
 watch([pageTab, selectedConnectionId, selectedSourceId, selectedCategoryId, selectedDefinitionId], writeHash);
@@ -446,7 +449,7 @@ watch(selectedDefinitionId, () => { definitionError.value = null; });
 
 /** Applies whatever the hash names (a hand-edited hash or an in-page link). */
 function applyHash(): void {
-  const state = parseConnectionsHash(window.location.hash);
+  const state = parseConnectionsHash(window.location.hash, window.location.search);
   pageTab.value = PAGE_TABS[state.tab];
 
   if (!state.id) return;
@@ -462,7 +465,7 @@ function applyHash(): void {
  * the lists only ask when clicked.
  */
 function openFromHash(): void {
-  if (!hasRecord(parseConnectionsHash(window.location.hash))) return;
+  if (!hasRecord(parseConnectionsHash(window.location.hash, window.location.search))) return;
 
   void requestUnlock();
 

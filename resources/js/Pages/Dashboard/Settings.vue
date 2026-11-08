@@ -24,7 +24,7 @@
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { BAlert, BBadge, BCard, BTab, BTabs } from 'bootstrap-vue-next';
 import { nextTick, onBeforeUnmount, onMounted, ref, watch, onUnmounted } from 'vue';
-import { buildSettingsHash, parseSettingsHash, SETTINGS_TABS, type SettingsTabName } from '../../dashboard/settingsTabs';
+import { buildSettingsSearch, parseSettingsHash, SETTINGS_TABS, type SettingsTabName } from '../../dashboard/settingsTabs';
 import SettingsSleepExceptionsCard from '../../dashboard/SettingsSleepExceptionsCard.vue';
 import PageHeader from '../../Components/PageHeader.vue';
 import DashboardLayout from '../../Layouts/DashboardLayout.vue';
@@ -206,12 +206,12 @@ onUnmounted(() => {
 /**
  * The page is split into tabs (the cards sat in one long scroll). Every tab's
  * content stays mounted while hidden, so nothing is lost switching between them
- * (the forms live in this component anyway). The active tab is kept in the URL
- * hash with replaceState, so it survives a reload without piling up history, and
+ * (the forms live in this component anyway). The active tab is kept in the `?tab=` query
+ * parameter with replaceState, so it survives a reload without piling up history, and
  * a link to an element id (#share-links, #highlight-tokens, ...) opens the tab
  * holding it and then scrolls there (see settingsTabs.ts).
  */
-const initialHash = typeof window === 'undefined' ? { tab: 'calendar' as SettingsTabName } : parseSettingsHash(window.location.hash);
+const initialHash = typeof window === 'undefined' ? { tab: 'calendar' as SettingsTabName } : parseSettingsHash(window.location.hash, window.location.search);
 const activeTab = ref<string>(SETTINGS_TABS[initialHash.tab]);
 
 function activeTabName(): SettingsTabName {
@@ -219,17 +219,20 @@ function activeTabName(): SettingsTabName {
 }
 
 function writeHash(): void {
-  // A hash that already leads to this tab (its own form, or an element-id link into it) stays as it is.
-  if (parseSettingsHash(window.location.hash).tab === activeTabName()) return;
+  // An element-id hash that already leads to this tab stays as it is, and the query matches the tab.
+  const search = buildSettingsSearch(activeTabName(), window.location.search);
+  if (search === window.location.search && parseSettingsHash(window.location.hash, search).tab === activeTabName()) return;
 
-  window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}${buildSettingsHash(activeTabName())}`);
+  // A hash naming another tab's element would fight the query, so it is dropped.
+  const hash = parseSettingsHash(window.location.hash).anchor && parseSettingsHash(window.location.hash).tab === activeTabName() ? window.location.hash : '';
+  window.history.replaceState(window.history.state, '', `${window.location.pathname}${search}${hash}`);
 }
 
 watch(activeTab, writeHash);
 
 /** Opens the tab the hash names, then scrolls to the element it points at (once the tab is visible). */
 function followHash(): void {
-  const state = parseSettingsHash(window.location.hash);
+  const state = parseSettingsHash(window.location.hash, window.location.search);
   activeTab.value = SETTINGS_TABS[state.tab];
 
   if (state.anchor) {

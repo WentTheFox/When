@@ -318,7 +318,7 @@ class DiscordIntegrationTest extends TestCase
         ]);
 
         $this->actingAs($user)->withSession(['discord_oauth_state' => 'good'])
-            ->get('/settings/discord/callback?code=abc&state=good')->assertRedirect(route('settings.edit'));
+            ->get('/settings/discord/callback?code=abc&state=good')->assertRedirect(route('settings.edit', ['tab' => 'discord']));
 
         $user->refresh();
         $this->assertSame(self::ACCESS, $user->discord_access_token);

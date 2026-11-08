@@ -1,16 +1,18 @@
 /**
- * URL-hash state for the Connections page, so a reload (or a shared link)
+ * URL state for the Connections page, so a reload (or a shared link)
  * reopens the same view:
  *
- *   #tab=sources&id=<uuid>
+ *   ?tab=sources#id=<uuid>
  *
- * `tab` is one of the page's tabs (Connections is the default and is omitted)
- * and `id` is the record open in that tab, if any. Only the active tab's
- * record is kept in the URL. The older `#connection-<uuid>` form is still
- * understood, since links to it exist.
+ * `tab` (query) is one of the page's tabs (Connections is the default and is
+ * omitted) and `id` (hash) is the record open in that tab, if any. Only the
+ * active tab's record is kept in the URL. The older `#tab=sources&id=<uuid>` and
+ * `#connection-<uuid>` forms are still understood, since links to them exist.
  *
  * Ids are plain UUIDs and carry no secrets; names stay E2EE.
  */
+
+import { readTabParam, withTabParam } from './tabQuery';
 
 export const PAGE_TABS = {
   connections: 'connections-tab-connections',
@@ -34,7 +36,7 @@ export function isPageTab(value: string | null | undefined): value is PageTabNam
   return !!value && Object.prototype.hasOwnProperty.call(PAGE_TABS, value);
 }
 
-export function parseConnectionsHash(hash: string): ConnectionsHashState {
+export function parseConnectionsHash(hash: string, search = ''): ConnectionsHashState {
   const raw = hash.startsWith('#') ? hash.slice(1) : hash;
 
   const legacy = /^connection-(.+)$/.exec(raw);
@@ -43,7 +45,7 @@ export function parseConnectionsHash(hash: string): ConnectionsHashState {
   }
 
   const params = new URLSearchParams(raw);
-  const tab = params.get('tab');
+  const tab = readTabParam(search) ?? params.get('tab');
   const id = params.get('id');
 
   return {
@@ -52,16 +54,14 @@ export function parseConnectionsHash(hash: string): ConnectionsHashState {
   };
 }
 
-/** Inverse of parse; omits the default tab and returns '' when there is nothing to say. */
+/** The hash half of the state: just the record id, '' when there is none. */
 export function buildConnectionsHash(state: ConnectionsHashState): string {
-  const params = new URLSearchParams();
+  return state.id ? `#id=${state.id}` : '';
+}
 
-  if (state.tab !== DEFAULT_TAB) params.set('tab', state.tab);
-  if (state.id) params.set('id', state.id);
-
-  const query = params.toString();
-
-  return query ? `#${query}` : '';
+/** The query half of the state, keeping other parameters; the default tab drops `tab`. */
+export function buildConnectionsSearch(state: ConnectionsHashState, search = ''): string {
+  return withTabParam(search, state.tab === DEFAULT_TAB ? null : state.tab);
 }
 
 /** True when the hash names a record (a bare tab does not count). */

@@ -1,20 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { buildSettingsHash, parseSettingsHash, SETTINGS_TABS, tabForAnchor } from '../settingsTabs';
+import { buildSettingsSearch, parseSettingsHash, SETTINGS_TABS, tabForAnchor } from '../settingsTabs';
 
 describe('settings tab hash', () => {
   it('opens the calendar tab by default and for anything it does not recognise', () => {
     expect(parseSettingsHash('')).toEqual({ tab: 'calendar' });
     expect(parseSettingsHash('#')).toEqual({ tab: 'calendar' });
     expect(parseSettingsHash('#tab=nope')).toEqual({ tab: 'calendar' });
+    expect(parseSettingsHash('', '?tab=nope')).toEqual({ tab: 'calendar' });
     expect(parseSettingsHash('#no-such-element')).toEqual({ tab: 'calendar' });
   });
 
   it('reads and writes a tab name', () => {
     for (const tab of Object.keys(SETTINGS_TABS) as (keyof typeof SETTINGS_TABS)[]) {
-      expect(parseSettingsHash(buildSettingsHash(tab))).toEqual({ tab });
+      expect(parseSettingsHash('', buildSettingsSearch(tab))).toEqual({ tab });
     }
-    expect(buildSettingsHash('calendar')).toBe('');
-    expect(buildSettingsHash('vrchat')).toBe('#tab=vrchat');
+    expect(buildSettingsSearch('calendar')).toBe('');
+    expect(buildSettingsSearch('vrchat')).toBe('?tab=vrchat');
+    expect(buildSettingsSearch('vrchat', '?a=1&tab=sleep')).toBe('?a=1&tab=vrchat');
+    expect(buildSettingsSearch('calendar', '?a=1&tab=sleep')).toBe('?a=1');
+    expect(parseSettingsHash('#tab=vrchat')).toEqual({ tab: 'vrchat' });
+    expect(parseSettingsHash('#share-links', '?tab=discord')).toEqual({ tab: 'sharing', anchor: 'share-links' });
   });
 
   it('turns an element-id link into its tab plus the element to scroll to', () => {
