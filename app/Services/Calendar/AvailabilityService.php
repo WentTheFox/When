@@ -155,6 +155,10 @@ class AvailabilityService
         // Extra slots (VRChat time) fuse with calendar highlights they overlap
         // or sit within the VRChat stay-merge gap of: planned and actual
         // on/off times rarely line up exactly. The calendar slot's details win.
+        // Only the calendar-derived part carves sleep: the client draws a
+        // highlighted block over a base block, and a VRChat stretch has no
+        // unavailable block of its own, so sleep must stay underneath it.
+        $carvingHighlighted = $highlighted;
         $highlighted = $this->mergeExtra($highlighted, $extraHighlighted);
 
         // Sleep is the lowest layer: every event-derived block (unavailable,
@@ -181,7 +185,7 @@ class AvailabilityService
             [
                 ...$unavailable,
                 ...$public,
-                ...array_map(fn ($h) => ['start' => $h->start, 'end' => $h->end], $highlighted),
+                ...array_map(fn ($h) => ['start' => $h->start, 'end' => $h->end], $carvingHighlighted),
             ],
         );
 

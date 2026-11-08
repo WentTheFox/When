@@ -762,4 +762,26 @@ class AvailabilityServiceTest extends TestCase
 
         $this->assertSame(['19:50-22:00 ', '23:00-23:30 VRChat'], $spans);
     }
+
+    public function test_vrchat_time_does_not_carve_a_hole_in_sleep(): void
+    {
+        // The client draws highlighted blocks over a base block, so sleep must
+        // stay under VRChat time that has no calendar event of its own.
+        $result = $this->compute(
+            weeklyAvailability: $this->everyWeekday('08:00', '23:00'),
+            extraHighlighted: [new AvailabilitySlot(
+                start: CarbonImmutable::parse('2026-06-02 02:00:00', 'UTC'),
+                end: CarbonImmutable::parse('2026-06-02 05:00:00', 'UTC'),
+                type: 'highlighted',
+                activity: 'VRChat',
+            )],
+        );
+
+        $covered = array_filter(
+            $this->eventsOfType($result, 'sleep'),
+            fn (AvailabilitySlot $s) => $s->start->lte(CarbonImmutable::parse('2026-06-02 02:00:00', 'UTC'))
+                && $s->end->gte(CarbonImmutable::parse('2026-06-02 05:00:00', 'UTC')),
+        );
+        $this->assertCount(1, $covered);
+    }
 }
