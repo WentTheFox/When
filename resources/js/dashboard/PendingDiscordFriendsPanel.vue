@@ -13,7 +13,7 @@
  *   - dismiss (not asked about again).
  * Matching needs the connections' names, so it waits for the vault to be unlocked.
  */
-import { BBadge, BButton, BCard } from 'bootstrap-vue-next';
+import { BBadge, BButton, BCard, BSpinner } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
 import SearchableSelect, { type SelectOption } from '../Components/SearchableSelect.vue';
 import { discordFriendName, discordFriendNames, type PendingDiscordFriend } from './discord';
@@ -26,6 +26,8 @@ const props = defineProps<{
   candidates: MatchCandidate[];
   /** Whether matching can run (the vault is unlocked and the names are decrypted). */
   ready: boolean;
+  /** The vault is open, so a not-ready panel is still decrypting the connections rather than waiting for an unlock. */
+  unlocked?: boolean;
   /** The Discord user ID field is a single identifier, so adding a second ID to someone turns it into a list. */
   singleField: boolean;
   /** Whether adding this friend to that connection would need the identifier -> list conversion. */
@@ -153,7 +155,10 @@ function alsoKnownAs(friend: PendingDiscordFriend): string {
       the names they go by (your nickname for them first) against your connections' names and highlight tokens; change it where it's wrong.
     </p>
 
-    <p v-if="!ready" class="small mb-0">Unlock your vault to match these friends against your connections.</p>
+    <p v-if="!ready && unlocked" class="small mb-0" role="status">
+      <BSpinner small class="me-2" />Decrypting your connections to match these friends…
+    </p>
+    <p v-else-if="!ready" class="small mb-0">Unlock your vault to match these friends against your connections.</p>
 
     <template v-else>
       <div v-if="rows.length > 1" class="d-flex flex-wrap align-items-center gap-2 mb-2">

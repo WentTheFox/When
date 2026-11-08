@@ -12,7 +12,7 @@
  *   - dismiss (not asked about again).
  * Matching needs the connections' names, so it waits for the vault to be unlocked.
  */
-import { BBadge, BButton, BCard } from 'bootstrap-vue-next';
+import { BBadge, BButton, BCard, BSpinner } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
 import SearchableSelect, { type SelectOption } from '../Components/SearchableSelect.vue';
 import { defaultFriendChoice, type MatchBy, type MatchCandidate, matchFriend, type PossibleMatch, possibleMatches } from './friendMatching';
@@ -24,6 +24,8 @@ const props = defineProps<{
   candidates: MatchCandidate[];
   /** Whether matching can run (the vault is unlocked and the names are decrypted). */
   ready: boolean;
+  /** The vault is open, so a not-ready panel is still decrypting the connections rather than waiting for an unlock. */
+  unlocked?: boolean;
   /** The VRChat user ID field is a single identifier, so adding a second ID to someone turns it into a list. */
   singleField: boolean;
   /** Whether adding this friend to that connection would need the identifier -> list conversion. */
@@ -123,7 +125,10 @@ const counts = computed(() => {
       their VRChat name against your connections' names and highlight tokens; change it where it's wrong.
     </p>
 
-    <p v-if="!ready" class="small mb-0">Unlock your vault to match these friends against your connections.</p>
+    <p v-if="!ready && unlocked" class="small mb-0" role="status">
+      <BSpinner small class="me-2" />Decrypting your connections to match these friends…
+    </p>
+    <p v-else-if="!ready" class="small mb-0">Unlock your vault to match these friends against your connections.</p>
 
     <template v-else>
       <div class="list-group" style="max-height: 28rem; overflow-y: auto;">

@@ -33,6 +33,12 @@ describe('PendingFriendsPanel', () => {
     expect(html).not.toContain('Matches');
   });
 
+  it('shows a loading note, not an unlock prompt, while an open vault is still decrypting', async () => {
+    const html = await render([friend('4', 'Alice')], [], { ready: false, unlocked: true });
+    expect(html).toContain('Decrypting your connections');
+    expect(html).not.toContain('Unlock your vault');
+  });
+
   it('waits for the vault before matching or offering any action', async () => {
     const html = await render([friend('4', 'Alice')], [], { ready: false });
     expect(html).toContain('Unlock your vault');
