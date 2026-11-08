@@ -15,7 +15,7 @@ import { onMounted, onUnmounted, ref, watch } from 'vue';
 import { decryptString } from '../crypto';
 import { useResolvedTheme } from '../composables/useTheme';
 import { listEntries } from './encryptedList';
-import { onVaultUnlocked } from './onVaultUnlocked';
+import { onVaultLockChange } from './onVaultLockChange';
 import { useVault } from './useVault';
 import { swatchByKey } from '../free/color-palette';
 
@@ -63,7 +63,17 @@ async function addRelationshipEdges(): Promise<void> {
   render();
 }
 
-onVaultUnlocked(vaultUnlocked, () => void addRelationshipEdges());
+const resetRelationshipEdges = () => {
+  if (!lastData) return;
+  lastData.edges = serverEdges;
+  render();
+};
+
+onVaultLockChange({
+  unlocked: vaultUnlocked,
+  run: () => void addRelationshipEdges(),
+  cleanup: () => void resetRelationshipEdges(),
+});
 
 /** Same fallback WhenTheFox's own ColorPalette gives every other unset slot — this app's signature hue. */
 function nodeColor(colorKey: string | null): string {

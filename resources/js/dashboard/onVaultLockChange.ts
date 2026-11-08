@@ -1,5 +1,20 @@
 import { type Ref, watch } from 'vue';
 
+interface OnVaultLockChangeParams {
+  /**
+   * Live state of the vault locking
+   */
+  unlocked: Ref<boolean>;
+  /**
+   * Runs when unlocked
+   */
+  run: () => void;
+  /**
+   * Runs when the vault is re-locked (either manually or due to a timeout)
+   */
+  cleanup?: () => void;
+}
+
 /**
  * Runs `run` right away if the vault is already unlocked, otherwise as soon as
  * it becomes unlocked (and again on any later unlock).
@@ -11,8 +26,12 @@ import { type Ref, watch } from 'vue';
  *
  * Call it from setup(): the watcher goes away with the component.
  */
-export function onVaultUnlocked(unlocked: Ref<boolean>, run: () => void): void {
+export function onVaultLockChange({unlocked, run, cleanup}: OnVaultLockChangeParams): void {
   watch(unlocked, (isUnlocked) => {
-    if (isUnlocked) run();
+    if (isUnlocked) {
+      run();
+    } else {
+      cleanup?.();
+    }
   }, { immediate: true });
 }

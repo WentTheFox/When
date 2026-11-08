@@ -27,7 +27,7 @@ import type { DiscordProfile } from './discord';
 import type { VrchatProfile, VrchatSummary } from './vrchat';
 import { requestConfirm } from './confirmModal';
 import { bindField } from './fieldBinding';
-import { onVaultUnlocked } from './onVaultUnlocked';
+import { onVaultLockChange } from './onVaultLockChange';
 import { ATTRIBUTE_TYPE_ICONS } from './attributeTypeIcons';
 import { VaultLockedError } from './vault';
 import { useVault } from './useVault';
@@ -186,6 +186,16 @@ async function openRelationship(edge: { otherId: string; otherName: string }): P
   emit('openConnection', edge.otherId);
 }
 
+function resetDecryptState() {
+  name.value = '';
+  attributeValues.value = {};
+  editName.value = '';
+  editAttributeValues.value = {};
+
+  decrypted.value = false;
+  decryptFailed.value = false;
+}
+
 async function decryptAll(): Promise<void> {
   // The card can be on screen before the unlock (a reload with this record in the URL). Not being able to
   // decrypt *yet* is not a failure: stay pending, and onVaultUnlocked below runs this again once the keys exist.
@@ -276,7 +286,11 @@ const isDirty = computed(() => {
 // These must come AFTER everything decryptAll reads (isDirty above in particular): with the vault already
 // unlocked — switching from one connection to another — onVaultUnlocked runs decryptAll immediately, during
 // setup, and reading a const that is declared further down throws "can't access lexical declaration".
-onVaultUnlocked(vaultUnlocked, decryptAll);
+onVaultLockChange({
+  unlocked: vaultUnlocked,
+  run: decryptAll,
+  cleanup: resetDecryptState,
+});
 // The parent can replace this row from outside (e.g. the bulk identifier copy).
 watch(() => props.connection.attribute_values, decryptAll);
 
