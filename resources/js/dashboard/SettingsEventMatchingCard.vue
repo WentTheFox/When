@@ -148,10 +148,10 @@ function submit(): void {
             </dd>
             <dt><BBadge variant="warning" text="dark" class="align-middle">Flag</BBadge></dt>
             <dd>
-              Also a boolean match (no group read), but with two side effects together: it marks
-              the event tentative at that edge (start/end/both, depending on the field)
-              <em>and</em> removes the matched marker text from the title used for pattern
-              matching.
+              Also a boolean match (no group read), but with a side effect: it removes the matched
+              marker text from the title used for pattern matching, in a pre-defined order. Allows
+              you to apply flags like "tentative" and "public" to events without disrupting other
+              pattern matching rules.
             </dd>
             <dt><BBadge variant="primary" class="align-middle">Split</BBadge></dt>
             <dd>
