@@ -614,7 +614,9 @@ class AvailabilityService
                     activity: $base->activity,
                     activityLabel: $base->activityLabel,
                     highlightWords: $base->highlightWords,
-                    activityIcon: $base->activityIcon,
+                    // A role's own icon still wins; otherwise the block took in
+                    // VRChat time, so it wears the VRChat icon, not the plain highlight.
+                    activityIcon: $base->activityIcon ?? $x->activityIcon,
                     activityColor: $base->activityColor,
                     // The series no longer describes a block that grew.
                     recurrence: $extended ? null : $base->recurrence,

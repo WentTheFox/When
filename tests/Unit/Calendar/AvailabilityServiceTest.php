@@ -742,6 +742,7 @@ class AvailabilityServiceTest extends TestCase
             end: CarbonImmutable::parse($end, 'UTC'),
             type: 'highlighted',
             activity: 'VRChat',
+            activityIcon: 'vr-cardboard',
         );
 
         $result = $this->compute(
@@ -761,6 +762,8 @@ class AvailabilityServiceTest extends TestCase
         sort($spans);
 
         $this->assertSame(['19:50-22:00 ', '23:00-23:30 VRChat'], $spans);
+        $merged = array_values(array_filter($this->eventsOfType($result, 'highlighted'), fn ($s) => $s->start->format('H') === '19'));
+        $this->assertSame('vr-cardboard', $merged[0]->activityIcon);
     }
 
     public function test_vrchat_time_does_not_carve_a_hole_in_sleep(): void
