@@ -107,7 +107,8 @@ async function syncNow(): Promise<void> {
 const importText = ref('');
 const importing = ref(false);
 const importResult = ref<{ ok: boolean; text: string } | null>(null);
-watch(importText, () => { importResult.value = null; });
+// Typing or pasting new text clears the last result; emptying the box after a successful import must not wipe the message that just appeared.
+watch(importText, (text) => { if (text) importResult.value = null; });
 const parsed = computed(() => {
   if (!importText.value.trim()) return null;
 
