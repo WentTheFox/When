@@ -194,7 +194,7 @@ class DiscordClient
         ];
     }
 
-    private function avatarUrl(string $id, ?string $hash): ?string
+    public static function avatarUrl(string $id, ?string $hash): ?string
     {
         return $hash === null ? null : "https://cdn.discordapp.com/avatars/{$id}/{$hash}.png?size=64";
     }

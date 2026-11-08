@@ -17,6 +17,7 @@ import { computed, ref, watch } from 'vue';
 import { decryptString } from '../crypto';
 import { rawPreview } from './rawCiphertext';
 import { useVault } from './useVault';
+import { extractRelationships } from './discordRelationshipsImport';
 import VaultGate from './VaultGate.vue';
 
 type Definition = { id: string; label_ciphertext: string; type: string };
@@ -102,6 +103,44 @@ async function syncNow(): Promise<void> {
   }
 }
 
+// Importing friends and blocked users from pasted text: parsed and checked here, only the fields we keep are sent. Only people not tracked yet are added.
+const importText = ref('');
+const importing = ref(false);
+const importResult = ref<{ ok: boolean; text: string } | null>(null);
+watch(importText, () => { importResult.value = null; });
+const parsed = computed(() => {
+  if (!importText.value.trim()) return null;
+
+  try {
+    return { ...extractRelationships(importText.value), error: null as string | null };
+  } catch (error) {
+    return { entries: [], friends: 0, blocked: 0, truncated: false, error: error instanceof Error ? error.message : 'Could not read that.' };
+  }
+});
+
+async function importRelationships(): Promise<void> {
+  if (!parsed.value?.entries.length) return;
+
+  importing.value = true;
+  importResult.value = null;
+
+  try {
+    const { data } = await axios.post('/settings/discord/import', { entries: parsed.value.entries });
+    importResult.value = {
+      ok: true,
+      text: `Added ${data.added_blocked} blocked and ${data.added_friends} friend${data.added_friends === 1 ? '' : 's'} (${data.already_tracked} were already tracked). They show on the Connections page as not yet checked with Discord.`,
+    };
+    importText.value = '';
+  } catch (error) {
+    importResult.value = {
+      ok: false,
+      text: axios.isAxiosError(error) ? (error.response?.data?.message ?? 'Import failed.') : 'Import failed.',
+    };
+  } finally {
+    importing.value = false;
+  }
+}
+
 // The OAuth callback reports a failed or refused sign-in as an error on the page.
 const page = usePage<{ errors?: Record<string, string> }>();
 const connectError = computed(() => page.props.errors?.discord ?? null);
@@ -174,6 +213,57 @@ const syncedAt = computed(() => (props.discord.synced_at ? new Date(props.discor
           <span v-if="syncedAt" class="small text-muted">Last synced {{ syncedAt }}</span>
         </template>
         <BButton v-else size="sm" variant="primary" href="/settings/discord/connect">Connect Discord</BButton>
+      </div>
+      <div v-if="discord.connected" class="mt-3" style="max-width: 36rem;">
+        <h3 class="h6">Import friends and blocked users</h3>
+        <p class="small text-muted">
+          Discord does not tell this app who you have blocked, but you can copy that list out of your own browser together with your friends.
+          Paste it below: your browser picks out the people and the few fields we keep (user ID, names, avatar) and checks them against Discord's
+          limits before sending. What you paste is your own data, so it is stored as is, but it is marked as <strong>not yet checked with Discord</strong>
+          until Discord confirms it: a missing avatar triggers that check on its own. Only people we don't track yet are added; nobody already here changes.
+        </p>
+        <details class="small mb-2">
+          <summary class="mb-1">How to get the list</summary>
+          <ol class="ps-3 mb-2">
+            <li>Open <a href="https://discord.com/channels/@me" target="_blank" rel="noopener noreferrer">Discord in your browser</a> and open the developer tools (F12), on the <strong>Network</strong> tab.</li>
+            <li>Click around in Discord until a <code>GET</code> request to <code>discord.com/api/…</code> shows up, for example <code>https://discord.com/api/v9/users/@me/badges</code>.</li>
+            <li>
+              Right-click it, then:
+              <ul class="mb-1">
+                <li><strong>Edge or Firefox:</strong> choose <strong>Edit and Resend</strong> (in Edge, <strong>Edit and resend as fetch</strong>), change the URL to <code>https://discord.com/api/v9/users/@me/relationships</code> and send it.</li>
+                <li>
+                  <strong>Chrome:</strong> choose <strong>Copy</strong> → <strong>Copy as fetch</strong>, open the <strong>Console</strong> tab and paste it. Before pressing Enter, change the URL in the pasted text to
+                  <code>https://discord.com/api/v9/users/@me/relationships</code>. Chrome may ask you to type <code>allow pasting</code> and press Enter first; that is Chrome's own safety prompt.
+                </li>
+              </ul>
+            </li>
+            <li>Back on the <strong>Network</strong> tab, click the new <code>relationships</code> request, copy its <strong>response</strong> (the body, a list starting with <code>[</code>) and paste it below.</li>
+          </ol>
+          <p class="text-muted">
+            You are not pasting any code from us. What goes in the console is a copy of a request your own browser already made, with only its
+            address changed, and it only <em>reads</em> your relationships list: it cannot change anything on your account.
+          </p>
+          <p class="text-muted mb-0">
+            Copy only the response. The request itself carries your account's login token: never paste it here or anywhere else.
+          </p>
+        </details>
+        <label class="visually-hidden" for="discord-blocked-paste">Discord relationships list</label>
+        <textarea
+          id="discord-blocked-paste"
+          v-model="importText"
+          class="form-control form-control-sm font-monospace mb-2"
+          rows="4"
+          spellcheck="false"
+          placeholder="[{&quot;id&quot;: &quot;…&quot;, &quot;type&quot;: 2, …}, …]"
+        />
+        <div v-if="parsed?.error" class="small text-danger" role="alert">{{ parsed.error }}</div>
+        <div v-else-if="parsed" class="small">
+          Found <strong>{{ parsed.blocked }}</strong> blocked user{{ parsed.blocked === 1 ? '' : 's' }} and <strong>{{ parsed.friends }}</strong> friend{{ parsed.friends === 1 ? '' : 's' }}<template v-if="parsed.truncated"> (only the first {{ parsed.entries.length }} will be imported)</template>.
+        </div>
+        <BButton v-if="parsed?.entries.length" size="sm" variant="primary" class="mt-2" :disabled="importing || !hasField" @click="importRelationships">
+          {{ importing ? 'Importing…' : `Import ${parsed.entries.length}` }}
+        </BButton>
+        <div v-if="importResult" class="small mt-2" :class="importResult.ok ? 'text-success' : 'text-danger'" role="status">{{ importResult.text }}</div>
       </div>
       <div v-if="syncResult" class="small mt-2" :class="syncResult.ok ? 'text-success' : 'text-danger'" role="status">{{ syncResult.text }}</div>
     </VaultGate>

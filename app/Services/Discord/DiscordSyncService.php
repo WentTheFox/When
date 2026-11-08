@@ -9,6 +9,7 @@ use App\Models\ConnectionVrchatProfile;
 use App\Models\DiscordFriend;
 use App\Models\User;
 use App\Services\Calendar\HighlightWordsResolver;
+use App\Support\DiscordProfileInput;
 use App\Support\DiscordUserId;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -31,6 +32,9 @@ class DiscordSyncService
 
     /** After an attempt (success or not), no automatic retry for this long. */
     private const AUTO_COOLDOWN_MINUTES = 10;
+
+    /** Most ids one blocked-users import accepts. */
+    public const IMPORT_MAX = 2000;
 
     /** Refresh the access token when it expires within this many seconds. */
     private const REFRESH_MARGIN_SECONDS = 120;
@@ -66,6 +70,80 @@ class DiscordSyncService
         if ($stale && Cache::add("discord-auto-sync:{$user->id}", 1, now()->addMinutes(self::AUTO_COOLDOWN_MINUTES))) {
             SyncDiscordFriends::dispatch($user->id);
         }
+    }
+
+    /**
+     * Adds the people from an imported relationships list that are not tracked at all yet: friends and blocked
+     * users. The owner pasted the list, so its names and avatars are trusted as their own data, but every value
+     * is checked the way Discord limits it (see DiscordProfileInput) and a bad one is dropped, not stored.
+     * Imported rows have no synced_at: the profile is provisional until Discord confirms it (see refreshProfile).
+     * Anyone already tracked is left exactly as they are.
+     *
+     * @param  list<mixed>  $entries  Each: id, kind ('friend' | 'blocked'), and optionally username, global_name, nickname, avatar (a hash).
+     * @return array{added_friends: int, added_blocked: int, already_tracked: int, invalid: int}
+     */
+    public function importRelationships(User $user, array $entries): array
+    {
+        $seen = array_flip(DiscordFriend::where('user_id', $user->id)->pluck('discord_user_id_hash')->all());
+        $linked = array_flip($this->linkedIds($user));
+        $result = ['added_friends' => 0, 'added_blocked' => 0, 'already_tracked' => 0, 'invalid' => 0];
+
+        foreach (array_slice($entries, 0, self::IMPORT_MAX) as $entry) {
+            $id = is_array($entry) && is_string($entry['id'] ?? null) ? DiscordUserId::normalize($entry['id']) : null;
+            $kind = is_array($entry) ? ($entry['kind'] ?? null) : null;
+
+            if ($id === null || ! in_array($kind, ['friend', 'blocked'], true)) {
+                $result['invalid']++;
+
+                continue;
+            }
+
+            $hash = DiscordUserId::hash($id);
+
+            if (isset($seen[$hash])) {
+                $result['already_tracked']++;
+
+                continue;
+            }
+
+            $seen[$hash] = true;
+
+            DiscordFriend::create([
+                'user_id' => $user->id,
+                'discord_user_id_hash' => $hash,
+                'discord_user_id' => $id,
+                'username' => DiscordProfileInput::username($entry['username'] ?? null),
+                'global_name' => DiscordProfileInput::name($entry['global_name'] ?? null),
+                'nickname' => $kind === 'friend' ? DiscordProfileInput::name($entry['nickname'] ?? null) : null,
+                'avatar_url' => ($hashed = DiscordProfileInput::avatarHash($entry['avatar'] ?? null)) === null ? null : DiscordClient::avatarUrl($id, $hashed),
+                'status' => isset($linked[$id]) ? DiscordFriend::CREATED : DiscordFriend::PENDING,
+                'is_blocked' => $kind === 'blocked',
+                'synced_at' => null,
+            ]);
+
+            $result[$kind === 'friend' ? 'added_friends' : 'added_blocked']++;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Asks Discord about one tracked person (the bot token, public profile only) and replaces the names and avatar
+     * with what it says, marking the row synced. Used when an imported avatar fails to load. Your own nickname for
+     * them is left alone.
+     *
+     * @throws DiscordException
+     */
+    public function refreshProfile(DiscordFriend $friend): void
+    {
+        $profile = $this->client->user($friend->discord_user_id);
+
+        $friend->forceFill([
+            'username' => $profile['username'] ?? $friend->username,
+            'global_name' => $profile['globalName'],
+            'avatar_url' => $profile['avatarUrl'],
+            'synced_at' => now(),
+        ])->save();
     }
 
     /** Stores a fresh grant (after the OAuth callback) and who it belongs to. */
@@ -177,6 +255,7 @@ class DiscordSyncService
                     'avatar_url' => $friend['avatarUrl'],
                     'status' => $isLinked ? DiscordFriend::CREATED : DiscordFriend::PENDING,
                     'is_blocked' => false,
+                    'synced_at' => now(),
                 ]);
 
                 continue;
@@ -193,6 +272,7 @@ class DiscordSyncService
                 'global_name' => $friend['globalName'] ?? $row->global_name,
                 'nickname' => $friend['nickname'],
                 'avatar_url' => $friend['avatarUrl'] ?? $row->avatar_url,
+                'synced_at' => now(),
             ]);
 
             if ($row->status === DiscordFriend::PENDING && $isLinked) {
@@ -242,6 +322,7 @@ class DiscordSyncService
                     'avatar_url' => $person['avatarUrl'],
                     'status' => $isLinked ? DiscordFriend::CREATED : DiscordFriend::PENDING,
                     'is_blocked' => true,
+                    'synced_at' => now(),
                 ]);
 
                 continue;
@@ -257,6 +338,7 @@ class DiscordSyncService
                 'nickname' => $person['nickname'],
                 'avatar_url' => $person['avatarUrl'] ?? $row->avatar_url,
                 'is_blocked' => true,
+                'synced_at' => now(),
             ]);
 
             if ($row->status === DiscordFriend::PENDING && $isLinked) {
@@ -515,12 +597,14 @@ class DiscordSyncService
                     'global_name' => $profile['globalName'],
                     'avatar_url' => $profile['avatarUrl'],
                     'status' => DiscordFriend::LOOKUP,
+                    'synced_at' => now(),
                 ]);
             } else {
                 $row->update([
                     'username' => $profile['username'] ?? $row->username,
                     'global_name' => $profile['globalName'] ?? $row->global_name,
                     'avatar_url' => $profile['avatarUrl'] ?? $row->avatar_url,
+                    'synced_at' => now(),
                 ]);
             }
         }

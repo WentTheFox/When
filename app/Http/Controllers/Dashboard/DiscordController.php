@@ -84,6 +84,57 @@ class DiscordController extends Controller
     }
 
     /**
+     * Adds friends and blocked users from a relationships list the owner pasted (the browser has already
+     * picked the fields out; every value is checked again here). Only people not tracked at all yet are added.
+     */
+    public function importRelationships(Request $request): JsonResponse
+    {
+        $request->validate([
+            'entries' => ['required', 'array', 'max:'.DiscordSyncService::IMPORT_MAX],
+            'entries.*' => ['array'],
+            'entries.*.id' => ['required', 'string', 'max:32'],
+            'entries.*.kind' => ['required', 'in:friend,blocked'],
+            'entries.*.username' => ['nullable', 'string', 'max:200'],
+            'entries.*.global_name' => ['nullable', 'string', 'max:200'],
+            'entries.*.nickname' => ['nullable', 'string', 'max:200'],
+            'entries.*.avatar' => ['nullable', 'string', 'max:64'],
+        ]);
+
+        /** @var User $user */
+        $user = $request->user();
+
+        if (! $this->sync->isConfigured($user)) {
+            return response()->json(['message' => 'Connect Discord and choose the Discord user ID field first.'], 422);
+        }
+
+        /** @var list<mixed> $entries */
+        $entries = array_values((array) $request->input('entries'));
+
+        return response()->json($this->sync->importRelationships($user, $entries));
+    }
+
+    /**
+     * Asks Discord about one waiting person and replaces what we hold, when an imported avatar fails to load
+     * (see DiscordSyncService::refreshProfile). Needs no connected account: it uses the server's bot token.
+     */
+    public function refreshFriend(Request $request, string $friend): JsonResponse
+    {
+        $row = DiscordFriend::where('user_id', $request->user()->id)->where('id', $friend)->firstOrFail();
+
+        if (! DiscordClient::canLookUp()) {
+            return response()->json(['message' => 'Looking up Discord users is not set up on this server.'], 422);
+        }
+
+        try {
+            $this->sync->refreshProfile($row);
+        } catch (DiscordException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['friend' => $this->friendPayload($row)]);
+    }
+
+    /**
      * Looks up the Discord accounts on one connection by id (see DiscordSyncService::lookup).
      * Needs no connected Discord account: it uses the server's own bot token.
      */
@@ -124,15 +175,7 @@ class DiscordController extends Controller
         $friends = DiscordFriend::where('user_id', $user->id)->where('status', DiscordFriend::PENDING)->get()
             // Names are encrypted at rest, so the order is made here rather than by the database.
             ->sortBy(fn (DiscordFriend $f) => mb_strtolower((string) ($f->nickname ?? $f->global_name ?? $f->username ?? $f->discord_user_id)))
-            ->map(fn (DiscordFriend $f) => [
-                'id' => $f->id,
-                'discord_user_id' => $f->discord_user_id,
-                'username' => $f->username,
-                'global_name' => $f->global_name,
-                'nickname' => $f->nickname,
-                'picture_url' => $f->avatar_url,
-                'blocked' => $f->is_blocked,
-            ])->values();
+            ->map(fn (DiscordFriend $f) => $this->friendPayload($f))->values();
 
         return response()->json(['friends' => $friends]);
     }
@@ -159,5 +202,21 @@ class DiscordController extends Controller
         $this->sync->addNameTokens($request->user());
 
         return response()->json(['completed' => $done]);
+    }
+
+    /** @return array<string, mixed> */
+    private function friendPayload(DiscordFriend $f): array
+    {
+        return [
+            'id' => $f->id,
+            'discord_user_id' => $f->discord_user_id,
+            'username' => $f->username,
+            'global_name' => $f->global_name,
+            'nickname' => $f->nickname,
+            'picture_url' => $f->avatar_url,
+            'blocked' => $f->is_blocked,
+            // Null: the profile came from a pasted list and Discord has not confirmed it.
+            'synced_at' => $f->synced_at?->toIso8601String(),
+        ];
     }
 }

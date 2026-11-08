@@ -474,6 +474,8 @@ class AccountExportService
                 'nickname' => $f->nickname,
                 'avatar_url' => $f->avatar_url,
                 'status' => $f->status,
+                'is_blocked' => $f->is_blocked,
+                'synced_at' => $f->synced_at?->toIso8601String(),
             ])->all(),
         ];
     }

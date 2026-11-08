@@ -120,13 +120,15 @@ const page = usePage();
   <p class="mb-4">
     If you connect your Discord account in Settings, the server holds the access Discord gives it
     (permission to read your identity and your friends list, nothing else) and uses it, when you press
-    "Sync now", to fetch your friends and the users you have blocked (Discord returns both in one list;
-    pending friend requests are ignored). That is not end-to-end encrypted either: the access tokens and the friends and blocked users the server has seen
+    "Sync now" (and in the background, for new friends only), to fetch your friends (pending friend requests
+    are ignored). That is not end-to-end encrypted either: the access tokens and the friends and blocked users the server has seen
     (their Discord user IDs, names, your own nicknames for them and avatars) are stored encrypted at rest
     with the same server-held key, and the tokens are never included in your data export. As with VRChat friends, only
     your browser creates a connection or adds a Discord user ID to one, when you choose, so connection names stay
-    end-to-end encrypted. Blocked users are only remembered so they are never suggested as new connections; they are
-    never turned into connections. Disconnecting revokes the access at Discord and forgets the tokens.
+    end-to-end encrypted. Discord does not give that access your block list, so you can import blocked users from a copy of your
+    Discord relationships list that you paste in: your browser reads it and sends only the user IDs of the blocked ones, and the server looks each one
+    up slowly in the background through the same bot credential, so nothing else you paste reaches the server. They are offered
+    like friends, flagged as blocked, and never turned into connections without your choice. Disconnecting revokes the access at Discord and forgets the tokens.
     A connection's Discord card can also ask Discord about one user ID you put on it, using the server's own Discord bot
     credential (not your account): Discord answers with that person's public profile (username, display name, avatar),
     which is stored the same way, encrypted at rest, and never sent anywhere else.

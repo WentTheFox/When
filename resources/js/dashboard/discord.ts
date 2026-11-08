@@ -61,6 +61,8 @@ export interface PendingDiscordFriend {
   picture_url?: string | null;
   /** You have blocked them on Discord (still offered, so you can decide). */
   blocked?: boolean;
+  /** When Discord last confirmed this profile; null means it came from a pasted list and is not checked yet. */
+  synced_at?: string | null;
 }
 
 /** What to call a friend: your nickname for them, else their display name, else their username. */

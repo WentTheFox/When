@@ -32,7 +32,11 @@ const props = defineProps<{
   needsConversion: (connectionId: string, discordId: string) => boolean;
   busy: boolean;
 }>();
-const emit = defineEmits<{ apply: [FriendDecision[]] }>();
+const emit = defineEmits<{
+  apply: [FriendDecision[]];
+  /** An avatar failed to load: the parent can ask Discord about this friend (once) and swap in the fresh profile. */
+  avatarFailed: [PendingDiscordFriend];
+}>();
 
 const choices = ref<Record<string, FriendChoice>>({});
 const showAll = ref(false);
@@ -175,6 +179,7 @@ function alsoKnownAs(friend: PendingDiscordFriend): string {
               class="rounded flex-shrink-0 object-fit-cover"
               loading="lazy"
               referrerpolicy="no-referrer"
+              @error="row.friend.synced_at === null && emit('avatarFailed', row.friend)"
             >
             <div v-else class="rounded bg-body-secondary flex-shrink-0" style="width: 40px; height: 40px;" aria-hidden="true" />
 
@@ -185,6 +190,9 @@ function alsoKnownAs(friend: PendingDiscordFriend): string {
               </div>
               <div v-if="alsoKnownAs(row.friend)" class="text-muted">{{ alsoKnownAs(row.friend) }}</div>
               <div class="text-muted font-monospace">{{ row.friend.discord_user_id }}</div>
+              <div v-if="row.friend.synced_at === null" class="text-muted fst-italic" title="This came from a list you pasted in. Discord has not confirmed it yet.">
+                Imported, not yet checked with Discord
+              </div>
               <div v-if="row.suggested.length === 1" class="text-success">
                 Matches <strong>{{ names[row.suggested[0].id] || '(unnamed)' }}</strong> by {{ row.suggested[0].by === 'name' ? 'name' : row.suggested[0].by === 'token' ? 'highlight token' : 'name, ignoring symbols and other-script characters' }}
               </div>

@@ -824,6 +824,22 @@ async function loadPendingDiscord(): Promise<void> {
   }
 }
 
+// An imported (unchecked) avatar that fails to load asks the server to check that person with Discord, once per page load.
+const refreshedDiscord = new Set<string>();
+
+async function refreshDiscordFriend(friend: PendingDiscordFriend): Promise<void> {
+  if (refreshedDiscord.has(friend.id)) return;
+
+  refreshedDiscord.add(friend.id);
+
+  try {
+    const { data } = await axios.post<{ friend: PendingDiscordFriend }>(`/dashboard/discord/friends/${friend.id}/refresh`);
+    pendingDiscord.value = pendingDiscord.value.map((f) => (f.id === friend.id ? data.friend : f));
+  } catch {
+    // Not set up on this server, rate limited, or Discord no longer knows them: the row simply stays as imported.
+  }
+}
+
 /** Would adding this Discord id to that connection need the single identifier turned into a list? */
 function discordNeedsConversion(connectionId: string, discordId: string): boolean {
   const field = discord.value.field;
@@ -1692,6 +1708,7 @@ async function migrateDefinition(id: string, to: string, options: MigrateOptions
     :needs-conversion="discordNeedsConversion"
     :busy="discordBusy"
     @apply="applyDiscordDecisions"
+    @avatar-failed="refreshDiscordFriend"
   />
   <BCard id="connections-workspace" class="mb-4">
     <BTabs v-model="pageTab" pills no-fade content-class="pt-3">

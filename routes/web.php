@@ -217,6 +217,10 @@ Route::middleware('auth')->group(function () {
     Route::delete('/settings/discord', [DiscordController::class, 'destroy'])->name('settings.discord.destroy');
     Route::post('/settings/discord/sync', [DiscordController::class, 'syncNow'])
         ->middleware('throttle:6,1')->name('settings.discord.sync');
+    Route::post('/settings/discord/import', [DiscordController::class, 'importRelationships'])
+        ->middleware('throttle:6,1')->name('settings.discord.import');
+    Route::post('/dashboard/discord/friends/{friend}/refresh', [DiscordController::class, 'refreshFriend'])
+        ->middleware('throttle:30,1')->name('dashboard.discord.friends.refresh');
     Route::get('/dashboard/discord', [DiscordController::class, 'summary'])->name('dashboard.discord');
     Route::post('/dashboard/connections/{connection}/discord/lookup', [DiscordController::class, 'lookup'])
         ->middleware('throttle:10,1')->name('dashboard.connections.discord.lookup');

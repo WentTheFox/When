@@ -23,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $avatar_url
  * @property string $status
  * @property bool $is_blocked
+ * @property Carbon|null $synced_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read User|null $user
@@ -42,6 +43,7 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|DiscordFriend whereUserId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|DiscordFriend whereUsername($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|DiscordFriend whereIsBlocked($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|DiscordFriend whereSyncedAt($value)
  *
  * @mixin \Eloquent
  */
@@ -68,6 +70,7 @@ class DiscordFriend extends Model
         'avatar_url',
         'status',
         'is_blocked',
+        'synced_at',
     ];
 
     protected function casts(): array
@@ -79,6 +82,7 @@ class DiscordFriend extends Model
             'nickname' => 'encrypted',
             'avatar_url' => 'encrypted',
             'is_blocked' => 'boolean',
+            'synced_at' => 'datetime',
         ];
     }
 

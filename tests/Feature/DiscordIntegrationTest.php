@@ -662,6 +662,155 @@ class DiscordIntegrationTest extends TestCase
         ], $status)]);
     }
 
+    private const HASH = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+
+    /** @return array<string, mixed> */
+    private function entry(string $id, string $kind = 'blocked', array $over = []): array
+    {
+        return $over + ['id' => $id, 'kind' => $kind, 'username' => 'plumfinch', 'global_name' => 'Plum Finch', 'nickname' => null, 'avatar' => self::HASH];
+    }
+
+    private function rowFor(User $user, string $id): ?DiscordFriend
+    {
+        return DiscordFriend::where('user_id', $user->id)->where('discord_user_id_hash', DiscordUserId::hash($id))->first();
+    }
+
+    public function test_an_import_adds_new_blocked_users_and_friends_as_unsynced_waiting_people(): void
+    {
+        $user = $this->owner();
+
+        $response = $this->actingAs($user)->postJson('/settings/discord/import', [
+            'entries' => [$this->entry(self::NEW), $this->entry('100000000000000004', 'friend', ['nickname' => 'Pal'])],
+        ])->assertOk();
+
+        $this->assertSame(['added_friends' => 1, 'added_blocked' => 1, 'already_tracked' => 0, 'invalid' => 0], $response->json());
+
+        $blocked = $this->rowFor($user, self::NEW);
+        $this->assertTrue($blocked->is_blocked);
+        $this->assertSame('pending', $blocked->status);
+        $this->assertNull($blocked->synced_at);
+        $this->assertSame('Plum Finch', $blocked->global_name);
+        $this->assertSame('https://cdn.discordapp.com/avatars/'.self::NEW.'/'.self::HASH.'.png?size=64', $blocked->avatar_url);
+
+        $friend = $this->rowFor($user, '100000000000000004');
+        $this->assertFalse($friend->is_blocked);
+        $this->assertSame('Pal', $friend->nickname);
+
+        $listed = $this->actingAs($user)->getJson('/dashboard/discord/friends')->json('friends');
+        $this->assertCount(2, $listed);
+        $this->assertNull($listed[0]['synced_at']);
+    }
+
+    public function test_an_import_leaves_anyone_already_tracked_alone_and_skips_repeats(): void
+    {
+        $user = $this->owner();
+        $this->fakeFriends([self::OLD]);
+        app(DiscordSyncService::class)->sync($user);
+        $before = $this->rowFor($user, self::OLD)->only(['username', 'global_name', 'is_blocked', 'synced_at']);
+
+        $response = $this->actingAs($user)->postJson('/settings/discord/import', [
+            'entries' => [$this->entry(self::OLD, 'blocked', ['global_name' => 'Imposter']), $this->entry(self::NEW), $this->entry(self::NEW)],
+        ])->assertOk();
+
+        $this->assertSame(['added_friends' => 0, 'added_blocked' => 1, 'already_tracked' => 2, 'invalid' => 0], $response->json());
+        $this->assertEquals($before, $this->rowFor($user, self::OLD)->only(['username', 'global_name', 'is_blocked', 'synced_at']));
+    }
+
+    public function test_an_import_drops_values_discord_could_not_have_produced_but_keeps_the_person(): void
+    {
+        $user = $this->owner();
+
+        $this->actingAs($user)->postJson('/settings/discord/import', ['entries' => [$this->entry(self::NEW, 'friend', [
+            'username' => 'x',
+            'global_name' => str_repeat('a', 33),
+            'nickname' => 'badname',
+            'avatar' => 'https://evil.example/x.png',
+        ])]])->assertOk()->assertJson(['added_friends' => 1]);
+
+        $row = $this->rowFor($user, self::NEW);
+        $this->assertNull($row->username);
+        $this->assertNull($row->global_name);
+        $this->assertNull($row->nickname);
+        $this->assertNull($row->avatar_url);
+    }
+
+    public function test_an_import_accepts_an_animated_avatar_and_counts_name_length_in_characters(): void
+    {
+        $user = $this->owner();
+
+        $this->actingAs($user)->postJson('/settings/discord/import', ['entries' => [$this->entry(self::NEW, 'blocked', [
+            'avatar' => 'a_'.self::HASH, 'global_name' => str_repeat('🦊', 32),
+        ])]])->assertOk();
+
+        $row = $this->rowFor($user, self::NEW);
+        $this->assertStringContainsString('a_'.self::HASH, $row->avatar_url);
+        $this->assertSame(str_repeat('🦊', 32), $row->global_name);
+    }
+
+    public function test_an_import_rejects_bad_ids_kinds_and_oversized_lists(): void
+    {
+        $user = $this->owner();
+
+        $this->actingAs($user)->postJson('/settings/discord/import', ['entries' => [$this->entry('nonsense')]])
+            ->assertOk()->assertJson(['invalid' => 1, 'added_blocked' => 0]);
+        $this->actingAs($user)->postJson('/settings/discord/import', ['entries' => [$this->entry(self::NEW, 'pending')]])->assertStatus(422);
+        $this->actingAs($user)->postJson('/settings/discord/import', ['entries' => array_fill(0, DiscordSyncService::IMPORT_MAX + 1, $this->entry(self::NEW))])->assertStatus(422);
+        $this->actingAs($user)->postJson('/settings/discord/import', [])->assertStatus(422);
+        $this->assertSame(0, DiscordFriend::count());
+    }
+
+    public function test_an_import_needs_discord_set_up(): void
+    {
+        $this->actingAs($this->owner(connected: false))->postJson('/settings/discord/import', ['entries' => [$this->entry(self::NEW)]])->assertStatus(422);
+        $this->assertSame(0, DiscordFriend::count());
+    }
+
+    public function test_an_imported_person_who_is_already_on_a_connection_is_created_not_pending(): void
+    {
+        $user = $this->owner();
+        $this->connectionWith($user, self::NEW);
+
+        $this->actingAs($user)->postJson('/settings/discord/import', ['entries' => [$this->entry(self::NEW)]])->assertOk();
+
+        $this->assertSame('created', $this->rowFor($user, self::NEW)->status);
+    }
+
+    public function test_a_sync_stamps_what_discord_confirmed_and_refreshing_an_imported_person_does_too(): void
+    {
+        config(['services.discord.bot_token' => self::BOT]);
+        $user = $this->owner();
+        $this->fakeFriends([self::OLD]);
+        app(DiscordSyncService::class)->sync($user);
+        $this->assertNotNull($this->rowFor($user, self::OLD)->synced_at);
+
+        $this->actingAs($user)->postJson('/settings/discord/import', ['entries' => [$this->entry(self::NEW, 'blocked', ['avatar' => null])]])->assertOk();
+        $imported = $this->rowFor($user, self::NEW);
+        $this->fakeLookup(self::NEW);
+
+        $this->actingAs($user)->postJson("/dashboard/discord/friends/{$imported->id}/refresh")
+            ->assertOk()->assertJsonPath('friend.synced_at', fn ($v) => $v !== null)->assertJsonPath('friend.blocked', true);
+
+        $fresh = $imported->refresh();
+        $this->assertNotNull($fresh->synced_at);
+        $this->assertSame('plumfinch', $fresh->username);
+        $this->assertTrue($fresh->is_blocked);
+        $this->assertStringContainsString('/def.png', $fresh->avatar_url);
+    }
+
+    public function test_refreshing_needs_a_bot_token_and_only_works_on_your_own_people(): void
+    {
+        $user = $this->owner();
+        $this->actingAs($user)->postJson('/settings/discord/import', ['entries' => [$this->entry(self::NEW)]])->assertOk();
+        $row = $this->rowFor($user, self::NEW);
+
+        $this->actingAs($user)->postJson("/dashboard/discord/friends/{$row->id}/refresh")->assertStatus(422);
+
+        config(['services.discord.bot_token' => self::BOT]);
+        $this->fakeLookup(self::NEW);
+        $this->actingAs($this->owner())->postJson("/dashboard/discord/friends/{$row->id}/refresh")->assertNotFound();
+        $this->assertNull($row->refresh()->synced_at);
+    }
+
     public function test_the_lookup_saves_a_non_friends_profile_without_making_them_a_pending_friend(): void
     {
         config(['services.discord.bot_token' => self::BOT]);
