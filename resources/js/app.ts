@@ -15,6 +15,7 @@ import { rememberOwnerMarker } from './ownerMarker';
 // styling, this plugin just renders the same classes from Vue components.
 
 const langJsonImporters = import.meta.glob<{ default: Record<string, string> }>('../../lang/*.json');
+const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 createInertiaApp({
   // Every <Head :title="..."> shorthand usage across the app runs through
@@ -22,8 +23,7 @@ createInertiaApp({
   // renders the app name itself) bypasses it entirely, so that page needs
   // no separate handling. An empty/falsy title (a page that never set one)
   // still gets the bare suffix rather than an empty tab title.
-  // TODO Use the APP_NAME as the suffix here, or at least deduplicate it
-  title: (title) => `${title ? `${title} · ` : ''}When?`,
+  title: (title) => `${title ? `${title} - ` : ''}${appName}`,
   resolve: (name) => {
     const pages = import.meta.glob<{ default: DefineComponent }>('./Pages/**/*.vue', { eager: true });
     const page = pages[`./Pages/${name}.vue`];
