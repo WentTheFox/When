@@ -378,15 +378,16 @@ class AccountExportService
         return [
             'tier' => 'e2ee',
             'records' => $user->connectionAttributeDefinitions()
-                ->get(['id', 'label_ciphertext', 'type', 'options_ciphertext', 'icon_rules_ciphertext'])
+                ->get(['id', 'label_ciphertext', 'staged_label', 'type', 'options_ciphertext', 'icon_rules_ciphertext'])
                 ->map(fn ($def) => [
                     'id' => $def->id,
                     'label_ciphertext' => $def->label_ciphertext,
+                    // Plaintext name the server gave a field it created itself, until the browser has encrypted it.
+                    'staged_label' => $def->staged_label,
                     'type' => $def->type,
                     'options_ciphertext' => $def->options_ciphertext,
                     'icon_rules_ciphertext' => $def->icon_rules_ciphertext,
-                    'key_ring_id' => $def->id,
-                ])->all(),
+                ] + ($def->label_ciphertext === null ? [] : ['key_ring_id' => $def->id]))->all(),
         ];
     }
 

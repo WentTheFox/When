@@ -21,6 +21,8 @@ const TYPE_LABELS: Record<string, string> = {
   list: 'List',
   radio: 'Choice',
   country: 'Country',
+  language: 'Languages (not E2EE)',
+  timezone: 'Time zones (not E2EE)',
   date: 'Date',
   number: 'Number',
   url: 'URL',
@@ -38,7 +40,7 @@ interface DefinitionItem {
   id: string;
   type: string;
   /** Raw E2EE label, shown until `label` has been decrypted. */
-  label_ciphertext: string;
+  label_ciphertext: string | null;
   label?: string;
   options: string[];
 }
@@ -231,6 +233,10 @@ function add(): void {
             <BFormGroup v-if="newType === 'radio'" label="Choices" label-class="small" description="Comma-separated." class="mb-2">
               <BFormInput v-model="newChoices" type="text" size="sm" @keyup.enter="add" />
             </BFormGroup>
+            <p v-if="newType === 'language' || newType === 'timezone'" class="small text-muted mb-2">
+              {{ newType === 'language' ? 'Language' : 'Time zone' }} values are <strong>not</strong> end-to-end encrypted: they're sent to the server in plaintext
+              (and encrypted at rest with the app key) so the site can use them.
+            </p>
             <p v-if="newType === 'identifier' || newType === 'identifier_list' || newType === 'boolean'" class="small text-muted mb-2">
               {{ newType === 'identifier_list' ? 'Identifier list' : newType === 'boolean' ? 'Yes/No' : 'Identifier' }} values are <strong>not</strong> end-to-end encrypted: they're sent to the server in plaintext
               (and encrypted at rest with the app key) so they can be used to link a connection to an external service<template v-if="newType === 'identifier_list'">,
@@ -251,7 +257,7 @@ function add(): void {
               @click="select(definition)"
             >
               <AppIcon v-if="ATTRIBUTE_TYPE_ICONS[definition.type]" :icon="ATTRIBUTE_TYPE_ICONS[definition.type]!" class="me-2" />
-              <EncryptedText :value="definition.label" :ciphertext="definition.label_ciphertext" />
+              <EncryptedText :value="definition.label" :ciphertext="definition.label_ciphertext ?? ''" />
               <!-- Delete-protected: a site feature depends on it. The same blue as the "Used by" pill and the notice (info), except on the selected row, which is blue itself, where white stays visible. -->
               <span
                 v-if="featuresOf(definition.id).length"

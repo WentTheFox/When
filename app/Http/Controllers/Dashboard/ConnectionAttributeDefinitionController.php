@@ -23,7 +23,7 @@ class ConnectionAttributeDefinitionController extends Controller
         $data = $request->validate([
             'id' => ['required', 'uuid', 'unique:connection_attribute_definitions,id'],
             'label_ciphertext' => ['required', 'string'],
-            'type' => ['required', 'in:text,textarea,date,number,url,email,phone,radio,country,list,link_list,identifier,identifier_list,boolean,connection,relationship'],
+            'type' => ['required', Rule::in(ConnectionAttributeDefinition::TYPES)],
             // Only meaningful for 'radio' (JSON-encoded {"choices": [...]},
             // client-encrypted with this definition's own record key — same
             // key as label_ciphertext, not any connection's key.
@@ -58,7 +58,8 @@ class ConnectionAttributeDefinitionController extends Controller
             throw ValidationException::withMessages(['options_ciphertext' => 'Only a choice field has options.']);
         }
 
-        $definition->update($data);
+        // The encrypted label replaces a staged one (VisitorFieldsBackfill).
+        $definition->update(isset($data['label_ciphertext']) ? $data + ['staged_label' => null] : $data);
 
         return response()->json(['id' => $definition->id]);
     }

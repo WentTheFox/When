@@ -13,6 +13,8 @@ import {
 } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../crypto';
+import LanguageSelect from '../Components/LanguageSelect.vue';
+import TimezoneSelect from '../Components/TimezoneSelect.vue';
 import CountrySelect from '../Components/CountrySelect.vue';
 import SearchableSelect from '../Components/SearchableSelect.vue';
 import EncryptedInput from '../Components/EncryptedInput.vue';
@@ -186,7 +188,16 @@ async function openRelationship(edge: { otherId: string; otherName: string }): P
   emit('openConnection', edge.otherId);
 }
 
+/** Everything the owner can edit on this card, as one comparable string. */
+function formSnapshot(): string {
+  return JSON.stringify([editName.value, editSourceIds.value, editAttributeValues.value]);
+}
+
+/** The form as populateEditForm last filled it; null until it has. Whatever differs from this was typed by the owner. */
+let populatedSnapshot: string | null = null;
+
 function resetDecryptState() {
+  populatedSnapshot = null;
   name.value = '';
   attributeValues.value = {};
   editName.value = '';
@@ -201,8 +212,11 @@ async function decryptAll(): Promise<void> {
   // decrypt *yet* is not a failure: stay pending, and onVaultUnlocked below runs this again once the keys exist.
   if (!vaultUnlocked.value) return;
 
-  // Whether the form was untouched before this decryption changes the saved state under it.
-  const formWasClean = !isDirty.value;
+  // Whether the owner has left the form alone since it was last filled in (or it never was) before this decryption
+  // changes the saved state under it. Not isDirty: filling the form itself can leave it differing from the saved state
+  // (dangling references are dropped, see populateEditForm), and then a later, fuller decryption would never refill it.
+  const formWasClean = populatedSnapshot === null ? !isDirty.value : formSnapshot() === populatedSnapshot;
+  const formAtStart = formSnapshot();
 
   try {
     const key = await getRecordKey(props.connection.id);
@@ -227,7 +241,8 @@ async function decryptAll(): Promise<void> {
     attributeValues.value = values;
     decrypted.value = true;
     decryptFailed.value = false;
-    if (formWasClean) populateEditForm();
+    // Also not while the owner typed in the meantime (this awaits).
+    if (formWasClean && formSnapshot() === formAtStart) populateEditForm();
   } catch (error) {
     // Locked mid-way is "not yet", not "broken": the next unlock decrypts again.
     if (error instanceof VaultLockedError) return;
@@ -269,6 +284,7 @@ function populateEditForm(): void {
       editAttributeValues.value[definition.id] = splitLines(value).filter((id) => connectionRefLabel(id) !== null).join('\n');
     }
   }
+  populatedSnapshot = formSnapshot();
 }
 
 /** True when the form holds changes that haven't been saved. */
@@ -293,6 +309,8 @@ onVaultLockChange({
 });
 // The parent can replace this row from outside (e.g. the bulk identifier copy).
 watch(() => props.connection.attribute_values, decryptAll);
+// The definitions can arrive after the first decryption (their labels decrypt after the unlock), and how a value is read depends on its field's type (a list's padding is stripped), so read again once they are known.
+watch(() => props.attributeDefinitions.map((d) => `${d.id}:${d.type}`).join(','), decryptAll);
 
 /** v-model for a relationship field's picker: the related connections' ids. */
 function relationshipBinding(definitionId: string) {
@@ -401,8 +419,8 @@ async function save(): Promise<void> {
       boolean_value?: boolean;
     }[] = [];
     for (const definition of props.attributeDefinitions) {
-      if (definition.type === 'identifier_list') {
-        // §0.2 tier on purpose, same as identifier: plaintext on the wire, app-key encrypted at rest.
+      if (definition.type === 'identifier_list' || definition.type === 'language' || definition.type === 'timezone') {
+        // §0.2 tier on purpose (languages and time zones are stored like an identifier list), same as identifier: plaintext on the wire, app-key encrypted at rest.
         // Always sent, even empty: the server merges against what it holds now, so tokens it added after
         // this page loaded (a VRChat name) aren't wiped by a save from a stale page.
         values.push({
@@ -445,6 +463,8 @@ async function save(): Promise<void> {
     const renamed = editName.value !== name.value;
     name.value = editName.value;
     attributeValues.value = { ...editAttributeValues.value };
+    // The form now is what is saved, so the re-decryption the updated row triggers may refill it (see decryptAll).
+    populatedSnapshot = formSnapshot();
     emit('updated', data);
     if (mirrors.length) emit('peersUpdated', mirrors.map(({ base_ciphertext: _base, ...update }) => update));
     if (renamed) emit('renamed', props.connection.id, editName.value);
@@ -565,7 +585,7 @@ async function remove(): Promise<void> {
     <div v-if="attributeDefinitions.length" class="border-top pt-3 mt-4 mb-3">
       <h4 class="h6 text-uppercase text-body-secondary mb-0">Custom fields</h4>
     </div>
-    <BFormGroup v-for="definition in shownDefinitions" :key="definition.id" :label="definition.label" class="mb-3">
+    <BFormGroup v-for="definition in shownDefinitions" :key="definition.id" :label="definition.label" class="mb-3" :data-field-type="definition.type" :data-field-label="definition.label">
       <EncryptedInput
         v-if="definition.type === 'textarea'"
         v-model="editAttributeValues[definition.id]"
@@ -588,6 +608,14 @@ async function remove(): Promise<void> {
         :locale="pageLocale"
         :disabled="!decrypted"
       />
+      <div v-else-if="definition.type === 'language'">
+        <LanguageSelect v-bind="relationshipBinding(definition.id)" :locale="pageLocale" :aria-label="`Languages for ${definition.label}`" :disabled="!decrypted" />
+        <div class="form-text">Not end-to-end encrypted — pick as many as apply.</div>
+      </div>
+      <div v-else-if="definition.type === 'timezone'">
+        <TimezoneSelect v-bind="relationshipBinding(definition.id)" :aria-label="`Time zones for ${definition.label}`" :disabled="!decrypted" />
+        <div class="form-text">Not end-to-end encrypted — pick as many as apply.</div>
+      </div>
       <SearchableSelect
         v-else-if="definition.type === 'connection'"
         v-bind="fieldBinding(definition.id)"

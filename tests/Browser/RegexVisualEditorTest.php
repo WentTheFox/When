@@ -38,7 +38,7 @@ class RegexVisualEditorTest extends DuskTestCase
 
         $this->browse(function (Browser $browser) use ($user) {
             $browser->loginAs($user)
-                ->visit('/settings')
+                ->visit('/settings?tab=matching')
                 ->waitFor('#highlight_clause_pattern')
                 ->assertInputValue('#highlight_clause_pattern', 'with ([\w, ]+)$')
                 ->click($this->visualEditorButtonFor('highlight_clause_pattern'))
@@ -72,7 +72,7 @@ class RegexVisualEditorTest extends DuskTestCase
 
         $this->browse(function (Browser $browser) use ($user) {
             $browser->loginAs($user)
-                ->visit('/settings')
+                ->visit('/settings?tab=matching')
                 ->waitFor('#dnd_event_pattern')
                 ->click($this->visualEditorButtonFor('dnd_event_pattern'))
                 ->waitFor('.wtf-regex-editor-modal')
@@ -98,7 +98,7 @@ class RegexVisualEditorTest extends DuskTestCase
 
         $this->browse(function (Browser $browser) use ($user, $expectedExamples) {
             $browser->loginAs($user)
-                ->visit('/settings')
+                ->visit('/settings?tab=matching')
                 ->waitFor('#dnd_event_pattern')
                 ->assertInputValue('.wtf-pattern-preview-native', $expectedExamples)
                 ->click($this->visualEditorButtonFor('dnd_event_pattern'))
@@ -118,7 +118,7 @@ class RegexVisualEditorTest extends DuskTestCase
 
         $this->browse(function (Browser $browser) use ($user) {
             $browser->loginAs($user)
-                ->visit('/settings')
+                ->visit('/settings?tab=matching')
                 ->waitFor('#dnd_event_pattern')
                 ->click($this->visualEditorButtonFor('dnd_event_pattern'))
                 ->waitFor('.wtf-regex-editor-modal')

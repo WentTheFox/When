@@ -14,7 +14,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property string $id
  * @property string $user_id
- * @property string $label_ciphertext
+ * @property string|null $label_ciphertext
  * @property string $type
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -44,16 +44,31 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition withTrashed(bool $withTrashed = true)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition withoutTrashed()
  *
+ * @property string|null $staged_label
+ *
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionAttributeDefinition whereStagedLabel($value)
+ *
  * @mixin \Eloquent
  */
 class ConnectionAttributeDefinition extends Model
 {
     use HasSortOrder, HasUuids, SoftDeletes;
 
+    /**
+     * Every custom field type. The single list the create endpoint validates against; the connection_attribute_definitions_type_check
+     * constraint (one migration per new type) and the demo seeder must agree with it, and every type needs an entry in
+     * Tests\Fixtures\CustomFieldTypeFixtures so the browser test exercises it (CustomFieldTypeCoverageTest enforces all three).
+     */
+    public const TYPES = [
+        'text', 'textarea', 'date', 'number', 'url', 'email', 'phone', 'radio', 'country', 'language', 'timezone',
+        'list', 'link_list', 'identifier', 'identifier_list', 'boolean', 'connection', 'relationship',
+    ];
+
     protected $fillable = [
         'id',
         'user_id',
         'label_ciphertext',
+        'staged_label',
         'type',
         'options_ciphertext',
         'icon_rules_ciphertext',

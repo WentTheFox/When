@@ -75,7 +75,7 @@ export function allowedOps(type: string): RuleOp[] {
   if (type === 'date') return ['dateAnnual', 'nonEmpty', 'empty'];
   if (type === 'country') return ['countryIn', 'nonEmpty', 'empty'];
   if (type === 'number') return ['range', 'nonEmpty', 'empty'];
-  if (type === 'identifier_list' || type === 'list' || type === 'link_list') return ['nonEmpty', 'empty', 'count', 'regex'];
+  if (type === 'identifier_list' || type === 'list' || type === 'link_list' || type === 'language' || type === 'timezone') return ['nonEmpty', 'empty', 'count', 'regex'];
   // A relationship field holds connection ids, which mean nothing to a pattern, so only how many it has matters (count 0 = none).
   if (type === 'relationship') return ['nonEmpty', 'empty', 'count'];
   if (TEXT_TYPES.includes(type) || type === 'identifier') return ['nonEmpty', 'empty', 'regex'];
@@ -238,7 +238,7 @@ export function conditionMatches(condition: RuleCondition, type: string, value: 
       if (!regex) return false;
 
       // A list is matched entry by entry, anything else as one string.
-      const candidates = type === 'identifier_list' || type === 'list' || type === 'link_list' ? value.split('\n').filter((entry) => entry.trim() !== '') : [value];
+      const candidates = type === 'identifier_list' || type === 'list' || type === 'link_list' || type === 'language' || type === 'timezone' ? value.split('\n').filter((entry) => entry.trim() !== '') : [value];
 
       return candidates.some((candidate) => regex.test(candidate.slice(0, MAX_VALUE_LENGTH)));
     }

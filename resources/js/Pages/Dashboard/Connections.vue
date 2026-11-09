@@ -58,13 +58,14 @@ import RuleIcon from '../../Components/RuleIcon.vue';
 import { flagIconCode } from '../../dashboard/countries';
 import { paletteIconFor } from '../../free/icon-palette';
 import { type IconRuleSet, serializeIconRules, type ResolvedIcon } from '../../dashboard/iconRules';
+import { stagedLabel } from '../../dashboard/serverCreatedFields';
 import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 
 defineOptions({ layout: DashboardLayout });
 
 interface SourceRow { id: string; category_id: string | null; name_ciphertext: string }
 interface CategoryRow { id: string; color_key: string | null; name_ciphertext: string }
-interface DefinitionRow { id: string; label_ciphertext: string; type: string; options_ciphertext: string | null; icon_rules_ciphertext: string | null }
+interface DefinitionRow { id: string; label_ciphertext: string | null; staged_label?: string | null; type: string; options_ciphertext: string | null; icon_rules_ciphertext: string | null }
 
 const props = defineProps<{
   connections: ConnectionRow[];
@@ -105,11 +106,12 @@ const discord = ref<DiscordSummary>(props.discord ?? emptyDiscordSummary);
  */
 interface SourceItem { id: string; category_id: string | null; name_ciphertext: string; label?: string }
 interface CategoryItem { id: string; color_key: string | null; name_ciphertext: string; label?: string }
-interface DefinitionItem { id: string; type: string; label_ciphertext: string; options_ciphertext: string | null; icon_rules_ciphertext: string | null; label?: string; options: string[] }
+interface DefinitionItem { id: string; type: string; label_ciphertext: string | null; staged_label?: string | null; options_ciphertext: string | null; icon_rules_ciphertext: string | null; label?: string; options: string[] }
 
 const sourceItems = ref<SourceItem[]>(props.sources.map((s) => ({ ...s })));
 const categoryItems = ref<CategoryItem[]>(props.categories.map((c) => ({ ...c })));
-const definitionItems = ref<DefinitionItem[]>(props.attributeDefinitions.map((d) => ({ ...d, options: [] })));
+// A field the server created has only a staged plaintext name until the vault is unlocked (nameStagedField): show that meanwhile.
+const definitionItems = ref<DefinitionItem[]>(props.attributeDefinitions.map((d) => ({ ...d, options: [], ...(stagedLabel(d) !== null ? { label: stagedLabel(d)! } : {}) })));
 
 /** The rule-driven icons (per-field icon rules, see iconRules.ts) shown after the fixed marks in each row. */
 const { ruleIcons, ruleSets } = useRuleIcons(connections, definitionItems, vaultUnlocked, getRecordKey);
@@ -366,6 +368,23 @@ async function normalizeAllLists(): Promise<void> {
   await normalizeList(definitionItems, 'attributes', labelOfItem);
 }
 
+/** Encrypts the name the server staged for a field it created, with the field's own record key, and writes it back (which clears the staged one). */
+async function nameStagedField(definition: DefinitionItem): Promise<void> {
+  const label = stagedLabel(definition);
+  if (label === null) return;
+
+  try {
+    const key = await createRecordKey(definition.id);
+    const labelCiphertext = await encryptString(key, label);
+    await axios.patch(`/dashboard/connection-attribute-definitions/${definition.id}`, { label_ciphertext: labelCiphertext });
+    definition.label_ciphertext = labelCiphertext;
+    definition.staged_label = null;
+    definition.label = label;
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 watch(vaultUnlocked, async (unlocked) => {
   if (!unlocked) return;
 
@@ -390,6 +409,10 @@ watch(vaultUnlocked, async (unlocked) => {
   }
 
   for (const definition of definitionItems.value) {
+    if (stagedLabel(definition) !== null) {
+      await nameStagedField(definition);
+      continue;
+    }
     if (definition.label !== undefined) continue;
     try {
       const key = await getRecordKey(definition.id);
@@ -400,7 +423,8 @@ watch(vaultUnlocked, async (unlocked) => {
           console.error(error);
         }
       }
-      definition.label = await decryptString(key, definition.label_ciphertext);
+      // Null only for a field still waiting for its staged name to be encrypted (handled above), never here.
+      if (definition.label_ciphertext !== null) definition.label = await decryptString(key, definition.label_ciphertext);
     } catch (error) {
       console.error(error);
     }

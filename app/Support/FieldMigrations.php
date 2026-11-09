@@ -30,6 +30,8 @@ final class FieldMigrations
     public const COLUMN_OF_TYPE = [
         'identifier' => 'identifier_value',
         'identifier_list' => 'identifier_list_value',
+        'language' => 'identifier_list_value',
+        'timezone' => 'identifier_list_value',
         'boolean' => 'boolean_value',
     ];
 

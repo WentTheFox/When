@@ -35,7 +35,8 @@ use Inertia\Response;
  * rest with APP_KEY (ConnectionAttributeValue's 'encrypted' cast), so the
  * server can use them for external-service matching. 'identifier_list' is the
  * same idea with an array (identifier_list_value, APP_KEY-encrypted JSON); the
- * one the owner selects in Settings supplies share-link highlight tokens.
+ * one the owner selects in Settings supplies share-link highlight tokens. 'language' and
+ * 'timezone' are stored the same way (a plaintext list), so the server can use them too.
  */
 class ConnectionController extends Controller
 {
@@ -56,7 +57,8 @@ class ConnectionController extends Controller
             ])->map(fn (Connection $c) => $this->serialize($c)),
             'sources' => $user->connectionSources()->ordered()->get(['id', 'category_id', 'name_ciphertext']),
             'categories' => $user->connectionSourceCategories()->ordered()->get(['id', 'name_ciphertext', 'color_key']),
-            'attributeDefinitions' => $user->connectionAttributeDefinitions()->ordered()->get(['id', 'label_ciphertext', 'type', 'options_ciphertext', 'icon_rules_ciphertext']),
+            // staged_label: a name the server gave a field it created itself, until the browser has encrypted it (VisitorFieldsBackfill).
+            'attributeDefinitions' => $user->connectionAttributeDefinitions()->ordered()->get(['id', 'label_ciphertext', 'staged_label', 'type', 'options_ciphertext', 'icon_rules_ciphertext']),
             // Fields that site features depend on (field id => feature labels): those can't be deleted.
             'fieldFeatures' => (object) FieldFeatures::forUser($user),
             // Which field types each feature (by label) can use, and every type change a field may go through (the Migrate field section).
@@ -492,7 +494,7 @@ class ConnectionController extends Controller
     /**
      * Each definition type takes exactly one value column: 'identifier' →
      * identifier_value (plaintext string, §0.2), 'identifier_list' →
-     * identifier_list_value (plaintext array, §0.2), 'boolean' →
+     * identifier_list_value (plaintext array, §0.2; so do 'language' and 'timezone'), 'boolean' →
      * boolean_value (§0.2, APP_KEY-encrypted yes/no), everything else →
      * value_ciphertext (E2EE, §0.1). Never two, never the wrong one, so a
      * client bug can't leak E2EE-intended data into a server-readable column
@@ -515,7 +517,7 @@ class ConnectionController extends Controller
         foreach ($attributeValues as $i => $value) {
             $field = match ($types[$value['attribute_definition_id']] ?? null) {
                 'identifier' => 'identifier_value',
-                'identifier_list' => 'identifier_list_value',
+                'identifier_list', 'language', 'timezone' => 'identifier_list_value',
                 'boolean' => 'boolean_value',
                 default => 'value_ciphertext',
             };

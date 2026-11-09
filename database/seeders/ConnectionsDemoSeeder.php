@@ -10,10 +10,12 @@ use App\Models\ConnectionSourceCategory;
 use App\Models\ConnectionVrchatStay;
 use App\Models\DiscordFriend;
 use App\Models\ShareLink;
+use App\Models\ShareLinkVisit;
 use App\Models\User;
 use App\Services\Crypto\AesGcm;
 use App\Support\DevMockVrchat;
 use App\Support\DiscordUserId;
+use App\Support\VisitorFieldsBackfill;
 use App\Support\VrchatUserId;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
@@ -99,7 +101,8 @@ class ConnectionsDemoSeeder extends Seeder
 
         DB::transaction(function () {
             // Replace a previous demo account (and everything hanging off it) instead of piling up duplicates.
-            User::withTrashed()->whereName(self::DEMO_NAME)->get()->each->forceDelete();
+            // `name` is an encrypted column (random IV), so it can't be matched in SQL: compare after decrypting.
+            User::withTrashed()->get()->filter(fn (User $u) => $u->name === self::DEMO_NAME)->each->forceDelete();
 
             $user = $this->createUser();
             $categories = $this->createCategories($user);
@@ -108,6 +111,8 @@ class ConnectionsDemoSeeder extends Seeder
             $connections = $this->createConnections($user, $sources, $definitions);
             $this->createRelationships($connections, $definitions);
             $this->createShareLinks($user, $connections);
+            // What the visits recorded becomes language / time zone fields on the connections, as the data migration did for real accounts (the browser names them on the first unlock).
+            VisitorFieldsBackfill::forUser($user);
             $this->bindFeatures($user, $definitions, $sources);
             $this->seedDiscord($user, $definitions, $connections);
             $this->storeKeyRing($user);
@@ -231,6 +236,8 @@ class ConnectionsDemoSeeder extends Seeder
             'pronouns' => ['Pronouns', 'text', null],
             'birthday' => ['Birthday', 'date', null],
             'country' => ['Country', 'country', null],
+            'languages' => ['Languages', 'language', null],
+            'timezones' => ['Time zones', 'timezone', null],
             'lucky' => ['Lucky number', 'number', null],
             'website' => ['Website', 'url', null],
             'email' => ['Email', 'email', null],
@@ -306,6 +313,8 @@ class ConnectionsDemoSeeder extends Seeder
     {
         $faker = fake();
         $interests = ['Synthwave', 'Bouldering', 'Pixel art', 'Tabletop RPGs', 'Baking', 'Cycling', 'Retro consoles', 'Birdwatching', 'Photography', 'Linux', 'Language learning', 'Hiking', 'Cosplay', 'Modular synths'];
+        $languages = ['en', 'hu', 'de', 'ja', 'fr', 'nl', 'sv', 'pl', 'es'];
+        $timezones = ['Europe/Budapest', 'Europe/Berlin', 'America/New_York', 'Asia/Tokyo', 'Europe/London', 'Australia/Sydney', 'America/Toronto'];
         $countries = ['HU', 'DE', 'US', 'GB', 'JP', 'CA', 'NL', 'SE', 'FR', 'AU', 'PL'];
         $pronouns = ['she/her', 'he/him', 'they/them', 'she/they', 'he/they'];
         $noteLines = [
@@ -404,6 +413,21 @@ class ConnectionsDemoSeeder extends Seeder
                     'connection_id' => $id,
                     'attribute_definition_id' => $d['alt_names']->id,
                     'identifier_list_value' => [$this->username(), $this->username()],
+                ]);
+            }
+            // Languages and time zones are plaintext lists like identifier lists (§0.2): the site is meant to use them.
+            if ($has(55)) {
+                ConnectionAttributeValue::create([
+                    'connection_id' => $id,
+                    'attribute_definition_id' => $d['languages']->id,
+                    'identifier_list_value' => array_values($faker->randomElements($languages, $faker->numberBetween(1, 3))),
+                ]);
+            }
+            if ($has(45)) {
+                ConnectionAttributeValue::create([
+                    'connection_id' => $id,
+                    'attribute_definition_id' => $d['timezones']->id,
+                    'identifier_list_value' => array_values($faker->randomElements($timezones, $faker->numberBetween(1, 2))),
                 ]);
             }
             if ($has(60)) {
@@ -556,6 +580,15 @@ class ConnectionsDemoSeeder extends Seeder
 
             if ($faker->boolean(60)) {
                 $link->forceFill(['last_visited_at' => Carbon::now()->subHours($faker->numberBetween(1, 600))])->save();
+
+                // What the link recorded about its visitors (server-side, §0.2), copied onto the connection by VisitorFieldsBackfill.
+                foreach (range(1, $faker->numberBetween(1, 4)) as $ignored) {
+                    ShareLinkVisit::create([
+                        'share_link_id' => $link->id,
+                        'timezone' => $faker->randomElement(['Europe/Budapest', 'America/New_York', 'Asia/Tokyo', 'Europe/London']),
+                        'locale' => $faker->randomElement(['hu-HU', 'en-US', 'en-GB', 'ja-JP', null]),
+                    ]);
+                }
             }
         }
     }
