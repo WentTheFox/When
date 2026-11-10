@@ -6,6 +6,7 @@ import axios from 'axios';
 import { BAlert, BBadge, BButton, BCard, BFormGroup, BFormInput, BTab, BTabs } from 'bootstrap-vue-next';
 import { computed, nextTick, onBeforeUnmount, onMounted, type Ref, ref, watch } from 'vue';
 import { decryptString, encryptString } from '../../crypto';
+import { clearDecryptedValues } from '../../dashboard/clearDecryptedValues';
 import { matchConnection, parseAlternativeNames } from '../../dashboard/alternativeNames';
 import {
   BOOLEAN_CHOICES,
@@ -386,13 +387,23 @@ async function nameStagedField(definition: DefinitionItem): Promise<void> {
 }
 
 watch(vaultUnlocked, async (unlocked) => {
-  if (!unlocked) return;
+  if (!unlocked) {
+    clearDecryptedValues({
+      sources: sourceItems.value,
+      categories: categoryItems.value,
+      definitions: definitionItems.value,
+      names: decryptedNames,
+      alternativeNames,
+    }, (definition) => stagedLabel(definition) !== null);
+    return;
+  }
 
   for (const source of sourceItems.value) {
     if (source.label !== undefined) continue;
     try {
       const key = await getRecordKey(source.id);
-      source.label = await decryptString(key, source.name_ciphertext);
+      const label = await decryptString(key, source.name_ciphertext);
+      if (vaultUnlocked.value) source.label = label; // locked mid-way: don't write it back
     } catch (error) {
       console.error(error);
     }
@@ -402,7 +413,8 @@ watch(vaultUnlocked, async (unlocked) => {
     if (category.label !== undefined) continue;
     try {
       const key = await getRecordKey(category.id);
-      category.label = await decryptString(key, category.name_ciphertext);
+      const label = await decryptString(key, category.name_ciphertext);
+      if (vaultUnlocked.value) category.label = label;
     } catch (error) {
       console.error(error);
     }
@@ -418,13 +430,17 @@ watch(vaultUnlocked, async (unlocked) => {
       const key = await getRecordKey(definition.id);
       if (definition.options_ciphertext) {
         try {
-          definition.options = JSON.parse(await decryptString(key, definition.options_ciphertext)).choices ?? [];
+          const options = JSON.parse(await decryptString(key, definition.options_ciphertext)).choices ?? [];
+          if (vaultUnlocked.value) definition.options = options; // locked mid-way: don't write it back
         } catch (error) {
           console.error(error);
         }
       }
       // Null only for a field still waiting for its staged name to be encrypted (handled above), never here.
-      if (definition.label_ciphertext !== null) definition.label = await decryptString(key, definition.label_ciphertext);
+      if (definition.label_ciphertext !== null) {
+        const label = await decryptString(key, definition.label_ciphertext);
+        if (vaultUnlocked.value) definition.label = label;
+      }
     } catch (error) {
       console.error(error);
     }
@@ -433,7 +449,8 @@ watch(vaultUnlocked, async (unlocked) => {
   for (const connection of connections.value) {
     try {
       const key = await getRecordKey(connection.id);
-      decryptedNames.value[connection.id] = await decryptString(key, connection.name_ciphertext);
+      const name = await decryptString(key, connection.name_ciphertext);
+      if (vaultUnlocked.value) decryptedNames.value[connection.id] = name;
     } catch (error) {
       console.error(error);
     }
