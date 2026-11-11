@@ -115,6 +115,9 @@ ordinary password). See `resources/js/crypto/argon2.ts`.
 
 ## Deploy
 
+The app is moving to the Rathalos Kubernetes cluster: images, ports, env names, volumes and the
+one-instance constraints are in `docs/kubernetes.md` (Dockerfile in `docker/`). The toolkit flow below is the legacy vinyl.vps path.
+
 Two independent git remotes:
 - `git push origin main` → GitHub, code hosting only.
 - `git push deploy main` → a bare repo on a remote host, via
