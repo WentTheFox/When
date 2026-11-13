@@ -245,6 +245,109 @@ class TelegramIntegrationTest extends TestCase
         $this->assertSame('rotated-session', $user->telegram_session);
     }
 
+    /**
+     * @param  list<string>  $ids
+     * @param  list<string>  $hidden  contacts Telegram will not hand a photo for (privacy settings): checked, but nothing comes back
+     */
+    private function fakeBigAddressBook(array $ids, array $hidden = []): Factory
+    {
+        $contacts = [];
+        foreach ($ids as $id) {
+            $contacts[$id] = ['username' => 'u'.$id, 'first_name' => 'N'.$id, 'last_name' => null, 'phone' => null, 'mutual' => true, 'premium' => false, 'bot' => false, 'has_photo' => true];
+        }
+
+        Http::swap($factory = new Factory);
+        $factory->preventStrayRequests();
+        $factory->fake([
+            'sidecar.test:8080/v1/contacts' => Http::response(['contacts' => $contacts, 'session' => 'rotated-session']),
+            // Answers for exactly the ids it is asked about, like the real sidecar: a hidden photo is checked but absent.
+            'sidecar.test:8080/v1/photos' => fn (Request $r) => Http::response([
+                'photos' => collect($r['ids'])->reject(fn ($id) => in_array($id, $hidden, true))->mapWithKeys(fn ($id) => [$id => self::PHOTO])->all(),
+                'checked' => array_values($r['ids']),
+                'session' => 'rotated-session-2',
+            ]),
+        ]);
+
+        return $factory;
+    }
+
+    public function test_a_big_address_book_gets_every_photo_in_one_sync_not_just_the_first_batch(): void
+    {
+        $user = $this->owner();
+        $ids = array_map(fn ($n) => (string) (2000000000 + $n), range(1, 70));
+        $factory = $this->fakeBigAddressBook($ids);
+
+        app(TelegramSyncService::class)->sync($user);
+
+        $this->assertSame(70, TelegramFriend::where('user_id', $user->id)->whereNotNull('avatar_url')->count());
+        $factory->assertSentCount(1 + 3); // one contact list, then photos in batches of at most 30
+    }
+
+    public function test_contacts_whose_photo_cannot_be_had_do_not_starve_the_ones_behind_them(): void
+    {
+        $user = $this->owner();
+        $ids = array_map(fn ($n) => (string) (2000000000 + $n), range(1, 70));
+        // The first 45 hide their photo: with a cap and no memory of having asked, they would hog every batch forever.
+        $this->fakeBigAddressBook($ids, hidden: array_slice($ids, 0, 45));
+
+        app(TelegramSyncService::class)->sync($user);
+
+        $this->assertSame(25, TelegramFriend::where('user_id', $user->id)->whereNotNull('avatar_url')->count());
+
+        // Asked once, not again on every sync: the next sync does not ask Telegram about them a second time.
+        $factory = $this->fakeBigAddressBook($ids, hidden: array_slice($ids, 0, 45));
+        app(TelegramSyncService::class)->sync($user->refresh());
+        $factory->assertSentCount(1);
+    }
+
+    public function test_a_background_sync_fills_in_missing_photos_of_contacts_it_already_tracks(): void
+    {
+        $user = $this->owner();
+        $this->fakeSidecar([self::OLD]);
+        app(TelegramSyncService::class)->sync($user);
+        // A row from before photos were tracked properly: no photo, and nothing remembered about having one.
+        TelegramFriend::where('user_id', $user->id)->update(['avatar_url' => null, 'has_photo' => false, 'photo_checked_at' => null]);
+
+        $this->fakeSidecar([self::OLD]);
+        app(TelegramSyncService::class)->sync($user->refresh(), onlyNew: true);
+
+        $this->assertSame(self::PHOTO, TelegramFriend::where('user_id', $user->id)->first()->avatar_url);
+    }
+
+    public function test_a_flood_wait_during_photos_keeps_what_arrived_and_stops_asking(): void
+    {
+        $user = $this->owner();
+        $ids = array_map(fn ($n) => (string) (2000000000 + $n), range(1, 70));
+        $contacts = array_fill_keys($ids, ['username' => null, 'first_name' => 'N', 'last_name' => null, 'phone' => null, 'mutual' => true, 'premium' => false, 'bot' => false, 'has_photo' => true]);
+        Http::swap($factory = new Factory);
+        $factory->preventStrayRequests();
+        $factory->fake([
+            'sidecar.test:8080/v1/contacts' => Http::response(['contacts' => $contacts, 'session' => 'rotated-session']),
+            // Ten photos arrive, then Telegram says slow down: the rest were not checked.
+            'sidecar.test:8080/v1/photos' => fn (Request $r) => Http::response([
+                'photos' => collect(array_slice($r['ids'], 0, 10))->mapWithKeys(fn ($id) => [$id => self::PHOTO])->all(),
+                'checked' => array_slice($r['ids'], 0, 10), 'retry_after' => 120, 'session' => 'rotated-session-2',
+            ]),
+        ]);
+
+        app(TelegramSyncService::class)->sync($user);
+
+        $this->assertSame(10, TelegramFriend::where('user_id', $user->id)->whereNotNull('avatar_url')->count());
+        $factory->assertSentCount(2); // contacts + ONE photos call: it did not hammer Telegram through the flood wait
+        $this->assertSame(60, app(TelegramSyncService::class)->summary($user->refresh())['photos_pending']);
+        $this->assertNotNull($user->telegram_synced_at);
+    }
+
+    public function test_the_summary_says_how_many_photos_are_still_to_come(): void
+    {
+        $user = $this->owner();
+        $this->fakeSidecar([self::OLD, self::NEW], ['sidecar.test:8080/v1/photos' => Http::response(['photos' => [], 'checked' => [], 'retry_after' => 60, 'session' => 's'])]);
+
+        app(TelegramSyncService::class)->sync($user);
+
+        $this->assertSame(2, app(TelegramSyncService::class)->summary($user->refresh())['photos_pending']);
+    }
+
     public function test_the_stored_fields_are_encrypted_at_rest(): void
     {
         $user = $this->owner();

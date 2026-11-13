@@ -140,7 +140,8 @@ async function syncNow(): Promise<void> {
     syncResult.value = {
       ok: true,
       text: data.ran
-        ? `Synced. ${data.pending_friends} contact${data.pending_friends === 1 ? '' : 's'} waiting on the Connections page.`
+        ? `Synced. ${data.pending_friends} contact${data.pending_friends === 1 ? '' : 's'} waiting on the Connections page.${
+          data.photos_pending > 0 ? ` ${data.photos_pending} profile photo${data.photos_pending === 1 ? ' is' : 's are'} still to fetch: they fill in over the next syncs, or press Sync now again.` : ''}`
         : 'A sync is already running.',
     };
     router.reload({ only: ['telegram'] });
@@ -172,8 +173,10 @@ const syncedAt = computed(() => (props.telegram.synced_at ? new Date(props.teleg
       you've chosen a highlight tokens field under Share links). After a rename the new name is added next to the old one, and nothing is ever removed.
     </p>
     <p class="small text-muted">
-      In the background, opening Connections only picks up <strong>new</strong> contacts we are not tracking yet; it never refreshes anyone's name,
-      phone or photo. To refresh those, press <strong>Sync now</strong> here.
+      In the background, opening Connections only picks up <strong>new</strong> contacts we are not tracking yet, and fills in profile photos
+      that are still missing; it never refreshes anyone's name, phone or an existing photo. To refresh those, press <strong>Sync now</strong> here.
+      Photos come a batch at a time, so a big address book fills in over a few syncs. A contact whose photo is hidden by their Telegram privacy
+      settings has none to fetch.
     </p>
     <div class="alert alert-warning small" role="note">
       <strong>This is a real login, not a limited permission.</strong> Telegram has no "read my contacts only" access for apps: the only way

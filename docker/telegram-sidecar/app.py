@@ -9,6 +9,7 @@ password or session string.
 Env: TELEGRAM_API_ID, TELEGRAM_API_HASH (from https://my.telegram.org), TELEGRAM_SIDECAR_TOKEN (shared bearer
 secret with When), PORT (default 8080).
 """
+import asyncio
 import base64
 import hmac
 import json
@@ -18,13 +19,15 @@ import sys
 from contextlib import asynccontextmanager
 
 from aiohttp import web
-from telethon import TelegramClient, errors, functions
+from telethon import TelegramClient, errors, functions, types
 from telethon.sessions import StringSession
 
 API_ID = int(os.environ.get("TELEGRAM_API_ID", "0"))
 API_HASH = os.environ.get("TELEGRAM_API_HASH", "")
 TOKEN = os.environ.get("TELEGRAM_SIDECAR_TOKEN", "")
 MAX_PHOTOS = 40
+# Downloads in flight at once. Photos live on different Telegram data centres, and each new one costs a handshake.
+PHOTO_CONCURRENCY = 4
 
 logging.basicConfig(level=logging.WARNING)
 
@@ -151,24 +154,56 @@ async def contacts(request: web.Request) -> web.Response:
                 "mutual": bool(getattr(u, "mutual_contact", False)),
                 "premium": bool(getattr(u, "premium", False)),
                 "bot": bool(getattr(u, "bot", False)),
-                "has_photo": getattr(u, "photo", None) is not None,
+                # Only a real UserProfilePhoto: the field can also be the "Empty" marker, which has nothing to download.
+                "has_photo": isinstance(getattr(u, "photo", None), types.UserProfilePhoto),
             }
         return web.json_response({"contacts": out, "session": client.session.save()})
 
 
 async def photos(request: web.Request) -> web.Response:
+    """Profile-photo thumbnails for the asked contact ids.
+
+    The reply says which ids were `checked` (asked about to the end): a checked id with no photo has none to
+    give (hidden by its privacy settings, or no longer a contact), which is not the same as "not reached". One
+    contact failing does not lose the others, and a flood wait stops further downloads but keeps what arrived,
+    reporting `retry_after` so the caller backs off.
+    """
     data = await body(request)
     wanted = {int(i) for i in list(data.get("ids", []))[:MAX_PHOTOS]}
     session = str(data["session"])
     async with client_for(session) as client:
         # Fetching the contact list fills the entity cache, which is what lets us address them by id.
-        users = [u for u in await fetch_contacts(client) if u.id in wanted]
-        out = {}
-        for u in users:
-            raw = await client.download_profile_photo(u, file=bytes, download_big=False)
+        contacts_now = await fetch_contacts(client)
+        users = [u for u in contacts_now if u.id in wanted]
+        out: dict[str, str] = {}
+        # Asked for but not (or no longer) in the contact list: nothing to fetch, and nothing to wait for.
+        checked: list[str] = [str(i) for i in wanted - {u.id for u in contacts_now}]
+        flood = 0
+        gate = asyncio.Semaphore(PHOTO_CONCURRENCY)
+
+        async def one(user) -> None:
+            nonlocal flood
+            async with gate:
+                if flood:
+                    return
+                try:
+                    raw = await client.download_profile_photo(user, file=bytes, download_big=False)
+                except errors.FloodWaitError as e:
+                    flood = max(flood, e.seconds)
+                    return
+                except AUTH_LOST:
+                    raise
+                except (errors.RPCError, ConnectionError, TimeoutError, asyncio.TimeoutError):
+                    return  # Not checked: it is asked about again next time.
+            checked.append(str(user.id))
             if raw:
-                out[str(u.id)] = "data:image/jpeg;base64," + base64.b64encode(raw).decode()
-        return web.json_response({"photos": out, "session": client.session.save()})
+                out[str(user.id)] = "data:image/jpeg;base64," + base64.b64encode(raw).decode()
+
+        await asyncio.gather(*(one(u) for u in users))
+        reply = {"photos": out, "checked": checked, "session": client.session.save()}
+        if flood:
+            reply["retry_after"] = flood
+        return web.json_response(reply)
 
 
 async def logout(request: web.Request) -> web.Response:

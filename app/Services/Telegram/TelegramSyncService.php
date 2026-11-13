@@ -8,9 +8,11 @@ use App\Models\TelegramFriend;
 use App\Models\User;
 use App\Services\Calendar\HighlightWordsResolver;
 use App\Support\TelegramUserId;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Pulls the owner's Telegram contacts and remembers them (§0.2 tier) so contacts without a connection can be
@@ -18,9 +20,10 @@ use Illuminate\Support\Facades\Crypt;
  * Telegram only lets a user account read contacts, so the owner logs in (phone, code, maybe a two-step
  * password) through the optional sidecar and the server keeps the resulting session encrypted.
  *
- * Same two ways in as Discord: the owner's "Sync now" (full: refreshes names, phone and photo of everyone
- * already tracked), and a background sync queued by request traffic (see maybeQueue) that only adds people not
- * tracked at all yet. Every contact is remembered, so deleting a connection never turns its contact "new" again,
+ * Same two ways in as Discord: the owner's "Sync now" (full: refreshes names and phone of everyone already
+ * tracked), and a background sync queued by request traffic (see maybeQueue) that only adds people not tracked
+ * at all yet. Both fill in profile photos that are still missing, which is additive: an existing photo is
+ * never replaced. Every contact is remembered, so deleting a connection never turns its contact "new" again,
  * and a sync never deletes anything.
  */
 class TelegramSyncService
@@ -34,8 +37,16 @@ class TelegramSyncService
     /** How long a half-finished login (code sent, not yet entered) is kept. */
     private const LOGIN_TTL_MINUTES = 10;
 
-    /** Most photos fetched per sync: the first sync of a big address book fills in over a few runs. */
-    private const PHOTOS_PER_SYNC = 40;
+    /** Photos asked for per call to the sidecar. */
+    private const PHOTO_BATCH = 30;
+
+    /** Most photo calls in one sync, and the point after which no new one is started: a big address book finishes over a few syncs. */
+    private const PHOTO_MAX_BATCHES = 6;
+
+    private const PHOTO_TIME_BUDGET_SECONDS = 50;
+
+    /** A contact whose photo came back empty (hidden by their privacy settings) is not asked about again for this long. */
+    private const PHOTO_RECHECK_DAYS = 14;
 
     public function __construct(private readonly TelegramClient $client) {}
 
@@ -161,20 +172,8 @@ class TelegramSyncService
             try {
                 $fetched = $this->client->contacts($session);
                 $session = $fetched['session'];
-                $fresh = $this->store($user, $fetched['contacts'], $onlyNew);
-
-                if ($fresh !== []) {
-                    // A photo that cannot be fetched is not worth failing the sync for: the contact just has no picture yet.
-                    try {
-                        $photos = $this->client->photos($session, array_slice($fresh, 0, self::PHOTOS_PER_SYNC));
-                        $session = $photos['session'];
-                        $this->storePhotos($user, $photos['photos']);
-                    } catch (TelegramException $e) {
-                        if ($e->authRevoked) {
-                            throw $e;
-                        }
-                    }
-                }
+                $this->store($user, $fetched['contacts'], $onlyNew);
+                $session = $this->fetchPhotos($user, $session);
             } catch (TelegramException $e) {
                 // The session is gone for good: forget it so the owner is asked to log in again, rather than retrying forever.
                 if ($e->authRevoked) {
@@ -201,13 +200,11 @@ class TelegramSyncService
 
     /**
      * @param  array<string, array{username: ?string, first_name: ?string, last_name: ?string, phone: ?string, mutual: bool, premium: bool, has_photo: bool}>  $contacts
-     * @return list<string> ids of the contacts that are new and have a photo to fetch
      */
-    private function store(User $user, array $contacts, bool $onlyNew): array
+    private function store(User $user, array $contacts, bool $onlyNew): void
     {
         $linked = array_flip($this->linkedIds($user));
         $known = TelegramFriend::where('user_id', $user->id)->get()->keyBy('telegram_user_id_hash');
-        $needPhoto = [];
 
         foreach ($contacts as $id => $c) {
             $id = (string) $id;
@@ -231,18 +228,21 @@ class TelegramSyncService
                     'phone' => $c['phone'],
                     'is_mutual' => $c['mutual'],
                     'is_premium' => $c['premium'],
+                    'has_photo' => $c['has_photo'],
                     'status' => $isLinked ? TelegramFriend::CREATED : TelegramFriend::PENDING,
                     'synced_at' => now(),
                 ]);
-
-                if ($c['has_photo']) {
-                    $needPhoto[] = $id;
-                }
 
                 continue;
             }
 
             if ($onlyNew) {
+                // Nothing the owner can see changes, but what Telegram says about the photo is bookkeeping for the
+                // photo fetch below, and rows from before it was tracked have to catch up.
+                if ($row->has_photo !== $c['has_photo']) {
+                    $row->forceFill(['has_photo' => $c['has_photo']])->save();
+                }
+
                 continue;
             }
 
@@ -254,6 +254,7 @@ class TelegramSyncService
                 'phone' => $c['phone'] ?? $row->phone,
                 'is_mutual' => $c['mutual'],
                 'is_premium' => $c['premium'],
+                'has_photo' => $c['has_photo'],
                 'synced_at' => now(),
             ]);
 
@@ -263,24 +264,84 @@ class TelegramSyncService
             }
 
             $row->save();
+        }
+    }
 
-            if ($c['has_photo'] && $row->avatar_url === null) {
-                $needPhoto[] = $id;
+    /**
+     * Contacts that have a photo Telegram reports and that we have no picture for, and have not asked about lately.
+     *
+     * @return Builder<TelegramFriend>
+     */
+    private function wantingPhotos(User $user): Builder
+    {
+        return TelegramFriend::where('user_id', $user->id)
+            ->where('has_photo', true)
+            ->whereNull('avatar_url')
+            ->where(fn (Builder $q) => $q->whereNull('photo_checked_at')->orWhere('photo_checked_at', '<', now()->subDays(self::PHOTO_RECHECK_DAYS)));
+    }
+
+    /**
+     * Fetches the photos of contacts that still lack one, a batch at a time, until none are left, the batch or time
+     * budget runs out, or Telegram says to slow down. It is additive (it only ever fills an empty picture), so
+     * the background sync does it too. A failure is logged and ends the photo step, not the sync: the contacts
+     * are already stored and the rest is tried again next time. Returns the session as the sidecar last handed it back.
+     *
+     * @throws TelegramException when the session itself is gone
+     */
+    private function fetchPhotos(User $user, string $session): string
+    {
+        $started = microtime(true);
+
+        for ($batch = 0; $batch < self::PHOTO_MAX_BATCHES && microtime(true) - $started < self::PHOTO_TIME_BUDGET_SECONDS; $batch++) {
+            $rows = $this->wantingPhotos($user)->limit(self::PHOTO_BATCH)->get();
+
+            if ($rows->isEmpty()) {
+                break;
+            }
+
+            $ids = [];
+            foreach ($rows as $row) {
+                $ids[] = $row->telegram_user_id;
+            }
+
+            try {
+                $result = $this->client->photos($session, $ids);
+            } catch (TelegramException $e) {
+                if ($e->authRevoked) {
+                    throw $e;
+                }
+
+                Log::warning('Telegram photo fetch failed: '.$e->getMessage());
+
+                break;
+            }
+
+            $session = $result['session'];
+            $checked = array_flip($result['checked']);
+
+            foreach ($rows as $row) {
+                $id = $row->telegram_user_id;
+
+                // Only what the sidecar actually asked Telegram about is marked: the rest was not reached and stays queued.
+                if (isset($result['photos'][$id])) {
+                    $row->forceFill(['avatar_url' => $result['photos'][$id], 'photo_checked_at' => now()])->save();
+                } elseif (isset($checked[$id])) {
+                    $row->forceFill(['photo_checked_at' => now()])->save();
+                }
+            }
+
+            // Telegram asked us to slow down: keep what arrived, and leave the rest for a later sync.
+            if ($result['retry_after'] !== null) {
+                break;
+            }
+
+            // A whole batch came back with nothing checked: asking again would loop on the same rows.
+            if ($result['checked'] === [] && $result['photos'] === []) {
+                break;
             }
         }
 
-        return $needPhoto;
-    }
-
-    /** @param array<string, string> $photos id => data URL */
-    private function storePhotos(User $user, array $photos): void
-    {
-        foreach ($photos as $id => $dataUrl) {
-            TelegramFriend::where('user_id', $user->id)
-                ->where('telegram_user_id_hash', TelegramUserId::hash((string) $id))
-                ->first()
-                ?->forceFill(['avatar_url' => $dataUrl])->save();
-        }
+        return $session;
     }
 
     /**
@@ -400,7 +461,7 @@ class TelegramSyncService
     /**
      * What the Connections and Settings pages show.
      *
-     * @return array{available: bool, connected: bool, configured: bool, account_name: ?string, synced_at: ?string, pending_friends: int, field: array{id: string, type: string}|null, profiles: array<string, list<array{telegram_user_id: string, known: bool, username: ?string, name: ?string, picture_url: ?string}>>}
+     * @return array{available: bool, connected: bool, configured: bool, account_name: ?string, synced_at: ?string, pending_friends: int, photos_pending: int, field: array{id: string, type: string}|null, profiles: array<string, list<array{telegram_user_id: string, known: bool, username: ?string, name: ?string, picture_url: ?string}>>}
      */
     public function summary(User $user): array
     {
@@ -418,6 +479,8 @@ class TelegramSyncService
             'pending_friends' => $this->isConfigured($user)
                 ? TelegramFriend::where('user_id', $user->id)->where('status', TelegramFriend::PENDING)->count()
                 : 0,
+            // Contacts whose photo is still to be fetched: a big address book fills in over a few syncs.
+            'photos_pending' => $this->isConfigured($user) ? $this->wantingPhotos($user)->count() : 0,
             'field' => $field === null ? null : ['id' => $field->id, 'type' => $field->type],
             'profiles' => $this->profiles($user),
         ];

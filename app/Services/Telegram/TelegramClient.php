@@ -96,10 +96,13 @@ class TelegramClient
     }
 
     /**
-     * Profile-photo thumbnails (data URLs) for up to 40 contact ids.
+     * Profile-photo thumbnails (data URLs) for a batch of contact ids. `checked` is every id Telegram was
+     * actually asked about to the end: a contact missing from `photos` but present in `checked` has no photo to
+     * give (hidden by their privacy settings, or removed), which is different from "not asked yet". A flood wait
+     * cuts the batch short: `retry_after` is then set, and the ids not reached are simply not in `checked`.
      *
      * @param  list<string>  $ids
-     * @return array{session: string, photos: array<string, string>}
+     * @return array{session: string, photos: array<string, string>, checked: list<string>, retry_after: ?int}
      *
      * @throws TelegramException
      */
@@ -115,7 +118,10 @@ class TelegramClient
             }
         }
 
-        return ['session' => (string) $r['session'], 'photos' => $photos];
+        $checked = array_values(array_filter(array_map('strval', (array) ($r['checked'] ?? [])), fn (string $id) => in_array($id, $ids, true)));
+        $wait = (int) ($r['retry_after'] ?? 0);
+
+        return ['session' => (string) $r['session'], 'photos' => $photos, 'checked' => $checked, 'retry_after' => $wait > 0 ? $wait : null];
     }
 
     /** Logs the session out at Telegram, best effort: a session that is already dead is as good as logged out. */

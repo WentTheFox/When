@@ -150,7 +150,7 @@ const page = usePage();
     <strong>a bigger step than Discord</strong>. Telegram has no "read my contacts only" permission for apps: the only way to read a contact
     list is to be logged in as the account. So if you log in to Telegram in Settings, the server keeps a <strong>session for your whole
     Telegram account</strong>, stored encrypted at rest with the same server-held key, and uses it only to read your contact list: when you press
-    "Sync now" and, in the background, for new contacts only. That is not end-to-end encrypted, and anyone who could run the server could use
+    "Sync now" and, in the background, for new contacts and missing profile photos only. That is not end-to-end encrypted, and anyone who could run the server could use
     that session while it exists, to do anything the account can do. Your phone number, the login code and your two-step verification password
     are sent once, to log in, and are not stored; the helper service itself keeps nothing (it is handed the session for each request and
     hands it back). The contacts the server has seen (Telegram user IDs, names, usernames, phone numbers, a small profile photo, whether you are

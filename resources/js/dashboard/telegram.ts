@@ -25,6 +25,8 @@ export interface TelegramSummary {
   synced_at: string | null;
   /** Contacts still waiting for the browser to link or create their connection. */
   pending_friends: number;
+  /** Contacts whose photo is still to be fetched: a big address book fills in over a few syncs. */
+  photos_pending: number;
   /** The custom field holding Telegram user ids, with the value shape its type takes. */
   field: { id: string; type: string } | null;
   /** Connection id to the synced Telegram contacts linked to it. */
@@ -38,6 +40,7 @@ export const emptyTelegramSummary: TelegramSummary = {
   account_name: null,
   synced_at: null,
   pending_friends: 0,
+  photos_pending: 0,
   field: null,
   profiles: {},
 };

@@ -14,8 +14,8 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Background Telegram contacts sync for one owner, queued by TelegramSyncService::maybeQueue when a Connections
- * page load finds the list stale. It only adds people not tracked yet: it never refreshes anyone's name, phone or
- * photo. A failure is logged (message only, never the session, phone or a code) and not retried: the next page
+ * page load finds the list stale. It only adds people not tracked yet (and fills in profile photos that are still
+ * missing): it never refreshes anyone's name or phone, or replaces a photo. A failure is logged (message only, never the session, phone or a code) and not retried: the next page
  * load after the cooldown tries again.
  */
 class SyncTelegramContacts implements ShouldQueue

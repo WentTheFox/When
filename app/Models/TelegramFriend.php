@@ -23,6 +23,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $avatar_url
  * @property bool $is_mutual
  * @property bool $is_premium
+ * @property bool $has_photo
+ * @property Carbon|null $photo_checked_at
  * @property string $status
  * @property Carbon|null $synced_at
  * @property Carbon|null $created_at
@@ -47,6 +49,8 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|TelegramFriend whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|TelegramFriend whereUserId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|TelegramFriend whereUsername($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TelegramFriend whereHasPhoto($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|TelegramFriend wherePhotoCheckedAt($value)
  *
  * @mixin \Eloquent
  */
@@ -71,6 +75,8 @@ class TelegramFriend extends Model
         'avatar_url',
         'is_mutual',
         'is_premium',
+        'has_photo',
+        'photo_checked_at',
         'status',
         'synced_at',
     ];
@@ -86,6 +92,8 @@ class TelegramFriend extends Model
             'avatar_url' => 'encrypted',
             'is_mutual' => 'boolean',
             'is_premium' => 'boolean',
+            'has_photo' => 'boolean',
+            'photo_checked_at' => 'datetime',
             'synced_at' => 'datetime',
         ];
     }
