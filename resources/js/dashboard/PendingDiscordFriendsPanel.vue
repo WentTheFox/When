@@ -17,7 +17,7 @@ import { BBadge, BButton, BCard, BSpinner } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
 import SearchableSelect, { type SelectOption } from '../Components/SearchableSelect.vue';
 import { discordFriendName, discordFriendNames, type PendingDiscordFriend } from './discord';
-import { defaultFriendChoice, type MatchBy, type MatchCandidate, matchFriendByNames, type PossibleMatch, possibleMatchesByNames } from './friendMatching';
+import { batchNeedsList, defaultFriendChoice, type MatchBy, type MatchCandidate, matchFriendByNames, type PossibleMatch, possibleMatchesByNames } from './friendMatching';
 import type { FriendChoice, FriendDecision } from './vrchat';
 
 const props = defineProps<{
@@ -115,6 +115,16 @@ const allOptions = computed(() => props.candidates.map((c) => ({ id: c.id, label
 
 function decision(row: Row): FriendDecision {
   return { friendId: row.friend.id, choice: choices.value[row.friend.id] ?? 'new' };
+}
+
+/** Another Discord here goes to the same connection with a different Discord ID (so the single field must become a list). */
+function sharesConnection(row: Row): boolean {
+  const choice = choices.value[row.friend.id];
+  if (!props.singleField || !choice || choice === 'new' || choice === 'skip') return false;
+
+  return batchNeedsList(rows.value
+    .filter((other) => choices.value[other.friend.id] === choice)
+    .map((other) => ({ choice, externalId: other.friend.discord_user_id })));
 }
 
 function converting(row: Row): boolean {
@@ -228,6 +238,9 @@ function alsoKnownAs(friend: PendingDiscordFriend): string {
           </div>
           <div v-if="converting(row)" class="small text-muted mt-1 ms-5 ps-3">
             That connection already has a different Discord ID: applying turns the Discord ID field into an identifier list first (one way).
+          </div>
+          <div v-else-if="sharesConnection(row)" class="small text-muted mt-1 ms-5 ps-3">
+            Another Discord here also goes to this connection: applying turns the Discord ID field into an identifier list first (one way).
           </div>
         </div>
       </div>

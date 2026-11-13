@@ -16,7 +16,7 @@ import { BBadge, BButton, BCard, BSpinner } from 'bootstrap-vue-next';
 import { computed, ref, watch } from 'vue';
 import SearchableSelect, { type SelectOption } from '../Components/SearchableSelect.vue';
 import { type PendingTelegramContact, telegramContactName, telegramContactNames } from './telegram';
-import { defaultFriendChoice, type MatchBy, type MatchCandidate, matchFriendByNames, type PossibleMatch, possibleMatchesByNames } from './friendMatching';
+import { batchNeedsList, defaultFriendChoice, type MatchBy, type MatchCandidate, matchFriendByNames, type PossibleMatch, possibleMatchesByNames } from './friendMatching';
 import type { FriendChoice, FriendDecision } from './vrchat';
 
 const props = defineProps<{
@@ -110,6 +110,16 @@ const allOptions = computed(() => props.candidates.map((c) => ({ id: c.id, label
 
 function decision(row: Row): FriendDecision {
   return { friendId: row.friend.id, choice: choices.value[row.friend.id] ?? 'new' };
+}
+
+/** Another contact in this batch goes to the same connection with a different Telegram ID (so the single field must become a list). */
+function sharesConnection(row: Row): boolean {
+  const choice = choices.value[row.friend.id];
+  if (!props.singleField || !choice || choice === 'new' || choice === 'skip') return false;
+
+  return batchNeedsList(rows.value
+    .filter((other) => choices.value[other.friend.id] === choice)
+    .map((other) => ({ choice, externalId: other.friend.telegram_user_id })));
 }
 
 function converting(row: Row): boolean {
@@ -220,6 +230,9 @@ function alsoKnownAs(friend: PendingTelegramContact): string {
           </div>
           <div v-if="converting(row)" class="small text-muted mt-1 ms-5 ps-3">
             That connection already has a different Telegram ID: applying turns the Telegram ID field into an identifier list first (one way).
+          </div>
+          <div v-else-if="sharesConnection(row)" class="small text-muted mt-1 ms-5 ps-3">
+            Another contact here also goes to this connection: applying turns the Telegram ID field into an identifier list first (one way).
           </div>
         </div>
       </div>

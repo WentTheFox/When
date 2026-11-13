@@ -98,3 +98,21 @@ describe('PendingDiscordFriendsPanel', () => {
     expect(html).toContain('Apply all (1 new, 1 to existing)');
   });
 });
+
+describe('PendingDiscordFriendsPanel: two accounts of one person', () => {
+  const twin = (id: string) => friend(id, { global_name: 'Alice' });
+  const candidates: MatchCandidate[] = [{ id: 'c1', name: 'Alice', tokens: [] }, { id: 'c2', name: 'Bob', tokens: [] }];
+  const warning = 'turns the Discord ID field into an identifier list';
+
+  it('warns, before applying, that a single field becomes a list when two friends match one connection', async () => {
+    const html = await render([twin('1'), twin('2')], candidates, { singleField: true });
+    expect(html).toContain(warning);
+    expect(html).toContain('also goes to this connection');
+  });
+
+  it('does not warn for a list field, different connections, or a single friend', async () => {
+    expect(await render([twin('1'), twin('2')], candidates, { singleField: false })).not.toContain(warning);
+    expect(await render([twin('1'), friend('2', { global_name: 'Bob' })], candidates, { singleField: true })).not.toContain(warning);
+    expect(await render([twin('1')], candidates, { singleField: true })).not.toContain(warning);
+  });
+});

@@ -86,6 +86,29 @@ export function holdsOtherId(identifierValue: string | null | undefined, vrchatI
 }
 
 /**
+ * True when a batch of decisions puts more than one different id on the same existing connection. A
+ * single-identifier field holds one id, so the field has to become a list first. holdsOtherId only compares an id
+ * with what is already stored, so it cannot see this: two accounts of one person, both matched to the same
+ * connection that has no id yet, each look fine alone and the second would fail once the first is saved.
+ * Decisions for a new connection or a dismissal never share a field.
+ */
+export function batchNeedsList(decisions: readonly { choice: string; externalId: string }[]): boolean {
+  const seen = new Map<string, Set<string>>();
+
+  for (const { choice, externalId } of decisions) {
+    if (choice === 'new' || choice === 'skip') continue;
+
+    const ids = seen.get(choice) ?? new Set<string>();
+    ids.add(externalId.trim().toLowerCase());
+    seen.set(choice, ids);
+
+    if (ids.size > 1) return true;
+  }
+
+  return false;
+}
+
+/**
  * What a pending friend starts on: the connection that matched exactly when there is
  * just one, otherwise a new connection. Lower-confidence guesses (possibleMatches)
  * are never the default, and neither is picking one of several matches.

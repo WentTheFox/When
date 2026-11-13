@@ -51,3 +51,21 @@ describe('PendingFriendsPanel', () => {
     expect(html).toContain('Apply all (1 new, 1 to existing)');
   });
 });
+
+describe('PendingFriendsPanel: two accounts of one person', () => {
+  const twin = (id: string): PendingFriend => ({ id, vrchat_user_id: `usr_0000000${id}`, display_name: 'Alice', picture_url: null });
+  const candidates: MatchCandidate[] = [{ id: 'c1', name: 'Alice', tokens: [] }, { id: 'c2', name: 'Bob', tokens: [] }];
+  const warning = 'turns the VRChat ID field into an identifier list';
+
+  it('warns, before applying, that a single field becomes a list when two friends match one connection', async () => {
+    const html = await render([twin('1'), twin('2')], candidates, { singleField: true });
+    expect(html).toContain(warning);
+    expect(html).toContain('also goes to this connection');
+  });
+
+  it('does not warn for a list field, different connections, or a single friend', async () => {
+    expect(await render([twin('1'), twin('2')], candidates, { singleField: false })).not.toContain(warning);
+    expect(await render([twin('1'), { ...twin('2'), display_name: 'Bob' }], candidates, { singleField: true })).not.toContain(warning);
+    expect(await render([twin('1')], candidates, { singleField: true })).not.toContain(warning);
+  });
+});

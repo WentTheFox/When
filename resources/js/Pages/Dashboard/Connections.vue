@@ -40,7 +40,7 @@ import type { NotesFieldDeps, NotesFieldResponse } from '../../dashboard/notesFi
 import { moveLegacyRelationships, RELATIONSHIPS_FIELD_LABEL, VALUES_PER_CALL } from '../../dashboard/relationshipsField';
 import type { LegacyEdge, RelationshipsDeps, RelationshipsResponse } from '../../dashboard/relationshipsField';
 import { listEntries, paddedListText } from '../../dashboard/encryptedList';
-import { holdsOtherId, type MatchCandidate } from '../../dashboard/friendMatching';
+import { batchNeedsList, holdsOtherId, type MatchCandidate } from '../../dashboard/friendMatching';
 import { type DiscordProfile, type DiscordSummary, emptyDiscordSummary, discordFriendName, type PendingDiscordFriend } from '../../dashboard/discord';
 import type { FriendDecision, PendingFriend, VrchatSummary } from '../../dashboard/vrchat';
 import {
@@ -787,12 +787,14 @@ async function applyFriendDecisions(decisions: FriendDecision[]): Promise<void> 
   const skipped: string[] = [];
 
   try {
-    const conflicts = chosen.some((d) => d.choice !== 'new' && d.choice !== 'skip' && friendNeedsConversion(d.choice, friends.get(d.friendId)!.vrchat_user_id));
+    // Two ways to need a list: a chosen connection already holds a different ID, or this batch puts two different IDs on the same one.
+    const conflicts = chosen.some((d) => d.choice !== 'new' && d.choice !== 'skip' && friendNeedsConversion(d.choice, friends.get(d.friendId)!.vrchat_user_id))
+      || (field.type === 'identifier' && batchNeedsList(chosen.map((d) => ({ choice: d.choice, externalId: friends.get(d.friendId)!.vrchat_user_id }))));
 
     if (conflicts) {
       const confirmed = await requestConfirm({
         title: 'Turn the VRChat ID field into a list?',
-        message: 'At least one connection you chose already has a different VRChat ID, and the field holds only one. It becomes an identifier list first (every connection keeps its ID as a one-entry list). This cannot be undone.',
+        message: 'At least one connection you chose already has, or is about to get, a different VRChat ID, and the field holds only one. It becomes an identifier list first (every connection keeps its ID as a one-entry list). This cannot be undone.',
         confirmText: 'Convert and continue',
         variant: 'primary',
       });
@@ -926,12 +928,14 @@ async function applyDiscordDecisions(decisions: FriendDecision[]): Promise<void>
   const skipped: string[] = [];
 
   try {
-    const conflicts = chosen.some((d) => d.choice !== 'new' && d.choice !== 'skip' && discordNeedsConversion(d.choice, friends.get(d.friendId)!.discord_user_id));
+    // Two ways to need a list: a chosen connection already holds a different ID, or this batch puts two different IDs on the same one.
+    const conflicts = chosen.some((d) => d.choice !== 'new' && d.choice !== 'skip' && discordNeedsConversion(d.choice, friends.get(d.friendId)!.discord_user_id))
+      || (field.type === 'identifier' && batchNeedsList(chosen.map((d) => ({ choice: d.choice, externalId: friends.get(d.friendId)!.discord_user_id }))));
 
     if (conflicts) {
       const confirmed = await requestConfirm({
         title: 'Turn the Discord ID field into a list?',
-        message: 'At least one connection you chose already has a different Discord ID, and the field holds only one. It becomes an identifier list first (every connection keeps its ID as a one-entry list). This cannot be undone.',
+        message: 'At least one connection you chose already has, or is about to get, a different Discord ID, and the field holds only one. It becomes an identifier list first (every connection keeps its ID as a one-entry list). This cannot be undone.',
         confirmText: 'Convert and continue',
         variant: 'primary',
       });
@@ -1049,12 +1053,14 @@ async function applyTelegramDecisions(decisions: FriendDecision[]): Promise<void
   const skipped: string[] = [];
 
   try {
-    const conflicts = chosen.some((d) => d.choice !== 'new' && d.choice !== 'skip' && telegramNeedsConversion(d.choice, contacts.get(d.friendId)!.telegram_user_id));
+    // Two ways to need a list: a chosen connection already holds a different ID, or this batch puts two different IDs on the same one.
+    const conflicts = chosen.some((d) => d.choice !== 'new' && d.choice !== 'skip' && telegramNeedsConversion(d.choice, contacts.get(d.friendId)!.telegram_user_id))
+      || (field.type === 'identifier' && batchNeedsList(chosen.map((d) => ({ choice: d.choice, externalId: contacts.get(d.friendId)!.telegram_user_id }))));
 
     if (conflicts) {
       const confirmed = await requestConfirm({
         title: 'Turn the Telegram ID field into a list?',
-        message: 'At least one connection you chose already has a different Telegram ID, and the field holds only one. It becomes an identifier list first (every connection keeps its ID as a one-entry list). This cannot be undone.',
+        message: 'At least one connection you chose already has, or is about to get, a different Telegram ID, and the field holds only one. It becomes an identifier list first (every connection keeps its ID as a one-entry list). This cannot be undone.',
         confirmText: 'Convert and continue',
         variant: 'primary',
       });
