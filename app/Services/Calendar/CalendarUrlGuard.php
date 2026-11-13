@@ -45,6 +45,20 @@ class CalendarUrlGuard
     }
 
     /**
+     * The CURLOPT_RESOLVE value that pins a connection to the addresses inspect() vetted. It is ONE entry
+     * with the addresses comma-joined: curl keeps only the last of several entries for the same host:port,
+     * so one entry per address silently pins a dual-stack host to whichever family came last (an IPv6
+     * address on a network with no IPv6 route fails every connection at once).
+     *
+     * @param  array{host: string, port: int, ips: list<string>}  $target
+     * @return list<string>
+     */
+    public static function curlResolveEntries(array $target): array
+    {
+        return ["{$target['host']}:{$target['port']}:".implode(',', $target['ips'])];
+    }
+
+    /**
      * @param  bool  $anyPort  Allow a port other than 80/443. For servers that are meant to be reachable over the
      *                         internet on a port of their own (VRCX); the address still has to be public.
      * @return array{host: string, port: int, ips: list<string>}

@@ -59,10 +59,7 @@ class CalendarFetcher
                     'http_errors' => false,
                     'headers' => ['Accept' => 'text/calendar, text/plain, */*'],
                     'curl' => [
-                        CURLOPT_RESOLVE => array_map(
-                            fn (string $ip) => "{$target['host']}:{$target['port']}:{$ip}",
-                            $target['ips'],
-                        ),
+                        CURLOPT_RESOLVE => CalendarUrlGuard::curlResolveEntries($target),
                         CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
                     ],
                 ]);

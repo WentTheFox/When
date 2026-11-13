@@ -79,4 +79,17 @@ class CalendarFetcherSsrfTest extends TestCase
         $this->fetcher([new Response(200, ['Content-Length' => (string) ((int) config('services.calendar.max_body_bytes') + 1)], 'x')])
             ->fetch('https://example.com/calendar.ics');
     }
+
+    public function test_a_dual_stack_host_is_pinned_with_one_resolve_entry_holding_every_vetted_address(): void
+    {
+        // curl keeps only the last CURLOPT_RESOLVE entry per host:port, so one entry per address would pin
+        // the host to a single (possibly IPv6) address. Shared by the calendar fetcher and the VRCX client.
+        $guard = new CalendarUrlGuard(fn () => ['188.114.96.3', '188.114.97.3', '2a06:98c1:3121::3']);
+        $target = $guard->inspect('https://dual.example.test/calendar.ics');
+
+        $this->assertSame(
+            ['dual.example.test:443:188.114.96.3,188.114.97.3,2a06:98c1:3121::3'],
+            CalendarUrlGuard::curlResolveEntries($target),
+        );
+    }
 }

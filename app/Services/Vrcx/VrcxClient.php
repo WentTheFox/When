@@ -397,7 +397,7 @@ final class VrcxClient
         }
 
         return $request->withoutRedirecting()->withOptions(['curl' => [
-            CURLOPT_RESOLVE => array_map(fn (string $ip) => "{$target['host']}:{$target['port']}:{$ip}", $target['ips']),
+            CURLOPT_RESOLVE => CalendarUrlGuard::curlResolveEntries($target),
             CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
         ]]);
     }
