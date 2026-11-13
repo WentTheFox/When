@@ -23,14 +23,6 @@ target "fpm" {
   target   = "fpm"
   tags     = [for t in split(",", TAGS) : "${REGISTRY}/when-fpm:${t}"]
 }
-# Optional Telegram contacts sidecar (see docs/kubernetes.md). Not in the default group and not published by CI:
-#   docker buildx bake -f docker/docker-bake.hcl telegram-sidecar
-target "telegram-sidecar" {
-  context    = "docker/telegram-sidecar"
-  dockerfile = "Dockerfile"
-  platforms  = ["linux/amd64", "linux/arm64"]
-  tags       = [for t in split(",", TAGS) : "${REGISTRY}/when-telegram-sidecar:${t}"]
-}
 target "web" {
   inherits = ["_common"]
   target   = "web"

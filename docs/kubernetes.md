@@ -25,17 +25,25 @@ Images (built by `.github/workflows/images.yml` on every push to `main`, multi-a
   Secrets: `APP_KEY` (encrypts stored calendar URLs; losing it makes them unreadable), `DB_PASSWORD`, `REDIS_PASSWORD`,
   `DISCORD_CLIENT_SECRET`, `DISCORD_BOT_TOKEN`, `TELEGRAM_SIDECAR_TOKEN`, `MAIL_PASSWORD`.
 - **Telegram sidecar (optional, off by default)**: Telegram contacts need a logged-in user account (no OAuth-style permission exists), which
-  the PHP side does not speak, so a small Telethon service in `docker/telegram-sidecar/` does. Skip it entirely and the feature stays hidden:
-  Telegram is on only when **both** `TELEGRAM_SIDECAR_URL` and `TELEGRAM_SIDECAR_TOKEN` are set on the fpm/Horizon pods. Build it with
-  `docker buildx bake -f docker/docker-bake.hcl telegram-sidecar` (not in the default group, not published by CI).
-  - Sidecar pod env: `TELEGRAM_API_ID`, `TELEGRAM_API_HASH` (an app registered at https://my.telegram.org), `TELEGRAM_SIDECAR_TOKEN` (the same
+  the PHP side does not speak, so a small Telethon service does. It lives in its own repo and image,
+  [WentTheFox/telethon-docker](https://github.com/WentTheFox/telethon-docker) (`ghcr.io/wentthefox/telethon-docker`, multi-arch, built by that
+  repo's CI), and knows nothing about When. Skip it entirely and the feature stays hidden: Telegram is on only when **both**
+  `TELEGRAM_SIDECAR_URL` and `TELEGRAM_SIDECAR_TOKEN` are set on the fpm/Horizon pods.
+  - Sidecar env: `TELEGRAM_API_ID`, `TELEGRAM_API_HASH` (an app registered at https://my.telegram.org), `TELEGRAM_SIDECAR_TOKEN` (the same
     value as on the app side), optional `PORT` (default 8080). It refuses to start without the first three. Probe: `GET /healthz`.
-  - When side env: `TELEGRAM_SIDECAR_URL` (e.g. `http://when-telegram-sidecar:8080`, a ClusterIP Service), `TELEGRAM_SIDECAR_TOKEN`.
+  - When side env: `TELEGRAM_SIDECAR_URL` (the sidecar's in-cluster Service URL, port 8080), `TELEGRAM_SIDECAR_TOKEN`.
   - **Stateless, any replica count, no volume.** Every request carries the owner's session string and the reply carries it back; nothing is
     written to disk. Keep it reachable only from the When pods (a NetworkPolicy): it handles phone numbers, login codes and full-account
     sessions, so the bearer token is the only thing standing between the network and them. It needs outbound access to Telegram (TCP 443/80
     to the Telegram data centres, no inbound from the internet) and no database.
   - Secrets: `TELEGRAM_API_HASH`, `TELEGRAM_SIDECAR_TOKEN`. The session strings live in Postgres encrypted with `APP_KEY`, like the Discord tokens.
+  - **The `/v1/*` contract is shared between the two repos.** When's side is `app/Services/Telegram/TelegramClient.php` (and the faked
+    responses in `tests/Feature/TelegramIntegrationTest.php`). Routes: `POST /v1/login/start|code|password`, `/v1/contacts`, `/v1/photos`,
+    `/v1/logout`. `/v1/photos` answers `{photos, checked, retry_after?, session}`: `checked` is what Telegram was actually asked about, which
+    is how When tells "no photo to give" from "not reached yet". When a change to any of these is needed, change the sidecar repo too and
+    **roll the sidecar before the app**: a newer sidecar works with an older app, not the reverse.
+  - Timeouts: When waits up to 90s per sidecar call and a sync makes several, so nginx's `fastcgi_read_timeout` and any ingress read timeout
+    should allow a few minutes (the background job has a 180s timeout).
 - **External services**: Postgres database `whenthefox` (role `whenthefox_app`), Valkey (queues/Horizon; set `REDIS_PREFIX` and
   `HORIZON_PREFIX` per ACL user), outbound HTTPS to owners' calendar (ICS) URLs and fonts.googleapis.com, SMTP if mail is enabled,
   Discord OAuth, and (only when enabled) the Telegram sidecar.

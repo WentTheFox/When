@@ -39,7 +39,7 @@ return [
         'bot_token' => env('DISCORD_BOT_TOKEN'),
     ],
 
-    // Optional Telegram contacts sidecar (docker/telegram-sidecar): Telegram only lets a user account read its
+    // Optional Telegram contacts sidecar (https://github.com/WentTheFox/telethon-docker): Telegram only lets a user account read its
     // contacts, so a small Telethon service logs in as the owner. Telegram support is on only when BOTH are set;
     // the url comes from the environment so the cluster can point it at an in-cluster Service.
     'telegram' => [

@@ -7,7 +7,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 
 /**
- * Talks to the optional Telegram sidecar (docker/telegram-sidecar). The sidecar is stateless: each call carries
+ * Talks to the optional Telegram sidecar (https://github.com/WentTheFox/telethon-docker, its own repo and image). The sidecar is stateless: each call carries
  * the owner's session string and the reply carries it back, possibly rotated. The session, phone, code and
  * password only ever go to the sidecar; no exception message here contains them. The sidecar URL is operator
  * configuration (TELEGRAM_SIDECAR_URL), never owner input.
