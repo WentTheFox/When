@@ -40,6 +40,7 @@ import type { NotesFieldDeps, NotesFieldResponse } from '../../dashboard/notesFi
 import { moveLegacyRelationships, RELATIONSHIPS_FIELD_LABEL, VALUES_PER_CALL } from '../../dashboard/relationshipsField';
 import type { LegacyEdge, RelationshipsDeps, RelationshipsResponse } from '../../dashboard/relationshipsField';
 import { listEntries, paddedListText } from '../../dashboard/encryptedList';
+import { floatUnsorted } from '../../dashboard/connectionTriage';
 import { batchNeedsList, holdsOtherId, type MatchCandidate } from '../../dashboard/friendMatching';
 import { type DiscordProfile, type DiscordSummary, emptyDiscordSummary, discordFriendName, type PendingDiscordFriend } from '../../dashboard/discord';
 import type { FriendDecision, PendingFriend, VrchatSummary } from '../../dashboard/vrchat';
@@ -324,16 +325,23 @@ function matchedAlternativeName(connection: ConnectionRow): string | null {
   return query ? searchMatch(connection, query).via : null;
 }
 
+const definitionTypes = computed(() => new Map(definitionItems.value.map((d) => [d.id, d.type])));
+
 const filteredConnections = computed(() => {
   const query = connectionFilter.value.trim().toLowerCase();
   const matching = query ? connections.value.filter((c) => searchMatch(c, query).matches) : connections.value;
 
-  if (newConnectionIds.value.length === 0) return matching;
+  // Connections that have only an identifier so far (a friend just turned into one) still need sorting out: they come first,
+  // newest first, on every load. This is only how the list is shown; the saved alphabetical order is not touched.
+  const ordered = floatUnsorted(matching, (id) => definitionTypes.value.get(id));
 
+  if (newConnectionIds.value.length === 0) return ordered;
+
+  // Ones made in this visit (even a bare name) stay above even those, most recent first.
   const rank = (id: string) => newConnectionIds.value.indexOf(id);
-  const fresh = matching.filter((c) => rank(c.id) !== -1).sort((a, b) => rank(b.id) - rank(a.id));
+  const fresh = ordered.filter((c) => rank(c.id) !== -1).sort((a, b) => rank(b.id) - rank(a.id));
 
-  return [...fresh, ...matching.filter((c) => rank(c.id) === -1)];
+  return [...fresh, ...ordered.filter((c) => rank(c.id) === -1)];
 });
 
 type ListKind = 'connections' | 'sources' | 'categories' | 'attributes';

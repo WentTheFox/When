@@ -57,6 +57,8 @@ export interface ConnectionRow {
   /** The connection's one optional share link; its name is this connection's name. */
   share_link: ShareLinkInfo | null;
   archived: boolean;
+  /** When it was added (ISO 8601); connections that still need sorting out are listed newest first. */
+  created_at?: string | null;
   attribute_values: AttributeValue[];
   /** Present on the response to a save: the VRChat accounts fetched as part of it. */
   vrchat_profiles?: VrchatProfile[];

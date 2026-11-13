@@ -56,7 +56,7 @@ class ConnectionController extends Controller
 
         return Inertia::render('Dashboard/Connections', [
             'connections' => $user->connections()->with(['attributeValues', 'sources', 'shareLink'])->ordered()->get([
-                'id', 'name_ciphertext', 'notes_ciphertext', 'archived',
+                'id', 'name_ciphertext', 'notes_ciphertext', 'archived', 'created_at',
             ])->map(fn (Connection $c) => $this->serialize($c)),
             'sources' => $user->connectionSources()->ordered()->get(['id', 'category_id', 'name_ciphertext']),
             'categories' => $user->connectionSourceCategories()->ordered()->get(['id', 'name_ciphertext', 'color_key']),
@@ -421,6 +421,8 @@ class ConnectionController extends Controller
             'notes_ciphertext' => $connection->notes_ciphertext,
             'share_link' => $this->serializeShareLink($connection->shareLink),
             'archived' => $connection->archived,
+            // When it was added: the page lists connections that still need sorting out newest first (see connectionTriage.ts).
+            'created_at' => $connection->created_at?->toIso8601String(),
             // identifier_value is the server-decrypted (§0.2) field; see ConnectionAttributeValue.
             'attribute_values' => $connection->attributeValues()->get(['attribute_definition_id', 'value_ciphertext', 'identifier_value', 'identifier_list_value', 'boolean_value']),
         ];
