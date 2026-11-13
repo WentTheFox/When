@@ -26,6 +26,8 @@ import { listEntries, listText, paddedListText } from './encryptedList';
 import { invalidLinkLines, isValidWebUrl, parseWebUrl, validLinks } from './urlField';
 import ConnectionVrchat from './ConnectionVrchat.vue';
 import type { DiscordProfile } from './discord';
+import ConnectionTelegram from './ConnectionTelegram.vue';
+import type { TelegramProfile } from './telegram';
 import type { VrchatProfile, VrchatSummary } from './vrchat';
 import { requestConfirm } from './confirmModal';
 import { bindField } from './fieldBinding';
@@ -60,6 +62,8 @@ export interface ConnectionRow {
   vrchat_profiles?: VrchatProfile[];
   /** The Discord accounts on it as of this save: placeholders, or looked up (§0.2 tier). */
   discord_profiles?: DiscordProfile[];
+  /** The Telegram contacts on it as of this save (§0.2 tier). */
+  telegram_profiles?: TelegramProfile[];
 }
 
 /** One other connection's side of a relationship field, as this save rewrote it (null = the value is gone). */
@@ -84,6 +88,9 @@ const props = defineProps<{
   discordSyncedAt?: string | null;
   /** The server can look a Discord ID up by itself, so the Discord card offers a Sync button. */
   discordCanLookUp?: boolean;
+  /** Linked Telegram contacts with their photo and names (§0.2 tier, not E2EE). */
+  telegramProfiles?: TelegramProfile[];
+  telegramSyncedAt?: string | null;
 }>();
 const emit = defineEmits<{
   updated: [ConnectionRow];
@@ -580,6 +587,9 @@ async function remove(): Promise<void> {
         :can-look-up="discordCanLookUp ?? false"
         @synced="emit('discordSynced', connection.id, $event)"
       />
+    </BFormGroup>
+    <BFormGroup v-if="telegramProfiles?.length" label="Telegram" class="mb-3">
+      <ConnectionTelegram :profiles="telegramProfiles" :synced-at="telegramSyncedAt ?? null" />
     </BFormGroup>
     <!-- Everything above is built in; the fields below are the owner's own, so they get their own heading. -->
     <div v-if="attributeDefinitions.length" class="border-top pt-3 mt-4 mb-3">

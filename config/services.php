@@ -39,6 +39,14 @@ return [
         'bot_token' => env('DISCORD_BOT_TOKEN'),
     ],
 
+    // Optional Telegram contacts sidecar (docker/telegram-sidecar): Telegram only lets a user account read its
+    // contacts, so a small Telethon service logs in as the owner. Telegram support is on only when BOTH are set;
+    // the url comes from the environment so the cluster can point it at an in-cluster Service.
+    'telegram' => [
+        'sidecar_url' => env('TELEGRAM_SIDECAR_URL'),
+        'sidecar_token' => env('TELEGRAM_SIDECAR_TOKEN'),
+    ],
+
     // Owner calendar URLs are fetched server-side, so CalendarUrlGuard blocks loopback/private/link-local
     // targets and non-standard ports. Enable ONLY in local development (e.g. for /dev/mock-calendar.ics).
     'calendar' => [

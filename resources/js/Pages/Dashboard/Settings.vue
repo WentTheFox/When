@@ -34,6 +34,7 @@ import SettingsCalendarCard from '../../dashboard/SettingsCalendarCard.vue';
 import SettingsConnectionsCard from '../../dashboard/SettingsConnectionsCard.vue';
 import SettingsShareLinksCard from '../../dashboard/SettingsShareLinksCard.vue';
 import SettingsDiscordCard from '../../dashboard/SettingsDiscordCard.vue';
+import SettingsTelegramCard from '../../dashboard/SettingsTelegramCard.vue';
 import SettingsVrchatCard from '../../dashboard/SettingsVrchatCard.vue';
 import SettingsEventMatchingCard from '../../dashboard/SettingsEventMatchingCard.vue';
 import SettingsAvailabilityCard from '../../dashboard/SettingsAvailabilityCard.vue';
@@ -70,6 +71,14 @@ const props = defineProps<{
     synced_at: string | null;
   };
   discord: {
+    available: boolean;
+    connected: boolean;
+    account_name: string | null;
+    synced_at: string | null;
+    user_id_definition_id: string | null;
+  };
+  /** `available` is false unless the operator set up the optional Telegram sidecar: the tab is then hidden. */
+  telegram: {
     available: boolean;
     connected: boolean;
     account_name: string | null;
@@ -329,6 +338,10 @@ const previewAvailability = ref<AvailabilityResponse | null>(null);
 
       <BTab :id="SETTINGS_TABS.discord" title="Discord">
         <SettingsDiscordCard :definitions="vrchatIdDefinitions" :discord="discord" />
+      </BTab>
+
+      <BTab v-if="telegram.available" :id="SETTINGS_TABS.telegram" title="Telegram">
+        <SettingsTelegramCard :definitions="vrchatIdDefinitions" :telegram="telegram" />
       </BTab>
 
       <BTab :id="SETTINGS_TABS.public" title="Public page">

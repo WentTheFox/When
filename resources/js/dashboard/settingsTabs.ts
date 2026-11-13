@@ -23,6 +23,7 @@ export const SETTINGS_TABS = {
   connections: 'settings-tab-connections',
   vrchat: 'settings-tab-vrchat',
   discord: 'settings-tab-discord',
+  telegram: 'settings-tab-telegram',
   public: 'settings-tab-public',
 } as const;
 
@@ -46,6 +47,8 @@ const ANCHOR_TABS: Record<string, SettingsTabName> = {
   'vrchat-friends': 'vrchat',
   discord: 'discord',
   'discord-user-id': 'discord',
+  telegram: 'telegram',
+  'telegram-user-id': 'telegram',
   public_page_title: 'public',
 };
 

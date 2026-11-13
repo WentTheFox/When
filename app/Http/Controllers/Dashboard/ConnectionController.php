@@ -9,6 +9,7 @@ use App\Models\ConnectionAttributeValue;
 use App\Models\ShareLink;
 use App\Services\Calendar\HighlightWordsResolver;
 use App\Services\Discord\DiscordSyncService;
+use App\Services\Telegram\TelegramSyncService;
 use App\Services\Vrcx\VrcxSyncService;
 use App\Support\FieldFeatures;
 use App\Support\FieldMigrations;
@@ -40,7 +41,7 @@ use Inertia\Response;
  */
 class ConnectionController extends Controller
 {
-    public function __construct(private readonly VrcxSyncService $vrcx, private readonly DiscordSyncService $discord) {}
+    public function __construct(private readonly VrcxSyncService $vrcx, private readonly DiscordSyncService $discord, private readonly TelegramSyncService $telegram) {}
 
     public function index(Request $request): Response
     {
@@ -50,6 +51,8 @@ class ConnectionController extends Controller
         $this->vrcx->maybeQueue($user);
         // New Discord friends / blocked accounts are picked up in the background; existing ones are never refreshed.
         $this->discord->maybeQueue($user);
+        // Same for Telegram contacts (a no-op unless the operator set up the sidecar and the owner logged in).
+        $this->telegram->maybeQueue($user);
 
         return Inertia::render('Dashboard/Connections', [
             'connections' => $user->connections()->with(['attributeValues', 'sources', 'shareLink'])->ordered()->get([
@@ -72,6 +75,7 @@ class ConnectionController extends Controller
             // §0.2 tier (server-readable): cached VRChat names/pictures and time together.
             'vrchat' => $this->vrcx->summary($user),
             'discord' => $this->discord->summary($user),
+            'telegram' => $this->telegram->summary($user),
             // The multi-line custom field that holds what used to be the built-in notes; null until there is one.
             'notesFieldId' => $user->notes_field_definition_id,
             // The custom field listing a connection's other names; the connection search matches on it too.
@@ -307,6 +311,7 @@ class ConnectionController extends Controller
         return response()->json($this->serialize($connection) + [
             'vrchat_profiles' => $this->vrcx->profilesFor($connection->id),
             'discord_profiles' => $discordProfiles,
+            'telegram_profiles' => $this->telegram->profilesFor($request->user(), $connection->id),
         ], 201);
     }
 
@@ -348,6 +353,7 @@ class ConnectionController extends Controller
         return response()->json($this->serialize($connection) + [
             'vrchat_profiles' => $this->vrcx->profilesFor($connection->id),
             'discord_profiles' => $discordProfiles,
+            'telegram_profiles' => $this->telegram->profilesFor($request->user(), $connection->id),
         ]);
     }
 

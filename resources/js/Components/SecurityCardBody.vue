@@ -145,6 +145,19 @@ const page = usePage();
     credential (not your account): Discord answers with that person's public profile (username, display name, avatar),
     which is stored the same way, encrypted at rest, and never sent anywhere else.
   </p>
+  <p class="mb-4">
+    Telegram contacts are an optional feature that exists only on servers whose operator set up a small helper service for it, and it is
+    <strong>a bigger step than Discord</strong>. Telegram has no "read my contacts only" permission for apps: the only way to read a contact
+    list is to be logged in as the account. So if you log in to Telegram in Settings, the server keeps a <strong>session for your whole
+    Telegram account</strong>, stored encrypted at rest with the same server-held key, and uses it only to read your contact list: when you press
+    "Sync now" and, in the background, for new contacts only. That is not end-to-end encrypted, and anyone who could run the server could use
+    that session while it exists, to do anything the account can do. Your phone number, the login code and your two-step verification password
+    are sent once, to log in, and are not stored; the helper service itself keeps nothing (it is handed the session for each request and
+    hands it back). The contacts the server has seen (Telegram user IDs, names, usernames, phone numbers, a small profile photo, whether you are
+    mutual contacts and whether they have Premium) are stored encrypted at rest too, and the session is never included in your data export. As with
+    Discord, only your browser creates a connection or adds a Telegram user ID to one, when you choose, so connection names stay end-to-end
+    encrypted. Disconnecting logs the session out at Telegram and forgets it, and you can also end it any time from Telegram's own Devices list.
+  </p>
 
   <h2 class="h5">Account security</h2>
   <p class="mb-2">

@@ -20,6 +20,7 @@ use App\Http\Controllers\Dashboard\ListOrderController;
 use App\Http\Controllers\Dashboard\PasskeyController;
 use App\Http\Controllers\Dashboard\SettingsController;
 use App\Http\Controllers\Dashboard\SleepExceptionController;
+use App\Http\Controllers\Dashboard\TelegramController;
 use App\Http\Controllers\Dashboard\VaultController;
 use App\Http\Controllers\Dashboard\VrcxController;
 use App\Http\Controllers\DashboardController;
@@ -232,6 +233,21 @@ Route::middleware('auth')->group(function () {
         ->middleware('throttle:10,1')->name('dashboard.connections.discord.lookup');
     Route::get('/dashboard/discord/friends', [DiscordController::class, 'pendingFriends'])->name('dashboard.discord.friends');
     Route::post('/dashboard/discord/friends/complete', [DiscordController::class, 'completeFriends'])->name('dashboard.discord.friends.complete');
+
+    // Telegram (optional, needs the sidecar): login by phone + code (+ two-step password), manual sync, and the contacts waiting to be linked.
+    Route::post('/settings/telegram/login/start', [TelegramController::class, 'startLogin'])
+        ->middleware('throttle:5,10')->name('settings.telegram.login.start');
+    Route::post('/settings/telegram/login/code', [TelegramController::class, 'confirmCode'])
+        ->middleware('throttle:10,10')->name('settings.telegram.login.code');
+    Route::post('/settings/telegram/login/password', [TelegramController::class, 'confirmPassword'])
+        ->middleware('throttle:10,10')->name('settings.telegram.login.password');
+    Route::put('/settings/telegram', [TelegramController::class, 'updateField'])->name('settings.telegram.update');
+    Route::delete('/settings/telegram', [TelegramController::class, 'destroy'])->name('settings.telegram.destroy');
+    Route::post('/settings/telegram/sync', [TelegramController::class, 'syncNow'])
+        ->middleware('throttle:6,1')->name('settings.telegram.sync');
+    Route::get('/dashboard/telegram', [TelegramController::class, 'summary'])->name('dashboard.telegram');
+    Route::get('/dashboard/telegram/friends', [TelegramController::class, 'pendingFriends'])->name('dashboard.telegram.friends');
+    Route::post('/dashboard/telegram/friends/complete', [TelegramController::class, 'completeFriends'])->name('dashboard.telegram.friends.complete');
 
     Route::post('/settings/sleep-exceptions', [SleepExceptionController::class, 'store'])
         ->name('sleep-exceptions.store');

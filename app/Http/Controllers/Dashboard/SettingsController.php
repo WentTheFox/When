@@ -11,6 +11,7 @@ use App\Services\Calendar\HighlightMatcher;
 use App\Services\Calendar\HighlightWordsResolver;
 use App\Services\Calendar\IcsParser;
 use App\Services\Discord\DiscordClient;
+use App\Services\Telegram\TelegramClient;
 use App\Support\FieldFeatures;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -163,6 +164,15 @@ class SettingsController extends Controller
                 'account_name' => $user->discord_account_name,
                 'synced_at' => $user->discord_synced_at?->toIso8601String(),
                 'user_id_definition_id' => $user->discord_user_id_definition_id,
+            ],
+            // §0.2 tier: only whether a session exists and whose it is. The session string never leaves the server.
+            // `available` is false unless the operator set up the Telegram sidecar; the card is then not shown.
+            'telegram' => [
+                'available' => TelegramClient::isConfigured(),
+                'connected' => $user->telegram_session !== null,
+                'account_name' => $user->telegram_account_name,
+                'synced_at' => $user->telegram_synced_at?->toIso8601String(),
+                'user_id_definition_id' => $user->telegram_user_id_definition_id,
             ],
             // Other-names candidates: identifier lists, lists and multi-line fields. Labels are E2EE like the rest.
             'alternativeNamesDefinitions' => $user->connectionAttributeDefinitions()

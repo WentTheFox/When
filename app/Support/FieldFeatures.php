@@ -64,6 +64,13 @@ final class FieldFeatures
             'user_column' => 'id',
             'label' => 'Discord user ID',
         ],
+        'telegram_user_id' => [
+            'table' => 'users',
+            'column' => 'telegram_user_id_definition_id',
+            'types' => ['identifier', 'identifier_list'],
+            'user_column' => 'id',
+            'label' => 'Telegram user ID',
+        ],
         // Several fields may feed the widget, so these are rows of a pivot table, not one column on users.
         'network_graph' => [
             'table' => 'connection_graph_fields',

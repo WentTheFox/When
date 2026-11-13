@@ -8,6 +8,7 @@ use App\Models\ConnectionVrchatProfile;
 use App\Models\ConnectionVrchatStay;
 use App\Models\DiscordFriend;
 use App\Models\InviteRedemption;
+use App\Models\TelegramFriend;
 use App\Models\User;
 use App\Models\VrchatFriend;
 use Carbon\CarbonInterface;
@@ -72,6 +73,7 @@ class AccountExportService
         $zip->addFile('connections/vrchat-stays.json', $this->json($this->vrchatStays($user)));
         $zip->addFile('connections/vrchat-friends.json', $this->json($this->vrchatFriends($user)));
         $zip->addFile('connections/discord-friends.json', $this->json($this->discordFriends($user)));
+        $zip->addFile('connections/telegram-friends.json', $this->json($this->telegramFriends($user)));
         $zip->addFile('connections/source-links.json', $this->json($this->connectionSourceLinks($user)));
     }
 
@@ -117,12 +119,16 @@ class AccountExportService
                 'alternative_names_definition_id' => $user->alternative_names_definition_id,
                 'vrchat_user_id_definition_id' => $user->vrchat_user_id_definition_id,
                 'discord_user_id_definition_id' => $user->discord_user_id_definition_id,
+                'telegram_user_id_definition_id' => $user->telegram_user_id_definition_id,
                 'vrcx_base_url' => $user->vrcx_base_url,
                 'vrcx_auto_create_friends' => $user->vrcx_auto_create_friends,
                 'vrcx_friends_source_id' => $user->vrcx_friends_source_id,
                 // Whether a Discord account is connected, and whose. The OAuth tokens are never exported.
                 'discord_connected' => $user->discord_refresh_token !== null,
                 'discord_account_name' => $user->discord_account_name,
+                // Whether a Telegram account is logged in, and whose. The session string is never exported.
+                'telegram_connected' => $user->telegram_session !== null,
+                'telegram_account_name' => $user->telegram_account_name,
                 'highlight_clause_pattern' => $user->highlight_clause_pattern,
                 'highlight_clause_pattern_preview' => $user->highlight_clause_pattern_preview,
                 'highlight_split_pattern' => $user->highlight_split_pattern,
@@ -477,6 +483,28 @@ class AccountExportService
                 'avatar_url' => $f->avatar_url,
                 'status' => $f->status,
                 'is_blocked' => $f->is_blocked,
+                'synced_at' => $f->synced_at?->toIso8601String(),
+            ])->all(),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function telegramFriends(User $user): array
+    {
+        return [
+            'tier' => 'server-decrypted',
+            'note' => 'Telegram contacts seen by the sync, used to link or create connections. status: pending, created, or dismissed. avatar_url is a small photo thumbnail (a data URL). Your Telegram session is never exported.',
+            'records' => TelegramFriend::where('user_id', $user->id)->get()->map(fn ($f) => [
+                'id' => $f->id,
+                'telegram_user_id' => $f->telegram_user_id,
+                'username' => $f->username,
+                'first_name' => $f->first_name,
+                'last_name' => $f->last_name,
+                'phone' => $f->phone,
+                'avatar_url' => $f->avatar_url,
+                'is_mutual' => $f->is_mutual,
+                'is_premium' => $f->is_premium,
+                'status' => $f->status,
                 'synced_at' => $f->synced_at?->toIso8601String(),
             ])->all(),
         ];

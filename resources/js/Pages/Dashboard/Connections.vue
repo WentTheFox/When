@@ -30,6 +30,8 @@ import ConnectionCard, { type ConnectionRow, type PeerUpdate } from '../../dashb
 import SourcesPanel from '../../dashboard/SourcesPanel.vue';
 import { discordMark, type MarkState, type ShareLinkMark, shareLinkMark, vrchatMark } from '../../dashboard/connectionMarks';
 import PendingDiscordFriendsPanel from '../../dashboard/PendingDiscordFriendsPanel.vue';
+import PendingTelegramContactsPanel from '../../dashboard/PendingTelegramContactsPanel.vue';
+import { emptyTelegramSummary, type PendingTelegramContact, type TelegramProfile, type TelegramSummary, telegramContactName } from '../../dashboard/telegram';
 import PendingFriendsPanel from '../../dashboard/PendingFriendsPanel.vue';
 import VrchatNotesPanel, { type NoteImportItem } from '../../dashboard/VrchatNotesPanel.vue';
 import { appendNote } from '../../dashboard/vrchatNotes';
@@ -87,6 +89,8 @@ const props = defineProps<{
   vrchat: VrchatSummary;
   /** The Discord connection and its friend count (§0.2 tier, not E2EE). Absent on a server without Discord. */
   discord?: DiscordSummary;
+  /** The Telegram connection and its contact count (§0.2 tier, not E2EE). Absent on a server without Telegram. */
+  telegram?: TelegramSummary;
   /** The multi-line custom field that holds the notes (they used to be built in); null until there is one. */
   notesFieldId?: string | null;
   /** The identifier-list or multi-line field holding each connection's other names; the search matches on it too. */
@@ -98,6 +102,7 @@ const { createRecordKey, getRecordKey, vaultUnlocked } = useVault();
 const connections = ref<ConnectionRow[]>(props.connections);
 const vrchat = ref<VrchatSummary>(props.vrchat);
 const discord = ref<DiscordSummary>(props.discord ?? emptyDiscordSummary);
+const telegram = ref<TelegramSummary>(props.telegram ?? emptyTelegramSummary);
 /**
  * The lists below are populated from the server's data right away, with every
  * name still as ciphertext (`label` undefined) — they show the raw blobs under
@@ -238,6 +243,11 @@ function vrchatState(connection: ConnectionRow): MarkState {
 /** A connection's Discord card looked its IDs up: show what came back at once. */
 function onDiscordSynced(connectionId: string, profiles: DiscordProfile[]): void {
   discord.value = { ...discord.value, profiles: { ...discord.value.profiles, [connectionId]: profiles } };
+}
+
+/** A save also reports the Telegram contacts on the connection: show them at once. */
+function onTelegramProfiles(connectionId: string, profiles: TelegramProfile[]): void {
+  telegram.value = { ...telegram.value, profiles: { ...telegram.value.profiles, [connectionId]: profiles } };
 }
 
 /** The mark for a connection's Discord ID: from the chosen custom field, or reported by VRCX. */
@@ -708,7 +718,7 @@ async function loadPendingFriends(): Promise<void> {
 /** Matching needs every connection's name, so it only runs once the vault is open. */
 async function prepareFriendMatching(): Promise<void> {
   friendsReady.value = false;
-  if (!vaultUnlocked.value || (pendingFriends.value.length === 0 && pendingDiscord.value.length === 0)) return;
+  if (!vaultUnlocked.value || (pendingFriends.value.length === 0 && pendingDiscord.value.length === 0 && pendingTelegram.value.length === 0)) return;
 
   friendCandidates.value = await matchCandidates();
   friendsReady.value = true;
@@ -986,6 +996,129 @@ async function applyDiscordDecisions(decisions: FriendDecision[]): Promise<void>
   }
 }
 
+/** Telegram contacts waiting for the owner (persisted on the server, listed again after every refresh until acted on). */
+const pendingTelegram = ref<PendingTelegramContact[]>([]);
+const telegramBusy = ref(false);
+
+/** The list is only worth fetching once Telegram is logged in and there is a field to put the IDs in. */
+const telegramEnabled = computed(() => telegram.value.configured && telegram.value.field !== null);
+
+async function loadPendingTelegram(): Promise<void> {
+  if (!telegramEnabled.value) {
+    pendingTelegram.value = [];
+    return;
+  }
+
+  try {
+    const { data } = await axios.get<{ friends: PendingTelegramContact[] }>('/dashboard/telegram/friends');
+    pendingTelegram.value = data.friends;
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+/** Would adding this Telegram id to that connection need the single identifier turned into a list? */
+function telegramNeedsConversion(connectionId: string, telegramId: string): boolean {
+  const field = telegram.value.field;
+  if (!field || field.type !== 'identifier') return false;
+
+  const value = connections.value.find((c) => c.id === connectionId)?.attribute_values.find((v) => v.attribute_definition_id === field.id);
+
+  return holdsOtherId(value?.identifier_value, telegramId);
+}
+
+/**
+ * Carries out the owner's choices for pending Telegram contacts: a new connection (named after them),
+ * the contact's ID added to an existing one, or a dismissal. Same rules as the Discord list: a
+ * single-identifier field that already holds a different ID is turned into a list after confirming,
+ * and a contact whose request fails stays pending.
+ */
+async function applyTelegramDecisions(decisions: FriendDecision[]): Promise<void> {
+  let field = telegram.value.field;
+  if (telegramBusy.value || !field || decisions.length === 0) return;
+
+  const contacts = new Map(pendingTelegram.value.map((f) => [f.id, f]));
+  const chosen = decisions.filter((d) => contacts.has(d.friendId));
+
+  telegramBusy.value = true;
+  let created = 0;
+  let linked = 0;
+  let dismissed = 0;
+  let failed = 0;
+  const done: string[] = [];
+  const skipped: string[] = [];
+
+  try {
+    const conflicts = chosen.some((d) => d.choice !== 'new' && d.choice !== 'skip' && telegramNeedsConversion(d.choice, contacts.get(d.friendId)!.telegram_user_id));
+
+    if (conflicts) {
+      const confirmed = await requestConfirm({
+        title: 'Turn the Telegram ID field into a list?',
+        message: 'At least one connection you chose already has a different Telegram ID, and the field holds only one. It becomes an identifier list first (every connection keeps its ID as a one-entry list). This cannot be undone.',
+        confirmText: 'Convert and continue',
+        variant: 'primary',
+      });
+      if (!confirmed) return;
+
+      await migrateDefinition(field.id, 'identifier_list');
+
+      if (definitionItems.value.find((d) => d.id === field!.id)?.type !== 'identifier_list') {
+        friendNotice.value = definitionError.value ?? 'The Telegram ID field could not be turned into a list, so nothing was changed.';
+        return;
+      }
+
+      field = { ...field, type: 'identifier_list' };
+      telegram.value = { ...telegram.value, field };
+    }
+
+    for (const decision of chosen) {
+      const contact = contacts.get(decision.friendId)!;
+
+      try {
+        if (decision.choice === 'skip') {
+          skipped.push(contact.id);
+          dismissed++;
+        } else if (decision.choice === 'new') {
+          await createFriendConnection(telegramContactName(contact), contact.telegram_user_id, field, null);
+          done.push(contact.id);
+          created++;
+        } else {
+          const connection = connections.value.find((c) => c.id === decision.choice);
+
+          if (connection && (await linkFriend(connection, contact.telegram_user_id, field)) === 'linked') {
+            done.push(contact.id);
+            linked++;
+          } else {
+            failed++;
+          }
+        }
+      } catch (error) {
+        console.error(error);
+        failed++;
+      }
+    }
+
+    if (done.length || skipped.length) {
+      await axios.post('/dashboard/telegram/friends/complete', { ids: done, skipped });
+    }
+  } catch (error) {
+    console.error(error);
+  } finally {
+    telegramBusy.value = false;
+  }
+
+  showFriendNotice(created, linked, dismissed, failed, 'Telegram contacts');
+
+  const handled = new Set([...done, ...skipped]);
+  pendingTelegram.value = pendingTelegram.value.filter((f) => !handled.has(f.id));
+
+  try {
+    telegram.value = (await axios.get<TelegramSummary>('/dashboard/telegram')).data;
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 /** Connections whose linked VRChat accounts have a note waiting to be carried over (see VrchatNotesPanel). */
 const noteImports = computed<NoteImportItem[]>(() =>
   connections.value.flatMap((connection) => {
@@ -1214,7 +1347,7 @@ async function importVrchatNotes(): Promise<void> {
 
 watch(vaultUnlocked, prepareFriendMatching);
 onMounted(async () => {
-  await Promise.all([loadPendingFriends(), loadPendingDiscord()]);
+  await Promise.all([loadPendingFriends(), loadPendingDiscord(), loadPendingTelegram()]);
   await prepareFriendMatching();
 });
 
@@ -1222,6 +1355,7 @@ onMounted(async () => {
 function applyVrchatProfiles(row: ConnectionRow): void {
   // The same save also reports the Discord accounts on it (placeholders, or looked up when the server can).
   if (row.discord_profiles) onDiscordSynced(row.id, row.discord_profiles);
+  if (row.telegram_profiles) onTelegramProfiles(row.id, row.telegram_profiles);
   if (!row.vrchat_profiles) return;
 
   vrchat.value = { ...vrchat.value, profiles: { ...vrchat.value.profiles, [row.id]: row.vrchat_profiles } };
@@ -1756,6 +1890,17 @@ async function migrateDefinition(id: string, to: string, options: MigrateOptions
     @apply="applyDiscordDecisions"
     @avatar-failed="refreshDiscordFriend"
   />
+  <PendingTelegramContactsPanel
+    v-if="telegramEnabled && pendingTelegram.length"
+    :friends="pendingTelegram"
+    :candidates="friendCandidates"
+    :ready="friendsReady"
+    :unlocked="vaultUnlocked"
+    :single-field="telegram.field?.type === 'identifier'"
+    :needs-conversion="telegramNeedsConversion"
+    :busy="telegramBusy"
+    @apply="applyTelegramDecisions"
+  />
   <BCard id="connections-workspace" class="mb-4">
     <BTabs v-model="pageTab" pills no-fade content-class="pt-3">
       <BTab :id="PAGE_TABS.connections">
@@ -1880,6 +2025,8 @@ async function migrateDefinition(id: string, to: string, options: MigrateOptions
                 :discord-profiles="discord.profiles[selectedConnection.id]"
                 :discord-synced-at="discord.synced_at"
                 :discord-can-look-up="discord.lookup_available"
+                :telegram-profiles="telegram.profiles[selectedConnection.id]"
+                :telegram-synced-at="telegram.synced_at"
                 @discord-synced="onDiscordSynced"
                 @vrchat-synced="vrchat = $event"
                 @updated="onConnectionUpdated"

@@ -87,6 +87,10 @@ use Illuminate\Support\Facades\Crypt;
  * @property Carbon|null $discord_token_expires_at
  * @property string|null $discord_account_name
  * @property Carbon|null $discord_synced_at
+ * @property string|null $telegram_user_id_definition_id
+ * @property string|null $telegram_session
+ * @property string|null $telegram_account_name
+ * @property Carbon|null $telegram_synced_at
  * @property string|null $vrcx_friends_source_id
  * @property-read Collection<int, ActivityLocalization> $activityLocalizations
  * @property-read int|null $activity_localizations_count
@@ -203,6 +207,10 @@ use Illuminate\Support\Facades\Crypt;
  * @method static Builder<static>|User whereRelationshipsFieldDefinitionId($value)
  * @method static Builder<static>|User whereRelationshipsMigratedAt($value)
  * @method static Builder<static>|User whereVaultLockTimeoutMinutes($value)
+ * @method static Builder<static>|User whereTelegramAccountName($value)
+ * @method static Builder<static>|User whereTelegramSession($value)
+ * @method static Builder<static>|User whereTelegramSyncedAt($value)
+ * @method static Builder<static>|User whereTelegramUserIdDefinitionId($value)
  *
  * @mixin \Eloquent
  */
@@ -234,6 +242,7 @@ class User extends Authenticatable
         'alternative_names_definition_id',
         'vrchat_user_id_definition_id',
         'discord_user_id_definition_id',
+        'telegram_user_id_definition_id',
         'vrcx_base_url',
         'vrcx_api_key',
         'vrcx_auto_create_friends',
@@ -292,6 +301,8 @@ class User extends Authenticatable
         // Discord OAuth2 tokens: decrypted only inside the Discord client.
         'discord_access_token',
         'discord_refresh_token',
+        // The Telegram session string is a full-account credential: decrypted only inside TelegramSyncService.
+        'telegram_session',
     ];
 
     /**
@@ -329,6 +340,10 @@ class User extends Authenticatable
             'discord_token_expires_at' => 'datetime',
             'discord_account_name' => 'encrypted',
             'discord_synced_at' => 'datetime',
+            // §0.2 tier: the owner's Telegram session (a full-account credential), APP_KEY-encrypted at rest.
+            'telegram_session' => 'encrypted',
+            'telegram_account_name' => 'encrypted',
+            'telegram_synced_at' => 'datetime',
             'dnd_event_pattern' => 'encrypted',
             'dnd_event_pattern_preview' => 'encrypted',
             'nap_event_pattern' => 'encrypted',

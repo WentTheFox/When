@@ -41,7 +41,7 @@ describe('settings tab hash', () => {
   });
 
   it('has one tab per settings section', () => {
-    expect(Object.keys(SETTINGS_TABS)).toEqual(['calendar', 'availability', 'sleep', 'matching', 'activities', 'sharing', 'connections', 'vrchat', 'discord', 'public']);
+    expect(Object.keys(SETTINGS_TABS)).toEqual(['calendar', 'availability', 'sleep', 'matching', 'activities', 'sharing', 'connections', 'vrchat', 'discord', 'telegram', 'public']);
   });
 
   it('survives malformed percent-encoding', () => {

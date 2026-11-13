@@ -21,9 +21,21 @@ Images (built by `.github/workflows/images.yml` on every push to `main`, multi-a
   `APP_FALLBACK_LOCALE` `LOG_CHANNEL` (`stderr`) `LOG_LEVEL` `LOG_AVAILABILITY_LEVEL` `DB_CONNECTION` `DB_HOST` `DB_PORT` `DB_DATABASE`
   `DB_USERNAME` `DB_PASSWORD` `SESSION_DRIVER` `SESSION_LIFETIME` `SESSION_ENCRYPT` `SESSION_DOMAIN` `QUEUE_CONNECTION` `CACHE_STORE`
   `REDIS_CLIENT` `REDIS_HOST` `REDIS_PORT` `REDIS_USERNAME` `REDIS_PASSWORD` `REDIS_PREFIX` `HORIZON_PREFIX` `MAIL_*` `DISCORD_CLIENT_ID`
-  `DISCORD_CLIENT_SECRET` `DISCORD_REDIRECT_URI` `DISCORD_BOT_TOKEN` `VITE_APP_NAME` (build-time only, default `When`).
+  `DISCORD_CLIENT_SECRET` `DISCORD_REDIRECT_URI` `DISCORD_BOT_TOKEN` `TELEGRAM_SIDECAR_URL` `TELEGRAM_SIDECAR_TOKEN` `VITE_APP_NAME` (build-time only, default `When`).
   Secrets: `APP_KEY` (encrypts stored calendar URLs; losing it makes them unreadable), `DB_PASSWORD`, `REDIS_PASSWORD`,
-  `DISCORD_CLIENT_SECRET`, `DISCORD_BOT_TOKEN`, `MAIL_PASSWORD`.
+  `DISCORD_CLIENT_SECRET`, `DISCORD_BOT_TOKEN`, `TELEGRAM_SIDECAR_TOKEN`, `MAIL_PASSWORD`.
+- **Telegram sidecar (optional, off by default)**: Telegram contacts need a logged-in user account (no OAuth-style permission exists), which
+  the PHP side does not speak, so a small Telethon service in `docker/telegram-sidecar/` does. Skip it entirely and the feature stays hidden:
+  Telegram is on only when **both** `TELEGRAM_SIDECAR_URL` and `TELEGRAM_SIDECAR_TOKEN` are set on the fpm/Horizon pods. Build it with
+  `docker buildx bake -f docker/docker-bake.hcl telegram-sidecar` (not in the default group, not published by CI).
+  - Sidecar pod env: `TELEGRAM_API_ID`, `TELEGRAM_API_HASH` (an app registered at https://my.telegram.org), `TELEGRAM_SIDECAR_TOKEN` (the same
+    value as on the app side), optional `PORT` (default 8080). It refuses to start without the first three. Probe: `GET /healthz`.
+  - When side env: `TELEGRAM_SIDECAR_URL` (e.g. `http://when-telegram-sidecar:8080`, a ClusterIP Service), `TELEGRAM_SIDECAR_TOKEN`.
+  - **Stateless, any replica count, no volume.** Every request carries the owner's session string and the reply carries it back; nothing is
+    written to disk. Keep it reachable only from the When pods (a NetworkPolicy): it handles phone numbers, login codes and full-account
+    sessions, so the bearer token is the only thing standing between the network and them. It needs outbound access to Telegram (TCP 443/80
+    to the Telegram data centres, no inbound from the internet) and no database.
+  - Secrets: `TELEGRAM_API_HASH`, `TELEGRAM_SIDECAR_TOKEN`. The session strings live in Postgres encrypted with `APP_KEY`, like the Discord tokens.
 - **External services**: Postgres database `whenthefox` (role `whenthefox_app`), Valkey (queues/Horizon; set `REDIS_PREFIX` and
   `HORIZON_PREFIX` per ACL user), outbound HTTPS to owners' calendar (ICS) URLs and fonts.googleapis.com, SMTP if mail is enabled,
-  Discord OAuth.
+  Discord OAuth, and (only when enabled) the Telegram sidecar.
