@@ -314,6 +314,50 @@ class TelegramIntegrationTest extends TestCase
         $this->assertSame(self::PHOTO, TelegramFriend::where('user_id', $user->id)->first()->avatar_url);
     }
 
+    public function test_a_contact_already_linked_to_a_connection_gets_its_photo_too(): void
+    {
+        $user = $this->owner();
+        $this->connectionWith($user, self::LINKED);
+        $this->fakeSidecar([self::OLD, self::LINKED]);
+        app(TelegramSyncService::class)->sync($user);
+        TelegramFriend::where('user_id', $user->id)->update(['avatar_url' => null, 'has_photo' => false, 'photo_checked_at' => null]);
+
+        $this->fakeSidecar([self::OLD, self::LINKED]);
+        app(TelegramSyncService::class)->sync($user->refresh(), onlyNew: true);
+
+        $linked = TelegramFriend::where('user_id', $user->id)->get()->firstWhere('telegram_user_id', self::LINKED);
+        $this->assertSame('created', $linked->status);
+        $this->assertSame(self::PHOTO, $linked->avatar_url);
+        $this->assertSame(self::PHOTO, app(TelegramSyncService::class)->summary($user->refresh())['profiles'][Connection::first()->id][0]['picture_url']);
+    }
+
+    public function test_photos_of_linked_contacts_come_first_when_there_are_more_than_one_sync_can_fetch(): void
+    {
+        $user = $this->owner();
+        // 200 contacts is more than a sync fetches (6 batches of 30). The linked one is last in Telegram's list: it is the
+        // one that shows up on a connection card, so it must not wait behind a hundred people nobody has looked at.
+        $ids = array_map(fn ($n) => (string) (2000000000 + $n), range(1, 200));
+        $this->connectionWith($user, $ids[199]);
+        $this->fakeBigAddressBook($ids);
+
+        app(TelegramSyncService::class)->sync($user);
+
+        $count = TelegramFriend::where('user_id', $user->id)->whereNotNull('avatar_url')->count();
+        $this->assertSame(180, $count);
+        $linked = TelegramFriend::where('user_id', $user->id)->where('status', 'created')->first();
+        $this->assertSame(self::PHOTO, $linked->avatar_url);
+
+        // Dismissed contacts go last: nobody sees their picture. 30 of 200 dismissed leaves 170 that come first, and only
+        // the 10 slots left over (180 - 170) reach a dismissed one.
+        TelegramFriend::where('user_id', $user->id)->update(['avatar_url' => null, 'photo_checked_at' => null]);
+        TelegramFriend::where('user_id', $user->id)->where('status', '!=', 'created')->get()->take(30)->each(fn ($f) => $f->forceFill(['status' => 'dismissed'])->save());
+        $this->fakeBigAddressBook($ids);
+        app(TelegramSyncService::class)->sync($user->refresh());
+
+        $this->assertSame(0, TelegramFriend::where('user_id', $user->id)->where('status', '!=', 'dismissed')->whereNull('avatar_url')->count());
+        $this->assertSame(10, TelegramFriend::where('user_id', $user->id)->where('status', 'dismissed')->whereNotNull('avatar_url')->count());
+    }
+
     public function test_a_flood_wait_during_photos_keeps_what_arrived_and_stops_asking(): void
     {
         $user = $this->owner();

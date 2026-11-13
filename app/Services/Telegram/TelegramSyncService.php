@@ -268,7 +268,8 @@ class TelegramSyncService
     }
 
     /**
-     * Contacts that have a photo Telegram reports and that we have no picture for, and have not asked about lately.
+     * Contacts that have a photo Telegram reports and that we have no picture for, and have not asked about lately,
+     * most useful first.
      *
      * @return Builder<TelegramFriend>
      */
@@ -277,7 +278,11 @@ class TelegramSyncService
         return TelegramFriend::where('user_id', $user->id)
             ->where('has_photo', true)
             ->whereNull('avatar_url')
-            ->where(fn (Builder $q) => $q->whereNull('photo_checked_at')->orWhere('photo_checked_at', '<', now()->subDays(self::PHOTO_RECHECK_DAYS)));
+            ->where(fn (Builder $q) => $q->whereNull('photo_checked_at')->orWhere('photo_checked_at', '<', now()->subDays(self::PHOTO_RECHECK_DAYS)))
+            // A big address book takes several syncs: the ones whose picture is on screen come first (a linked contact on its
+            // connection card, then a pending one in the panel), and a dismissed contact, whom nobody sees, comes last.
+            ->orderByRaw("case status when 'created' then 0 when 'pending' then 1 else 2 end")
+            ->orderBy('id');
     }
 
     /**
