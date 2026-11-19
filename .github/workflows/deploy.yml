@@ -1,0 +1,30 @@
+# "Sync to production" button for When production.
+#
+# The image is built by images.yml on every push to main; the Rathalos cluster's Argo CD pins the newest one, but production is only
+# changed on purpose. Running this workflow is that purpose: GitHub sends a signed `workflow_run` webhook (event `workflow_run`, action
+# `requested`) to the receiver in the cluster (https://webhook.went.tf, Rathalos repo platform/deploy-hook). The receiver checks the
+# signature, that this is the Deploy workflow started by hand (workflow_dispatch) on main, and then asks Argo CD to sync the Application
+# `when-prod` (the same as pressing Sync in the Argo CD UI, including the migrate hook where the app has one). It cannot choose an image,
+# revision or application. Nothing is stored in GitHub Actions secrets and no deployment record or environment is created: the job below
+# only gives the run something to show. The result is visible in Argo CD, in the "production" deployment records its notifications write
+# and in the Discord channel.
+#
+# workflow_dispatch only, never automatic: syncing production is always a deliberate decision.
+name: Deploy
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Sync requested
+        run: echo "Sync of when-prod requested; the cluster receiver acts on GitHub's workflow_run webhook for this run."
