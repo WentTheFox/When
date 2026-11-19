@@ -55,7 +55,7 @@ class ReadOnlyModeTest extends TestCase
 
     public function test_the_deploy_scripts_flag_file_is_the_one_the_app_honours(): void
     {
-        // deploy.conf raises the flag with a plain `touch storage/framework/readonly`.
+        // The deploy raises the flag with a plain `touch storage/framework/readonly`.
         $this->assertSame(storage_path('framework/readonly'), ReadOnlyMode::path());
         touch(ReadOnlyMode::path());
 

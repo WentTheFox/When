@@ -115,47 +115,25 @@ ordinary password). See `resources/js/crypto/argon2.ts`.
 
 ## Deploy
 
-The app is moving to the Rathalos Kubernetes cluster: images, ports, env names, volumes and the
-one-instance constraints are in `docs/kubernetes.md` (Dockerfile in `docker/`). The toolkit flow below is the legacy vinyl.vps path.
+Production runs on the Rathalos Kubernetes cluster and is deployed by Argo CD, synced from the `main`
+branch: `git push origin main` is the whole deploy trigger (CI builds the images, Argo CD rolls them out).
+There is no `deploy` remote, no git-deploy-toolkit and no `deploy.conf` any more. Images, ports, env names,
+volumes and the one-instance constraints are in `docs/kubernetes.md` (Dockerfile in `docker/`).
 
-Two independent git remotes:
-- `git push origin main` → GitHub, code hosting only.
-- `git push deploy main` → a bare repo on a remote host, via
-  [git-deploy-toolkit](https://github.com/WentTheFox/GitDeployToolkit) (a shared
-  post-receive hook, generalized across all apps on that host). `deploy.conf` at the
-  repo root defines this app's own `deploy_build`/`deploy_restart`, ported from the
-  same logic the old hand-rolled `setup/post-receive.sh` used: fetch → (composer
-  install if `composer.lock` changed) → `artisan down` (unless already down) →
-  `artisan migrate --force` → (google-fonts:fetch if relevant) → (pnpm install if
-  lockfile changed) → `pnpm build` (if `resources/` changed, non-fatal on failure) →
-  `artisan optimize` → restart `when-horizon.service` → `artisan up` (unless it was
-  already down).
+A push to `main` therefore ships to production: don't push without the user's go-ahead for that push.
 
-The same deploy can also be started from GitHub: Actions → Deploy → Run workflow
-(`.github/workflows/deploy.yml`, from git-deploy-toolkit's template). It runs on a
-GitHub-hosted runner and only creates a GitHub Deployment; the server's
-git-deploy-webhook listener picks that up and runs this same `deploy.conf`. Either way
-— button or `git push deploy main` — the deploy is recorded on GitHub as a Deployment
-in the `production` environment, with its status and a summary log.
+Migrations run as part of the sync, after the new code is live, under a read-only flag
+(`storage/framework/readonly`, writes get 503 + `Retry-After`, the frontend retries them). Migrations must
+therefore be expand-only (drop/rename in a later release); see `docs/zero-downtime-deploy.md` for the rules
+and where to register GET-writes / POST-reads in `BlockWritesInReadOnlyMode`.
 
-Pushing to `deploy` (or running the Deploy workflow) deploys immediately and, in in-place
-mode, takes the app down briefly during migrate/build — never do either without the user's explicit
-go-ahead for that specific deploy, even if `origin` was already approved.
+Local dev secrets come from OpenBao (`secret/when/dev`, AppRole credentials in `~/.config/openbao/when`):
+`pnpm dev:server|php|queue` run through `setup/dev/with-secrets.sh`; there is no `.env` file.
 
-`deploy.conf` also supports the toolkit's release-directory mode (`RELEASES=1`): build in a
-fresh release dir while the old one serves, swap the `WORKTREE` symlink, migrate under a
-read-only flag (`storage/framework/readonly`, writes get 503 + `Retry-After`, the frontend
-retries them), health-check `/status`, lower the flag. No `artisan down` in that mode. The
-file works in both modes (it checks `$RELEASE` vs `$WORKTREE`), so it's safe to deploy before
-the server is converted. Migrations must then be expand-only (drop/rename a release later);
-see `docs/zero-downtime-deploy.md` for the flow, the one-time server conversion, and where to
-register GET-writes / POST-reads in `BlockWritesInReadOnlyMode`.
-
-The project was renamed from "WhenTheFox" to "When" (GitHub repo, app name, systemd
-service). The production directory (`/var/www/WhenTheFox`), Postgres database
-(`whenthefox`), and DB role (`whenthefox_app`) were deliberately left un-renamed —
-renaming a live directory/database carries real downtime/breakage risk for no
-user-visible benefit, so don't "fix" these to match unless asked.
+The project was renamed from "WhenTheFox" to "When" (GitHub repo, app name). The Postgres database
+(`whenthefox`) and DB role (`whenthefox_app`) were deliberately left un-renamed — renaming a live
+database carries real downtime/breakage risk for no user-visible benefit, so don't "fix" these to match
+unless asked.
 
 ## Gotchas already paid for — don't rediscover these
 

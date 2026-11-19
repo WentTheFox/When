@@ -38,7 +38,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [AboutController::class, 'redirectHome']);
 Route::get('/about', [AboutController::class, 'show']);
 
-// Deploy health check (deploy.conf's health_check): read-only dependency probes, safe to hit during the
+// Deploy health check (the deploy's health check): read-only dependency probes, safe to hit during the
 // read-only window. Unlike the framework's own /up this actually touches the database and cache.
 Route::get('/status', function () {
     $checks = [];
