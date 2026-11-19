@@ -4,9 +4,9 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev:server": "infisical run --env=dev -- vite",
-        "dev:php": "git-deploy-dev when-fpm",
-        "dev:queue": "git-deploy-dev when-horizon",
+        "dev:server": "setup/dev/with-secrets.sh vite",
+        "dev:php": "setup/dev/with-secrets.sh php-fpm -F -O -y setup/dev/php-fpm.conf",
+        "dev:queue": "setup/dev/with-secrets.sh php artisan horizon",
         "dev": "concurrently -p name pnpm:dev:*",
         "test": "vitest run",
         "test:watch": "vitest",

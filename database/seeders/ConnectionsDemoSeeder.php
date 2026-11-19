@@ -621,7 +621,7 @@ class ConnectionsDemoSeeder extends Seeder
     /**
      * Pre-seeded Discord state (there is no mock Discord server, unlike VRCX): the account counts as connected and
      * the sync's friends/blocked rows are inserted directly. For the panel to show up locally, DISCORD_CLIENT_ID
-     * must also be set in the dev environment (Infisical); a real "Sync now" fails against these dummy tokens.
+     * must also be set in the dev environment (OpenBao); a real "Sync now" fails against these dummy tokens.
      * Names are invented. Covers: plain pending friends, blocked pending ones (name-matching a connection, so the
      * suggestion shows), a blocked person who already has a connection (never offered) and a dismissed/looked-up one.
      *

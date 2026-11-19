@@ -20,7 +20,7 @@ export default defineConfig({
         },
         // No explicit https/cors here — laravel-vite-plugin reads
         // VITE_DEV_SERVER_KEY/VITE_DEV_SERVER_CERT from the environment
-        // (Infisical, injected by `infisical run` in dev:server; no .env file) and
+        // (OpenBao, injected by setup/dev/with-secrets.sh in dev:server; no .env file) and
         // configures the dev server's https+host+hmr to match APP_URL's
         // host, and its own default `server.cors` already allowlists
         // APP_URL's origin. That only works because APP_URL matches how
