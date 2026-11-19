@@ -1,6 +1,6 @@
 # Running When in the Rathalos cluster
 
-Images (built by `.github/workflows/images.yml` on every push to `main`, multi-arch, tags `sha-<sha7>` only):
+Images (built by `.github/workflows/images.yml` on every push to `main`, multi-arch, tags `sha-<sha7>` only): Rebuild now (e.g. to pick up a new base image such as a PHP security release): Actions > Publish container images > Run workflow on `main` (`gh workflow run images.yml --ref main`).
 `ghcr.io/wentthefox/when-fpm` (php-fpm 8.5, also used for Horizon, scheduler and migrations) and
 `ghcr.io/wentthefox/when-web` (nginx + `public/`; nginx config lives in the Rathalos repo).
 
