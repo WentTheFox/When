@@ -41,6 +41,13 @@ describe('needsSortingOut', () => {
     expect(needsSortingOut(conn('a', [identifier(), list([' '])]), typeOf)).toBe(true);
   });
 
+  it('is false once the highlight tokens field (reported as its own type by the caller) has a value', () => {
+    const types = (id: string) => (id === 'hl' ? 'highlight_tokens' : typeOf(id));
+
+    expect(needsSortingOut(conn('a', [identifier(), list(['Alice'], 'hl')]), types)).toBe(false);
+    expect(needsSortingOut(conn('a', [identifier()]), types)).toBe(true);
+  });
+
   it('is false for an archived connection: it was set aside on purpose', () => {
     expect(needsSortingOut(conn('a', [identifier()], { archived: true }), typeOf)).toBe(false);
   });

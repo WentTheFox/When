@@ -333,7 +333,9 @@ const filteredConnections = computed(() => {
 
   // Connections that have only an identifier so far (a friend just turned into one) still need sorting out: they come first,
   // newest first, on every load. This is only how the list is shown; the saved alphabetical order is not touched.
-  const ordered = floatUnsorted(matching, (id) => definitionTypes.value.get(id));
+  // Highlight tokens are not identifiers here: saving a connection adds them, which counts as having sorted it out.
+  const highlightFieldId = vrchat.value.highlight_field_id;
+  const ordered = floatUnsorted(matching, (id) => (id === highlightFieldId ? 'highlight_tokens' : definitionTypes.value.get(id)));
 
   if (newConnectionIds.value.length === 0) return ordered;
 
