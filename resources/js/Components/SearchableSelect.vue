@@ -45,6 +45,10 @@ function isChosen(value: string): boolean {
 const id = useId();
 const root = ref<HTMLElement | null>(null);
 const search = ref<HTMLInputElement | null>(null);
+const trigger = ref<HTMLButtonElement | null>(null);
+const panel = ref<HTMLElement | null>(null);
+/** Fixed-position placement of the panel, so no scrollable/clipping ancestor can cut it off. */
+const panelStyle = ref<Record<string, string>>({});
 const open = ref(false);
 const query = ref('');
 
@@ -72,21 +76,49 @@ const visible = computed(() => {
 });
 
 function onDocumentPointerDown(event: PointerEvent): void {
-  if (root.value && !root.value.contains(event.target as Node)) open.value = false;
+  const target = event.target as Node;
+  if (root.value && !root.value.contains(target) && !panel.value?.contains(target)) open.value = false;
+}
+
+const PANEL_MAX = 16 * 16 + 52; // list max-height (16rem) plus the search box
+function place(): void {
+  const rect = trigger.value?.getBoundingClientRect();
+  if (!rect) return;
+  const below = window.innerHeight - rect.bottom;
+  const above = rect.top;
+  const flip = below < Math.min(PANEL_MAX, 240) && above > below;
+  const room = Math.max(120, (flip ? above : below) - 8);
+  const style: Record<string, string> = {
+    left: `${rect.left}px`,
+    width: `${rect.width}px`,
+    maxHeight: `${room}px`,
+  };
+  if (flip) style.bottom = `${window.innerHeight - rect.top + 4}px`;
+  else style.top = `${rect.bottom + 4}px`;
+  panelStyle.value = style;
 }
 
 // Listen for outside clicks only while the list is open.
 watch(open, async (isOpen) => {
   if (isOpen) {
     document.addEventListener('pointerdown', onDocumentPointerDown);
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
     query.value = '';
+    place();
     await nextTick();
     search.value?.focus();
   } else {
     document.removeEventListener('pointerdown', onDocumentPointerDown);
+    window.removeEventListener('scroll', place, true);
+    window.removeEventListener('resize', place);
   }
 });
-onBeforeUnmount(() => document.removeEventListener('pointerdown', onDocumentPointerDown));
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', onDocumentPointerDown);
+  window.removeEventListener('scroll', place, true);
+  window.removeEventListener('resize', place);
+});
 
 function pick(option: SelectOption | undefined): void {
   if (!option || option.disabled) return;
@@ -102,6 +134,7 @@ function pick(option: SelectOption | undefined): void {
 <template>
   <div ref="root" class="position-relative searchable-select" @keydown.esc="open = false">
     <button
+      ref="trigger"
       type="button"
       class="form-select form-select-sm text-start text-truncate"
       :class="{ 'text-body-secondary': multiple ? !chosen.length : !selected }"
@@ -124,7 +157,8 @@ function pick(option: SelectOption | undefined): void {
       <template v-else-if="selected"><AppIcon v-if="selected.icon" :icon="selected.icon" class="me-2" /><SwatchDot :color-key="selected.swatch" class="me-1" />{{ selected.text }}</template>
       <template v-else>{{ placeholder }}</template>
     </button>
-    <div v-if="open" class="searchable-select-panel card shadow-sm position-absolute w-100 mt-1">
+    <Teleport to="body">
+    <div v-if="open" ref="panel" class="searchable-select-panel card shadow-sm" :style="panelStyle" @keydown.esc="open = false">
       <input
         ref="search"
         v-model="query"
@@ -162,18 +196,22 @@ function pick(option: SelectOption | undefined): void {
         <li v-if="!visible.length" class="px-3 py-2 text-muted small">No match</li>
       </ul>
     </div>
+    </Teleport>
   </div>
 </template>
 
 <style scoped>
 .searchable-select-panel {
-  z-index: 1050;
+  position: fixed;
+  z-index: 1080;
   min-width: 12rem;
+  overflow: hidden;
 }
 .searchable-select-panel ul {
   max-height: 16rem;
+  overflow-y: auto;
 }
-.searchable-select .dropdown-item {
+.searchable-select-panel .dropdown-item {
   white-space: normal;
 }
 /* Keeps flag-less rows (e.g. "(unset)") aligned with the flagged ones. */
