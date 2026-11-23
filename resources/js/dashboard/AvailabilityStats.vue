@@ -71,6 +71,8 @@ interface HighlightSlot {
   activity: string | null;
   activity_label: LocalizedText | null;
   highlight_words: string[];
+  /** Full cleaned event title (owner-only). */
+  summary?: string | null;
   source?: 'vrchat';
 }
 
@@ -261,7 +263,12 @@ onMounted(async () => {
               {{ fmtSlotTime(slot.end) }}{{ slot.tentative_end ? '?' : '' }}
             </td>
             <td class="small">
-              {{ slot.source === 'vrchat' ? 'Together in VRChat' : (resolveLocalizedText(slot.activity_label, currentLocale) ?? slot.activity ?? slot.highlight_words.join(', ')) }}
+              <template v-if="slot.source === 'vrchat'">Together in VRChat</template>
+              <template v-else>
+                <span v-if="slot.summary">{{ slot.summary }}</span>
+                <span v-else>{{ resolveLocalizedText(slot.activity_label, currentLocale) ?? slot.activity ?? slot.highlight_words.join(', ') }}</span>
+                <span v-if="slot.summary && resolveLocalizedText(slot.activity_label, currentLocale)" class="text-muted ms-1">({{ resolveLocalizedText(slot.activity_label, currentLocale) }})</span>
+              </template>
               <span v-if="slot.tentative_start || slot.tentative_end" class="badge bg-secondary ms-1">Tentative</span>
             </td>
           </tr>

@@ -46,6 +46,8 @@ final class AvailabilitySlot
          * @var array{unit: string, interval: int}|null
          */
         public readonly ?array $recurrence = null,
+        /** The event's full cleaned title, for a highlighted slot. Owner-dashboard only — deliberately NOT in toArray(), so it never reaches a share-link viewer. */
+        public readonly ?string $summary = null,
     ) {}
 
     /** @return array<string, mixed> */

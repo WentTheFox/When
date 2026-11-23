@@ -289,6 +289,7 @@ class DashboardController extends Controller
                 'activity' => null,
                 'activity_label' => null,
                 'highlight_words' => [],
+                'summary' => null,
                 'source' => 'vrchat',
             ], $vrchatSlots);
             $minutes = $this->unionMinutes(array_values(array_merge(
@@ -381,7 +382,7 @@ class DashboardController extends Controller
 
         usort($inRange, fn (AvailabilitySlot $a, AvailabilitySlot $b) => $a->start <=> $b->start);
 
-        return array_map(fn (AvailabilitySlot $slot) => $slot->toArray(), $inRange);
+        return array_map(fn (AvailabilitySlot $slot) => $slot->toArray() + ['summary' => $slot->summary], $inRange);
     }
 
     /** @return AvailabilitySlot[] */

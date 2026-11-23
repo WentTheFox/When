@@ -148,6 +148,7 @@ class AvailabilityService
                     activityIcon: $highlightMatch->activityIcon,
                     activityColor: $highlightMatch->activityColor,
                     recurrence: $showRecurring ? $event->recurrence : null,
+                    summary: $event->summary,
                 );
             }
         }
@@ -620,6 +621,7 @@ class AvailabilityService
                     activityColor: $base->activityColor,
                     // The series no longer describes a block that grew.
                     recurrence: $extended ? null : $base->recurrence,
+                    summary: $base->summary,
                 );
                 foreach (array_slice($hits, 1) as $ci) {
                     unset($calendar[$ci]);
