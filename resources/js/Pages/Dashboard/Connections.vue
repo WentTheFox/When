@@ -23,6 +23,8 @@ import { requestConfirm } from '../../dashboard/confirmModal';
 import PageHeader from '../../Components/PageHeader.vue';
 import AppIcon from '../../Components/AppIcon.vue';
 import SearchableSelect from '../../Components/SearchableSelect.vue';
+import ConnectionAvatar from '../../Components/ConnectionAvatar.vue';
+import { identityPicture } from '../../dashboard/connectionIdentity';
 import AttributesPanel from '../../dashboard/AttributesPanel.vue';
 import CategoriesPanel from '../../dashboard/CategoriesPanel.vue';
 import EncryptedText from '../../Components/EncryptedText.vue';
@@ -183,8 +185,17 @@ const newConnectionError = ref('');
 const decryptedNames = ref<Record<string, string>>({});
 // Everything below keeps the lists' stored order (see listOrder.ts): names finishing their decryption must not re-sort anything.
 const connectionOptions = computed(() =>
-  connections.value.map((c) => ({ id: c.id, label: decryptedNames.value[c.id] ?? '' })),
+  connections.value.map((c) => ({ id: c.id, label: decryptedNames.value[c.id] ?? '', avatar: avatarOf(c) })),
 );
+
+/** The picture of the linked account that stands for the connection (its preferred identity), or null. */
+function avatarOf(connection: ConnectionRow): string | null {
+  return identityPicture(connection.preferred_identity, {
+    discord: discord.value.profiles[connection.id],
+    vrchat: vrchat.value.profiles[connection.id],
+    telegram: telegram.value.profiles[connection.id],
+  });
+}
 
 /**
  * Master-detail instead of every connection rendering full-size, one after
@@ -688,7 +699,7 @@ async function matchCandidates(): Promise<MatchCandidate[]> {
       ? (connection.attribute_values.find((v) => v.attribute_definition_id === highlightFieldId)?.identifier_list_value ?? [])
       : [];
 
-    candidates.push({ id: connection.id, name, tokens });
+    candidates.push({ id: connection.id, name, tokens, avatar: avatarOf(connection) });
   }
 
   return candidates;
@@ -742,7 +753,7 @@ async function prepareFriendMatching(): Promise<void> {
  */
 let candidateRun = 0;
 watch(
-  () => connections.value.map((c) => `${c.id}:${decryptedNames.value[c.id] ?? ''}`).join('|'),
+  () => connections.value.map((c) => `${c.id}:${decryptedNames.value[c.id] ?? ''}:${avatarOf(c) ?? ''}`).join('|'),
   async () => {
     if (!friendsReady.value) return;
 
@@ -1955,6 +1966,7 @@ async function migrateDefinition(id: string, to: string, options: MigrateOptions
                   :class="{ active: selectedConnectionId === connection.id }"
                   @click="selectedConnectionId = connection.id"
                 >
+                  <ConnectionAvatar :src="avatarOf(connection)" class="me-2" />
                   <EncryptedText :value="decryptedNames[connection.id]" :ciphertext="connection.name_ciphertext" />
                   <!-- The search found this connection by another of its names. -->
                   <small v-if="matchedAlternativeName(connection)" class="ms-1 opacity-75">(also “{{ matchedAlternativeName(connection) }}”)</small>

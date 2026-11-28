@@ -271,8 +271,6 @@ Route::middleware('auth')->group(function () {
         ->name('dashboard.connections.share-link.destroy');
     Route::post('/dashboard/connections/{connection}/share-link/regenerate-token', [ConnectionShareLinkController::class, 'regenerateToken'])
         ->name('dashboard.connections.share-link.regenerate-token');
-    Route::put('/dashboard/connections/{connection}/share-link/identity', [ConnectionShareLinkController::class, 'updateIdentity'])
-        ->name('dashboard.connections.share-link.identity');
     Route::get('/dashboard/connections/{connection}/share-link/visits', [ConnectionShareLinkController::class, 'visits'])
         ->name('dashboard.connections.share-link.visits');
     Route::delete('/dashboard/connections/{connection}/share-link/visits', [ConnectionShareLinkController::class, 'destroyVisits'])
@@ -291,6 +289,8 @@ Route::middleware('auth')->group(function () {
         ->name('dashboard.connections.graph');
     Route::post('/dashboard/connections', [ConnectionController::class, 'store'])
         ->name('dashboard.connections.store');
+    Route::put('/dashboard/connections/{connection}/identity', [ConnectionController::class, 'updateIdentity'])
+        ->name('dashboard.connections.identity');
     Route::patch('/dashboard/connections/{connection}', [ConnectionController::class, 'update'])
         ->name('dashboard.connections.update');
     Route::delete('/dashboard/connections/{connection}', [ConnectionController::class, 'destroy'])

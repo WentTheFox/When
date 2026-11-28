@@ -17,6 +17,8 @@ export interface MatchCandidate {
   name: string;
   /** The connection's highlight tokens (plaintext, §0.2 tier). */
   tokens: string[];
+  /** The picture of the connection's preferred linked account, for the dropdowns (not used for matching). */
+  avatar?: string | null;
 }
 
 /** 'core' = the same name apart from decoration (symbols, emoji, characters from another script, spacing). */

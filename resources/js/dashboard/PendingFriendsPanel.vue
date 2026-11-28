@@ -81,12 +81,12 @@ function choiceOptions(row: { suggested: { id: string }[] }): SelectOption[] {
     // The meta-options come first, so they are never a long scroll away.
     { value: 'new', text: 'Create a new connection' },
     { value: 'skip', text: "Dismiss (don't ask again)" },
-    ...allOptions.value.filter((o) => suggested.has(o.id)).map((o) => ({ value: o.id, text: `Add to ${o.label}`, group: 'Suggested' })),
-    ...allOptions.value.filter((o) => !suggested.has(o.id)).map((o) => ({ value: o.id, text: o.label, group: 'Add to another connection' })),
+    ...allOptions.value.filter((o) => suggested.has(o.id)).map((o) => ({ value: o.id, text: `Add to ${o.label}`, avatar: o.avatar, group: 'Suggested' })),
+    ...allOptions.value.filter((o) => !suggested.has(o.id)).map((o) => ({ value: o.id, text: o.label, avatar: o.avatar, group: 'Add to another connection' })),
   ];
 }
 
-const allOptions = computed(() => props.candidates.map((c) => ({ id: c.id, label: c.name || '(unnamed)' })).sort((a, b) => a.label.localeCompare(b.label)));
+const allOptions = computed(() => props.candidates.map((c) => ({ id: c.id, label: c.name || '(unnamed)', avatar: c.avatar })).sort((a, b) => a.label.localeCompare(b.label)));
 
 function decision(row: Row): FriendDecision {
   return { friendId: row.friend.id, choice: choices.value[row.friend.id] ?? 'new' };

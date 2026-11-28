@@ -25,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property bool $archived
  * @property Carbon|null $deleted_at
  * @property int $sort_order
+ * @property string|null $preferred_identity
  * @property-read Collection<int, ConnectionAttributeValue> $attributeValues
  * @property-read int|null $attribute_values_count
  * @property-read Collection<int, ConnectionEdge> $edgesFrom
@@ -48,6 +49,7 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Connection whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Connection whereNameCiphertext($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Connection whereNotesCiphertext($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Connection wherePreferredIdentity($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Connection whereSortOrder($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Connection whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Connection whereUserId($value)
@@ -73,12 +75,14 @@ class Connection extends Model
         'notes_ciphertext',
         'archived',
         'sort_order',
+        'preferred_identity',
     ];
 
     protected function casts(): array
     {
         return [
             'archived' => 'boolean',
+            'preferred_identity' => 'encrypted',
         ];
     }
 

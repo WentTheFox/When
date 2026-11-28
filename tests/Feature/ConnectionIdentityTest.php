@@ -15,8 +15,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
-/** Which linked Discord/VRChat account the free page shows in its header. */
-class ShareLinkIdentityTest extends TestCase
+/** Which linked Discord/VRChat/Telegram account stands for a connection (lists, and the free page's header). */
+class ConnectionIdentityTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -73,7 +73,7 @@ class ShareLinkIdentityTest extends TestCase
     public function test_owner_can_pick_the_vrchat_account_or_nobody(): void
     {
         [$user, $connection, $shareLink] = $this->link();
-        $url = "/dashboard/connections/{$connection->id}/share-link/identity";
+        $url = "/dashboard/connections/{$connection->id}/identity";
 
         $this->actingAs($user)->putJson($url, ['identity' => 'vrchat:'.self::VRCHAT])->assertOk();
         $this->assertSame('MapleInVR', $this->shownIdentity($shareLink->refresh())['name']);
@@ -90,7 +90,7 @@ class ShareLinkIdentityTest extends TestCase
         [$user, $connection] = $this->link();
 
         $this->actingAs($user)
-            ->putJson("/dashboard/connections/{$connection->id}/share-link/identity", ['identity' => 'discord:999'])
+            ->putJson("/dashboard/connections/{$connection->id}/identity", ['identity' => 'discord:999'])
             ->assertStatus(422);
     }
 
@@ -99,7 +99,17 @@ class ShareLinkIdentityTest extends TestCase
         [, $connection] = $this->link();
 
         $this->actingAs(User::factory()->create())
-            ->putJson("/dashboard/connections/{$connection->id}/share-link/identity", ['identity' => 'none'])
+            ->putJson("/dashboard/connections/{$connection->id}/identity", ['identity' => 'none'])
             ->assertNotFound();
+    }
+
+    public function test_the_connections_page_carries_the_pick(): void
+    {
+        [$user, $connection] = $this->link();
+        $connection->update(['preferred_identity' => 'vrchat:'.self::VRCHAT]);
+
+        $this->actingAs($user)->get('/dashboard/connections')->assertInertia(
+            fn ($page) => $page->where('connections.0.preferred_identity', 'vrchat:'.self::VRCHAT),
+        );
     }
 }

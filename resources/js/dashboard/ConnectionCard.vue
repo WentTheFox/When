@@ -7,6 +7,7 @@ import {
   BButton,
   BCard,
   BFormGroup,
+  BFormSelect,
   BFormInvalidFeedback,
   BInputGroup,
   type InputType,
@@ -20,7 +21,9 @@ import SearchableSelect from '../Components/SearchableSelect.vue';
 import EncryptedInput from '../Components/EncryptedInput.vue';
 import RadioChoices from '../Components/RadioChoices.vue';
 import EncryptedText from '../Components/EncryptedText.vue';
-import ConnectionSharing, { type IdentityOption, type ShareLinkInfo } from './ConnectionSharing.vue';
+import ConnectionSharing, { type ShareLinkInfo } from './ConnectionSharing.vue';
+import ConnectionAvatar from '../Components/ConnectionAvatar.vue';
+import { identityOptions, NO_IDENTITY } from './connectionIdentity';
 import ConnectionDiscord from './ConnectionDiscord.vue';
 import { listEntries, listText, paddedListText } from './encryptedList';
 import { invalidLinkLines, isValidWebUrl, parseWebUrl, validLinks } from './urlField';
@@ -56,6 +59,8 @@ export interface ConnectionRow {
   notes_ciphertext: string | null;
   /** The connection's one optional share link; its name is this connection's name. */
   share_link: ShareLinkInfo | null;
+  /** Which linked account stands for it: 'discord:<id>' etc., 'none', or null for automatic (see connectionIdentity.ts). */
+  preferred_identity?: string | null;
   archived: boolean;
   /** When it was added (ISO 8601); connections that still need sorting out are listed newest first. */
   created_at?: string | null;
@@ -79,7 +84,7 @@ const props = defineProps<{
   connection: ConnectionRow;
   sources: { id: string; label: string; color_key?: string | null }[];
   attributeDefinitions: { id: string; label: string; type: string; options: string[] }[];
-  connectionOptions: { id: string; label: string }[];
+  connectionOptions: { id: string; label: string; avatar?: string | null }[];
   /** Another connection's stored ciphertext for a relationship field (null = none), so a save can rewrite its side too. */
   peerCiphertext?: (connectionId: string, definitionId: string) => string | null;
   /** Linked VRChat accounts with cached profile and time together (§0.2 tier, not E2EE). */
@@ -166,15 +171,27 @@ function addField(): void {
   newFieldId.value = '';
 }
 
-/** Linked accounts with a name, as the free page can show them (keys match ShareLinkIdentity). */
-const identityOptions = computed<IdentityOption[]>(() => [
-  ...(props.discordProfiles ?? [])
-    .filter((p) => p.known && (p.global_name || p.username))
-    .map((p) => ({ key: `discord:${p.discord_user_id}`, label: `Discord: ${p.global_name || p.username}` })),
-  ...(props.vrchatProfiles ?? [])
-    .filter((p) => p.display_name)
-    .map((p) => ({ key: `vrchat:${p.vrchat_user_id}`, label: `VRChat: ${p.display_name}` })),
+/** Linked accounts with a name that can stand for this connection (keys match ConnectionIdentity). */
+const linkedIdentities = computed(() =>
+  identityOptions({ discord: props.discordProfiles, vrchat: props.vrchatProfiles, telegram: props.telegramProfiles }),
+);
+const identityChoices = computed(() => [
+  { value: '', text: 'Automatic (first linked account)' },
+  { value: NO_IDENTITY, text: 'Nobody' },
+  ...linkedIdentities.value.map((o) => ({ value: o.key, text: o.label })),
 ]);
+
+async function setPreferredIdentity(value: string): Promise<void> {
+  try {
+    const { data } = await axios.put<{ preferred_identity: string | null }>(
+      `/dashboard/connections/${props.connection.id}/identity`,
+      { identity: value === '' ? null : value },
+    );
+    emit('updated', { ...props.connection, preferred_identity: data.preferred_identity });
+  } catch (error) {
+    console.error(error);
+  }
+}
 
 function onShareLinkChanged(shareLink: ShareLinkInfo | null): void {
   emit('updated', { ...props.connection, share_link: shareLink });
@@ -265,6 +282,10 @@ async function decryptAll(): Promise<void> {
 /** A connection-type value is the referenced connection's id; null when it points at a connection that no longer exists. */
 function connectionRefLabel(id: string): string | null {
   return props.connectionOptions.find((c) => c.id === id)?.label ?? null;
+}
+
+function connectionRefAvatar(id: string): string | null {
+  return props.connectionOptions.find((c) => c.id === id)?.avatar ?? null;
 }
 
 // Dates use a plain text field (ISO YYYY-MM-DD) — the native date picker is awkward to type into.
@@ -565,11 +586,23 @@ async function remove(): Promise<void> {
         </BFormGroup>
       </div>
     </div>
+    <BFormGroup v-if="linkedIdentities.length" label="Preferred identity" label-for="preferred-identity" class="mb-3">
+      <BFormSelect
+        id="preferred-identity"
+        size="sm"
+        :model-value="connection.preferred_identity ?? ''"
+        :options="identityChoices"
+        @update:model-value="setPreferredIdentity(String($event))"
+      />
+      <div class="form-text">
+        Whose picture shows next to this connection in every list, and whose name and picture appear in the header of its shared page.
+        Not end-to-end encrypted.
+      </div>
+    </BFormGroup>
     <BFormGroup label="Sharing" class="mb-3">
       <ConnectionSharing
         :connection-id="connection.id"
         :share-link="connection.share_link"
-        :identities="identityOptions"
         @changed="onShareLinkChanged"
       />
     </BFormGroup>
@@ -631,7 +664,7 @@ async function remove(): Promise<void> {
       <SearchableSelect
         v-else-if="definition.type === 'connection'"
         v-bind="fieldBinding(definition.id)"
-        :options="[{ value: '', text: '(none)' }, ...relatableConnections.map((c) => ({ value: c.id, text: c.label }))]"
+        :options="[{ value: '', text: '(none)' }, ...relatableConnections.map((c) => ({ value: c.id, text: c.label, avatar: c.avatar }))]"
         :disabled="!decrypted"
       />
       <div v-else-if="definition.type === 'relationship'">
@@ -640,11 +673,12 @@ async function remove(): Promise<void> {
           multiple
           placeholder="Add a connection…"
           :aria-label="`Connections for ${definition.label}`"
-          :options="relatableConnections.map((c) => ({ value: c.id, text: c.label }))"
+          :options="relatableConnections.map((c) => ({ value: c.id, text: c.label, avatar: c.avatar }))"
           :disabled="!decrypted"
         />
         <ul v-if="splitLines(editAttributeValues[definition.id]).length" class="list-unstyled mt-2 mb-0">
           <li v-for="id in splitLines(editAttributeValues[definition.id])" :key="id" class="d-flex align-items-center gap-2 mb-1">
+            <ConnectionAvatar :src="connectionRefAvatar(id)" />
             <span>{{ connectionRefLabel(id) ?? '?' }}</span>
             <BButton
               v-if="connectionRefLabel(id) !== null"

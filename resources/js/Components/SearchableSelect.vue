@@ -13,6 +13,7 @@ import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue';
 import { CheckIcon, type LucideIcon } from '@lucide/vue';
 import { searchRank } from '../dashboard/countries';
 import AppIcon from './AppIcon.vue';
+import ConnectionAvatar from './ConnectionAvatar.vue';
 import SwatchDot from './SwatchDot.vue';
 
 export interface SelectOption {
@@ -24,6 +25,8 @@ export interface SelectOption {
   swatch?: string | null;
   /** A Lucide icon drawn before the text. */
   icon?: LucideIcon;
+  /** A round profile picture drawn before the text (a connection's linked account). */
+  avatar?: string | null;
   /** Extra search terms (aliases such as "uk" for the United Kingdom); never displayed. */
   keywords?: string[];
   group?: string;
@@ -56,6 +59,7 @@ const selected = computed(() => (props.multiple ? undefined : props.options.find
 /** The button's label in multiple mode: the chosen names in list order, or the placeholder when none. */
 const chosenOptions = computed(() => props.options.filter((o) => chosen.value.includes(o.value)));
 const hasSwatches = computed(() => props.options.some((o) => o.swatch));
+const hasAvatars = computed(() => props.options.some((o) => o.avatar));
 const hasIcons = computed(() => props.options.some((o) => o.icon));
 const hasFlags = computed(() => props.options.some((o) => o.flag));
 const visible = computed(() => {
@@ -149,12 +153,12 @@ function pick(option: SelectOption | undefined): void {
       <template v-if="multiple">
         <template v-if="chosenOptions.length">
           <span v-for="(option, index) in chosenOptions" :key="option.value">
-            <template v-if="index">, </template><SwatchDot :color-key="option.swatch" class="me-1" />{{ option.text }}
+            <template v-if="index">, </template><SwatchDot :color-key="option.swatch" class="me-1" /><ConnectionAvatar :src="option.avatar" size="1.1rem" class="me-1" />{{ option.text }}
           </span>
         </template>
         <template v-else>{{ placeholder }}</template>
       </template>
-      <template v-else-if="selected"><AppIcon v-if="selected.icon" :icon="selected.icon" class="me-2" /><SwatchDot :color-key="selected.swatch" class="me-1" />{{ selected.text }}</template>
+      <template v-else-if="selected"><AppIcon v-if="selected.icon" :icon="selected.icon" class="me-2" /><SwatchDot :color-key="selected.swatch" class="me-1" /><ConnectionAvatar :src="selected.avatar" size="1.1rem" class="me-1" />{{ selected.text }}</template>
       <template v-else>{{ placeholder }}</template>
     </button>
     <Teleport to="body">
@@ -188,6 +192,8 @@ function pick(option: SelectOption | undefined): void {
               <span v-else-if="hasIcons" class="me-2 searchable-select-nobox" aria-hidden="true" />
               <SwatchDot v-if="option.swatch" :color-key="option.swatch" class="me-2" />
               <span v-else-if="hasSwatches" class="me-2 searchable-select-noswatch" aria-hidden="true" />
+              <ConnectionAvatar v-if="option.avatar" :src="option.avatar" class="me-2" />
+              <span v-else-if="hasAvatars" class="me-2 searchable-select-noavatar" aria-hidden="true" />
               <span class="flex-grow-1">{{ option.text }}</span>
               <AppIcon v-if="multiple && isChosen(option.value)" :icon="CheckIcon" class="ms-2" />
             </button>
@@ -220,6 +226,11 @@ function pick(option: SelectOption | undefined): void {
   width: 1.33em;
 }
 /* The same for rows without a color dot, so names line up. */
+.searchable-select-noavatar {
+  display: inline-block;
+  width: 1.5rem;
+  flex-shrink: 0;
+}
 .searchable-select-noswatch {
   display: inline-block;
   width: 0.75rem;

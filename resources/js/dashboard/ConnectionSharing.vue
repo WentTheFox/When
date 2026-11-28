@@ -2,7 +2,7 @@
 import axios from 'axios';
 import { CheckIcon, CopyIcon, RotateCwIcon, Trash2Icon } from '@lucide/vue';
 import AppIcon from '../Components/AppIcon.vue';
-import { BButton, BFormSelect, BSpinner } from 'bootstrap-vue-next';
+import { BButton, BSpinner } from 'bootstrap-vue-next';
 import { computed, ref } from 'vue';
 import { requestConfirm } from './confirmModal';
 
@@ -10,18 +10,10 @@ import { requestConfirm } from './confirmModal';
 export interface ShareLinkInfo {
   id: string;
   highlight_token: string | null;
-  /** 'discord:<id>' / 'vrchat:<id>' / 'none', or null for automatic. */
-  display_identity?: string | null;
   last_visited_at: string | null;
 }
 
-/** A linked account the free page can show (named ones only). */
-export interface IdentityOption {
-  key: string;
-  label: string;
-}
-
-const props = defineProps<{ connectionId: string; shareLink: ShareLinkInfo | null; identities?: IdentityOption[] }>();
+const props = defineProps<{ connectionId: string; shareLink: ShareLinkInfo | null }>();
 const emit = defineEmits<{ changed: [ShareLinkInfo | null] }>();
 
 const base = computed(() => `/dashboard/connections/${props.connectionId}/share-link`);
@@ -33,21 +25,6 @@ const url = computed(() => (props.shareLink?.highlight_token
   : null));
 
 const busy = ref(false);
-
-const identityChoices = computed(() => [
-  { value: '', text: 'Automatic (first linked account)' },
-  { value: 'none', text: 'Nobody' },
-  ...(props.identities ?? []).map((o) => ({ value: o.key, text: o.label })),
-]);
-
-async function setIdentity(value: string): Promise<void> {
-  try {
-    const { data } = await axios.put<ShareLinkInfo>(`${base.value}/identity`, { identity: value === '' ? null : value });
-    emit('changed', { ...props.shareLink, ...data } as ShareLinkInfo);
-  } catch (error) {
-    console.error(error);
-  }
-}
 
 async function enable(): Promise<void> {
   busy.value = true;
@@ -193,20 +170,8 @@ async function deleteAllVisits(): Promise<void> {
       </div>
       <p class="small text-muted mt-2 mb-2">
         What this link highlights and whether it bypasses do-not-disturb come from this connection's fields
-        (chosen on the Settings page). Archiving the connection only hides it from the dashboard stats; the link keeps working.
+        (chosen on the Settings page). The page header shows the connection's preferred identity, if it has one. Archiving the connection only hides it from the dashboard stats; the link keeps working.
       </p>
-
-      <div v-if="identities?.length" class="mb-2">
-        <label class="form-label small mb-1" for="share-identity">Shown on the page as</label>
-        <BFormSelect
-          id="share-identity"
-          size="sm"
-          :model-value="shareLink.display_identity ?? ''"
-          :options="identityChoices"
-          @update:model-value="setIdentity(String($event))"
-        />
-        <div class="form-text">The avatar and name of this Discord / VRChat account appear in the page header for whoever opens the link.</div>
-      </div>
 
       <BButton variant="link" size="sm" class="p-0" @click="toggleVisits">
         {{ showVisits ? 'Hide visit history' : 'Show visit history' }}

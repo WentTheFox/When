@@ -8,6 +8,7 @@ use App\Models\ConnectionAttributeDefinition;
 use App\Models\ConnectionAttributeValue;
 use App\Models\ShareLink;
 use App\Services\Calendar\HighlightWordsResolver;
+use App\Services\ConnectionIdentity;
 use App\Services\Discord\DiscordSyncService;
 use App\Services\Telegram\TelegramSyncService;
 use App\Services\Vrcx\VrcxSyncService;
@@ -41,7 +42,7 @@ use Inertia\Response;
  */
 class ConnectionController extends Controller
 {
-    public function __construct(private readonly VrcxSyncService $vrcx, private readonly DiscordSyncService $discord, private readonly TelegramSyncService $telegram) {}
+    public function __construct(private readonly VrcxSyncService $vrcx, private readonly DiscordSyncService $discord, private readonly TelegramSyncService $telegram, private readonly ConnectionIdentity $identities) {}
 
     public function index(Request $request): Response
     {
@@ -56,7 +57,7 @@ class ConnectionController extends Controller
 
         return Inertia::render('Dashboard/Connections', [
             'connections' => $user->connections()->with(['attributeValues', 'sources', 'shareLink'])->ordered()->get([
-                'id', 'name_ciphertext', 'notes_ciphertext', 'archived', 'created_at',
+                'id', 'name_ciphertext', 'notes_ciphertext', 'archived', 'created_at', 'preferred_identity',
             ])->map(fn (Connection $c) => $this->serialize($c)),
             'sources' => $user->connectionSources()->ordered()->get(['id', 'category_id', 'name_ciphertext']),
             'categories' => $user->connectionSourceCategories()->ordered()->get(['id', 'name_ciphertext', 'color_key']),
@@ -420,6 +421,8 @@ class ConnectionController extends Controller
             'name_ciphertext' => $connection->name_ciphertext,
             'notes_ciphertext' => $connection->notes_ciphertext,
             'share_link' => $this->serializeShareLink($connection->shareLink),
+            // Which linked account stands for it (see ConnectionIdentity): 'discord:<id>' etc., 'none', or null for automatic.
+            'preferred_identity' => $connection->preferred_identity,
             'archived' => $connection->archived,
             // When it was added: the page lists connections that still need sorting out newest first (see connectionTriage.ts).
             'created_at' => $connection->created_at?->toIso8601String(),
@@ -428,15 +431,32 @@ class ConnectionController extends Controller
         ];
     }
 
-    /** @return array{id: string, highlight_token: ?string, display_identity: ?string, last_visited_at: ?string}|null */
+    /** @return array{id: string, highlight_token: ?string, last_visited_at: ?string}|null */
     private function serializeShareLink(?ShareLink $shareLink): ?array
     {
         return $shareLink === null ? null : [
             'id' => $shareLink->id,
             'highlight_token' => $shareLink->highlight_token,
-            'display_identity' => $shareLink->display_identity,
             'last_visited_at' => $shareLink->last_visited_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * Picks which linked Discord/VRChat/Telegram account stands for the connection: its picture in
+     * the lists and its name and picture on the free page ('none' shows nobody, null is automatic).
+     */
+    public function updateIdentity(Request $request, string $connection): JsonResponse
+    {
+        $connection = $this->findOwned($request, $connection);
+        $choice = $request->validate(['identity' => ['nullable', 'string', 'max:200']])['identity'] ?? null;
+
+        if ($choice !== null && ! $this->identities->isValidChoice($connection, $choice)) {
+            return response()->json(['message' => 'That account is not linked to this connection.'], 422);
+        }
+
+        $connection->update(['preferred_identity' => $choice]);
+
+        return response()->json(['preferred_identity' => $connection->preferred_identity]);
     }
 
     public function destroy(Request $request, string $connection): JsonResponse

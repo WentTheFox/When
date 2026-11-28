@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ShareLink;
 use App\Models\User;
-use App\Services\ShareLinkIdentity;
+use App\Services\ConnectionIdentity;
 use App\Support\Locales;
 use App\Support\LocalizedText;
 use Illuminate\Http\RedirectResponse;
@@ -44,7 +44,7 @@ class ShareLinkController extends Controller
 
     private const LOCALE_COOKIE_MINUTES = 60 * 24 * 365;
 
-    public function __construct(private readonly ShareLinkIdentity $identities) {}
+    public function __construct(private readonly ConnectionIdentity $identities) {}
 
     /**
      * $token is optional: /free and /{locale}/free (no token segment at
@@ -157,8 +157,8 @@ class ShareLinkController extends Controller
             'token' => $token,
             'linkFound' => $shareLink !== null,
             'ownerName' => $owner?->name,
-            // Who this link was made for (the owner's pick, see ShareLinkIdentity); null shows nobody.
-            'identity' => $shareLink !== null ? $this->identities->resolve($shareLink) : null,
+            // Who this link was made for (the owner's pick, see ConnectionIdentity); null shows nobody.
+            'identity' => $shareLink !== null ? $this->identities->resolve($shareLink->connection) : null,
             'locale' => $locale,
             'textDirection' => in_array($locale, Locales::RTL, true) ? 'rtl' : 'ltr',
             'pageTitle' => $owner !== null ? $this->resolveTitle($owner, $locale) : null,
