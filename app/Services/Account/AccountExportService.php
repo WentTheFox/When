@@ -353,11 +353,13 @@ class AccountExportService
         return [
             'tier' => 'e2ee',
             'records' => $user->connectionSources()
-                ->get(['id', 'category_id', 'name_ciphertext'])
+                ->get(['id', 'category_id', 'name_ciphertext', 'icon_ciphertext', 'color_key'])
                 ->map(fn ($s) => [
                     'id' => $s->id,
                     'category_id' => $s->category_id,
                     'name_ciphertext' => $s->name_ciphertext,
+                    'icon_ciphertext' => $s->icon_ciphertext,
+                    'color_key' => $s->color_key,
                     'key_ring_id' => $s->id,
                 ])->all(),
         ];
@@ -369,10 +371,12 @@ class AccountExportService
         return [
             'tier' => 'e2ee',
             'records' => $user->connectionSourceCategories()
-                ->get(['id', 'name_ciphertext'])
+                ->get(['id', 'name_ciphertext', 'color_key', 'icon_ciphertext'])
                 ->map(fn ($cat) => [
                     'id' => $cat->id,
                     'name_ciphertext' => $cat->name_ciphertext,
+                    'icon_ciphertext' => $cat->icon_ciphertext,
+                    'color_key' => $cat->color_key,
                     'key_ring_id' => $cat->id,
                 ])->all(),
         ];

@@ -28,6 +28,8 @@ import { identityPicture } from '../../dashboard/connectionIdentity';
 import AttributesPanel from '../../dashboard/AttributesPanel.vue';
 import CategoriesPanel from '../../dashboard/CategoriesPanel.vue';
 import EncryptedText from '../../Components/EncryptedText.vue';
+import { sourceLook } from '../../dashboard/sourceLook';
+import { brandIconPath } from '../../dashboard/brandIcons';
 import ConnectionCard, { type ConnectionRow, type PeerUpdate } from '../../dashboard/ConnectionCard.vue';
 import SourcesPanel from '../../dashboard/SourcesPanel.vue';
 import { discordMark, type MarkState, type ShareLinkMark, shareLinkMark, vrchatMark } from '../../dashboard/connectionMarks';
@@ -69,7 +71,7 @@ import DashboardLayout from '../../Layouts/DashboardLayout.vue';
 
 defineOptions({ layout: DashboardLayout });
 
-interface SourceRow { id: string; category_id: string | null; name_ciphertext: string }
+interface SourceRow { id: string; category_id: string | null; name_ciphertext: string; icon_ciphertext?: string | null; color_key?: string | null }
 interface CategoryRow { id: string; color_key: string | null; name_ciphertext: string }
 interface DefinitionRow { id: string; label_ciphertext: string | null; staged_label?: string | null; type: string; options_ciphertext: string | null; icon_rules_ciphertext: string | null }
 
@@ -113,8 +115,8 @@ const telegram = ref<TelegramSummary>(props.telegram ?? emptyTelegramSummary);
  * decrypted. The decrypted-only views further down are what the forms and
  * connection cards use.
  */
-interface SourceItem { id: string; category_id: string | null; name_ciphertext: string; label?: string }
-interface CategoryItem { id: string; color_key: string | null; name_ciphertext: string; label?: string }
+interface SourceItem { id: string; category_id: string | null; name_ciphertext: string; icon_ciphertext?: string | null; color_key?: string | null; label?: string; icon?: string | null }
+interface CategoryItem { id: string; color_key: string | null; name_ciphertext: string; icon_ciphertext?: string | null; label?: string; icon?: string | null }
 interface DefinitionItem { id: string; type: string; label_ciphertext: string | null; staged_label?: string | null; options_ciphertext: string | null; icon_rules_ciphertext: string | null; label?: string; options: string[] }
 
 const sourceItems = ref<SourceItem[]>(props.sources.map((s) => ({ ...s })));
@@ -128,7 +130,7 @@ const resolvedTheme = useResolvedTheme();
 
 /** Whether a rule icon key is a palette icon or a country flag this client can draw. */
 function ruleIconKnown(key: string): boolean {
-  return flagIconCode(key) !== null || paletteIconFor(key) !== undefined;
+  return flagIconCode(key) !== null || brandIconPath(key) !== null || paletteIconFor(key) !== undefined;
 }
 
 /** A rule icon's palette colour for the current theme; undefined (inherit) when it has none or the row is selected, where the inherited white stays readable. */
@@ -139,21 +141,16 @@ function ruleIconColor(icon: ResolvedIcon, selected: boolean): string | undefine
   return swatch ? swatch[resolvedTheme.value] : undefined;
 }
 
+/** Each source with its look resolved: its own icon/color, else its category's (see sourceLook.ts). */
 const sources = computed(() =>
   sourceItems.value
     .filter((s): s is SourceItem & { label: string } => s.label !== undefined)
-    // The category's color rides along so every source name can show its group's dot.
-    .map(({ id, category_id, label }) => ({
-      id,
-      category_id,
-      label,
-      color_key: categoryItems.value.find((c) => c.id === category_id)?.color_key ?? null,
-    })),
+    .map((source) => ({ id: source.id, category_id: source.category_id, label: source.label, ...sourceLook(source, categoryItems.value) })),
 );
 const categories = computed(() =>
   categoryItems.value
     .filter((c): c is CategoryItem & { label: string } => c.label !== undefined)
-    .map(({ id, color_key, label }) => ({ id, color_key, label })),
+    .map(({ id, color_key, label, icon }) => ({ id, color_key, label, icon: icon ?? null })),
 );
 const definitions = computed(() =>
   definitionItems.value
@@ -434,7 +431,8 @@ watch(vaultUnlocked, async (unlocked) => {
     try {
       const key = await getRecordKey(source.id);
       const label = await decryptString(key, source.name_ciphertext);
-      if (vaultUnlocked.value) source.label = label; // locked mid-way: don't write it back
+      const icon = source.icon_ciphertext ? await decryptString(key, source.icon_ciphertext) : null;
+      if (vaultUnlocked.value) { source.icon = icon; source.label = label; } // locked mid-way: don't write it back
     } catch (error) {
       console.error(error);
     }
@@ -445,7 +443,8 @@ watch(vaultUnlocked, async (unlocked) => {
     try {
       const key = await getRecordKey(category.id);
       const label = await decryptString(key, category.name_ciphertext);
-      if (vaultUnlocked.value) category.label = label;
+      const icon = category.icon_ciphertext ? await decryptString(key, category.icon_ciphertext) : null;
+      if (vaultUnlocked.value) { category.icon = icon; category.label = label; }
     } catch (error) {
       console.error(error);
     }
@@ -1513,17 +1512,23 @@ async function addSource(name: string): Promise<void> {
   }
 }
 
-async function updateSource(id: string, name: string, categoryId: string | null): Promise<void> {
+async function updateSource(id: string, name: string, categoryId: string | null, icon: string | null, colorKey: string | null): Promise<void> {
   try {
     const key = await getRecordKey(id);
     const nameCiphertext = await encryptString(key, name);
+    const iconCiphertext = icon ? await encryptString(key, icon) : null;
     await axios.patch(`/dashboard/connection-sources/${id}`, {
       name_ciphertext: nameCiphertext,
+      icon_ciphertext: iconCiphertext,
+      color_key: colorKey,
       category_id: categoryId,
     });
     const source = sourceItems.value.find((s) => s.id === id);
     if (source) {
       source.name_ciphertext = nameCiphertext;
+      source.icon_ciphertext = iconCiphertext;
+      source.icon = icon;
+      source.color_key = colorKey;
       source.label = name;
       source.category_id = categoryId;
       await placeAndSave(sourceItems, 'sources', id, labelOfItem);
@@ -1548,24 +1553,28 @@ async function addCategory(name: string): Promise<void> {
     const key = await createRecordKey(id);
     const nameCiphertext = await encryptString(key, name);
     await axios.post('/dashboard/connection-source-categories', { id, name_ciphertext: nameCiphertext });
-    categoryItems.value.push({ id, color_key: null, name_ciphertext: nameCiphertext, label: name });
+    categoryItems.value.push({ id, color_key: null, name_ciphertext: nameCiphertext, icon_ciphertext: null, icon: null, label: name });
     await placeAndSave(categoryItems, 'categories', id, labelOfItem);
   } catch (error) {
     console.error(error);
   }
 }
 
-async function updateCategory(id: string, name: string, colorKey: string | null): Promise<void> {
+async function updateCategory(id: string, name: string, colorKey: string | null, icon: string | null): Promise<void> {
   try {
     const key = await getRecordKey(id);
     const nameCiphertext = await encryptString(key, name);
+    const iconCiphertext = icon ? await encryptString(key, icon) : null;
     await axios.patch(`/dashboard/connection-source-categories/${id}`, {
       name_ciphertext: nameCiphertext,
+      icon_ciphertext: iconCiphertext,
       color_key: colorKey,
     });
     const category = categoryItems.value.find((c) => c.id === id);
     if (category) {
       category.name_ciphertext = nameCiphertext;
+      category.icon_ciphertext = iconCiphertext;
+      category.icon = icon;
       category.label = name;
       category.color_key = colorKey;
       await placeAndSave(categoryItems, 'categories', id, labelOfItem);
@@ -1949,7 +1958,7 @@ async function migrateDefinition(id: string, to: string, options: MigrateOptions
                     v-model="newSourceIds"
                     multiple
                     placeholder="(none)"
-                    :options="sources.map((source) => ({ value: source.id, text: source.label, swatch: source.color_key }))"
+                    :options="sources.map((source) => ({ value: source.id, text: source.label, swatch: source.color_key, sourceIcon: source.icon }))"
                   />
                 </BFormGroup>
                 <BButton size="sm" variant="primary" @click="createConnection">Create</BButton>

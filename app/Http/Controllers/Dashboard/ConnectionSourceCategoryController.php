@@ -24,6 +24,7 @@ class ConnectionSourceCategoryController extends Controller
             'id' => ['required', 'uuid', 'unique:connection_source_categories,id'],
             'name_ciphertext' => ['required', 'string'],
             'color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
+            'icon_ciphertext' => ['nullable', 'string'],
         ]);
 
         $category = $request->user()->connectionSourceCategories()->create($data + ['sort_order' => SortOrder::next($request->user()->connectionSourceCategories())]);
@@ -36,6 +37,7 @@ class ConnectionSourceCategoryController extends Controller
         $data = $request->validate([
             'name_ciphertext' => ['required', 'string'],
             'color_key' => ['nullable', Rule::enum(ColorSwatchKey::class)],
+            'icon_ciphertext' => ['nullable', 'string'],
         ]);
 
         $request->user()->connectionSourceCategories()->where('id', $category)->firstOrFail()->update($data);

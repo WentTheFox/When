@@ -59,8 +59,8 @@ class ConnectionController extends Controller
             'connections' => $user->connections()->with(['attributeValues', 'sources', 'shareLink'])->ordered()->get([
                 'id', 'name_ciphertext', 'notes_ciphertext', 'archived', 'created_at', 'preferred_identity',
             ])->map(fn (Connection $c) => $this->serialize($c)),
-            'sources' => $user->connectionSources()->ordered()->get(['id', 'category_id', 'name_ciphertext']),
-            'categories' => $user->connectionSourceCategories()->ordered()->get(['id', 'name_ciphertext', 'color_key']),
+            'sources' => $user->connectionSources()->ordered()->get(['id', 'category_id', 'name_ciphertext', 'icon_ciphertext', 'color_key']),
+            'categories' => $user->connectionSourceCategories()->ordered()->get(['id', 'name_ciphertext', 'color_key', 'icon_ciphertext']),
             // staged_label: a name the server gave a field it created itself, until the browser has encrypted it (VisitorFieldsBackfill).
             'attributeDefinitions' => $user->connectionAttributeDefinitions()->ordered()->get(['id', 'label_ciphertext', 'staged_label', 'type', 'options_ciphertext', 'icon_rules_ciphertext']),
             // Fields that site features depend on (field id => feature labels): those can't be deleted.

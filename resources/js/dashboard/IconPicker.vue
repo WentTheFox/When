@@ -17,6 +17,7 @@ import { BDropdown, BFormInput, BInputGroup, BInputGroupText } from 'bootstrap-v
 import { computed, nextTick, ref } from 'vue';
 import AppIcon from '../Components/AppIcon.vue';
 import RuleIcon from '../Components/RuleIcon.vue';
+import { brandIconOptions } from './brandIcons';
 import { COUNTRY_CODES, countryKeywords, countryOptions, flagIconCode, flagIconKey, searchRank } from './countries';
 import { getIconPalette, paletteIconFor } from '../free/icon-palette';
 import type { IconOption } from '../free/icon-palette';
@@ -26,7 +27,7 @@ const props = defineProps<{
   label: string;
   /** Tints ONLY the toggle button's own icon glyph (never its label text) plus the active entry's icon in the list — same --app-icon-active-color the old grid used. Omit entirely for a picker with no real color concept (e.g. a per-role icon) rather than passing a generic accent — this prop existing at all is what turns tinting on. */
   activeColor?: string;
-  /** Adds every country's flag as a last "Flags" group. Only for icons that live inside an encrypted blob (rule icons): the server-validated icon slots accept palette keys only. */
+  /** Adds the brand marks (Discord, Telegram, VRChat) and every country's flag as last groups. Only for icons that live inside an encrypted blob (rule icons): the server-validated icon slots accept palette keys only. */
   withFlags?: boolean;
 }>();
 
@@ -52,7 +53,8 @@ const flagIcons: IconOption[] = (() => {
 
 const currentFlag = computed(() => flagIconCode(modelValue.value));
 const currentIcon = computed(() => (modelValue.value && !currentFlag.value ? paletteIconFor(modelValue.value) : undefined));
-const currentLabel = computed(() => (modelValue.value ? [...allIcons, ...flagIcons].find((i) => i.key === modelValue.value)?.label ?? null : null));
+const currentBrand = computed(() => !!modelValue.value && brandIconOptions.some((b) => b.key === modelValue.value));
+const currentLabel = computed(() => (modelValue.value ? [...allIcons, ...brandIconOptions, ...flagIcons].find((i) => i.key === modelValue.value)?.label ?? null : null));
 
 /** How well an icon matches the query (null = not at all): label, the key itself (dashes read as spaces, so "cloud-moon" is searchable as "cloud moon"), and every configured alias — see IconKey::keywords()'s own doc comment for why aliases exist at all. Exact hits rank first, so "uk" lists the United Kingdom before Ukraine. */
 function rank(icon: IconOption, query: string): number | null {
@@ -63,7 +65,7 @@ function rank(icon: IconOption, query: string): number | null {
 const groups = computed(() => {
   const query = search.value.trim();
   const ranked: { icon: IconOption; rank: number; index: number }[] = [];
-  (props.withFlags ? [...allIcons, ...flagIcons] : allIcons).forEach((icon, index) => {
+  (props.withFlags ? [...allIcons, ...brandIconOptions, ...flagIcons] : allIcons).forEach((icon, index) => {
     const r = rank(icon, query);
     if (r !== null) ranked.push({ icon, rank: r, index });
   });
@@ -95,7 +97,7 @@ function onShown(): void {
 <template>
   <BInputGroup>
     <BInputGroupText>
-      <RuleIcon v-if="currentFlag" :icon-key="modelValue!" />
+      <RuleIcon v-if="currentFlag || currentBrand" :icon-key="modelValue!" :style="currentBrand && activeColor ? { color: activeColor } : undefined" />
       <AppIcon
         v-else-if="currentIcon"
         :icon="currentIcon"

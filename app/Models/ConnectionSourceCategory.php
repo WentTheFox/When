@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property string|null $color_key
+ * @property string|null $icon_ciphertext
  * @property Carbon|null $deleted_at
  * @property int $sort_order
  * @property-read Collection<int, ConnectionSource> $sources
@@ -32,6 +33,7 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSourceCategory whereColorKey($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSourceCategory whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSourceCategory whereDeletedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSourceCategory whereIconCiphertext($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSourceCategory whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSourceCategory whereNameCiphertext($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSourceCategory whereSortOrder($value)
@@ -51,6 +53,7 @@ class ConnectionSourceCategory extends Model
         'user_id',
         'name_ciphertext',
         'color_key',
+        'icon_ciphertext',
         'sort_order',
     ];
 

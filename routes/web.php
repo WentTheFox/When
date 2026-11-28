@@ -13,6 +13,7 @@ use App\Http\Controllers\Dashboard\ConnectionAttributeDefinitionController;
 use App\Http\Controllers\Dashboard\ConnectionController;
 use App\Http\Controllers\Dashboard\ConnectionsGraphController;
 use App\Http\Controllers\Dashboard\ConnectionShareLinkController;
+use App\Http\Controllers\Dashboard\ConnectionsMapController;
 use App\Http\Controllers\Dashboard\ConnectionSourceCategoryController;
 use App\Http\Controllers\Dashboard\ConnectionSourceController;
 use App\Http\Controllers\Dashboard\DiscordController;
@@ -287,6 +288,8 @@ Route::middleware('auth')->group(function () {
         ->name('dashboard.connections');
     Route::get('/dashboard/connections/graph', ConnectionsGraphController::class)
         ->name('dashboard.connections.graph');
+    Route::get('/dashboard/map', ConnectionsMapController::class)
+        ->name('dashboard.map');
     Route::post('/dashboard/connections', [ConnectionController::class, 'store'])
         ->name('dashboard.connections.store');
     Route::put('/dashboard/connections/{connection}/identity', [ConnectionController::class, 'updateIdentity'])

@@ -46,7 +46,10 @@ class ConnectionsGraphController extends Controller
         $sourceNodes = $sources->map(fn (ConnectionSource $s) => [
             'id' => $s->id,
             'type' => 'source',
-            'color_key' => $s->category?->color_key,
+            'color_key' => $s->color_key ?? $s->category?->color_key,
+            // The source's own icon, else its category's: E2EE under that record's key, so say whose key opens it.
+            'icon_ciphertext' => $s->icon_ciphertext ?? $s->category?->icon_ciphertext,
+            'icon_key_id' => $s->icon_ciphertext !== null ? $s->id : ($s->category?->icon_ciphertext !== null ? $s->category_id : null),
         ]);
 
         $sourceEdges = $sources->flatMap(fn (ConnectionSource $s) => $s->connections->map(fn (Connection $c) => [

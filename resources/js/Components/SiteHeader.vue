@@ -136,6 +136,7 @@ const currentLocaleCode = computed(() => props.localeOverride ?? window.location
         >
           Connections
         </Link>
+        <Link class="nav-item nav-link" :class="{ active: isActive('/dashboard/map') }" :aria-current="isActive('/dashboard/map') ? 'page' : undefined" href="/dashboard/map">Map</Link>
         <Link class="nav-item nav-link" :class="{ active: isActive('/invites') }" :aria-current="isActive('/invites') ? 'page' : undefined" href="/invites">Invites</Link>
       </div>
 

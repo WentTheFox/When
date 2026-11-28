@@ -82,7 +82,7 @@ export interface PeerUpdate {
 
 const props = defineProps<{
   connection: ConnectionRow;
-  sources: { id: string; label: string; color_key?: string | null }[];
+  sources: { id: string; label: string; color_key?: string | null; icon?: string | null }[];
   attributeDefinitions: { id: string; label: string; type: string; options: string[] }[];
   connectionOptions: { id: string; label: string; avatar?: string | null }[];
   /** Another connection's stored ciphertext for a relationship field (null = none), so a save can rewrite its side too. */
@@ -585,7 +585,7 @@ async function remove(): Promise<void> {
             v-model="editSourceIds"
             multiple
             placeholder="(none)"
-            :options="sortedSources.map((source) => ({ value: source.id, text: source.label, swatch: source.color_key }))"
+            :options="sortedSources.map((source) => ({ value: source.id, text: source.label, swatch: source.color_key, sourceIcon: source.icon }))"
           />
         </BFormGroup>
       </div>

@@ -16,6 +16,8 @@ use Illuminate\Support\Carbon;
  * @property string $user_id
  * @property string|null $category_id
  * @property string $name_ciphertext
+ * @property string|null $icon_ciphertext
+ * @property string|null $color_key
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at
@@ -31,8 +33,10 @@ use Illuminate\Support\Carbon;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSource ordered()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSource query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSource whereCategoryId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSource whereColorKey($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSource whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSource whereDeletedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSource whereIconCiphertext($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSource whereId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSource whereNameCiphertext($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|ConnectionSource whereSortOrder($value)
@@ -52,6 +56,8 @@ class ConnectionSource extends Model
         'user_id',
         'category_id',
         'name_ciphertext',
+        'icon_ciphertext',
+        'color_key',
         'sort_order',
     ];
 

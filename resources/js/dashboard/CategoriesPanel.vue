@@ -5,8 +5,12 @@ import EncryptedInput from '../Components/EncryptedInput.vue';
 import EncryptedText from '../Components/EncryptedText.vue';
 import { requestConfirm } from './confirmModal';
 import LockedOverlay from './LockedOverlay.vue';
+import SourceBadge from '../Components/SourceBadge.vue';
 import SwatchDot from '../Components/SwatchDot.vue';
 import ColorPicker from './ColorPicker.vue';
+import IconPicker from './IconPicker.vue';
+import { swatchByKey } from '../free/color-palette';
+import { useResolvedTheme } from '../composables/useTheme';
 
 interface CategoryOption {
   id: string;
@@ -14,12 +18,14 @@ interface CategoryOption {
   /** Raw E2EE name, shown until `label` has been decrypted. */
   name_ciphertext: string;
   label?: string;
+  /** The decrypted icon key (palette icon, `flag:xx` or `brand:xx`); null for none. */
+  icon?: string | null;
 }
 
 const props = defineProps<{ categories: CategoryOption[] }>();
 const emit = defineEmits<{
   add: [string];
-  update: [string, string, string | null];
+  update: [string, string, string | null, string | null];
   remove: [string];
 }>();
 
@@ -28,6 +34,13 @@ const newName = ref('');
 const selectedId = defineModel<string | null>('selectedId', { default: null });
 const editName = ref('');
 const editColorKey = ref<string | null>(null);
+const editIcon = ref<string | null>(null);
+const theme = useResolvedTheme();
+const editTint = computed(() => {
+  const swatch = swatchByKey(editColorKey.value ?? undefined) ?? swatchByKey('blue');
+
+  return swatch ? swatch[theme.value] : undefined;
+});
 
 // Lists render in the order they were given (their stored order, see listOrder.ts); sorting by name here would reshuffle them as names decrypt.
 const filteredCategories = computed(() => {
@@ -54,11 +67,12 @@ const pending = computed(() => selected.value !== null && selected.value.label =
 watch(selected, (current) => {
   editName.value = current?.label ?? '';
   editColorKey.value = current?.color_key ?? null;
+  editIcon.value = current?.icon ?? null;
 }, { immediate: true, deep: true });
 
 function save(): void {
   if (!selectedId.value || !editName.value || pending.value) return;
-  emit('update', selectedId.value, editName.value, editColorKey.value);
+  emit('update', selectedId.value, editName.value, editColorKey.value, editIcon.value);
 }
 
 async function remove(): Promise<void> {
@@ -80,7 +94,7 @@ async function remove(): Promise<void> {
 <template>
   <div>
     <p class="small text-muted">
-      Give a category a color to distinguish its sources on the dashboard's connections graph.
+      Give a category a color and an icon: its sources show them as their logo and on the dashboard's connections graph, unless a source sets its own.
     </p>
     <div class="row">
       <div class="col-md-4 wtf-master-column">
@@ -99,7 +113,8 @@ async function remove(): Promise<void> {
               :class="{ active: selectedId === category.id }"
               @click="select(category.id)"
             >
-              <SwatchDot :color-key="category.color_key" />
+              <SourceBadge v-if="category.icon" :icon-key="category.icon" :color-key="category.color_key" />
+              <SwatchDot v-else :color-key="category.color_key" />
               <EncryptedText :value="category.label" :ciphertext="category.name_ciphertext" />
             </button>
           </div>
@@ -113,6 +128,13 @@ async function remove(): Promise<void> {
           </BFormGroup>
           <BFormGroup label="Color" class="mb-3">
             <ColorPicker v-model="editColorKey" label="Category color" preview="solid" :disabled="pending" />
+          </BFormGroup>
+          <BFormGroup label="Icon" class="mb-3">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <IconPicker v-model="editIcon" label="Category icon" with-flags :active-color="editTint" />
+              <SourceBadge v-if="editIcon" :icon-key="editIcon" :color-key="editColorKey" />
+              <BButton v-if="editIcon" size="sm" variant="outline-secondary" :disabled="pending" @click="editIcon = null">Remove icon</BButton>
+            </div>
           </BFormGroup>
           <BButton size="sm" variant="primary" :disabled="pending" @click="save">Save</BButton>
           <BButton size="sm" variant="outline-danger" class="ms-2" :disabled="pending" @click="remove">Delete</BButton>

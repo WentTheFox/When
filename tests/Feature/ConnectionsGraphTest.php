@@ -64,6 +64,45 @@ class ConnectionsGraphTest extends TestCase
         $this->assertSame((string) $source->id, $introduced['to']);
     }
 
+    public function test_a_sources_own_color_overrides_its_categorys_and_icons_round_trip(): void
+    {
+        $owner = User::factory()->create();
+
+        $category = ConnectionSourceCategory::create(['id' => Str::uuid(), 'user_id' => $owner->id, 'name_ciphertext' => 'x', 'color_key' => 'jade']);
+        $this->actingAs($owner)->patchJson("/dashboard/connection-source-categories/{$category->id}", ['name_ciphertext' => 'x', 'color_key' => 'jade', 'icon_ciphertext' => 'cat-icon'])->assertOk();
+
+        $source = ConnectionSource::create(['id' => Str::uuid(), 'user_id' => $owner->id, 'category_id' => $category->id, 'name_ciphertext' => 'x']);
+        $this->actingAs($owner)->patchJson("/dashboard/connection-sources/{$source->id}", ['name_ciphertext' => 'x', 'category_id' => $category->id, 'color_key' => 'not-a-color'])->assertUnprocessable();
+        $this->actingAs($owner)->patchJson("/dashboard/connection-sources/{$source->id}", ['name_ciphertext' => 'x', 'category_id' => $category->id, 'color_key' => 'blue', 'icon_ciphertext' => 'src-icon'])->assertOk();
+
+        $this->assertSame('cat-icon', $category->fresh()->icon_ciphertext);
+        $this->assertSame('src-icon', $source->fresh()->icon_ciphertext);
+        $node = collect($this->actingAs($owner)->getJson('/dashboard/connections/graph')->json('nodes'))->firstWhere('id', (string) $source->id);
+        $this->assertSame('blue', $node['color_key']);
+
+        // Clearing the override falls back to the category's color.
+        $this->actingAs($owner)->patchJson("/dashboard/connection-sources/{$source->id}", ['name_ciphertext' => 'x', 'category_id' => $category->id, 'color_key' => null, 'icon_ciphertext' => null])->assertOk();
+        $node = collect($this->actingAs($owner)->getJson('/dashboard/connections/graph')->json('nodes'))->firstWhere('id', (string) $source->id);
+        $this->assertSame('jade', $node['color_key']);
+        $this->assertNull($source->fresh()->icon_ciphertext);
+    }
+
+    public function test_a_source_node_carries_the_icon_it_inherits_and_whose_key_opens_it(): void
+    {
+        $owner = User::factory()->create();
+        $category = ConnectionSourceCategory::create(['id' => Str::uuid(), 'user_id' => $owner->id, 'name_ciphertext' => 'x', 'icon_ciphertext' => 'cat-icon']);
+        $inherits = ConnectionSource::create(['id' => Str::uuid(), 'user_id' => $owner->id, 'category_id' => $category->id, 'name_ciphertext' => 'x']);
+        $own = ConnectionSource::create(['id' => Str::uuid(), 'user_id' => $owner->id, 'category_id' => $category->id, 'name_ciphertext' => 'x', 'icon_ciphertext' => 'own-icon']);
+        $plain = ConnectionSource::create(['id' => Str::uuid(), 'user_id' => $owner->id, 'name_ciphertext' => 'x']);
+
+        $nodes = collect($this->actingAs($owner)->getJson('/dashboard/connections/graph')->json('nodes'));
+
+        $this->assertSame(['cat-icon', (string) $category->id], [$nodes->firstWhere('id', (string) $inherits->id)['icon_ciphertext'], $nodes->firstWhere('id', (string) $inherits->id)['icon_key_id']]);
+        $this->assertSame(['own-icon', (string) $own->id], [$nodes->firstWhere('id', (string) $own->id)['icon_ciphertext'], $nodes->firstWhere('id', (string) $own->id)['icon_key_id']]);
+        $this->assertNull($nodes->firstWhere('id', (string) $plain->id)['icon_ciphertext']);
+        $this->assertNull($nodes->firstWhere('id', (string) $plain->id)['icon_key_id']);
+    }
+
     public function test_connection_edges_are_never_computed_server_side_only_bound_field_ciphertext_is_handed_over(): void
     {
         $owner = User::factory()->create();

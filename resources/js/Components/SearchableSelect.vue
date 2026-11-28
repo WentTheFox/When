@@ -14,6 +14,7 @@ import { CheckIcon, type LucideIcon } from '@lucide/vue';
 import { searchRank } from '../dashboard/countries';
 import AppIcon from './AppIcon.vue';
 import ConnectionAvatar from './ConnectionAvatar.vue';
+import SourceBadge from './SourceBadge.vue';
 import SwatchDot from './SwatchDot.vue';
 
 export interface SelectOption {
@@ -23,6 +24,8 @@ export interface SelectOption {
   flag?: string;
   /** A palette key: draws that color's dot before the text (a source's category color). */
   swatch?: string | null;
+  /** A rule icon key (palette icon or `flag:xx`): with it the option shows the source's round icon badge, in the `swatch` color, instead of the dot. */
+  sourceIcon?: string | null;
   /** A Lucide icon drawn before the text. */
   icon?: LucideIcon;
   /** A round profile picture drawn before the text (a connection's linked account). */
@@ -153,12 +156,12 @@ function pick(option: SelectOption | undefined): void {
       <template v-if="multiple">
         <template v-if="chosenOptions.length">
           <span v-for="(option, index) in chosenOptions" :key="option.value">
-            <template v-if="index">, </template><SwatchDot :color-key="option.swatch" class="me-1" /><ConnectionAvatar :src="option.avatar" size="1.1rem" class="me-1" />{{ option.text }}
+            <template v-if="index">, </template><SourceBadge v-if="option.sourceIcon" :icon-key="option.sourceIcon" :color-key="option.swatch" size="1.3rem" class="me-1" /><SwatchDot v-else :color-key="option.swatch" class="me-1" /><ConnectionAvatar :src="option.avatar" size="1.1rem" class="me-1" />{{ option.text }}
           </span>
         </template>
         <template v-else>{{ placeholder }}</template>
       </template>
-      <template v-else-if="selected"><AppIcon v-if="selected.icon" :icon="selected.icon" class="me-2" /><SwatchDot :color-key="selected.swatch" class="me-1" /><ConnectionAvatar :src="selected.avatar" size="1.1rem" class="me-1" />{{ selected.text }}</template>
+      <template v-else-if="selected"><AppIcon v-if="selected.icon" :icon="selected.icon" class="me-2" /><SourceBadge v-if="selected.sourceIcon" :icon-key="selected.sourceIcon" :color-key="selected.swatch" size="1.3rem" class="me-1" /><SwatchDot v-else :color-key="selected.swatch" class="me-1" /><ConnectionAvatar :src="selected.avatar" size="1.1rem" class="me-1" />{{ selected.text }}</template>
       <template v-else>{{ placeholder }}</template>
     </button>
     <Teleport to="body">
@@ -190,7 +193,8 @@ function pick(option: SelectOption | undefined): void {
               <span v-else-if="hasFlags" class="me-2 searchable-select-nobox" aria-hidden="true" />
               <AppIcon v-if="option.icon" :icon="option.icon" class="me-2" />
               <span v-else-if="hasIcons" class="me-2 searchable-select-nobox" aria-hidden="true" />
-              <SwatchDot v-if="option.swatch" :color-key="option.swatch" class="me-2" />
+              <SourceBadge v-if="option.sourceIcon" :icon-key="option.sourceIcon" :color-key="option.swatch" size="1.5rem" class="me-2" />
+              <SwatchDot v-else-if="option.swatch" :color-key="option.swatch" class="me-2" />
               <span v-else-if="hasSwatches" class="me-2 searchable-select-noswatch" aria-hidden="true" />
               <ConnectionAvatar v-if="option.avatar" :src="option.avatar" class="me-2" />
               <span v-else-if="hasAvatars" class="me-2 searchable-select-noavatar" aria-hidden="true" />

@@ -3,9 +3,15 @@ import { BButton, BFormGroup, BFormInput, BFormSelect } from 'bootstrap-vue-next
 import { computed, ref, watch } from 'vue';
 import EncryptedInput from '../Components/EncryptedInput.vue';
 import EncryptedText from '../Components/EncryptedText.vue';
+import SourceBadge from '../Components/SourceBadge.vue';
 import SwatchDot from '../Components/SwatchDot.vue';
 import { requestConfirm } from './confirmModal';
+import ColorPicker from './ColorPicker.vue';
+import IconPicker from './IconPicker.vue';
 import LockedOverlay from './LockedOverlay.vue';
+import { sourceLook } from './sourceLook';
+import { swatchByKey } from '../free/color-palette';
+import { useResolvedTheme } from '../composables/useTheme';
 
 interface SourceOption {
   id: string;
@@ -13,20 +19,26 @@ interface SourceOption {
   /** Raw E2EE name, shown until `label` has been decrypted. */
   name_ciphertext: string;
   label?: string;
+  /** The source's own icon key (palette icon, `flag:xx` or `brand:xx`); null to use its category's. Undefined until decrypted. */
+  icon?: string | null;
+  /** The source's own palette color; null to use its category's. */
+  color_key?: string | null;
 }
 
 interface CategoryOption {
   id: string;
   label: string;
   color_key?: string | null;
+  /** The category's icon, inherited by its sources. */
+  icon?: string | null;
 }
 
 const props = defineProps<{ sources: SourceOption[]; categories: CategoryOption[] }>();
-const emit = defineEmits<{ add: [string]; update: [string, string, string | null]; remove: [string] }>();
+const emit = defineEmits<{ add: [string]; update: [string, string, string | null, string | null, string | null]; remove: [string] }>();
 
-/** A source shows its category's color dot before its name. */
-function colorOf(source: SourceOption): string | null {
-  return props.categories.find((c) => c.id === source.category_id)?.color_key ?? null;
+/** What a source shows before its name: its own icon/color, else its category's. */
+function lookOf(source: SourceOption) {
+  return sourceLook(source, props.categories);
 }
 
 const newName = ref('');
@@ -34,6 +46,17 @@ const newName = ref('');
 const selectedId = defineModel<string | null>('selectedId', { default: null });
 const editName = ref('');
 const editCategoryId = ref<string | null>(null);
+/** The open source's own overrides; null means "use the category's". */
+const editIcon = ref<string | null>(null);
+const editColorKey = ref<string | null>(null);
+const theme = useResolvedTheme();
+/** What the open source shows right now (its overrides over its category's), for the preview and the picker tint. */
+const editLook = computed(() => sourceLook({ category_id: editCategoryId.value, icon: editIcon.value, color_key: editColorKey.value }, props.categories));
+const editTint = computed(() => {
+  const swatch = swatchByKey(editLook.value.color_key ?? undefined) ?? swatchByKey('blue');
+
+  return swatch ? swatch[theme.value] : undefined;
+});
 
 // Lists render in the order they were given (their stored order, see listOrder.ts); sorting by name here would reshuffle them as names decrypt.
 const filteredSources = computed(() => {
@@ -63,11 +86,13 @@ const pending = computed(() => selected.value !== null && selected.value.label =
 watch(selected, (current) => {
   editName.value = current?.label ?? '';
   editCategoryId.value = current?.category_id ?? null;
+  editIcon.value = current?.icon ?? null;
+  editColorKey.value = current?.color_key ?? null;
 }, { immediate: true, deep: true });
 
 function save(): void {
   if (!selectedId.value || !editName.value || pending.value) return;
-  emit('update', selectedId.value, editName.value, editCategoryId.value);
+  emit('update', selectedId.value, editName.value, editCategoryId.value, editIcon.value, editColorKey.value);
 }
 
 async function remove(): Promise<void> {
@@ -104,7 +129,8 @@ async function remove(): Promise<void> {
               :class="{ active: selectedId === source.id }"
               @click="select(source.id)"
             >
-              <SwatchDot :color-key="colorOf(source)" class="me-2" />
+              <SourceBadge v-if="lookOf(source).icon" :icon-key="lookOf(source).icon!" :color-key="lookOf(source).color_key" class="me-2" />
+              <SwatchDot v-else :color-key="lookOf(source).color_key" class="me-2" />
               <EncryptedText :value="source.label" :ciphertext="source.name_ciphertext" />
             </button>
           </div>
@@ -121,6 +147,21 @@ async function remove(): Promise<void> {
               <option :value="null">(none)</option>
               <option v-for="category in categories" :key="category.id" :value="category.id">{{ category.label }}</option>
             </BFormSelect>
+          </BFormGroup>
+          <BFormGroup label="Icon" class="mb-3">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <IconPicker v-model="editIcon" label="Icon for this source" with-flags :active-color="editTint" />
+              <SourceBadge v-if="editLook.icon" :icon-key="editLook.icon" :color-key="editLook.color_key" />
+              <BButton v-if="editIcon" size="sm" variant="outline-secondary" :disabled="pending" @click="editIcon = null">Use category's icon</BButton>
+              <span v-else class="small text-muted">{{ editLook.icon ? "From the category" : "No icon" }}</span>
+            </div>
+          </BFormGroup>
+          <BFormGroup label="Color" class="mb-3">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <ColorPicker v-model="editColorKey" label="Source color" preview="solid" :disabled="pending" />
+              <BButton v-if="editColorKey" size="sm" variant="outline-secondary" :disabled="pending" @click="editColorKey = null">Use category's color</BButton>
+              <span v-else class="small text-muted">{{ editLook.color_key ? "From the category" : "No color" }}</span>
+            </div>
           </BFormGroup>
           <BButton size="sm" variant="primary" :disabled="pending" @click="save">Save</BButton>
           <BButton size="sm" variant="outline-danger" class="ms-2" :disabled="pending" @click="remove">Delete</BButton>

@@ -104,10 +104,13 @@ function languageName(code: string): string {
     </div>
 
     <div class="col-md-6">
-      <BCard class="h-100">
+      <BCard class="h-100" body-class="d-flex flex-column">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h2 class="h5 mb-0">Connections</h2>
-          <Link href="/dashboard/connections" class="btn btn-sm btn-outline-secondary">Manage</Link>
+          <div class="d-flex gap-2">
+            <Link v-if="connectionCount > 0" href="/dashboard/map" class="btn btn-sm btn-outline-secondary">Open map</Link>
+            <Link href="/dashboard/connections" class="btn btn-sm btn-outline-secondary">Manage</Link>
+          </div>
         </div>
         <p v-if="connectionCount === 0" class="text-muted mb-0">
           No connections tracked yet. Add some on the

@@ -12,21 +12,23 @@
  */
 import axios from 'axios';
 import { onMounted, onUnmounted, ref, watch } from 'vue';
+import SourceBadge from '../Components/SourceBadge.vue';
 import { decryptString } from '../crypto';
 import { useResolvedTheme } from '../composables/useTheme';
-import { listEntries } from './encryptedList';
+import { layoutGraph } from './graph/layout';
+import { buildRelationshipEdges } from './graph/relationshipEdges';
+import type { GraphEdge, GraphNode, GraphResponse } from './graph/types';
 import { onVaultLockChange } from './onVaultLockChange';
 import { useVault } from './useVault';
 import { swatchByKey } from '../free/color-palette';
 
-interface GraphNode { id: string; type: 'connection' | 'source'; color_key: string | null }
-interface GraphEdge { from: string; to: string; kind: 'introduced' | 'mutual' }
-/** One connection's stored value in a field the owner chose for the graph: E2EE, only the browser can read it. */
-interface FieldValue { connection_id: string; attribute_definition_id: string; type: string; value_ciphertext: string }
-interface GraphResponse { seed: number; nodes: GraphNode[]; edges: GraphEdge[]; field_values: FieldValue[] }
-
 const canvas = ref<HTMLCanvasElement | null>(null);
+const wrapper = ref<HTMLDivElement | null>(null);
 const loadFailed = ref(false);
+/** Decrypted source icon keys by node id (only once the vault is unlocked). */
+const icons = ref<Record<string, string>>({});
+/** Where each source's round icon badge sits on the canvas, set on every render and laid over it as HTML. */
+const badges = ref<{ id: string; icon: string; color_key: string | null; x: number; y: number; diameter: number }[]>([]);
 const resolvedTheme = useResolvedTheme();
 
 let lastData: GraphResponse | null = null;
@@ -43,27 +45,26 @@ async function addRelationshipEdges(): Promise<void> {
   const data = lastData;
   if (!data || !vaultUnlocked.value) return;
 
-  const pairs = new Map<string, GraphEdge>();
-  for (const value of data.field_values) {
-    if (value.type !== 'relationship' && value.type !== 'connection') continue;
+  data.edges = [...serverEdges, ...(await buildRelationshipEdges(data.field_values, getRecordKey))];
+  await decryptIcons();
+  render();
+}
 
+async function decryptIcons(): Promise<void> {
+  const next: Record<string, string> = {};
+  for (const node of lastData?.nodes ?? []) {
+    if (node.type !== 'source' || !node.icon_ciphertext || !node.icon_key_id) continue;
     try {
-      const plain = await decryptString(await getRecordKey(value.connection_id), value.value_ciphertext);
-      for (const other of value.type === 'relationship' ? listEntries(plain) : [plain.trim()]) {
-        if (!other || other === value.connection_id) continue;
-        const [from, to] = [value.connection_id, other].sort();
-        pairs.set(`${from}|${to}`, { from, to, kind: 'mutual' });
-      }
+      next[node.id] = await decryptString(await getRecordKey(node.icon_key_id), node.icon_ciphertext);
     } catch (error) {
       console.error(error);
     }
   }
-
-  data.edges = [...serverEdges, ...pairs.values()];
-  render();
+  if (vaultUnlocked.value) icons.value = next;
 }
 
 const resetRelationshipEdges = () => {
+  icons.value = {};
   if (!lastData) return;
   lastData.edges = serverEdges;
   render();
@@ -82,21 +83,6 @@ function nodeColor(colorKey: string | null): string {
   return hex;
 }
 
-// Deterministic PRNG (mulberry32) so the same seed always produces the same sequence - used instead of
-// Math.random() throughout the layout simulation so a given owner's graph looks the same on every reload.
-/* eslint-disable no-bitwise -- bit-twiddling is inherent to this well-known PRNG */
-function mulberry32(seed: number): () => number {
-  let state = seed;
-  return () => {
-    state |= 0;
-    state = (state + 0x6d2b79f5) | 0;
-    let t = Math.imul(state ^ (state >>> 15), 1 | state);
-    t ^= (t + Math.imul(t ^ (t >>> 7), 61 | t));
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-/* eslint-enable no-bitwise */
-
 function render(): void {
   const el = canvas.value;
   const data = lastData;
@@ -111,62 +97,11 @@ function render(): void {
   if (!ctx) return;
   ctx.scale(dpr, dpr);
 
-  const rng = mulberry32(data.seed || 1);
-
-  interface SimNode extends GraphNode { x: number; y: number; vx: number; vy: number }
-  // Layout runs in an unbounded virtual space - clamping positions to the canvas each step is what
-  // made disconnected nodes pile up flush against the edges, producing a square/grid look. Instead,
-  // let the simulation settle naturally, then fit the resulting bounding box into the canvas below.
-  const nodes: SimNode[] = data.nodes.map((n) => ({
-    ...n,
-    x: (rng() - 0.5) * 200,
-    y: (rng() - 0.5) * 200,
-    vx: 0,
-    vy: 0,
-  }));
+  interface SimNode extends GraphNode { x: number; y: number }
+  const positions = layoutGraph(data.nodes, data.edges, data.seed);
+  const nodes: SimNode[] = data.nodes.map((n) => ({ ...n, ...positions.get(n.id)! }));
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const edges = data.edges.filter((e) => byId.has(e.from) && byId.has(e.to));
-
-  // Minimal force-directed layout: node repulsion, spring edges, weak center gravity (only to stop
-  // isolated nodes drifting off to infinity, not to enforce even canvas coverage).
-  const iterations = nodes.length > 0 ? 300 : 0;
-  for (let iter = 0; iter < iterations; iter++) {
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const a = nodes[i]; const b = nodes[j];
-        let dx = a.x - b.x; let dy = a.y - b.y;
-        let distSq = dx * dx + dy * dy;
-        if (distSq < 1) { dx = rng() - 0.5; dy = rng() - 0.5; distSq = 1; }
-        const force = 4000 / distSq;
-        const dist = Math.sqrt(distSq);
-        const fx = (dx / dist) * force; const fy = (dy / dist) * force;
-        a.vx += fx; a.vy += fy;
-        b.vx -= fx; b.vy -= fy;
-      }
-    }
-    edges.forEach((e) => {
-      const a = byId.get(e.from)!; const b = byId.get(e.to)!;
-      const dx = b.x - a.x; const dy = b.y - a.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const targetDist = 55;
-      const force = (dist - targetDist) * 0.03;
-      const fx = (dx / dist) * force; const fy = (dy / dist) * force;
-      a.vx += fx; a.vy += fy;
-      b.vx -= fx; b.vy -= fy;
-    });
-    nodes.forEach((n) => {
-      n.vx += -n.x * 0.0005;
-      n.vy += -n.y * 0.0005;
-      n.vx *= 0.86; n.vy *= 0.86;
-      // Clamp per-step speed so a single close-encounter repulsion spike can't fling one node far
-      // away from the rest - that single outlier would otherwise dominate the bounding box below and
-      // force every other (properly spread-out) node to be fit-scaled down into a tiny central clump.
-      const speed = Math.sqrt(n.vx * n.vx + n.vy * n.vy);
-      const maxSpeed = 25;
-      if (speed > maxSpeed) { n.vx = (n.vx / speed) * maxSpeed; n.vy = (n.vy / speed) * maxSpeed; }
-      n.x += n.vx; n.y += n.vy;
-    });
-  }
 
   // Fit the settled layout's bounding box into the canvas with padding, preserving aspect ratio.
   const padding = 20;
@@ -193,7 +128,9 @@ function render(): void {
   const nodeRadiusFor = (n: SimNode): number => {
     if (n.type !== 'source') return nodeRadius;
     const degree = inDegreeById.get(n.id) ?? 0;
-    return Math.min(sourceMaxRadius, sourceRadius * (1 + Math.log2(degree + 1) * 0.25));
+    const radius = Math.min(sourceMaxRadius, sourceRadius * (1 + Math.log2(degree + 1) * 0.25));
+    // A source with an icon is drawn bigger so the icon is legible.
+    return icons.value[n.id] ? Math.max(radius * 1.5, 9) : radius;
   };
 
   ctx.clearRect(0, 0, width, height);
@@ -211,6 +148,9 @@ function render(): void {
 
   // Pass 2: node circles, on top of lines.
   nodes.forEach((n) => {
+    // A source with an icon is drawn as an HTML badge instead; its canvas circle would peek out round the edge.
+    if (n.type === 'source' && icons.value[n.id]) return;
+
     const r = nodeRadiusFor(n);
     ctx.beginPath();
     ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
@@ -219,6 +159,12 @@ function render(): void {
     ctx.lineWidth = Math.max(0.75, edgeLineWidth);
     ctx.strokeStyle = '#fcfcfb';
     ctx.stroke();
+  });
+
+  // The icon badges (HTML, the same round badge as everywhere else) cover their sources' circles.
+  badges.value = nodes.flatMap((n) => {
+    const icon = icons.value[n.id];
+    return n.type === 'source' && icon ? [{ id: n.id, icon, color_key: n.color_key, x: n.x, y: n.y, diameter: nodeRadiusFor(n) * 2 }] : [];
   });
 
   // Pass 3: "introduced" arrowheads (connection -> source), on top of everything so they're never
@@ -244,6 +190,9 @@ function render(): void {
 }
 
 let resizeObserver: ResizeObserver | null = null;
+let resizeTimer: ReturnType<typeof setTimeout> | undefined;
+/** How long the container must stay the same size before the graph is laid out and drawn again. */
+const RESIZE_DEBOUNCE_MS = 150;
 
 onMounted(async () => {
   try {
@@ -258,13 +207,21 @@ onMounted(async () => {
     return;
   }
 
-  if (canvas.value) {
-    resizeObserver = new ResizeObserver(() => render());
-    resizeObserver.observe(canvas.value);
+  // The canvas fills its wrapper, which grows or shrinks with the card (e.g. when the availability widget beside
+  // it finishes loading and makes the row taller). Re-fit once the size has settled; the layout pass is not cheap.
+  if (wrapper.value) {
+    resizeObserver = new ResizeObserver(() => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(render, RESIZE_DEBOUNCE_MS);
+    });
+    resizeObserver.observe(wrapper.value);
   }
 });
 
-onUnmounted(() => resizeObserver?.disconnect());
+onUnmounted(() => {
+  clearTimeout(resizeTimer);
+  resizeObserver?.disconnect();
+});
 
 // Re-render (not re-fetch) on theme changes so source node colors track the
 // current light/dark swatch half without a network round-trip.
@@ -273,5 +230,22 @@ watch(resolvedTheme, () => render());
 
 <template>
   <p v-if="loadFailed" class="text-danger mb-0 small">Failed to load connections graph.</p>
-  <canvas v-else ref="canvas" style="width:100%;height:260px"></canvas>
+  <div v-else ref="wrapper" class="wtf-graph-fill">
+    <canvas ref="canvas" class="wtf-graph-fill-canvas"></canvas>
+    <div
+      v-for="badge in badges"
+      :key="badge.id"
+      class="wtf-graph-badge"
+      :style="{ left: `${badge.x}px`, top: `${badge.y}px`, width: `${badge.diameter}px`, height: `${badge.diameter}px`, fontSize: `${badge.diameter * 0.62}px` }"
+    >
+      <SourceBadge :icon-key="badge.icon" :color-key="badge.color_key" size="100%" />
+    </div>
+  </div>
 </template>
+
+<style scoped>
+/* Takes whatever height the card gives it (at least 260px); the canvas is laid over it so it never props the card open. */
+.wtf-graph-fill { position: relative; flex: 1 1 auto; min-height: 260px; }
+.wtf-graph-badge { display: flex; position: absolute; transform: translate(-50%, -50%); pointer-events: none; border-radius: 50%; box-shadow: 0 0 0 1px var(--bs-body-bg); }
+.wtf-graph-fill-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+</style>

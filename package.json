@@ -39,6 +39,7 @@
         "laravel-vue-i18n": "^2.8.0",
         "qrcode": "^1.5.4",
         "regexpp": "^3.2.0",
+        "simple-icons": "^16.37.0",
         "vue": "^3.5.41",
         "vuedraggable": "^4.1.0"
     }

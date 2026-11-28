@@ -89,11 +89,19 @@ class AccountExportDecryptionScriptsTest extends TestCase
         // generate the record, THEN create its key-ring entry).
         $category = ConnectionSourceCategory::create(['user_id' => $user->id, 'name_ciphertext' => 'placeholder']);
         $plaintexts['category_name'] = 'Category Name';
-        $category->forceFill(['name_ciphertext' => $this->encryptFor($category->id, $plaintexts['category_name'])])->save();
+        $plaintexts['category_icon'] = 'brand:discord';
+        $category->forceFill([
+            'name_ciphertext' => $this->encryptFor($category->id, $plaintexts['category_name']),
+            'icon_ciphertext' => $this->encryptFor($category->id, $plaintexts['category_icon']),
+        ])->save();
 
         $source = ConnectionSource::create(['user_id' => $user->id, 'category_id' => $category->id, 'name_ciphertext' => 'placeholder']);
         $plaintexts['source_name'] = 'Source Name';
-        $source->forceFill(['name_ciphertext' => $this->encryptFor($source->id, $plaintexts['source_name'])])->save();
+        $plaintexts['source_icon'] = 'flag:de';
+        $source->forceFill([
+            'name_ciphertext' => $this->encryptFor($source->id, $plaintexts['source_name']),
+            'icon_ciphertext' => $this->encryptFor($source->id, $plaintexts['source_icon']),
+        ])->save();
 
         $connection = Connection::create(['user_id' => $user->id, 'name_ciphertext' => 'placeholder']);
         $plaintexts['connection_name'] = 'Connection Name';
@@ -193,6 +201,8 @@ class AccountExportDecryptionScriptsTest extends TestCase
         $this->assertSame($plaintexts['connection_notes'], $connections->firstWhere('notes', $plaintexts['connection_notes'])['notes']);
 
         $this->assertSame($plaintexts['source_name'], collect($decryptedFiles['connections/sources']['records'])->first()['name'] ?? null);
+        $this->assertSame($plaintexts['source_icon'], collect($decryptedFiles['connections/sources']['records'])->first()['icon'] ?? null);
+        $this->assertContains($plaintexts['category_icon'], collect($decryptedFiles['connections/source-categories']['records'])->pluck('icon'));
         $this->assertContains($plaintexts['category_name'], collect($decryptedFiles['connections/source-categories']['records'])->pluck('name'));
         $this->assertContains($plaintexts['definition_label'], collect($decryptedFiles['connections/attribute-definitions']['records'])->pluck('label'));
         $this->assertContains($plaintexts['definition_options'], collect($decryptedFiles['connections/attribute-definitions']['records'])->pluck('options'));
