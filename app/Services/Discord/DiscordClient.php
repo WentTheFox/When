@@ -194,9 +194,19 @@ class DiscordClient
         ];
     }
 
-    public static function avatarUrl(string $id, ?string $hash): ?string
+    /**
+     * The picture URL for an account. Without a custom avatar Discord shows one of six coloured placeholders picked
+     * from the user id ((id >> 22) % 6, the rule for accounts on the unique-username system), so we build that URL.
+     */
+    public static function avatarUrl(string $id, ?string $hash): string
     {
-        return $hash === null ? null : "https://cdn.discordapp.com/avatars/{$id}/{$hash}.png?size=64";
+        if ($hash !== null) {
+            return "https://cdn.discordapp.com/avatars/{$id}/{$hash}.png?size=64";
+        }
+
+        $index = ctype_digit($id) ? ((int) $id >> 22) % 6 : 0;
+
+        return "https://cdn.discordapp.com/embed/avatars/{$index}.png";
     }
 
     /** @param array<string, mixed> $user */

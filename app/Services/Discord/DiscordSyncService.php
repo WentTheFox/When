@@ -115,7 +115,7 @@ class DiscordSyncService
                 'username' => DiscordProfileInput::username($entry['username'] ?? null),
                 'global_name' => DiscordProfileInput::name($entry['global_name'] ?? null),
                 'nickname' => $kind === 'friend' ? DiscordProfileInput::name($entry['nickname'] ?? null) : null,
-                'avatar_url' => ($hashed = DiscordProfileInput::avatarHash($entry['avatar'] ?? null)) === null ? null : DiscordClient::avatarUrl($id, $hashed),
+                'avatar_url' => DiscordClient::avatarUrl($id, DiscordProfileInput::avatarHash($entry['avatar'] ?? null)),
                 'status' => isset($linked[$id]) ? DiscordFriend::CREATED : DiscordFriend::PENDING,
                 'is_blocked' => $kind === 'blocked',
                 'synced_at' => null,

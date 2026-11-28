@@ -9,6 +9,7 @@ use App\Models\ConnectionAttributeValue;
 use App\Models\DiscordFriend;
 use App\Models\User;
 use App\Services\Account\AccountExportService;
+use App\Services\Discord\DiscordClient;
 use App\Services\Discord\DiscordSyncService;
 use App\Support\DiscordUserId;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -425,7 +426,7 @@ class DiscordIntegrationTest extends TestCase
         $existing = DiscordFriend::where('user_id', $user->id)->where('discord_user_id_hash', DiscordUserId::hash('100000000000000501'))->first();
         $this->assertSame('oldname', $existing->username);
         $this->assertSame('Old Name', $existing->global_name);
-        $this->assertNull($existing->avatar_url);
+        $this->assertSame('https://cdn.discordapp.com/embed/avatars/0.png', $existing->avatar_url, 'no custom avatar: the id-derived placeholder');
         $this->assertSame('Fresh', DiscordFriend::where('discord_user_id_hash', DiscordUserId::hash('100000000000000502'))->value('global_name'));
         $this->assertTrue((bool) DiscordFriend::where('discord_user_id_hash', DiscordUserId::hash('100000000000000503'))->value('is_blocked'));
     }
@@ -731,7 +732,13 @@ class DiscordIntegrationTest extends TestCase
         $this->assertNull($row->username);
         $this->assertNull($row->global_name);
         $this->assertNull($row->nickname);
-        $this->assertNull($row->avatar_url);
+        $this->assertSame('https://cdn.discordapp.com/embed/avatars/'.(((int) self::NEW >> 22) % 6).'.png', $row->avatar_url);
+    }
+
+    public function test_a_missing_avatar_falls_back_to_discords_id_derived_placeholder(): void
+    {
+        $this->assertSame('https://cdn.discordapp.com/embed/avatars/2.png', DiscordClient::avatarUrl('175928847299117063', null));
+        $this->assertSame('https://cdn.discordapp.com/avatars/175928847299117063/abc.png?size=64', DiscordClient::avatarUrl('175928847299117063', 'abc'));
     }
 
     public function test_an_import_accepts_an_animated_avatar_and_counts_name_length_in_characters(): void
