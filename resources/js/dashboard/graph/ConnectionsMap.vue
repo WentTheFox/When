@@ -56,7 +56,9 @@ const names = ref<Record<string, string>>({});
 const icons = ref<Record<string, string>>({});
 /** Bumped on every draw so the HTML icon badges laid over the canvas follow the view. */
 const frame = ref(0);
-const focusId = ref<string | null>(null);
+/** The nodes clicked through so far, oldest first; the last is the focus. The map shows all of their direct links. */
+const trail = ref<string[]>([]);
+const focusId = computed(() => trail.value[trail.value.length - 1] ?? null);
 const hover = ref<{ id: string; x: number; y: number } | null>(null);
 
 let view: View = { scale: 1, tx: 0, ty: 0 };
@@ -72,12 +74,14 @@ const allNodes = computed<GraphNode[]>(() => data.value?.nodes ?? []);
 const nodeById = computed(() => new Map(allNodes.value.map((n) => [n.id, n])));
 const connectionById = computed(() => new Map(props.connections.map((c) => [c.id, c])));
 
-/** What is on screen: everything, or the focused connection and its direct links. */
-const active = computed(() => (focusId.value ? focusSubgraph(allNodes.value, allEdges.value, focusId.value) : { nodes: allNodes.value, edges: allEdges.value }));
+/** What is on screen: everything, or the trail's nodes with all of their direct links. */
+const active = computed(() => (trail.value.length ? focusSubgraph(allNodes.value, allEdges.value, trail.value) : { nodes: allNodes.value, edges: allEdges.value }));
 
 const positions = computed<Map<string, Point>>(() => {
   if (!data.value) return new Map();
   if (!focusId.value) return layoutGraph(allNodes.value, allEdges.value, data.value.seed);
+
+  if (trail.value.length > 1) return layoutGraph(active.value.nodes, active.value.edges, data.value.seed);
 
   const others = active.value.nodes.filter((n) => n.id !== focusId.value).map((n) => n.id);
   return radialLayout(focusId.value, others);
@@ -279,13 +283,13 @@ function draw(): void {
     if (!hasBadge) {
       ctx.beginPath();
       ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-      ctx.lineWidth = node.id === focusId.value || node.id === hover.value?.id ? 3 : 1.5;
-      ctx.strokeStyle = node.id === focusId.value ? (dark ? '#fff' : '#222') : ring;
+      ctx.lineWidth = trail.value.includes(node.id) || node.id === hover.value?.id ? 3 : 1.5;
+      ctx.strokeStyle = trail.value.includes(node.id) ? (dark ? '#fff' : '#222') : ring;
       ctx.stroke();
     }
 
     const label = nameOf(node.id);
-    if (label && (showLabels || node.id === focusId.value)) {
+    if (label && (showLabels || trail.value.includes(node.id))) {
       ctx.lineWidth = 3;
       ctx.strokeStyle = dark ? 'rgba(30,30,29,0.9)' : 'rgba(252,252,251,0.9)';
       ctx.strokeText(label, p.x, p.y + r + 4);
@@ -331,15 +335,17 @@ function zoomBy(factor: number, around: Point = { x: size.width / 2, y: size.hei
 
 function focusOn(id: string, animate = true): void {
   if (focusId.value === id) return;
-  if (!focusId.value) savedView = view;
-  focusId.value = id;
+  if (!trail.value.length) savedView = view;
+  // Clicking a node already in the trail steps back to it; any other node extends the trail.
+  const at = trail.value.indexOf(id);
+  trail.value = at >= 0 ? trail.value.slice(0, at + 1) : [...trail.value, id];
   hover.value = null;
   fitView(animate);
 }
 
 function clearFocus(): void {
-  if (!focusId.value) return;
-  focusId.value = null;
+  if (!trail.value.length) return;
+  trail.value = [];
   hover.value = null;
   if (savedView) setView(savedView, true); else fitView(true);
   savedView = null;
@@ -492,14 +498,14 @@ onVaultLockChange({
  * The focus lives in the URL hash (`#focus=<id>`, written with replaceState so Inertia's history state is kept
  * and no entries pile up). Leaving for another page and coming back with the browser's back button reopens it.
  */
-watch(focusId, (id) => {
-  const hash = id ? `#focus=${id}` : '';
+watch(trail, (ids) => {
+  const hash = ids.length ? `#focus=${ids.join(',')}` : '';
   if (window.location.hash !== hash) window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}${hash}`);
 });
 
 function restoreFocusFromUrl(): void {
-  const id = new URLSearchParams(window.location.hash.slice(1)).get('focus');
-  if (id && nodeById.value.has(id)) focusOn(id, false);
+  const ids = (new URLSearchParams(window.location.hash.slice(1)).get('focus') ?? '').split(',').filter((id) => nodeById.value.has(id));
+  ids.forEach((id) => focusOn(id, false));
 }
 
 // New edges change the layout; refit unless the owner has already moved the view.
@@ -548,7 +554,8 @@ const connectionLink = computed(() => {
 
   return `/dashboard/connections${buildConnectionsSearch(state, '')}${buildConnectionsHash(state)}`;
 });
-const focusDegree = computed(() => (focusId.value ? Math.max(0, active.value.nodes.length - 1) : 0));
+const trailName = (id: string) => nameOf(id) || (nodeById.value.get(id)?.type === 'source' ? 'Source' : 'Connection');
+const focusDegree = computed(() => (focusId.value ? active.value.edges.filter((e) => e.from === focusId.value || e.to === focusId.value).length : 0));
 </script>
 
 <template>
@@ -572,7 +579,7 @@ const focusDegree = computed(() => (focusId.value ? Math.max(0, active.value.nod
       v-for="badge in badges"
       :key="badge.id"
       class="wtf-map-badge"
-      :class="{ 'is-focus': badge.id === focusId, 'is-hover': badge.id === hover?.id }"
+      :class="{ 'is-focus': trail.includes(badge.id), 'is-hover': badge.id === hover?.id }"
       :style="{ left: `${badge.x}px`, top: `${badge.y}px`, width: `${badge.diameter}px`, height: `${badge.diameter}px`, fontSize: `${badge.diameter * 0.62}px` }"
     >
       <SourceBadge :icon-key="badge.icon" :color-key="badge.color_key" size="100%" />
@@ -581,6 +588,14 @@ const focusDegree = computed(() => (focusId.value ? Math.max(0, active.value.nod
     <div v-if="focusId" class="wtf-map-focus card shadow-sm">
       <div class="card-body py-2 px-3 d-flex align-items-center gap-3">
         <div class="min-w-0">
+          <nav v-if="trail.length > 1" aria-label="Focus trail" class="small mb-1">
+            <ol class="breadcrumb mb-0">
+              <li v-for="(id, i) in trail" :key="id" class="breadcrumb-item" :class="{ active: i === trail.length - 1 }" :aria-current="i === trail.length - 1 ? 'page' : undefined">
+                <span v-if="i === trail.length - 1">{{ trailName(id) }}</span>
+                <button v-else type="button" class="btn btn-link btn-sm p-0 align-baseline" @click="focusOn(id)">{{ trailName(id) }}</button>
+              </li>
+            </ol>
+          </nav>
           <div class="small text-muted">Focused on</div>
           <div class="fw-semibold text-truncate">{{ focusName || (focusIsSource ? 'Source (vault locked)' : 'Connection (vault locked)') }}</div>
           <div class="small text-muted">{{ focusDegree }} direct {{ focusDegree === 1 ? 'link' : 'links' }}</div>

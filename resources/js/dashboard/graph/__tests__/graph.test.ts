@@ -37,6 +37,12 @@ describe('focusSubgraph', () => {
     expect(sub.edges).toHaveLength(2);
   });
 
+  it('keeps the direct links of every trail node visible', () => {
+    const sub = focusSubgraph(nodes, edges, ['a', 'c']);
+    expect(sub.nodes.map((n) => n.id).sort()).toEqual(['a', 'b', 'c', 's']);
+    expect(sub.edges).toHaveLength(3);
+  });
+
   it('shows an isolated node alone and an unknown id as empty', () => {
     expect(focusSubgraph(nodes, edges, 'd').nodes.map((n) => n.id)).toEqual(['d']);
     expect(focusSubgraph(nodes, edges, 'zzz')).toEqual({ nodes: [], edges: [] });
