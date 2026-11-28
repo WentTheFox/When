@@ -30,7 +30,7 @@ import { invalidLinkLines, isValidWebUrl, parseWebUrl, validLinks } from './urlF
 import ConnectionVrchat from './ConnectionVrchat.vue';
 import type { DiscordProfile } from './discord';
 import ConnectionTelegram from './ConnectionTelegram.vue';
-import type { TelegramProfile } from './telegram';
+import type { TelegramProfile, TelegramSummary } from './telegram';
 import type { VrchatProfile, VrchatSummary } from './vrchat';
 import { requestConfirm } from './confirmModal';
 import { bindField } from './fieldBinding';
@@ -98,6 +98,8 @@ const props = defineProps<{
   /** Linked Telegram contacts with their photo and names (§0.2 tier, not E2EE). */
   telegramProfiles?: TelegramProfile[];
   telegramSyncedAt?: string | null;
+  /** Logged in to Telegram with an ID field chosen: the Telegram card offers a Sync button. */
+  telegramCanSync?: boolean;
 }>();
 const emit = defineEmits<{
   updated: [ConnectionRow];
@@ -111,6 +113,8 @@ const emit = defineEmits<{
   vrchatSynced: [VrchatSummary];
   /** The Discord card looked this connection's IDs up: its connection id and the new profiles. */
   discordSynced: [string, DiscordProfile[]];
+  /** The Telegram card ran a sync: the whole new summary. */
+  telegramSynced: [TelegramSummary];
 }>();
 
 const { getRecordKey, vaultUnlocked } = useVault();
@@ -624,7 +628,12 @@ async function remove(): Promise<void> {
       />
     </BFormGroup>
     <BFormGroup v-if="telegramProfiles?.length" label="Telegram" class="mb-3">
-      <ConnectionTelegram :profiles="telegramProfiles" :synced-at="telegramSyncedAt ?? null" />
+      <ConnectionTelegram
+        :profiles="telegramProfiles"
+        :synced-at="telegramSyncedAt ?? null"
+        :can-sync="telegramCanSync ?? false"
+        @synced="emit('telegramSynced', $event)"
+      />
     </BFormGroup>
     <!-- Everything above is built in; the fields below are the owner's own, so they get their own heading. -->
     <div v-if="attributeDefinitions.length" class="border-top pt-3 mt-4 mb-3">

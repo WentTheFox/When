@@ -4,12 +4,36 @@
  * Telegram contact list (§0.2 tier — not E2EE, unlike the rest of the card). An ID the sync has not
  * seen is a placeholder. Nothing renders for a connection with no Telegram ID.
  */
-import { type TelegramProfile } from './telegram';
+import axios from 'axios';
+import { BButton } from 'bootstrap-vue-next';
+import { ref } from 'vue';
+import { type TelegramProfile, type TelegramSummary } from './telegram';
 
 defineProps<{
   profiles: TelegramProfile[];
   syncedAt: string | null;
+  /** The owner is logged in to Telegram with an ID field chosen, so a sync can run. */
+  canSync?: boolean;
 }>();
+/** Telegram only lists the whole address book, so a sync here refreshes every contact: the new summary is handed up. */
+const emit = defineEmits<{ synced: [TelegramSummary] }>();
+
+const syncing = ref(false);
+const syncError = ref('');
+
+async function syncNow(): Promise<void> {
+  syncing.value = true;
+  syncError.value = '';
+
+  try {
+    const { data } = await axios.post<TelegramSummary>('/settings/telegram/sync');
+    emit('synced', data);
+  } catch (error) {
+    syncError.value = axios.isAxiosError(error) ? (error.response?.data?.message ?? 'Sync failed.') : 'Sync failed.';
+  } finally {
+    syncing.value = false;
+  }
+}
 
 const when = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -38,10 +62,16 @@ function title(profile: TelegramProfile): string {
         <div class="text-muted font-monospace">{{ profile.telegram_user_id }}</div>
       </div>
     </div>
-    <div class="small text-muted">
-      <template v-if="profiles.some((p) => p.known)">{{ syncedAt ? `Contacts synced ${when.format(new Date(syncedAt))}` : 'Synced' }}</template>
-      <template v-else>Sync your Telegram contacts in Settings to fill this in</template>
-      · not end-to-end encrypted
+    <div class="small d-flex flex-wrap align-items-center gap-2">
+      <BButton v-if="canSync" size="sm" variant="outline-secondary" :disabled="syncing" @click="syncNow">
+        {{ syncing ? 'Syncing…' : 'Sync all Telegram contacts' }}
+      </BButton>
+      <span class="text-muted">
+        <template v-if="profiles.some((p) => p.known)">{{ syncedAt ? `Contacts synced ${when.format(new Date(syncedAt))}` : 'Synced' }}</template>
+        <template v-else>{{ canSync ? 'Reads your whole Telegram contact list, not just this person' : 'Log in to Telegram in Settings to fill this in' }}</template>
+        · not end-to-end encrypted
+      </span>
     </div>
+    <div v-if="syncError" class="text-danger small mt-1">{{ syncError }}</div>
   </div>
 </template>

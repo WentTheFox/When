@@ -2055,6 +2055,8 @@ async function migrateDefinition(id: string, to: string, options: MigrateOptions
                 :discord-can-look-up="discord.lookup_available"
                 :telegram-profiles="telegram.profiles[selectedConnection.id]"
                 :telegram-synced-at="telegram.synced_at"
+                :telegram-can-sync="telegramEnabled"
+                @telegram-synced="telegram = $event"
                 @discord-synced="onDiscordSynced"
                 @vrchat-synced="vrchat = $event"
                 @updated="onConnectionUpdated"
